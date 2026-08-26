@@ -23,6 +23,18 @@ class dmAISurvivorBase : PlayerBase
 	private int m_VarLookDirY = -1;
 	private bool m_VarsBound = false;
 
+	//! Body turn (foot-stepping) animation variable and commands.
+	private int m_VarTurnAmount = -1;
+	private int m_CmdTurn = -1;
+	private int m_CmdStopTurn = -1;
+
+	//! Desired body yaw (world, degrees), set by the controller each tick.
+	private float m_TargetBodyYaw = 0.0;
+
+	//! 0 = not turning, 1 = foot-stepping turn in progress.
+	private int m_TurnState = 0;
+	private float m_TurnTime = 0.0;
+
 	void dmAISurvivorBase()
 	{
 		RegisterNetSyncVariableFloat("m_LookYawDeg", -DM_LOOK_MAX_YAW, DM_LOOK_MAX_YAW, 1);
@@ -41,9 +53,12 @@ class dmAISurvivorBase : PlayerBase
 			m_VarLook = hai.BindVariableBool("dmAI_Look");
 			m_VarLookDirX = hai.BindVariableFloat("dmAI_LookDirX");
 			m_VarLookDirY = hai.BindVariableFloat("dmAI_LookDirY");
+			m_VarTurnAmount = hai.BindVariableFloat("dmAI_TurnAmount");
+			m_CmdTurn = hai.BindCommand("dmAI_Turn");
+			m_CmdStopTurn = hai.BindCommand("dmAI_StopTurn");
 			m_VarsBound = true;
 
-			dmBotLog.Debug("dmAISurvivorBase.BindLookVars() Look=" + m_VarLook + " LookDirX=" + m_VarLookDirX + " LookDirY=" + m_VarLookDirY + " instType=" + GetInstanceType());
+			dmBotLog.Debug("dmAISurvivorBase.BindLookVars() Look=" + m_VarLook + " LookDirX=" + m_VarLookDirX + " LookDirY=" + m_VarLookDirY + " TurnAmount=" + m_VarTurnAmount + " CmdTurn=" + m_CmdTurn + " CmdStopTurn=" + m_CmdStopTurn + " instType=" + GetInstanceType());
 		}
 		else
 		{
@@ -83,14 +98,16 @@ class dmAISurvivorBase : PlayerBase
 #endif
 
 	//! Called every tick during the deterministic simulation (the CommandHandler).
-	//! We set the look vars AFTER super.CommandHandler() so the native "look at"
-	//! modifier (which runs inside super and resets them from the aim) does not
-	//! overwrite our values.
+	//! Look vars are set before super; the turn commands are set AFTER super
+	//! (matching how the Expansion AI calls its movement PreAnimUpdate after super),
+	//! so the vanilla command processing doesn't consume/overwrite them.
 	override void CommandHandler(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
 	{
+		ApplyLookVars();
+
 		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);
 
-		ApplyLookVars();
+		ApplyBodyTurn(pDt);
 
 		if (Math.AbsFloat(m_LookYawDeg - m_LastLogLookYaw) > 0.5 || Math.AbsFloat(m_LookPitchDeg - m_LastLogLookPitch) > 0.5)
 		{
@@ -99,6 +116,58 @@ class dmAISurvivorBase : PlayerBase
 
 			dmBotLog.Debug("dmAISurvivorBase.CommandHandler() lookYaw=" + m_LookYawDeg + " lookPitch=" + m_LookPitchDeg + " instType=" + GetInstanceType());
 		}
+	}
+
+	//! Signed angle difference, normalized to (-180, 180].
+	static float AngleDiff(float a, float b)
+	{
+		float d = a - b;
+		while (d > 180.0) d -= 360.0;
+		while (d < -180.0) d += 360.0;
+		return d;
+	}
+
+	//! Rotate the body toward m_TargetBodyYaw using the native foot-stepping
+	//! turn-in-place animation. Mirrors how Expansion AI (eAICommandMove) does it:
+	//! when idle it fires the custom CMD (dmAI_Turn) to enter the "Turn" state and
+	//! drives the blend via dmAI_TurnAmount, letting the animation's root motion
+	//! rotate the body (no manual SetOrientation, which only slides). Runs inside
+	//! the CommandHandler after super.
+	void ApplyBodyTurn(float pDt)
+	{
+		float bodyYaw = GetOrientation()[0];
+		float dBody = AngleDiff(m_TargetBodyYaw, bodyYaw);
+
+		if (m_TurnState == 0)
+		{
+			if (Math.AbsFloat(dBody) > 1.0)
+			{
+				if (m_VarTurnAmount >= 0)
+					AnimSetFloat(m_VarTurnAmount, Math.Clamp(dBody / 90.0, -2.0, 2.0));
+				if (m_CmdTurn >= 0)
+					AnimCallCommand(m_CmdTurn, 0, 0.0);
+				m_TurnTime = 0.0;
+				m_TurnState = 1;
+			}
+		}
+		else
+		{
+			m_TurnTime += pDt;
+			if (m_TurnTime > 2.0 || Math.AbsFloat(dBody) < 1.0)
+			{
+				if (m_CmdStopTurn >= 0)
+					AnimCallCommand(m_CmdStopTurn, 0, 0.0);
+				if (m_VarTurnAmount >= 0)
+					AnimSetFloat(m_VarTurnAmount, 0.0);
+				m_TurnState = 0;
+			}
+		}
+	}
+
+	//! Set the desired body yaw (world, degrees). Called by the controller.
+	void SetTargetBodyYaw(float yaw)
+	{
+		m_TargetBodyYaw = yaw;
 	}
 
 	//! Set the head look horizontal offset (degrees, relative to the body facing).

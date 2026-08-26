@@ -66,7 +66,9 @@ $AnimGraph 7 {
 			 CMD_Damage -1
 			 CMD_DamageHeavy -1
 			 CMD_Turn -1
+			 dmAI_Turn -1
 			 CMD_StopTurn -1
+			 dmAI_StopTurn -1
 			 CMD_SlidingPose -1
 			 CMD_Unconscious -1
 			 CMD_Unconscious_Exit -1
@@ -78,6 +80,7 @@ $AnimGraph 7 {
 			#Var MovementDirection float 0.0 -180.0 180.0 ""
 			#Var Stance int 0 0 2 ""
 			#Var TurnAmount float 0.0 -2.0 2.0 ""
+			#Var dmAI_TurnAmount float 0.0 -2.0 2.0 ""
 			#Var Look bool 0 ""
 			#Var dmAI_Look bool 0 ""
 			#Var LookDirY float 0.0 -85.0 85.0 ""

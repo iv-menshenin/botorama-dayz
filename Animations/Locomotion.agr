@@ -2804,13 +2804,13 @@ outputweaponoffsettobuffer = true
 			}
 			$Transitions 3 {
 				$Transition {
-					 "Idle" "Turn" "IsCommand(CMD_Turn)" "0.3" "" 0 "S"
+					 "Idle" "Turn" "(dmAI_TurnAmount > 0.01 || dmAI_TurnAmount < -0.01)" "0.3" "" 0 "S"
 				}
 				$Transition {
-					 "Turn" "Idle" "GetLowerTime() > 0.75 || IsCommand(CMD_StopTurn)" "0.25" "" 1 "S"
+					 "Turn" "Idle" "GetLowerTime() > 0.75 || (dmAI_TurnAmount <= 0.01 && dmAI_TurnAmount >= -0.01)" "0.25" "" 1 "S"
 				}
 				$Transition {
-					 "" "Turn" "IsCommand(CMD_Turn)" "0.35" "0.15" 1 "S"
+					 "" "Turn" "(dmAI_TurnAmount > 0.01 || dmAI_TurnAmount < -0.01)" "0.35" "0.15" 1 "S"
 				}
 			}
 			$EditorData {
@@ -5418,13 +5418,13 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 			$Transitions 3 {
 				$Transition {
-					 "Idle" "Turn" "IsCommand(CMD_Turn)" "0.1" "" 1 "S"
+					 "Idle" "Turn" "(dmAI_TurnAmount > 0.01 || dmAI_TurnAmount < -0.01)" "0.1" "" 1 "S"
 				}
 				$Transition {
-					 "" "Turn" "IsCommand(CMD_Turn)" "0.15" "" 1 "S"
+					 "" "Turn" "(dmAI_TurnAmount > 0.01 || dmAI_TurnAmount < -0.01)" "0.15" "" 1 "S"
 				}
 				$Transition {
-					 "Turn" "Idle" "GetLowerTime() > 0.85  || IsCommand(CMD_StopTurn)" "0.25" "" 1 "S"
+					 "Turn" "Idle" "GetLowerTime() > 0.85  || (dmAI_TurnAmount <= 0.01 && dmAI_TurnAmount >= -0.01)" "0.25" "" 1 "S"
 				}
 			}
 			$EditorData {
@@ -5969,7 +5969,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendN {
-			 "ThrowTurnCroN" "" "TurnAmount" 0 "Lin"
+			 "ThrowTurnCroN" "" "dmAI_TurnAmount" 0 "Lin"
 			$Inputs {
 				 -2.0 "ThrowCroTurnL180"
 				 -1.0 "ThrowCroTurnL90"
@@ -5983,7 +5983,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendN {
-			 "ThrowTurnErcN" "" "TurnAmount" 0 "Lin"
+			 "ThrowTurnErcN" "" "dmAI_TurnAmount" 0 "Lin"
 			$Inputs {
 				 -2.0 "ThrowErcTurnL180"
 				 -1.0 "ThrowErcTurnL90"
@@ -6422,13 +6422,13 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 			$Transitions 3 {
 				$Transition {
-					 "Idle" "Turn" "IsCommand(CMD_Turn)" "0.3" "" 0 "S"
+					 "Idle" "Turn" "(dmAI_TurnAmount > 0.01 || dmAI_TurnAmount < -0.01)" "0.3" "" 0 "S"
 				}
 				$Transition {
-					 "Turn" "Idle" "GetLowerTime() > 0.75 || IsCommand(CMD_StopTurn)" "0.25" "" 1 "S"
+					 "Turn" "Idle" "GetLowerTime() > 0.75 || (dmAI_TurnAmount <= 0.01 && dmAI_TurnAmount >= -0.01)" "0.25" "" 1 "S"
 				}
 				$Transition {
-					 "" "Turn" "IsCommand(CMD_Turn) || IsTag(\"TagTurn\")" "0.3" "0.15" 1 "S"
+					 "" "Turn" "(dmAI_TurnAmount > 0.01 || dmAI_TurnAmount < -0.01) || IsTag(\"TagTurn\")" "0.3" "0.15" 1 "S"
 				}
 			}
 			$EditorData {
@@ -7558,7 +7558,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendN {
-			 "CroTurnInjNBlend" "" "TurnAmount" 0 "Lin"
+			 "CroTurnInjNBlend" "" "dmAI_TurnAmount" 0 "Lin"
 			$Inputs {
 				 -2.0 "CroTurnInjL180SyncAnim"
 				 -1.0 "CroTurnInjL90SyncAnim"
@@ -7622,7 +7622,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendN {
-			 "CroTurnNBlend" "" "TurnAmount" 0 "Lin"
+			 "CroTurnNBlend" "" "dmAI_TurnAmount" 0 "Lin"
 			$Inputs {
 				 -2.0 "CroTurnL180SyncAnim"
 				 -1.0 "CroTurnL90SyncAnim"
@@ -7721,7 +7721,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendN {
-			 "ErcTurnInjNBlend" "" "TurnAmount" 0 "Lin"
+			 "ErcTurnInjNBlend" "" "dmAI_TurnAmount" 0 "Lin"
 			$Inputs {
 				 -2.0 "ErcTurnInjL180SyncAnim"
 				 -1.0 "ErcTurnInjL90SyncAnim"
@@ -7785,7 +7785,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendN {
-			 "ErcTurnNBlend" "" "TurnAmount" 0 "Lin"
+			 "ErcTurnNBlend" "" "dmAI_TurnAmount" 0 "Lin"
 			$Inputs {
 				 -2.0 "ErcTurnL180SyncAnim"
 				 -1.0 "ErcTurnL90SyncAnim"
@@ -8044,13 +8044,13 @@ RHandIKTarget = RightArm, RightArmRoll, RightForeArm, RightForeArmRoll, RightHan
 			}
 			$Transitions 3 {
 				$Transition {
-					 "Idles" "TurnMaster" "IsCommand(CMD_Turn)" "0.1" "" 6 "S"
+					 "Idles" "TurnMaster" "IsCommand(dmAI_Turn)" "0.1" "" 6 "S"
 				}
 				$Transition {
-					 "TurnMaster" "Idles" "GetLowerTime() > 0.85 || IsCommand(CMD_StopTurn)" "0.15" "" 1 "S"
+					 "TurnMaster" "Idles" "GetLowerTime() > 0.85 || IsCommand(dmAI_StopTurn)" "0.15" "" 1 "S"
 				}
 				$Transition {
-					 "" "TurnMaster" "IsCommand(CMD_Turn)" "0.3" "0.15" 6 "S"
+					 "" "TurnMaster" "IsCommand(dmAI_Turn)" "0.3" "0.15" 6 "S"
 				}
 			}
 			$EditorData {
@@ -8115,7 +8115,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendN {
-			 "PneTurnInjNBlend" "" "TurnAmount" 0 "Lin"
+			 "PneTurnInjNBlend" "" "dmAI_TurnAmount" 0 "Lin"
 			$Inputs {
 				 -2.0 "PneTurnInjL180SyncAnim"
 				 -1.0 "PneTurnInjL90SyncAnim"
@@ -8179,7 +8179,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendN {
-			 "PneTurnNBlend" "" "TurnAmount" 0 "S2"
+			 "PneTurnNBlend" "" "dmAI_TurnAmount" 0 "S2"
 			$Inputs {
 				 -2.0 "PneTurnL180SyncAnim"
 				 -1.0 "PneTurnL90SyncAnim"

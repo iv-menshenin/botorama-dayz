@@ -19,7 +19,7 @@ class CfgMods
 	{
 		name = "botorama";
 		author = "devalio";
-		version = 1.6;
+		version = 2.3;
 		type = "mod";
 		defines[] = { "DM_BOT_DEBUG", "DM_BOT_TRACE" };	
 		class defs 

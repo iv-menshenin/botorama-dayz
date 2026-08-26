@@ -133,6 +133,11 @@ class dmAISurvivor
 			orientation[1] = 0.0; // pitch
 			orientation[2] = 0.0; // roll
 			m_Pawn.SetOrientation(orientation);
+
+			dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Pawn);
+			if (pawn)
+				pawn.SetTargetBodyYaw(orientation[0]);
+
 			dmBotLog.Debug("SetDirection() applied orientation=" + orientation + " actual=" + m_Pawn.GetOrientation());
 		}
 	}
@@ -230,20 +235,16 @@ class dmAISurvivor
 		float applyYaw = dYaw * t;
 		m_CurLookYaw += applyYaw;
 
-		//! If the target is behind the head range, turn the body toward it.
-		if (Math.AbsFloat(relTarget) > DM_LOOK_MAX_YAW)
-		{
-			float excess = relTarget - headTarget; // signed degrees beyond the head range
-			vector orientation = m_Pawn.GetOrientation();
-			orientation[0] = bodyYaw + excess * t;
-			m_Pawn.SetOrientation(orientation);
-		}
-
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Pawn);
 		if (pawn)
 		{
 			pawn.SetLookYaw(m_CurLookYaw);
 			pawn.SetLookPitch(m_TargetLookPitch);
+
+			//! Desired body yaw so the target ends up at the head's edge; the pawn
+			//! rotates its body (and plays the foot-stepping animation) in its
+			//! CommandHandler toward this yaw.
+			pawn.SetTargetBodyYaw(m_TargetLookYawAbs - headTarget);
 		}
 
 		if (Math.AbsFloat(applyYaw) > 0.1)
