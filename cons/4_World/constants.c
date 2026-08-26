@@ -26,3 +26,21 @@ static const float DM_PATROL_DWELL_TIME = 5.0;
 
 //! Default FSM preemption evaluation interval (seconds).
 static const float DM_FSM_PREEMPT_INTERVAL = 0.25;
+
+//! Max body slide-turn rate while moving (degrees per second).
+static const float DM_MOVE_TURN_RATE = 180.0;
+
+//! Seconds without meaningful progress toward the target before MoveTo aborts.
+static const float DM_MOVE_STUCK_TIME = 3.0;
+
+//! Min distance decrease (meters) that counts as "progress" (resets the stuck timer).
+static const float DM_MOVE_PROGRESS_EPS = 0.1;
+
+//! Radius (meters) to snap the pathfinding target onto the navmesh.
+static const float DM_PATH_SAMPLE_RADIUS = 2.0;
+
+//! Reach radius (meters) for an intermediate path waypoint.
+static const float DM_PATH_WAYPOINT_REACH = 0.5;
+
+//! Max path recalculations on stuck before MoveTo aborts.
+static const int DM_MOVE_MAX_RECALC = 1;

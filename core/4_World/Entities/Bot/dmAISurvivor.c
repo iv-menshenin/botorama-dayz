@@ -33,6 +33,9 @@ class dmAISurvivor
 	//! Behaviour state machine (null until a preset is loaded).
 	private ref dmBotFSM m_FSM;
 
+	//! Pathfinder (navmesh wrapper), lazily created on first use.
+	private ref dmBotPathfinder m_Pathfinder;
+
 	//! Look turn mode for UpdateLook (set by the last LookAt* call).
 	private dmBotLookTurn m_LookTurnMode = dmBotLookTurn.AUTO;
 
@@ -319,20 +322,28 @@ class dmAISurvivor
 	// Movement
 	//------------------------------------------------------------------
 
-	//! Enable/disable forward walking (movement override on the input controller).
-	void SetWalk(bool walk)
+	//! Set movement direction (relative to the body, degrees) and speed (0..3).
+	//! @param angle -180..180: 0 = forward, ±90 = strafe, ±180 = backward.
+	//! @param speed 0 = idle, 1 = walk, 2 = run, 3 = sprint.
+	void SetMove(float angle, float speed)
 	{
 		if (!m_Pawn)
 			return;
 
-		m_IsMoving = walk;
+		m_IsMoving = speed > 0.0;
 
 		HumanInputController hic = m_Pawn.GetInputController();
-		hic.OverrideMovementAngle(HumanInputControllerOverrideType.ENABLED, 0.0);
+		hic.OverrideMovementAngle(HumanInputControllerOverrideType.ENABLED, angle);
+		hic.OverrideMovementSpeed(HumanInputControllerOverrideType.ENABLED, speed);
+	}
+
+	//! Enable/disable forward walking (convenience wrapper over SetMove).
+	void SetWalk(bool walk)
+	{
 		if (walk)
-			hic.OverrideMovementSpeed(HumanInputControllerOverrideType.ENABLED, 1.0);
+			SetMove(0.0, 1.0);
 		else
-			hic.OverrideMovementSpeed(HumanInputControllerOverrideType.ENABLED, 0.0);
+			SetMove(0.0, 0.0);
 	}
 
 	//! Snap the body to face a world point (ignore vertical).
@@ -346,6 +357,21 @@ class dmAISurvivor
 		if (dir.Length() < 0.001)
 			return;
 		SetDirection(dir);
+	}
+
+	//! Navmesh path from the bot's current position to a target point.
+	//! Snaps the target onto the navmesh first; returns false if the target is
+	//! off-navmesh or no path exists. Fills `path` (waypoints incl. start/end).
+	bool FindPathTo(vector target, inout array<vector> path)
+	{
+		if (!m_Pathfinder)
+			m_Pathfinder = new dmBotPathfinder();
+
+		vector sampled;
+		if (!m_Pathfinder.SamplePosition(target, DM_PATH_SAMPLE_RADIUS, sampled))
+			return false;
+
+		return m_Pathfinder.FindPath(GetPosition(), sampled, path);
 	}
 
 	//------------------------------------------------------------------
@@ -571,11 +597,11 @@ class dmAISurvivor
 			pawn.SetLookYaw(m_CurLookYaw);
 			pawn.SetLookPitch(m_TargetLookPitch);
 
-			if (!m_IsMoving && m_LookTurnMode == dmBotLookTurn.FULL)
+			if (m_LookTurnMode == dmBotLookTurn.FULL)
 				pawn.SetTargetBodyYaw(m_TargetLookYawAbs);
 			else if (!m_IsMoving && m_LookTurnMode == dmBotLookTurn.AUTO)
 				pawn.SetTargetBodyYaw(m_TargetLookYawAbs - headTarget);
-			// NONE или движется: тело не трогаем (движение ведёт тело)
+			// NONE: тело не трогаем (только голова). Движение тело крутит отдельно.
 		}
 
 		if (Math.AbsFloat(applyYaw) > 0.1)

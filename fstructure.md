@@ -21,6 +21,7 @@
 - `Entities/Bot/FSM/` — ядро FSM (`dmBotFSM/State/Transition/Condition`) и `Conditions/`.
 - `Entities/Bot/States/` — конкретные состояния FSM.
 - `Entities/Bot/Presets/` — пресеты FSM (фабрики).
+- `Entities/Bot/Pathfinding/` — обёртка над navmesh-API (`dmBotPathfinder`).
 - `Logging/` — логирование (`dmBotLog`).
 - `Config/` — чтение/запись JSON-конфигов (`dmJsonFile`, `dmJsonConfigBase`).
 
@@ -67,6 +68,7 @@ botorama/
     │           │   ├── dmBotIntentPool.c
     │           │   └── dmBotIntent_*.c # HoldLook/LookAround/MoveTo/Glance/Turn
     │           ├── States/             # состояния (dmBotState_*)
+    │           ├── Pathfinding/        # обёртка над navmesh-API (dmBotPathfinder)
     │           └── Presets/            # пресеты (dmBotPreset_*)
     └── 5_Mission/
         ├── MissionServer.c      # сервер: OnInit, OnEvent, чат-команды, тикер
@@ -81,6 +83,7 @@ botorama/
 - Намерения (`dmBotIntent`/`dmBotIntentPool`/`dmBotIntent_*`) → `core/4_World/Entities/Bot/Intent/`.
 - Состояния (`dmBotState_*`) → `core/4_World/Entities/Bot/States/`.
 - Пресеты (`dmBotPreset_*`) → `core/4_World/Entities/Bot/Presets/`.
+- Pathfinding (`dmBotPathfinder`) → `core/4_World/Entities/Bot/Pathfinding/`.
 - Логирование (`dmBotLog`) → `core/3_Game/Logging/` (нужно и серверу, и клиенту).
 - Читатель JSON-конфигов (`dmJsonFile`/`dmJsonConfigBase`) → `core/3_Game/Config/` (переиспользуемый, не привязан к ботам).
 - Константы → `cons/<слой>/constants.c`.

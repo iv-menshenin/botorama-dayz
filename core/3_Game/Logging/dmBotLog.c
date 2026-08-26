@@ -18,6 +18,12 @@ class dmBotLog
 		Print("[dmBot][trace] " + msg);
 	}
 
+	//! Always printed (not gated): error conditions worth surfacing in logs.
+	static void Error(string msg)
+	{
+		Print("[dmBot][error] " + msg);
+	}
+
 	//! Log the mod version once. Always printed (not gated by DM_BOT_DEBUG),
 	//! so the loaded mod version is visible in both server and client logs.
 	static void LogVersion()

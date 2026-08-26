@@ -135,16 +135,38 @@ class dmAISurvivorBase : PlayerBase
 		return d;
 	}
 
-	//! Rotate the body toward m_TargetBodyYaw using the native foot-stepping
-	//! turn-in-place animation. Mirrors how Expansion AI (eAICommandMove) does it:
-	//! when idle it fires the custom CMD (dmAI_Turn) to enter the "Turn" state and
-	//! drives the blend via dmAI_TurnAmount, letting the animation's root motion
-	//! rotate the body (no manual SetOrientation, which only slides). Runs inside
-	//! the CommandHandler after super.
+	//! Rotate the body toward m_TargetBodyYaw. Two modes, mirroring Expansion AI
+	//! (eAICommandMove):
+	//!   - while moving  -> slide-turn via SetOrientation (limited rate), no foot-step;
+	//!   - while idle    -> native foot-stepping "Turn" state (root motion).
+	//! Runs inside the CommandHandler after super.
 	void ApplyBodyTurn(float pDt)
 	{
 		float bodyYaw = GetOrientation()[0];
 		float dBody = AngleDiff(m_TargetBodyYaw, bodyYaw);
+
+		HumanCommandMove move = GetCommand_Move();
+		bool moving = move && move.GetCurrentMovementSpeed() > 0.01;
+
+		if (moving)
+		{
+			//! Cancel any in-progress foot-step turn; slide instead while walking.
+			if (m_TurnState != 0)
+			{
+				if (m_CmdStopTurn >= 0)
+					AnimCallCommand(m_CmdStopTurn, 0, 0.0);
+				if (m_VarTurnAmount >= 0)
+					AnimSetFloat(m_VarTurnAmount, 0.0);
+				m_TurnState = 0;
+			}
+
+			if (Math.AbsFloat(dBody) > 1.0)
+			{
+				float step = Math.Clamp(dBody, -DM_MOVE_TURN_RATE * pDt, DM_MOVE_TURN_RATE * pDt);
+				SetOrientation(Vector(bodyYaw + step, 0.0, 0.0));
+			}
+			return;
+		}
 
 		if (m_TurnState == 0)
 		{
