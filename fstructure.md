@@ -19,6 +19,7 @@
 
 - `Entities/Bot/` — сущности бота (`dmAI*`).
 - `Logging/` — логирование (`dmBotLog`).
+- `Config/` — чтение/запись JSON-конфигов (`dmJsonFile`, `dmJsonConfigBase`).
 
 ## Дерево
 
@@ -41,8 +42,11 @@ botorama/
 │       └── constants.c          # DM_CHAT_* (чат-команды)
 └── core/                        # исполняемый код
     ├── 3_Game/
-    │   └── Logging/
-    │       └── dmBotLog.c       # dmBotLog.Debug/Trace/LogVersion
+    │   ├── Logging/
+    │   │   └── dmBotLog.c       # dmBotLog.Debug/Trace/LogVersion
+    │   └── Config/              # JSON-конфиги (переиспользуемые, без привязки к ботам)
+    │       ├── dmJsonFile.c     # generic reader/writer + версионирование
+    │       └── dmJsonConfigBase.c # база для версионируемых конфиг-структур
     ├── 4_World/
     │   └── Entities/
     │       └── Bot/
@@ -57,6 +61,7 @@ botorama/
 
 - Классы бота (`dmAI*`) → `core/4_World/Entities/Bot/`.
 - Логирование (`dmBotLog`) → `core/3_Game/Logging/` (нужно и серверу, и клиенту).
+- Читатель JSON-конфигов (`dmJsonFile`/`dmJsonConfigBase`) → `core/3_Game/Config/` (переиспользуемый, не привязан к ботам).
 - Константы → `cons/<слой>/constants.c`.
 - Версия мода (`DM_BOTORAMA_VERSION`) → `cons/3_Game/constants.c` (используется из 3_Game; модуль грузится первым).
 - Дефайны логирования → `cons/4_World/defines.c`.
