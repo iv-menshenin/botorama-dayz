@@ -19,11 +19,18 @@ class CfgMods
 	{
 		name = "botorama";
 		author = "devalio";
-		version = 2.3;
+		version = 2.4;
 		type = "mod";
 		defines[] = { "DM_BOT_DEBUG", "DM_BOT_TRACE" };	
 		class defs 
 		{
+			class gameScriptModule {
+				value = "";
+				files[] = {
+					"botorama/cons/3_Game",
+					"botorama/core/3_Game"
+				};
+			};
 			class worldScriptModule {
 				value = "";
 				files[] = {

@@ -1,8 +1,5 @@
 //! dmBotorama — base constants (world module).
 
-//! Mod version (increment on every change so you can verify the loaded build).
-static const string DM_BOTORAMA_VERSION = "2.3";
-
 //! Default survivor model class used when spawning a bot.
 static const string DM_DEFAULT_MODEL = "dmAI_SurvivorM_Denis";
 

@@ -54,21 +54,29 @@ class dmAISurvivor
 	//! @return the pawn, or null on failure.
 	PlayerBase Spawn(vector position, vector orientation)
 	{
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("Spawn() model=" + m_Model + " position=" + position + " orientation=" + orientation);
+		#endif
 
 		if (m_Model.Length() == 0)
 		{
+			#ifdef DM_BOT_DEBUG
 			dmBotLog.Debug("Spawn() FAILED: model is empty");
+			#endif
 			return null;
 		}
 
 		Entity entity = GetGame().CreatePlayer(null, m_Model, position, 0.0, "NONE");
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("Spawn() CreatePlayer returned entity=" + entity);
+		#endif
 
 		PlayerBase pawn = PlayerBase.Cast(entity);
 		if (!pawn)
 		{
+			#ifdef DM_BOT_DEBUG
 			dmBotLog.Debug("Spawn() FAILED: PlayerBase.Cast(entity) returned null");
+			#endif
 			return null;
 		}
 
@@ -79,14 +87,18 @@ class dmAISurvivor
 		s_All.Insert(this);
 		s_ByPawn.Set(m_Pawn, this);
 
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("Spawn() OK pawn=" + pawn + " position=" + m_Pawn.GetPosition() + " orientation=" + m_Pawn.GetOrientation() + " total=" + s_All.Count());
+		#endif
 		return m_Pawn;
 	}
 
 	//! Remove the bot's body from the world and unregister it.
 	void Despawn()
 	{
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("Despawn() pawn=" + m_Pawn);
+		#endif
 
 		if (!m_Pawn)
 			return;
@@ -117,7 +129,9 @@ class dmAISurvivor
 	//! Set body orientation from Euler angles (degrees). yaw = orientation[0].
 	void SetOrientation(vector orientation)
 	{
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("SetOrientation() orientation=" + orientation + " pawn=" + m_Pawn);
+		#endif
 		if (m_Pawn)
 			m_Pawn.SetOrientation(orientation);
 	}
@@ -126,7 +140,9 @@ class dmAISurvivor
 	//! Only the horizontal (yaw) component is used; pitch/roll are zeroed.
 	void SetDirection(vector direction)
 	{
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("SetDirection() direction=" + direction + " pawn=" + m_Pawn);
+		#endif
 		if (m_Pawn)
 		{
 			vector orientation = direction.VectorToAngles();
@@ -138,7 +154,9 @@ class dmAISurvivor
 			if (pawn)
 				pawn.SetTargetBodyYaw(orientation[0]);
 
+			#ifdef DM_BOT_DEBUG
 			dmBotLog.Debug("SetDirection() applied orientation=" + orientation + " actual=" + m_Pawn.GetOrientation());
+			#endif
 		}
 	}
 
@@ -158,7 +176,9 @@ class dmAISurvivor
 	{
 		if (!m_Pawn)
 		{
+			#ifdef DM_BOT_DEBUG
 			dmBotLog.Debug("LookAtPoint() FAILED: no pawn");
+			#endif
 			return;
 		}
 
@@ -176,7 +196,9 @@ class dmAISurvivor
 			pitch -= 360.0;
 		m_TargetLookPitch = pitch;
 
+		#ifdef DM_BOT_TRACE
 		dmBotLog.Trace("LookAtPoint() dir=" + dir + " angles=" + angles + " bodyYaw=" + bodyYaw + " targetYawAbs=" + m_TargetLookYawAbs + " lookPitch=" + m_TargetLookPitch);
+		#endif
 	}
 
 	//! Direct the bot's sight by offsets from the body direction.
@@ -195,7 +217,9 @@ class dmAISurvivor
 	//! Keep looking at an entity (its face) each tick.
 	void SetLookTarget(EntityAI target)
 	{
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("SetLookTarget() target=" + target);
+		#endif
 		m_LookTarget = target;
 	}
 
@@ -248,7 +272,9 @@ class dmAISurvivor
 		}
 
 		if (Math.AbsFloat(applyYaw) > 0.1)
+			#ifdef DM_BOT_TRACE
 			dmBotLog.Trace("UpdateLook() targetYawAbs=" + m_TargetLookYawAbs + " bodyYaw=" + bodyYaw + " relTarget=" + relTarget + " curYaw=" + m_CurLookYaw + " pitch=" + m_TargetLookPitch);
+			#endif
 	}
 
 	//! Signed angle difference, normalized to (-180, 180].

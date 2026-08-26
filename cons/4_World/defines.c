@@ -17,3 +17,14 @@
 //! Available defines:
 //!   DM_BOT_DEBUG — basic debug logging (spawn/despawn, chat commands).
 //!   DM_BOT_TRACE — verbose trace logging.
+//!
+//! Gating is done at the CALL SITE, not inside dmBotLog:
+//!
+//!   #ifdef DM_BOT_DEBUG
+//!   dmBotLog.Debug("...");
+//!   #endif
+//!
+//! Enfusion does not optimize an empty function call away (unlike C++), and the
+//! string building in the arguments is the expensive part, so wrapping the call
+//! itself in #ifdef compiles out both the call AND the concatenation when the
+//! define is off. The dmBotLog.Debug/Trace methods themselves always Print.

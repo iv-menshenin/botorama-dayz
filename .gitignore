@@ -1,0 +1,6 @@
+# Logs (game RPT + script logs)
+clientLog/
+serverLog/
+
+# IDE
+.vscode/

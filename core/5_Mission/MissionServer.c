@@ -21,11 +21,15 @@ modded class MissionServer
 			if (chat)
 			{
 				string message = chat.param3;
+				#ifdef DM_BOT_DEBUG
 				dmBotLog.Debug("OnEvent() chat: sender=" + chat.param2 + " msg='" + message + "'");
+				#endif
 
 				if (message.Length() > 0 && message.Substring(0, 1) == "/")
 				{
+					#ifdef DM_BOT_DEBUG
 					dmBotLog.Debug("OnEvent() looks like a command, dispatching HandleChatCommand");
+					#endif
 					if (HandleChatCommand(chat.param2, message))
 						return;
 				}
@@ -51,7 +55,9 @@ modded class MissionServer
 
 		if (parts.Count() < 1)
 		{
+			#ifdef DM_BOT_DEBUG
 			dmBotLog.Debug("HandleChatCommand() no parts");
+			#endif
 			return false;
 		}
 
@@ -59,7 +65,9 @@ modded class MissionServer
 		if (cmd.Length() > 0 && cmd.Substring(0, 1) == "/")
 			cmd = cmd.Substring(1, cmd.Length() - 1);
 
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("HandleChatCommand() cmd='" + cmd + "' parts=" + parts.Count());
+		#endif
 
 		if (cmd == DM_CHAT_CMD)
 			return HandleBotCommand(playerName, parts);
@@ -72,11 +80,15 @@ modded class MissionServer
 	{
 		if (parts.Count() < 2)
 		{
+			#ifdef DM_BOT_DEBUG
 			dmBotLog.Debug("HandleBotCommand() no sub-command");
+			#endif
 			return false;
 		}
 
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("HandleBotCommand() sub='" + parts[1] + "'");
+		#endif
 
 		if (parts[1] == DM_CHAT_SPAWN)
 			return HandleBotSpawn(playerName, parts);
@@ -89,11 +101,15 @@ modded class MissionServer
 	{
 		if (parts.Count() < 3)
 		{
+			#ifdef DM_BOT_DEBUG
 			dmBotLog.Debug("HandleBotSpawn() no spawn kind");
+			#endif
 			return false;
 		}
 
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("HandleBotSpawn() kind='" + parts[2] + "'");
+		#endif
 
 		if (parts[2] == DM_CHAT_TEST)
 			return HandleBotSpawnTest(playerName);
@@ -104,18 +120,24 @@ modded class MissionServer
 	//! Spawn a bot one meter in front of the player, tracking their face.
 	bool HandleBotSpawnTest(string playerName)
 	{
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("HandleBotSpawnTest() playerName=" + playerName);
+		#endif
 
 		PlayerBase player = FindPlayerByName(playerName);
 		if (!player)
 		{
+			#ifdef DM_BOT_DEBUG
 			dmBotLog.Debug("HandleBotSpawnTest() player not found");
+			#endif
 			return false;
 		}
 
 		//! One meter in front of the player.
 		vector spawnPos = player.GetPosition() + player.GetDirection() * DM_SPAWN_DISTANCE;
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("HandleBotSpawnTest() playerPos=" + player.GetPosition() + " dir=" + player.GetDirection() + " spawnPos=" + spawnPos);
+		#endif
 
 		ref dmAISurvivor bot = new dmAISurvivor();
 		PlayerBase pawn = bot.Spawn(spawnPos, Vector(0, 0, 0));
@@ -139,11 +161,15 @@ modded class MissionServer
 	PlayerBase FindPlayerByName(string name)
 	{
 		name.ToLower();
+		#ifdef DM_BOT_TRACE
 		dmBotLog.Trace("FindPlayerByName() name=" + name);
+		#endif
 
 		array<Man> players = new array<Man>;
 		GetGame().GetPlayers(players);
+		#ifdef DM_BOT_TRACE
 		dmBotLog.Trace("FindPlayerByName() players=" + players.Count());
+		#endif
 
 		foreach (Man man : players)
 		{
@@ -154,13 +180,17 @@ modded class MissionServer
 				playerName.ToLower();
 				if (playerName == name)
 				{
+					#ifdef DM_BOT_DEBUG
 					dmBotLog.Debug("FindPlayerByName() found " + name);
+					#endif
 					return player;
 				}
 			}
 		}
 
+		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("FindPlayerByName() not found: " + name);
+		#endif
 		return null;
 	}
 }
