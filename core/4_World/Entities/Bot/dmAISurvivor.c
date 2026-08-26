@@ -236,18 +236,6 @@ class dmAISurvivor
 		LookAtDirection(0.0, 0.0, dmBotLookTurn.NONE);
 	}
 
-	//! Keep looking at an entity (its face) each tick — as a personality intent.
-	void SetLookTarget(EntityAI target)
-	{
-		#ifdef DM_BOT_DEBUG
-		dmBotLog.Debug("SetLookTarget() target=" + target);
-		#endif
-		dmBotIntent_HoldLook look = new dmBotIntent_HoldLook();
-		look.m_Entity = target;
-		look.m_Turn = dmBotLookTurn.FULL;
-		AddPersonalityIntent(look);
-	}
-
 	//! The bot's heartbeat. Called every frame by the server driver.
 	void OnUpdate(float pDt)
 	{
@@ -372,6 +360,18 @@ class dmAISurvivor
 	void ClearFSMIntents()
 	{
 		m_FSMIntents.Clear(this);
+	}
+
+	//! Drop all personality intents.
+	void ClearPersonalityIntents()
+	{
+		m_PersonalityIntents.Clear(this);
+	}
+
+	//! Drop all command intents.
+	void ClearCommandIntents()
+	{
+		m_CommandIntents.Clear(this);
 	}
 
 	dmBotIntentPool GetFSMIntents()
