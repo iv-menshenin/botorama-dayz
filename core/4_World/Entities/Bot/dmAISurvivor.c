@@ -425,13 +425,14 @@ class dmAISurvivor
 	private dmBotIntent HighestExclusive()
 	{
 		dmBotIntent best = null;
+		dmBotIntent intent = null;
 		int bestOrder = -1;
 		int i;
 
 		ref array<ref dmBotIntent> intents = m_FSMIntents.GetIntents();
 		for (i = 0; i < intents.Count(); i++)
 		{
-			dmBotIntent intent = intents[i];
+			intent = intents[i];
 			if (intent.GetConcurrency() == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 0, best, bestOrder))
 			{
 				best = intent;
@@ -441,7 +442,7 @@ class dmAISurvivor
 		intents = m_CommandIntents.GetIntents();
 		for (i = 0; i < intents.Count(); i++)
 		{
-			dmBotIntent intent = intents[i];
+			intent = intents[i];
 			if (intent.GetConcurrency() == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 1, best, bestOrder))
 			{
 				best = intent;
@@ -451,7 +452,7 @@ class dmAISurvivor
 		intents = m_PersonalityIntents.GetIntents();
 		for (i = 0; i < intents.Count(); i++)
 		{
-			dmBotIntent intent = intents[i];
+			intent = intents[i];
 			if (intent.GetConcurrency() == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 2, best, bestOrder))
 			{
 				best = intent;
