@@ -18,6 +18,9 @@
 Внутри `core/<слой>` код группируется по функциональным папкам:
 
 - `Entities/Bot/` — сущности бота (`dmAI*`).
+- `Entities/Bot/FSM/` — ядро FSM (`dmBotFSM/State/Transition/Condition`) и `Conditions/`.
+- `Entities/Bot/States/` — конкретные состояния FSM.
+- `Entities/Bot/Presets/` — пресеты FSM (фабрики).
 - `Logging/` — логирование (`dmBotLog`).
 - `Config/` — чтение/запись JSON-конфигов (`dmJsonFile`, `dmJsonConfigBase`).
 
@@ -51,7 +54,19 @@ botorama/
     │   └── Entities/
     │       └── Bot/
     │           ├── dmAISurvivor.c      # контроллер (мозг бота)
-    │           └── dmAISurvivorBase.c  # пешка (PlayerBase + анимации)
+    │           ├── dmAISurvivorBase.c  # пешка (PlayerBase + анимации)
+    │           ├── FSM/                # ядро FSM
+    │           │   ├── dmBotFSM.c
+    │           │   ├── dmBotState.c
+    │           │   ├── dmBotTransition.c
+    │           │   ├── dmBotCondition.c
+    │           │   └── Conditions/     # условия (предикаты)
+    │           ├── Intent/             # намерения (пул + арбитраж)
+    │           │   ├── dmBotIntent.c
+    │           │   ├── dmBotIntentPool.c
+    │           │   └── dmBotIntent_*.c
+    │           ├── States/             # состояния (dmBotState_*)
+    │           └── Presets/            # пресеты (dmBotPreset_*)
     └── 5_Mission/
         ├── MissionServer.c      # сервер: OnInit, OnEvent, чат-команды, тикер
         └── MissionGameplay.c    # клиент: OnInit (LogVersion)
@@ -60,6 +75,11 @@ botorama/
 ## Правила размещения
 
 - Классы бота (`dmAI*`) → `core/4_World/Entities/Bot/`.
+- Ядро FSM (`dmBotFSM/State/Transition/Condition`) → `core/4_World/Entities/Bot/FSM/`.
+- Условия (`dmBotCondition_*`) → `core/4_World/Entities/Bot/FSM/Conditions/`.
+- Намерения (`dmBotIntent`/`dmBotIntentPool`/`dmBotIntent_*`) → `core/4_World/Entities/Bot/Intent/`.
+- Состояния (`dmBotState_*`) → `core/4_World/Entities/Bot/States/`.
+- Пресеты (`dmBotPreset_*`) → `core/4_World/Entities/Bot/Presets/`.
 - Логирование (`dmBotLog`) → `core/3_Game/Logging/` (нужно и серверу, и клиенту).
 - Читатель JSON-конфигов (`dmJsonFile`/`dmJsonConfigBase`) → `core/3_Game/Config/` (переиспользуемый, не привязан к ботам).
 - Константы → `cons/<слой>/constants.c`.

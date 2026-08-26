@@ -30,11 +30,25 @@ class dmAISurvivor
 	//! Current (smoothed) horizontal head offset relative to the body, degrees.
 	private float m_CurLookYaw = 0.0;
 
-	//! Optional entity to keep looking at each tick (its face).
-	private EntityAI m_LookTarget;
+	//! Behaviour state machine (null until a preset is loaded).
+	private ref dmBotFSM m_FSM;
+
+	//! Look turn mode for UpdateLook (set by the last LookAt* call).
+	private dmBotLookTurn m_LookTurnMode = dmBotLookTurn.AUTO;
+
+	//! True while walking (movement controls body facing).
+	private bool m_IsMoving = false;
+
+	//! Intent pools: FSM (automatic), personality (interrupts), command (orders).
+	private ref dmBotIntentPool m_FSMIntents;
+	private ref dmBotIntentPool m_PersonalityIntents;
+	private ref dmBotIntentPool m_CommandIntents;
 
 	void dmAISurvivor()
 	{
+		m_FSMIntents = new dmBotIntentPool();
+		m_PersonalityIntents = new dmBotIntentPool();
+		m_CommandIntents = new dmBotIntentPool();
 	}
 
 	//! Model class to use. Must be set before Spawn().
@@ -172,7 +186,7 @@ class dmAISurvivor
 	//------------------------------------------------------------------
 
 	//! Direct the bot's sight at a world-space point.
-	void LookAtPoint(vector pt)
+	void LookAtPoint(vector pt, dmBotLookTurn turn = dmBotLookTurn.AUTO)
 	{
 		if (!m_Pawn)
 		{
@@ -188,6 +202,7 @@ class dmAISurvivor
 
 		float bodyYaw = m_Pawn.GetOrientation()[0];
 		m_TargetLookYawAbs = angles[0]; // absolute world yaw to the target
+		m_LookTurnMode = turn;
 
 		//! VectorToAngles returns pitch in [0, 360); normalize to [-180, 180]
 		//! so "slightly below level" (e.g. 359.5) doesn't clamp to +85 (look up).
@@ -204,7 +219,7 @@ class dmAISurvivor
 	//! Direct the bot's sight by offsets from the body direction.
 	//! @param v horizontal head turn in degrees (0 = body forward).
 	//! @param h vertical head turn in degrees (0 = level).
-	void LookAtDirection(float v, float h)
+	void LookAtDirection(float v, float h, dmBotLookTurn turn = dmBotLookTurn.AUTO)
 	{
 		float bodyYaw = 0.0;
 		if (m_Pawn)
@@ -212,20 +227,25 @@ class dmAISurvivor
 
 		m_TargetLookYawAbs = bodyYaw + v;
 		m_TargetLookPitch = h;
+		m_LookTurnMode = turn;
 	}
 
-	//! Keep looking at an entity (its face) each tick.
+	//! Reset look to forward (head aligned with body).
+	void LookForward()
+	{
+		LookAtDirection(0.0, 0.0, dmBotLookTurn.NONE);
+	}
+
+	//! Keep looking at an entity (its face) each tick — as a personality intent.
 	void SetLookTarget(EntityAI target)
 	{
 		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("SetLookTarget() target=" + target);
 		#endif
-		m_LookTarget = target;
-	}
-
-	EntityAI GetLookTarget()
-	{
-		return m_LookTarget;
+		dmBotIntent_HoldLook look = new dmBotIntent_HoldLook();
+		look.m_Entity = target;
+		look.m_Turn = dmBotLookTurn.FULL;
+		AddPersonalityIntent(look);
 	}
 
 	//! The bot's heartbeat. Called every frame by the server driver.
@@ -234,10 +254,232 @@ class dmAISurvivor
 		if (!m_Pawn)
 			return;
 
-		if (m_LookTarget)
-			LookAtPoint(m_LookTarget.GetPosition() + Vector(0, DM_EYE_HEIGHT, 0));
+		if (m_FSM)
+			m_FSM.Update(pDt);
 
+		UpdateIntents(pDt);
 		UpdateLook(pDt);
+	}
+
+	//------------------------------------------------------------------
+	// FSM
+	//------------------------------------------------------------------
+
+	//! Replace the bot's behaviour state machine (built by a preset).
+	void SetFSM(dmBotFSM fsm)
+	{
+		m_FSM = fsm;
+	}
+
+	dmBotFSM GetFSM()
+	{
+		return m_FSM;
+	}
+
+	//------------------------------------------------------------------
+	// Brain attributes (queried by FSM conditions/states)
+	//------------------------------------------------------------------
+
+	//! Health below a threshold (delegates to the pawn).
+	bool IsLowHealth()
+	{
+		if (!m_Pawn)
+			return false;
+		return m_Pawn.GetHealth01() < 0.35;
+	}
+
+	//! (Phase 4) No ammo in the equipped weapon.
+	bool HasNoAmmo()
+	{
+		// TODO Phase 4: inspect the weapon's magazine.
+		return false;
+	}
+
+	//! (Phase 4) Perceives player signs nearby (killed zombie, campfire, items).
+	bool HasPlayerSigns()
+	{
+		// TODO Phase 4: scan the surroundings.
+		return false;
+	}
+
+	//------------------------------------------------------------------
+	// Movement
+	//------------------------------------------------------------------
+
+	//! Enable/disable forward walking (movement override on the input controller).
+	void SetWalk(bool walk)
+	{
+		if (!m_Pawn)
+			return;
+
+		m_IsMoving = walk;
+
+		HumanInputController hic = m_Pawn.GetInputController();
+		hic.OverrideMovementAngle(HumanInputControllerOverrideType.ENABLED, 0.0);
+		if (walk)
+			hic.OverrideMovementSpeed(HumanInputControllerOverrideType.ENABLED, 1.0);
+		else
+			hic.OverrideMovementSpeed(HumanInputControllerOverrideType.ENABLED, 0.0);
+	}
+
+	//! Snap the body to face a world point (ignore vertical).
+	void FacePoint(vector point)
+	{
+		if (!m_Pawn)
+			return;
+
+		vector dir = point - m_Pawn.GetPosition();
+		dir[1] = 0.0;
+		if (dir.Length() < 0.001)
+			return;
+		SetDirection(dir);
+	}
+
+	//------------------------------------------------------------------
+	// Intent pools
+	//------------------------------------------------------------------
+
+	void AddFSMIntent(dmBotIntent intent)
+	{
+		AddIntent(m_FSMIntents, intent);
+	}
+
+	void AddPersonalityIntent(dmBotIntent intent)
+	{
+		AddIntent(m_PersonalityIntents, intent);
+	}
+
+	void AddCommandIntent(dmBotIntent intent)
+	{
+		AddIntent(m_CommandIntents, intent);
+	}
+
+	void AddIntent(dmBotIntentPool pool, dmBotIntent intent)
+	{
+		pool.Insert(intent);
+		intent.OnStart(this);
+	}
+
+	void RemoveIntent(dmBotIntentPool pool, dmBotIntent intent)
+	{
+		if (!pool.Has(intent))
+			return;
+		intent.OnCancel(this);
+		pool.Remove(intent);
+	}
+
+	//! Drop all FSM intents (called on FSM state transition).
+	void ClearFSMIntents()
+	{
+		m_FSMIntents.Clear(this);
+	}
+
+	dmBotIntentPool GetFSMIntents()
+	{
+		return m_FSMIntents;
+	}
+
+	//! Resolve and execute intents each tick (arbitration, recomputed every tick).
+	void UpdateIntents(float pDt)
+	{
+		LookForward();   // взгляд — канал: сброс вперёд; победитель переустанавливает
+		SetWalk(false);  // движение — канал: сброс; победитель переустанавливает
+
+		m_FSMIntents.Tick(this, pDt);
+		m_CommandIntents.Tick(this, pDt);
+		m_PersonalityIntents.Tick(this, pDt);
+
+		dmBotIntent exclusive = HighestExclusive();
+		if (exclusive)
+		{
+			exclusive.OnUpdate(this, pDt);
+			return;
+		}
+
+		ExecuteParallel(m_FSMIntents, dmBotIntentPriority.IDLE, pDt);
+		ExecuteParallel(m_CommandIntents, dmBotIntentPriority.IDLE, pDt);
+		ExecuteParallel(m_PersonalityIntents, dmBotIntentPriority.IDLE, pDt);
+		ExecuteParallel(m_FSMIntents, dmBotIntentPriority.DESIRABLE, pDt);
+		ExecuteParallel(m_CommandIntents, dmBotIntentPriority.DESIRABLE, pDt);
+		ExecuteParallel(m_PersonalityIntents, dmBotIntentPriority.DESIRABLE, pDt);
+		ExecuteParallel(m_FSMIntents, dmBotIntentPriority.CRITICAL, pDt);
+		ExecuteParallel(m_CommandIntents, dmBotIntentPriority.CRITICAL, pDt);
+		ExecuteParallel(m_PersonalityIntents, dmBotIntentPriority.CRITICAL, pDt);
+	}
+
+	private void ExecuteParallel(dmBotIntentPool pool, dmBotIntentPriority priority, float pDt)
+	{
+		ref array<ref dmBotIntent> intents = pool.GetIntents();
+		int i;
+		for (i = 0; i < intents.Count(); i++)
+		{
+			dmBotIntent intent = intents[i];
+			if (intent.GetConcurrency() != dmBotIntentConcurrency.PARALLEL)
+				continue;
+			if (intent.GetPriority() != priority)
+				continue;
+			intent.OnUpdate(this, pDt);
+		}
+	}
+
+	private dmBotIntent HighestExclusive()
+	{
+		dmBotIntent best = null;
+		int bestOrder = -1;
+		int i;
+
+		ref array<ref dmBotIntent> intents = m_FSMIntents.GetIntents();
+		for (i = 0; i < intents.Count(); i++)
+		{
+			dmBotIntent intent = intents[i];
+			if (intent.GetConcurrency() == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 0, best, bestOrder))
+			{
+				best = intent;
+				bestOrder = 0;
+			}
+		}
+		intents = m_CommandIntents.GetIntents();
+		for (i = 0; i < intents.Count(); i++)
+		{
+			dmBotIntent intent = intents[i];
+			if (intent.GetConcurrency() == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 1, best, bestOrder))
+			{
+				best = intent;
+				bestOrder = 1;
+			}
+		}
+		intents = m_PersonalityIntents.GetIntents();
+		for (i = 0; i < intents.Count(); i++)
+		{
+			dmBotIntent intent = intents[i];
+			if (intent.GetConcurrency() == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 2, best, bestOrder))
+			{
+				best = intent;
+				bestOrder = 2;
+			}
+		}
+
+		return best;
+	}
+
+	private bool IntentHigher(dmBotIntent a, int aPoolOrder, dmBotIntent b, int bPoolOrder)
+	{
+		if (!b)
+			return true;
+		int ra = PriorityRank(a.GetPriority());
+		int rb = PriorityRank(b.GetPriority());
+		if (ra != rb)
+			return ra > rb;
+		return aPoolOrder > bPoolOrder;
+	}
+
+	private int PriorityRank(dmBotIntentPriority priority)
+	{
+		if (priority == dmBotIntentPriority.CRITICAL)
+			return 2;
+		if (priority == dmBotIntentPriority.DESIRABLE)
+			return 1;
+		return 0;
 	}
 
 	//! Smoothly steer the head toward the desired look target. If the target is
@@ -265,10 +507,11 @@ class dmAISurvivor
 			pawn.SetLookYaw(m_CurLookYaw);
 			pawn.SetLookPitch(m_TargetLookPitch);
 
-			//! Desired body yaw so the target ends up at the head's edge; the pawn
-			//! rotates its body (and plays the foot-stepping animation) in its
-			//! CommandHandler toward this yaw.
-			pawn.SetTargetBodyYaw(m_TargetLookYawAbs - headTarget);
+			if (!m_IsMoving && m_LookTurnMode == dmBotLookTurn.FULL)
+				pawn.SetTargetBodyYaw(m_TargetLookYawAbs);
+			else if (!m_IsMoving && m_LookTurnMode == dmBotLookTurn.AUTO)
+				pawn.SetTargetBodyYaw(m_TargetLookYawAbs - headTarget);
+			// NONE или движется: тело не трогаем (движение ведёт тело)
 		}
 
 		if (Math.AbsFloat(applyYaw) > 0.1)
