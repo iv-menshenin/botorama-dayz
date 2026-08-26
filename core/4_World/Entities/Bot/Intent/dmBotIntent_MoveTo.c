@@ -4,13 +4,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 	vector m_Target;
 	float m_ReachDistance = 0.5;
 
-	void OnStart(dmAISurvivor bot)
+	override void OnStart(dmAISurvivor bot)
 	{
 		bot.FacePoint(m_Target);
 		bot.SetWalk(true);
 	}
 
-	void OnUpdate(dmAISurvivor bot, float pDt)
+	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
 		bot.SetWalk(true);   // re-assert (movement reset each tick before arbitration)
 		float dist = vector.Distance(bot.GetPosition(), m_Target);
@@ -21,7 +21,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		}
 	}
 
-	void OnCancel(dmAISurvivor bot)
+	override void OnCancel(dmAISurvivor bot)
 	{
 		bot.SetWalk(false);
 	}

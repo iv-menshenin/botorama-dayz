@@ -5,7 +5,7 @@ class dmBotIntent_HoldLook : dmBotIntent
 	EntityAI m_Entity;           // опционально: следим за сущностью каждый тик
 	dmBotLookTurn m_Turn = dmBotLookTurn.AUTO;
 
-	void OnUpdate(dmAISurvivor bot, float pDt)
+	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
 		if (m_Entity)
 			bot.LookAtPoint(m_Entity.GetPosition() + Vector(0, DM_EYE_HEIGHT, 0), m_Turn);

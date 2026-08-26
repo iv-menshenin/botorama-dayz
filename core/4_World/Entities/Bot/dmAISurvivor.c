@@ -44,11 +44,19 @@ class dmAISurvivor
 	private ref dmBotIntentPool m_PersonalityIntents;
 	private ref dmBotIntentPool m_CommandIntents;
 
+	//! Patrol points (world positions visited in order).
+	private ref array<vector> m_PatrolPoints;
+
+	//! Goal targets (memory, survives FSM transitions).
+	private ref array<ref dmTarget> m_Targets;
+
 	void dmAISurvivor()
 	{
 		m_FSMIntents = new dmBotIntentPool();
 		m_PersonalityIntents = new dmBotIntentPool();
 		m_CommandIntents = new dmBotIntentPool();
+		m_PatrolPoints = new array<vector>();
+		m_Targets = new array<ref dmTarget>();
 	}
 
 	//! Model class to use. Must be set before Spawn().
@@ -236,6 +244,23 @@ class dmAISurvivor
 		LookAtDirection(0.0, 0.0, dmBotLookTurn.NONE);
 	}
 
+	//! Set the look target to an absolute world yaw.
+	void LookAtYaw(float worldYaw, dmBotLookTurn turn)
+	{
+		m_TargetLookYawAbs = worldYaw;
+		m_TargetLookPitch = 0.0;
+		m_LookTurnMode = turn;
+	}
+
+	//! Signed angle difference (degrees) from the body yaw to the given world yaw.
+	float GetYawTo(float worldYaw)
+	{
+		float bodyYaw = 0.0;
+		if (m_Pawn)
+			bodyYaw = m_Pawn.GetOrientation()[0];
+		return AngleDiff(worldYaw, bodyYaw);
+	}
+
 	//! The bot's heartbeat. Called every frame by the server driver.
 	void OnUpdate(float pDt)
 	{
@@ -377,6 +402,44 @@ class dmAISurvivor
 	dmBotIntentPool GetFSMIntents()
 	{
 		return m_FSMIntents;
+	}
+
+	//------------------------------------------------------------------
+	// Patrol points
+	//------------------------------------------------------------------
+
+	ref array<vector> GetPatrolPoints()
+	{
+		return m_PatrolPoints;
+	}
+
+	void AddPatrolPoint(vector point)
+	{
+		m_PatrolPoints.Insert(point);
+	}
+
+	void ClearPatrolPoints()
+	{
+		m_PatrolPoints.Clear();
+	}
+
+	//------------------------------------------------------------------
+	// Targets (goals)
+	//------------------------------------------------------------------
+
+	void AddTarget(dmTarget target)
+	{
+		m_Targets.Insert(target);
+	}
+
+	void ClearTargets()
+	{
+		m_Targets.Clear();
+	}
+
+	ref array<ref dmTarget> GetTargets()
+	{
+		return m_Targets;
 	}
 
 	//! Resolve and execute intents each tick (arbitration, recomputed every tick).

@@ -4,6 +4,13 @@
 //! The FSM reference and name are wired up by dmBotFSM.AddState(state, name).
 //! A state owns its outgoing transitions; AddTransition is fluent.
 
+enum dmBotStateKind
+{
+	NORMAL,         // атомарное: не прерывается и не вытесняет; до EXIT
+	INTERRUPTIBLE,  // может быть прервано (вытеснено PREEMPTIVE)
+	PREEMPTIVE      // вытесняет INTERRUPTIBLE, когда guard открыт
+};
+
 class dmBotState
 {
 	static const int EXIT = 0;
@@ -66,4 +73,8 @@ class dmBotState
 
 	//! Relevance guard: return false to block every transition INTO this state.
 	bool CanEnter() { return true; }
+
+	//! State kind for the preemption model (default NORMAL). Override in concrete
+	//! states: INTERRUPTIBLE (can be preempted) or PREEMPTIVE (preempts others).
+	dmBotStateKind GetKind() { return dmBotStateKind.NORMAL; }
 }

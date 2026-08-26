@@ -55,6 +55,7 @@ botorama/
     │       └── Bot/
     │           ├── dmAISurvivor.c      # контроллер (мозг бота)
     │           ├── dmAISurvivorBase.c  # пешка (PlayerBase + анимации)
+    │           ├── dmTarget.c          # цель бота (ACQUIRE/DESTROY, память)
     │           ├── FSM/                # ядро FSM
     │           │   ├── dmBotFSM.c
     │           │   ├── dmBotState.c
@@ -64,7 +65,7 @@ botorama/
     │           ├── Intent/             # намерения (пул + арбитраж)
     │           │   ├── dmBotIntent.c
     │           │   ├── dmBotIntentPool.c
-    │           │   └── dmBotIntent_*.c
+    │           │   └── dmBotIntent_*.c # HoldLook/LookAround/MoveTo/Glance/Turn
     │           ├── States/             # состояния (dmBotState_*)
     │           └── Presets/            # пресеты (dmBotPreset_*)
     └── 5_Mission/

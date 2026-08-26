@@ -6,10 +6,16 @@
 //!  - "/bot intent lookAtMe"   bot looks at the sender.
 //!  - "/bot intent goto"       bot walks to the point the sender is looking at.
 //!  - "/bot intent clear"      clear the sender's bot command-intent pool.
+//!  - "/bot patrol add"        add the looked-at point to the bot's patrol route.
+//!  - "/bot patrol clear"      clear the bot's patrol points.
+//!  - "/fsm new"               start a new FSM draft.
+//!  - "/fsm add idle|patrol"   add a state to the FSM draft.
+//!  - "/fsm apply"             build (auto-connect all pairs) and apply to the bot.
 
 modded class MissionServer
 {
 	static ref map<string, ref dmAISurvivor> s_TestBotByPlayer = new map<string, ref dmAISurvivor>;
+	static ref array<string> s_DraftStates = new array<string>;
 
 	override void OnInit()
 	{
@@ -77,6 +83,9 @@ modded class MissionServer
 		if (cmd == DM_CHAT_CMD)
 			return HandleBotCommand(playerName, parts);
 
+		if (cmd == DM_CHAT_FSM)
+			return HandleFSMCommand(playerName, parts);
+
 		return false;
 	}
 
@@ -100,6 +109,9 @@ modded class MissionServer
 
 		if (parts[1] == DM_CHAT_INTENT)
 			return HandleIntentCommand(playerName, parts);
+
+		if (parts[1] == DM_CHAT_PATROL)
+			return HandleBotPatrol(playerName, parts);
 
 		return false;
 	}
@@ -301,6 +313,172 @@ modded class MissionServer
 		#endif
 		ChatToPlayer(playerName, "Намерения очищены");
 		return true;
+	}
+
+	//------------------------------------------------------------------
+	// Patrol points (/bot patrol ...)
+	//------------------------------------------------------------------
+
+	bool HandleBotPatrol(string playerName, array<string> parts)
+	{
+		if (parts.Count() < 3)
+		{
+			#ifdef DM_BOT_DEBUG
+			dmBotLog.Debug("HandleBotPatrol() no action");
+			#endif
+			return false;
+		}
+
+		if (parts[2] == DM_CHAT_ADD)
+			return HandlePatrolAdd(playerName);
+		if (parts[2] == DM_CHAT_CLEAR)
+			return HandlePatrolClear(playerName);
+		return false;
+	}
+
+	bool HandlePatrolAdd(string playerName)
+	{
+		dmAISurvivor bot = FindBotForPlayer(playerName);
+		if (!bot)
+		{
+			ChatToPlayer(playerName, "Нет бота — сначала /bot spawn test");
+			return false;
+		}
+
+		PlayerBase player = FindPlayerByName(playerName);
+		if (!player)
+			return false;
+
+		vector point;
+		GetPlayerLookPoint(player, point);
+		bot.AddPatrolPoint(point);
+
+		#ifdef DM_BOT_DEBUG
+		dmBotLog.Debug("HandlePatrolAdd() point=" + point);
+		#endif
+		GetGame().ChatMP(player, "Точка патруля добавлена: " + point, "colorAction");
+		return true;
+	}
+
+	bool HandlePatrolClear(string playerName)
+	{
+		dmAISurvivor bot = FindBotForPlayer(playerName);
+		if (!bot)
+		{
+			ChatToPlayer(playerName, "Нет бота — сначала /bot spawn test");
+			return false;
+		}
+
+		bot.ClearPatrolPoints();
+		ChatToPlayer(playerName, "Точки патруля очищены");
+		return true;
+	}
+
+	//------------------------------------------------------------------
+	// FSM builder (/fsm ...)
+	//------------------------------------------------------------------
+
+	bool HandleFSMCommand(string playerName, array<string> parts)
+	{
+		if (parts.Count() < 2)
+		{
+			#ifdef DM_BOT_DEBUG
+			dmBotLog.Debug("HandleFSMCommand() no action");
+			#endif
+			return false;
+		}
+
+		if (parts[1] == DM_CHAT_FSM_NEW)
+			return HandleFSMNew(playerName);
+		if (parts[1] == DM_CHAT_ADD)
+			return HandleFSMAdd(playerName, parts);
+		if (parts[1] == DM_CHAT_FSM_APPLY)
+			return HandleFSMApply(playerName);
+		return false;
+	}
+
+	bool HandleFSMNew(string playerName)
+	{
+		s_DraftStates.Clear();
+		ChatToPlayer(playerName, "FSM: новый (пустой)");
+		return true;
+	}
+
+	bool HandleFSMAdd(string playerName, array<string> parts)
+	{
+		if (parts.Count() < 3)
+		{
+			#ifdef DM_BOT_DEBUG
+			dmBotLog.Debug("HandleFSMAdd() no state");
+			#endif
+			return false;
+		}
+
+		string state = parts[2];
+		if (state != DM_CHAT_FSM_IDLE && state != DM_CHAT_FSM_PATROL)
+		{
+			ChatToPlayer(playerName, "Неизвестное состояние: " + state);
+			return false;
+		}
+
+		s_DraftStates.Insert(state);
+		ChatToPlayer(playerName, "FSM: добавлено состояние " + state);
+		return true;
+	}
+
+	bool HandleFSMApply(string playerName)
+	{
+		dmAISurvivor bot = FindBotForPlayer(playerName);
+		if (!bot)
+		{
+			ChatToPlayer(playerName, "Нет бота — сначала /bot spawn test");
+			return false;
+		}
+
+		ApplyDraftFSM(bot);
+		ChatToPlayer(playerName, "FSM применён (состояний: " + s_DraftStates.Count() + ")");
+		return true;
+	}
+
+	dmBotState MakeState(string name)
+	{
+		if (name == DM_CHAT_FSM_IDLE)
+			return new dmBotState_Idle();
+		if (name == DM_CHAT_FSM_PATROL)
+			return new dmBotState_Patrol();
+		return null;
+	}
+
+	void ApplyDraftFSM(dmAISurvivor bot)
+	{
+		dmBotFSM fsm = new dmBotFSM(bot);
+		ref array<ref dmBotState> states = new array<ref dmBotState>();
+		int i;
+		for (i = 0; i < s_DraftStates.Count(); i++)
+		{
+			dmBotState state = MakeState(s_DraftStates[i]);
+			if (state)
+			{
+				fsm.AddState(state, s_DraftStates[i]);
+				states.Insert(state);
+			}
+		}
+
+		int j;
+		for (i = 0; i < states.Count(); i++)
+		{
+			for (j = 0; j < states.Count(); j++)
+			{
+				if (i != j)
+					states[i].AddTransition(states[j], 1.0);
+			}
+		}
+
+		if (states.Count() > 0)
+			fsm.SetDefaultState(states[0].GetName());
+
+		fsm.Start();
+		bot.SetFSM(fsm);
 	}
 
 	//! The bot bound to the player via "/bot spawn test" (or null).

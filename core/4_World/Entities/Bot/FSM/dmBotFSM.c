@@ -1,9 +1,11 @@
 //! dmBotFSM — finite state machine container for a bot.
 //!
-//! Owned by a dmAISurvivor (the brain). Each tick Update() runs the current
-//! state's OnUpdate(); when it returns EXIT, SelectTransition() rolls the state's
-//! outgoing transitions (weighted random) after filtering by the destination's
-//! CanEnter() and each transition's Guard().
+//! Owned by a dmAISurvivor (the brain). Hybrid transition model:
+//!  - cooperative: when the current state's OnUpdate returns EXIT, roll a weighted
+//!    random transition among its eligible outgoing transitions.
+//!  - preemptive: when the current state is INTERRUPTIBLE, periodically (every
+//!    s_PreemptInterval) check transitions to PREEMPTIVE states whose guards are
+//!    open; if any, a weighted random pick MUST transition (evict the state).
 
 class dmBotFSM
 {
@@ -11,6 +13,15 @@ class dmBotFSM
 	private ref array<ref dmBotState> m_States;
 	private ref dmBotState m_CurrentState;
 	private string m_DefaultState;
+	private float m_PreemptTimer = 0.0;
+
+	//! Global preemption evaluation interval (seconds).
+	static float s_PreemptInterval = DM_FSM_PREEMPT_INTERVAL;
+
+	static void SetPreemptInterval(float seconds)
+	{
+		s_PreemptInterval = seconds;
+	}
 
 	void dmBotFSM(dmAISurvivor owner)
 	{
@@ -37,7 +48,8 @@ class dmBotFSM
 
 	dmBotState GetState(string name)
 	{
-		for (int i = 0; i < m_States.Count(); i++)
+		int i;
+		for (i = 0; i < m_States.Count(); i++)
 		{
 			if (m_States[i].GetName() == name)
 				return m_States[i];
@@ -64,12 +76,7 @@ class dmBotFSM
 		if (!dst)
 			return false;
 
-		dmBotState src = m_CurrentState;
-		if (src && src != dst)
-			src.OnExit(dst);
-
-		m_CurrentState = dst;
-		dst.OnEntry(src);
+		TransitionTo(dst);
 		return true;
 	}
 
@@ -82,20 +89,63 @@ class dmBotFSM
 			return;
 		}
 
-		if (m_CurrentState.OnUpdate(pDt) != dmBotState.EXIT)
-			return;
-
 		dmBotState dst;
-		if (SelectTransition(dst))
+
+		if (m_CurrentState.OnUpdate(pDt) == dmBotState.EXIT)
 		{
-			dmBotState src = m_CurrentState;
-			src.OnExit(dst);
-			m_CurrentState = dst;
-			dst.OnEntry(src);
+			if (!SelectTransition(dst))
+				dst = FallbackState();
+			if (dst)
+				TransitionTo(dst);
+			return;
+		}
+
+		if (m_CurrentState.GetKind() == dmBotStateKind.INTERRUPTIBLE)
+		{
+			m_PreemptTimer += pDt;
+			if (m_PreemptTimer >= s_PreemptInterval)
+			{
+				m_PreemptTimer = 0.0;
+				if (SelectPreemptive(dst))
+					TransitionTo(dst);
+			}
 		}
 	}
 
-	//! Weighted-random pick among eligible transitions of the current state.
+	//! Change the current state (OnExit old, clear FSM intents, OnEntry new).
+	private void TransitionTo(dmBotState dst)
+	{
+		dmBotState src = m_CurrentState;
+		if (src && src != dst)
+		{
+			src.OnExit(dst);
+			m_Owner.ClearFSMIntents();
+		}
+
+		m_CurrentState = dst;
+		m_PreemptTimer = 0.0;
+		dst.OnEntry(src);
+
+		#ifdef DM_BOT_DEBUG
+		if (src && src != dst)
+			dmBotLog.Debug("[FSM] transition " + src.GetName() + " -> " + dst.GetName());
+		else
+			dmBotLog.Debug("[FSM] enter " + dst.GetName());
+		#endif
+	}
+
+	//! Default state (Idle) when no eligible transition exists — safety net.
+	private dmBotState FallbackState()
+	{
+		dmBotState dst = null;
+		if (m_DefaultState != "")
+			dst = GetState(m_DefaultState);
+		if (!dst && m_States.Count() > 0)
+			dst = m_States[0];
+		return dst;
+	}
+
+	//! Weighted-random pick among eligible transitions (cooperative EXIT).
 	private bool SelectTransition(out dmBotState dst)
 	{
 		int i;
@@ -107,23 +157,55 @@ class dmBotFSM
 		{
 			dmBotTransition t = transitions[i];
 			dmBotState to = t.GetDestination();
-
-			if (!to || !to.CanEnter())           // состояние неактуально
+			if (!to || !to.CanEnter())
 				continue;
-			if (!t.Guard(m_Owner))               // ребро заблокировано/не разрешено
+			if (!t.Guard(m_Owner))
 				continue;
-			if (t.GetWeight() <= 0.0)            // отключён
+			if (t.GetWeight() <= 0.0)
 				continue;
-
 			eligible.Insert(t);
 			total += t.GetWeight();
 		}
 
+		return RollWeighted(eligible, total, dst);
+	}
+
+	//! Weighted-random pick among transitions to PREEMPTIVE states (preemption).
+	private bool SelectPreemptive(out dmBotState dst)
+	{
+		int i;
+		ref array<ref dmBotTransition> transitions = m_CurrentState.GetTransitions();
+		ref array<ref dmBotTransition> eligible = new array<ref dmBotTransition>();
+		float total = 0.0;
+
+		for (i = 0; i < transitions.Count(); i++)
+		{
+			dmBotTransition t = transitions[i];
+			dmBotState to = t.GetDestination();
+			if (!to || to.GetKind() != dmBotStateKind.PREEMPTIVE)
+				continue;
+			if (!to.CanEnter())
+				continue;
+			if (!t.Guard(m_Owner))
+				continue;
+			if (t.GetWeight() <= 0.0)
+				continue;
+			eligible.Insert(t);
+			total += t.GetWeight();
+		}
+
+		return RollWeighted(eligible, total, dst);
+	}
+
+	//! Weighted random among a pre-filtered list (higher weight = more likely).
+	private bool RollWeighted(ref array<ref dmBotTransition> eligible, float total, out dmBotState dst)
+	{
 		if (eligible.Count() == 0 || total <= 0.0)
 			return false;
 
 		float r = Math.RandomFloat01() * total;  // [0, total)
 		float acc = 0.0;
+		int i;
 		for (i = 0; i < eligible.Count(); i++)
 		{
 			acc += eligible[i].GetWeight();

@@ -6,13 +6,13 @@ class dmBotIntent_LookAround : dmBotIntent
 	dmBotLookTurn m_Turn = dmBotLookTurn.AUTO;
 	float m_Timer = 0.0;
 
-	void OnStart(dmAISurvivor bot)
+	override void OnStart(dmAISurvivor bot)
 	{
 		m_Timer = 0.0;
 		PickDirection(bot);
 	}
 
-	void OnUpdate(dmAISurvivor bot, float pDt)
+	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
 		m_Timer += pDt;
 		if (m_Timer >= m_Interval)
