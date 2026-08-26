@@ -18,4 +18,11 @@ class dmBotLog
 		Print("[dmBot][trace] " + msg);
 #endif
 	}
+
+	//! Log the mod version once. Always printed (not gated by DM_BOT_DEBUG),
+	//! so the loaded mod version is visible in both server and client logs.
+	static void LogVersion()
+	{
+		Print("[dmBot] Botorama initialized: " + DM_BOTORAMA_VERSION);
+	}
 }

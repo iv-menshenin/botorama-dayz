@@ -21,13 +21,13 @@ class dmAISurvivor
 	//! The pawn (visual/physical body) in the world. null until Spawn().
 	private PlayerBase m_Pawn;
 
-	//! Desired head look direction (relative to body).
-	//! m_TargetLookYaw   - horizontal head offset from body (degrees).
-	//! m_TargetLookPitch - vertical angle (degrees), stored but not yet applied.
-	private float m_TargetLookYaw = 0.0;
+	//! Desired look direction.
+	//! m_TargetLookYawAbs - horizontal look target in WORLD space (degrees).
+	//! m_TargetLookPitch  - vertical angle (degrees).
+	private float m_TargetLookYawAbs = 0.0;
 	private float m_TargetLookPitch = 0.0;
 
-	//! Current (smoothed) horizontal head offset, degrees.
+	//! Current (smoothed) horizontal head offset relative to the body, degrees.
 	private float m_CurLookYaw = 0.0;
 
 	//! Optional entity to keep looking at each tick (its face).
@@ -162,8 +162,16 @@ class dmAISurvivor
 		vector angles = dir.VectorToAngles();
 
 		float bodyYaw = m_Pawn.GetOrientation()[0];
-		m_TargetLookYaw = AngleDiff(angles[0], bodyYaw); // horizontal offset from body
-		m_TargetLookPitch = angles[1];                   // vertical angle
+		m_TargetLookYawAbs = angles[0]; // absolute world yaw to the target
+
+		//! VectorToAngles returns pitch in [0, 360); normalize to [-180, 180]
+		//! so "slightly below level" (e.g. 359.5) doesn't clamp to +85 (look up).
+		float pitch = angles[1];
+		if (pitch > 180.0)
+			pitch -= 360.0;
+		m_TargetLookPitch = pitch;
+
+		dmBotLog.Trace("LookAtPoint() dir=" + dir + " angles=" + angles + " bodyYaw=" + bodyYaw + " targetYawAbs=" + m_TargetLookYawAbs + " lookPitch=" + m_TargetLookPitch);
 	}
 
 	//! Direct the bot's sight by offsets from the body direction.
@@ -171,7 +179,11 @@ class dmAISurvivor
 	//! @param h vertical head turn in degrees (0 = level).
 	void LookAtDirection(float v, float h)
 	{
-		m_TargetLookYaw = v;
+		float bodyYaw = 0.0;
+		if (m_Pawn)
+			bodyYaw = m_Pawn.GetOrientation()[0];
+
+		m_TargetLookYawAbs = bodyYaw + v;
 		m_TargetLookPitch = h;
 	}
 
@@ -199,23 +211,43 @@ class dmAISurvivor
 		UpdateLook(pDt);
 	}
 
-	//! Smoothly steer the head toward the desired look offset.
+	//! Smoothly steer the head toward the desired look target. If the target is
+	//! beyond the head's turn range, rotate the body so the bot keeps facing it
+	//! (looking back over the shoulder instead of getting stuck).
 	void UpdateLook(float pDt)
 	{
 		if (!m_Pawn)
 			return;
 
-		float dYaw = AngleDiff(m_TargetLookYaw, m_CurLookYaw);
 		float t = Math.Min(1.0, DM_LOOK_TURN_SPEED * pDt);
+
+		float bodyYaw = m_Pawn.GetOrientation()[0];
+		float relTarget = AngleDiff(m_TargetLookYawAbs, bodyYaw);
+
+		//! Head tracks the target, clamped to the head range.
+		float headTarget = Math.Clamp(relTarget, -DM_LOOK_MAX_YAW, DM_LOOK_MAX_YAW);
+		float dYaw = AngleDiff(headTarget, m_CurLookYaw);
 		float applyYaw = dYaw * t;
 		m_CurLookYaw += applyYaw;
 
+		//! If the target is behind the head range, turn the body toward it.
+		if (Math.AbsFloat(relTarget) > DM_LOOK_MAX_YAW)
+		{
+			float excess = relTarget - headTarget; // signed degrees beyond the head range
+			vector orientation = m_Pawn.GetOrientation();
+			orientation[0] = bodyYaw + excess * t;
+			m_Pawn.SetOrientation(orientation);
+		}
+
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Pawn);
 		if (pawn)
+		{
 			pawn.SetLookYaw(m_CurLookYaw);
+			pawn.SetLookPitch(m_TargetLookPitch);
+		}
 
 		if (Math.AbsFloat(applyYaw) > 0.1)
-			dmBotLog.Trace("UpdateLook() targetYaw=" + m_TargetLookYaw + " curYaw=" + m_CurLookYaw + " applyYaw=" + applyYaw + " pitch=" + m_TargetLookPitch);
+			dmBotLog.Trace("UpdateLook() targetYawAbs=" + m_TargetLookYawAbs + " bodyYaw=" + bodyYaw + " relTarget=" + relTarget + " curYaw=" + m_CurLookYaw + " pitch=" + m_TargetLookPitch);
 	}
 
 	//! Signed angle difference, normalized to (-180, 180].

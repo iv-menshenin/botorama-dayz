@@ -6,6 +6,13 @@
 
 modded class MissionServer
 {
+	override void OnInit()
+	{
+		super.OnInit();
+
+		dmBotLog.LogVersion();
+	}
+
 	override void OnEvent(EventType eventTypeId, Param params)
 	{
 		if (eventTypeId == ChatMessageEventTypeID)

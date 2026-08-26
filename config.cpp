@@ -6,7 +6,9 @@ class CfgPatches
 		weapons[]={};
 		requiredVersion=0.1;
 		requiredAddons[]= {
-			"DZ_Characters"
+			"DZ_Characters",
+			"DZ_Anims_Anm_Player",
+			"DZ_Anims_Cfg"
 		};
 	};
 };
@@ -17,7 +19,7 @@ class CfgMods
 	{
 		name = "botorama";
 		author = "devalio";
-		version = 1.0;
+		version = 1.6;
 		type = "mod";
 		defines[] = { "DM_BOT_DEBUG", "DM_BOT_TRACE" };	
 		class defs 
@@ -47,16 +49,30 @@ class CfgVehicles
 	class SurvivorM_Denis;
 	class SurvivorF_Eva;
 
+	class enfAnimSys;
+
 	class dmAI_SurvivorM_Mirek : SurvivorM_Mirek
 	{
 		scope = 2;
+		class enfAnimSys : enfAnimSys
+		{
+			graphName = "botorama\Animations\player_main.agr";
+		};
 	};
 	class dmAI_SurvivorM_Denis : SurvivorM_Denis
 	{
 		scope = 2;
+		class enfAnimSys : enfAnimSys
+		{
+			graphName = "botorama\Animations\player_main.agr";
+		};
 	};
 	class dmAI_SurvivorF_Eva : SurvivorF_Eva
 	{
 		scope = 2;
+		class enfAnimSys : enfAnimSys
+		{
+			graphName = "botorama\Animations\player_main.agr";
+		};
 	};
 };
