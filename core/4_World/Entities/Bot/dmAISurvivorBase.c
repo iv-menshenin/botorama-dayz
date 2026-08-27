@@ -83,13 +83,13 @@ class dmAISurvivorBase : PlayerBase
 			m_CmdStopTurn = hai.BindCommand("dmAI_StopTurn");
 			m_VarsBound = true;
 
-			#ifdef DM_BOT_DEBUG
+			#ifdef DM_BOT_DEBUG_PAWN
 			dmBotLog.Debug("dmAISurvivorBase.BindLookVars() Look=" + m_VarLook + " LookDirX=" + m_VarLookDirX + " LookDirY=" + m_VarLookDirY + " TurnAmount=" + m_VarTurnAmount + " CmdTurn=" + m_CmdTurn + " CmdStopTurn=" + m_CmdStopTurn + " instType=" + GetInstanceType());
 			#endif
 		}
 		else
 		{
-			#ifdef DM_BOT_DEBUG
+			#ifdef DM_BOT_DEBUG_PAWN
 			dmBotLog.Debug("dmAISurvivorBase.BindLookVars() GetAnimInterface() returned null instType=" + GetInstanceType());
 			#endif
 		}
@@ -121,7 +121,7 @@ class dmAISurvivorBase : PlayerBase
 			m_LastLogLookYaw = m_LookYawDeg;
 			m_LastLogLookPitch = m_LookPitchDeg;
 
-			#ifdef DM_BOT_DEBUG
+			#ifdef DM_BOT_DEBUG_PAWN
 			dmBotLog.Debug("dmAISurvivorBase.OnVariablesSynchronized() lookYaw=" + m_LookYawDeg + " lookPitch=" + m_LookPitchDeg + " instType=" + GetInstanceType());
 			#endif
 		}
@@ -151,7 +151,7 @@ class dmAISurvivorBase : PlayerBase
 			m_LastLogLookYaw = m_LookYawDeg;
 			m_LastLogLookPitch = m_LookPitchDeg;
 
-			#ifdef DM_BOT_DEBUG
+			#ifdef DM_BOT_DEBUG_PAWN
 			dmBotLog.Debug("dmAISurvivorBase.CommandHandler() lookYaw=" + m_LookYawDeg + " lookPitch=" + m_LookPitchDeg + " instType=" + GetInstanceType());
 			#endif
 		}

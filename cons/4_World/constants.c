@@ -27,6 +27,13 @@ static const float DM_PATROL_DWELL_TIME = 5.0;
 //! Default FSM preemption evaluation interval (seconds).
 static const float DM_FSM_PREEMPT_INTERVAL = 0.25;
 
+//! Fixed brain tick interval (seconds). The brain (dmAISurvivor.OnUpdate) is
+//! driven by MissionServer.OnUpdate, which runs on the main loop at a variable
+//! rate higher than the simulation; TickAll accumulates time and only runs the
+//! brain at this fixed rate (~30 Hz) so it doesn't over-tick relative to the
+//! pawn's simulation (see fstructure.md "Профилирование").
+static const float DM_BOT_TICK_INTERVAL = 0.033;
+
 //! Max body slide-turn rate while moving (degrees per second).
 static const float DM_MOVE_TURN_RATE = 180.0;
 

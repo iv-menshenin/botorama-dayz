@@ -117,15 +117,51 @@ test/                       # тестовые команды/сценарии (
 
 ## Логирование
 
-- `dmBotLog.Debug/Trace` всегда печатают. Отсечение — `#ifdef` **на месте вызова**:
+- `dmBotLog.Debug/Trace` всегда печатают. Отсечение — `#ifdef` **на месте вызова**,
+  по доменным дефайнам (`DM_BOT_DEBUG_SPAWN/BRAIN/FSM/PAWN`, `DM_BOT_TRACE_LOOK` —
+  полный список в `cons/4_World/defines.c`):
 
   ```
-  #ifdef DM_BOT_DEBUG
+  #ifdef DM_BOT_DEBUG_FSM
   dmBotLog.Debug("...");
   #endif
   ```
 
   Enfusion не оптимизирует пустой вызов (в отличие от C++), а дорогая часть — это
   конкатенация строк в аргументах, поэтому `#ifdef` вокруг самого вызова вырезает и
-  вызов, и конкатенацию, когда дефайн выключен.
+  вызов, и конкатенацию, когда дефайн выключен. Включаются только нужные домены —
+  через `defines[]` в `config.cpp`.
+- `dmBotLog.Error` не гейтится — ошибки видны всегда.
 - `dmBotLog.LogVersion()` не гейтится — версию видно всегда (сервер + клиент).
+
+## Профилирование
+
+- Профайлер: `core/3_Game/Profiling/dmBotProfiler.c` — scope-guard `dmBotSpan`
+  (деструктор пишет время в аккумулятор) + CSV-дамп. Точки замера гейтятся
+  `#ifdef DM_BOT_PROFILE` (по умолчанию включён в `config.cpp`).
+- Команды: `/prof start|stop` — вкл/выкл накопление (по умолчанию включено),
+  `/prof clear` — сброс, `/prof dump` — CSV в `$profile:dmBotorama/profile/`.
+- Чистый замер сценария:
+  `/prof stop` → `/prof clear` → `/prof start` → `<сценарий>` → `/prof stop` → `/prof dump`.
+- **Правило разработки**: любая функция, которая может повлиять на
+  производительность, должна содержать вставку замера (`dmBotSpan` под
+  `#ifdef DM_BOT_PROFILE`), чтобы её влияние учитывалось в профиле:
+
+  ```
+  void SomeHeavy(float pDt)
+  {
+      #ifdef DM_BOT_PROFILE
+      dmBotSpan _span = dmBotProfiler.Start("SomeHeavy");
+      #endif
+      ...
+  }
+  ```
+
+- Бейзлайн (100 ботов, 30 Гц, логирование выключено): мозг (`Tick`) ~1.8 мс/тик
+  (~5.5% ядра), пешка (`CommandHandler`) ~58 μs/тик (~18% ядра, почти целиком
+  ванильный `super.CommandHandler`). Внутри мозга ~56% — арбитраж намерений
+  (`Intents` ~9 μs). Мозг уже дешевле ванильной симуляции пешки.
+- Частота тика мозга: `DM_BOT_TICK_INTERVAL` (0.033 = 30 Гц), привязана к sim-rate
+  пешки (`Bot.Update`/`CommandHandler` ≈ 1.0).
+- Оговорка: `GetTickTime()` квантуется ~1 мс — средние по большому числу вызовов
+  корректны, единичные значения < 1 мс — лишь оценка.

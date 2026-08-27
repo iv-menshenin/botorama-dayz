@@ -37,7 +37,7 @@ class dmBotState_Patrol : dmBotState
 		if (m_Route.Count() > 0)
 			StartMoveToCurrent();
 
-		#ifdef DM_BOT_DEBUG
+		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Patrol.entry routePoints=" + m_Route.Count());
 		#endif
 	}
@@ -79,7 +79,7 @@ class dmBotState_Patrol : dmBotState
 		m_Index++;
 		if (m_Index >= m_Route.Count())
 		{
-			#ifdef DM_BOT_DEBUG
+			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] Patrol finished (all points done)");
 			#endif
 			return EXIT;
@@ -88,7 +88,7 @@ class dmBotState_Patrol : dmBotState
 		m_DwellTimer = 0.0;
 		StartMoveToCurrent();
 
-		#ifdef DM_BOT_DEBUG
+		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Patrol -> point " + m_Index + "/" + m_Route.Count());
 		#endif
 		return CONTINUE;

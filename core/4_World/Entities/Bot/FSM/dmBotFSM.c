@@ -130,7 +130,7 @@ class dmBotFSM
 		m_PreemptTimer = 0.0;
 		dst.OnEntry(src);
 
-		#ifdef DM_BOT_DEBUG
+		#ifdef DM_BOT_DEBUG_FSM
 		if (src && src != dst)
 			dmBotLog.Debug("[FSM] transition " + src.GetName() + " -> " + dst.GetName());
 		else

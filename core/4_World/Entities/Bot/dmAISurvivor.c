@@ -15,6 +15,12 @@ class dmAISurvivor
 	//! Reverse lookup: pawn -> controller.
 	static ref map<PlayerBase, ref dmAISurvivor> s_ByPawn = new map<PlayerBase, ref dmAISurvivor>;
 
+	//! Fixed brain tick interval (seconds); see DM_BOT_TICK_INTERVAL.
+	static float s_TickInterval = DM_BOT_TICK_INTERVAL;
+
+	//! Accumulated time toward the next brain tick (driven by TickAll).
+	static float s_TickAccum = 0.0;
+
 	//! Survivor model class (e.g. "dmAI_SurvivorM_Denis").
 	private string m_Model = DM_DEFAULT_MODEL;
 
@@ -87,27 +93,27 @@ class dmAISurvivor
 	//! @return the pawn, or null on failure.
 	PlayerBase Spawn(vector position, vector orientation)
 	{
-		#ifdef DM_BOT_DEBUG
+		#ifdef DM_BOT_DEBUG_SPAWN
 		dmBotLog.Debug("Spawn() model=" + m_Model + " position=" + position + " orientation=" + orientation);
 		#endif
 
 		if (m_Model.Length() == 0)
 		{
-			#ifdef DM_BOT_DEBUG
+			#ifdef DM_BOT_DEBUG_SPAWN
 			dmBotLog.Debug("Spawn() FAILED: model is empty");
 			#endif
 			return null;
 		}
 
 		Entity entity = GetGame().CreatePlayer(null, m_Model, position, 0.0, "NONE");
-		#ifdef DM_BOT_DEBUG
+		#ifdef DM_BOT_DEBUG_SPAWN
 		dmBotLog.Debug("Spawn() CreatePlayer returned entity=" + entity);
 		#endif
 
 		PlayerBase pawn = PlayerBase.Cast(entity);
 		if (!pawn)
 		{
-			#ifdef DM_BOT_DEBUG
+			#ifdef DM_BOT_DEBUG_SPAWN
 			dmBotLog.Debug("Spawn() FAILED: PlayerBase.Cast(entity) returned null");
 			#endif
 			return null;
@@ -120,7 +126,7 @@ class dmAISurvivor
 		s_All.Insert(this);
 		s_ByPawn.Set(m_Pawn, this);
 
-		#ifdef DM_BOT_DEBUG
+		#ifdef DM_BOT_DEBUG_SPAWN
 		dmBotLog.Debug("Spawn() OK pawn=" + pawn + " position=" + m_Pawn.GetPosition() + " orientation=" + m_Pawn.GetOrientation() + " total=" + s_All.Count());
 		#endif
 		return m_Pawn;
@@ -129,7 +135,7 @@ class dmAISurvivor
 	//! Remove the bot's body from the world and unregister it.
 	void Despawn()
 	{
-		#ifdef DM_BOT_DEBUG
+		#ifdef DM_BOT_DEBUG_SPAWN
 		dmBotLog.Debug("Despawn() pawn=" + m_Pawn);
 		#endif
 
@@ -162,7 +168,7 @@ class dmAISurvivor
 	//! Set body orientation from Euler angles (degrees). yaw = orientation[0].
 	void SetOrientation(vector orientation)
 	{
-		#ifdef DM_BOT_DEBUG
+		#ifdef DM_BOT_DEBUG_BRAIN
 		dmBotLog.Debug("SetOrientation() orientation=" + orientation + " pawn=" + m_Pawn);
 		#endif
 		if (m_Pawn)
@@ -173,7 +179,7 @@ class dmAISurvivor
 	//! Only the horizontal (yaw) component is used; pitch/roll are zeroed.
 	void SetDirection(vector direction)
 	{
-		#ifdef DM_BOT_DEBUG
+		#ifdef DM_BOT_DEBUG_BRAIN
 		dmBotLog.Debug("SetDirection() direction=" + direction + " pawn=" + m_Pawn);
 		#endif
 		if (m_Pawn)
@@ -187,7 +193,7 @@ class dmAISurvivor
 			if (pawn)
 				pawn.SetTargetBodyYaw(orientation[0]);
 
-			#ifdef DM_BOT_DEBUG
+			#ifdef DM_BOT_DEBUG_BRAIN
 			dmBotLog.Debug("SetDirection() applied orientation=" + orientation + " actual=" + m_Pawn.GetOrientation());
 			#endif
 		}
@@ -209,7 +215,7 @@ class dmAISurvivor
 	{
 		if (!m_Pawn)
 		{
-			#ifdef DM_BOT_DEBUG
+			#ifdef DM_BOT_DEBUG_BRAIN
 			dmBotLog.Debug("LookAtPoint() FAILED: no pawn");
 			#endif
 			return;
@@ -230,7 +236,7 @@ class dmAISurvivor
 			pitch -= 360.0;
 		m_TargetLookPitch = pitch;
 
-		#ifdef DM_BOT_TRACE
+		#ifdef DM_BOT_TRACE_LOOK
 		dmBotLog.Trace("LookAtPoint() dir=" + dir + " angles=" + angles + " bodyYaw=" + bodyYaw + " targetYawAbs=" + m_TargetLookYawAbs + " lookPitch=" + m_TargetLookPitch);
 		#endif
 	}
@@ -544,6 +550,11 @@ class dmAISurvivor
 		m_CommandIntents.Tick(this, pDt);
 		m_PersonalityIntents.Tick(this, pDt);
 
+		//! Без активных намерений арбитровать нечего: сбросы выше уже задали
+		//! «покой» (смотреть вперёд, стоять, не двигаться).
+		if (m_FSMIntents.Count() == 0 && m_CommandIntents.Count() == 0 && m_PersonalityIntents.Count() == 0)
+			return;
+
 		dmBotIntent exclusive = HighestExclusive();
 		if (exclusive)
 		{
@@ -569,9 +580,9 @@ class dmAISurvivor
 		for (i = 0; i < intents.Count(); i++)
 		{
 			dmBotIntent intent = intents[i];
-			if (intent.GetConcurrency() != dmBotIntentConcurrency.PARALLEL)
+			if (intent.m_Concurrency != dmBotIntentConcurrency.PARALLEL)
 				continue;
-			if (intent.GetPriority() != priority)
+			if (intent.m_Priority != priority)
 				continue;
 			intent.OnUpdate(this, pDt);
 		}
@@ -588,7 +599,7 @@ class dmAISurvivor
 		for (i = 0; i < intents.Count(); i++)
 		{
 			intent = intents[i];
-			if (intent.GetConcurrency() == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 0, best, bestOrder))
+			if (intent.m_Concurrency == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 0, best, bestOrder))
 			{
 				best = intent;
 				bestOrder = 0;
@@ -598,7 +609,7 @@ class dmAISurvivor
 		for (i = 0; i < intents.Count(); i++)
 		{
 			intent = intents[i];
-			if (intent.GetConcurrency() == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 1, best, bestOrder))
+			if (intent.m_Concurrency == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 1, best, bestOrder))
 			{
 				best = intent;
 				bestOrder = 1;
@@ -608,7 +619,7 @@ class dmAISurvivor
 		for (i = 0; i < intents.Count(); i++)
 		{
 			intent = intents[i];
-			if (intent.GetConcurrency() == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 2, best, bestOrder))
+			if (intent.m_Concurrency == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 2, best, bestOrder))
 			{
 				best = intent;
 				bestOrder = 2;
@@ -622,20 +633,9 @@ class dmAISurvivor
 	{
 		if (!b)
 			return true;
-		int ra = PriorityRank(a.GetPriority());
-		int rb = PriorityRank(b.GetPriority());
-		if (ra != rb)
-			return ra > rb;
+		if (a.m_Priority != b.m_Priority)
+			return a.m_Priority > b.m_Priority;
 		return aPoolOrder > bPoolOrder;
-	}
-
-	private int PriorityRank(dmBotIntentPriority priority)
-	{
-		if (priority == dmBotIntentPriority.CRITICAL)
-			return 2;
-		if (priority == dmBotIntentPriority.DESIRABLE)
-			return 1;
-		return 0;
 	}
 
 	//! Smoothly steer the head toward the desired look target. If the target is
@@ -670,7 +670,7 @@ class dmAISurvivor
 		}
 
 		if (Math.AbsFloat(applyYaw) > 0.1)
-			#ifdef DM_BOT_TRACE
+			#ifdef DM_BOT_TRACE_LOOK
 			dmBotLog.Trace("UpdateLook() targetYawAbs=" + m_TargetLookYawAbs + " bodyYaw=" + bodyYaw + " relTarget=" + relTarget + " curYaw=" + m_CurLookYaw + " pitch=" + m_TargetLookPitch);
 			#endif
 	}
@@ -722,10 +722,29 @@ class dmAISurvivor
 		return s_All.Count();
 	}
 
-	//! Advance every bot by one frame. Called by the server driver.
+	//! Override the brain tick interval (seconds). Default DM_BOT_TICK_INTERVAL.
+	static void SetTickInterval(float seconds)
+	{
+		s_TickInterval = seconds;
+	}
+
+	//! Advance every bot at a fixed rate. Called by the server driver every frame;
+	//! time is accumulated and the brain only runs once per s_TickInterval, so it
+	//! doesn't over-tick relative to the pawn simulation (see DM_BOT_TICK_INTERVAL).
 	static void TickAll(float pDt)
 	{
+		s_TickAccum += pDt;
+		if (s_TickAccum < s_TickInterval)
+			return;
+
+		float dt = s_TickAccum;
+		s_TickAccum = 0.0;
+
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Tick");
+		#endif
+
 		for (int i = 0; i < s_All.Count(); i++)
-			s_All[i].OnUpdate(pDt);
+			s_All[i].OnUpdate(dt);
 	}
 }

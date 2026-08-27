@@ -2,9 +2,10 @@
 //!
 //! Debug/Trace always Print here. The expensive part is the string building at
 //! the CALL SITE, and Enfusion does not optimize an empty function call away
-//! like C++ would, so each call site is gated with #ifdef DM_BOT_DEBUG /
-//! DM_BOT_TRACE (see botorama/cons/4_World/defines.c). That compiles out both
-//! the call AND the string concatenation when the define is off.
+//! like C++ would, so each call site is gated with its domain define
+//! (DM_BOT_DEBUG_* / DM_BOT_TRACE_*, see botorama/cons/4_World/defines.c).
+//! That compiles out both the call AND the string concatenation when the define
+//! is off.
 //!
 //! Every line is prefixed with a wall-clock HH:MM:SS timestamp so log entries can
 //! be correlated with the server/client RPT logs.
@@ -37,7 +38,7 @@ class dmBotLog
 		Print(TimeStamp() + " [dmBot][error] " + msg);
 	}
 
-	//! Log the mod version once. Always printed (not gated by DM_BOT_DEBUG),
+	//! Log the mod version once. Always printed (not gated by any DM_BOT_DEBUG_*),
 	//! so the loaded mod version is visible in both server and client logs.
 	static void LogVersion()
 	{

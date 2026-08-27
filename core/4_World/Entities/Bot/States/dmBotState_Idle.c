@@ -14,7 +14,7 @@ class dmBotState_Idle : dmBotState
 		m_TotalTimer = 0.0;
 		m_Duration = Math.RandomFloatInclusive(30.0, 90.0);
 
-		#ifdef DM_BOT_DEBUG
+		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Idle.entry duration=" + m_Duration);
 		#endif
 	}
