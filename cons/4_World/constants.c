@@ -59,10 +59,6 @@ static const float DM_STEALTH_PRONE_DWELL_TIME = 300.0;
 static const float DM_SPEED_WALK = 1.4;
 static const float DM_SPEED_JOG = 3.6;
 
-//! Max angle (degrees) between body facing and movement direction before MoveTo
-//! stops to turn in place (stop-turn-walk) instead of strafing/backpedaling.
-static const float DM_MOVE_FACE_THRESHOLD = 30.0;
-
 //! Max age (seconds) of an intent without a deadline before the arbitration
 //! removes it (safety net — no intent lives forever).
 static const float DM_INTENT_MAX_AGE = 300.0;

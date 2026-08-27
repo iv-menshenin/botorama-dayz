@@ -40,8 +40,21 @@ class dmAISurvivorBase : PlayerBase
 	//! which flips non-zero during the foot-step turn itself and cancels it.
 	private bool m_IsMoving = false;
 
+	//! Desired movement direction (relative to body, degrees) and speed (0..3),
+	//! written by the brain and applied per-frame by ApplyMovement.
+	private float m_DesiredMoveAngle = 0.0;
+	private float m_DesiredSpeed = 0.0;
+
+	//! Desired stance (STANCEIDX_*), written by the brain, applied by ApplyStance.
+	private int m_DesiredStance;
+
+	//! Timeout until the next stance-change step may be forced.
+	private float m_StanceTimeout = 0.0;
+
 	void dmAISurvivorBase()
 	{
+		m_DesiredStance = DayZPlayerConstants.STANCEIDX_ERECT;
+
 		RegisterNetSyncVariableFloat("m_LookYawDeg", -DM_LOOK_MAX_YAW, DM_LOOK_MAX_YAW, 1);
 		RegisterNetSyncVariableFloat("m_LookPitchDeg", -DM_LOOK_MAX_PITCH, DM_LOOK_MAX_PITCH, 1);
 	}
@@ -119,6 +132,8 @@ class dmAISurvivorBase : PlayerBase
 		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);
 
 		ApplyBodyTurn(pDt);
+		ApplyMovement();
+		ApplyStance(pDt);
 
 		if (Math.AbsFloat(m_LookYawDeg - m_LastLogLookYaw) > 0.5 || Math.AbsFloat(m_LookPitchDeg - m_LastLogLookPitch) > 0.5)
 		{
@@ -221,16 +236,74 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
+	//! Apply the desired movement (direction + speed) via ONE_FRAME overrides.
+	//! ONE_FRAME auto-disables after this CommandHandler, so a stale override can't
+	//! accumulate if the brain stops writing the desired state.
+	void ApplyMovement()
+	{
+		HumanInputController hic = GetInputController();
+		hic.OverrideMovementAngle(HumanInputControllerOverrideType.ONE_FRAME, m_DesiredMoveAngle);
+		hic.OverrideMovementSpeed(HumanInputControllerOverrideType.ONE_FRAME, m_DesiredSpeed);
+	}
+
+	//! Apply the desired stance, stepping through crouch for erect<->prone.
+	void ApplyStance(float pDt)
+	{
+		HumanCommandMove move = GetCommand_Move();
+		if (!move)
+			return;
+
+		GetMovementState(m_MovementState);
+		int current = m_MovementState.m_iStanceIdx;
+		if (current >= DayZPlayerConstants.STANCEIDX_RAISED)
+			current -= DayZPlayerConstants.STANCEIDX_RAISED;
+
+		if (m_DesiredStance == current)
+		{
+			m_StanceTimeout = 0.0;
+			return;
+		}
+
+		if (m_StanceTimeout > 0.0)
+		{
+			m_StanceTimeout -= pDt;
+			return;
+		}
+
+		//! erect<->prone can't be done directly; step through crouch.
+		int next = m_DesiredStance;
+		if (current == DayZPlayerConstants.STANCEIDX_ERECT && m_DesiredStance == DayZPlayerConstants.STANCEIDX_PRONE)
+			next = DayZPlayerConstants.STANCEIDX_CROUCH;
+		else if (current == DayZPlayerConstants.STANCEIDX_PRONE && m_DesiredStance == DayZPlayerConstants.STANCEIDX_ERECT)
+			next = DayZPlayerConstants.STANCEIDX_CROUCH;
+
+		move.ForceStance(next);
+
+		if (next == DayZPlayerConstants.STANCEIDX_PRONE || current == DayZPlayerConstants.STANCEIDX_PRONE)
+			m_StanceTimeout = DM_STANCE_TIMEOUT_PRONE;
+		else
+			m_StanceTimeout = DM_STANCE_TIMEOUT_CROUCH;
+	}
+
 	//! Set the desired body yaw (world, degrees). Called by the controller.
 	void SetTargetBodyYaw(float yaw)
 	{
 		m_TargetBodyYaw = yaw;
 	}
 
-	//! Set whether the bot should be moving. Called by the controller (SetMove).
-	void SetMoving(bool moving)
+	//! Set the desired movement (direction relative to body + speed). Called by
+	//! the brain; applied by ApplyMovement in the CommandHandler.
+	void SetMove(float angle, float speed)
 	{
-		m_IsMoving = moving;
+		m_DesiredMoveAngle = angle;
+		m_DesiredSpeed = speed;
+		m_IsMoving = speed > 0.0;
+	}
+
+	//! Set the desired stance (STANCEIDX_*). Applied by ApplyStance.
+	void SetStance(int stanceIdx)
+	{
+		m_DesiredStance = stanceIdx;
 	}
 
 	//! Set the head look horizontal offset (degrees, relative to the body facing).
