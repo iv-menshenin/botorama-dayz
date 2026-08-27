@@ -11,6 +11,9 @@ class dmCommandContext
 	//! Cover position for a draft "stealth" state.
 	static vector s_DraftStealthCover;
 
+	//! Bots spawned by the overload test (prepared, not yet run).
+	static ref array<ref dmAISurvivor> s_OverloadBots = new array<ref dmAISurvivor>;
+
 	//! The bot bound to the player (or null).
 	static dmAISurvivor FindBotForPlayer(PlayerBase player)
 	{
@@ -87,5 +90,14 @@ class dmCommandContext
 		float c = Math.Cos(rad);
 		float s = Math.Sin(rad);
 		return Vector(dir[0] * c - dir[2] * s, 0.0, dir[0] * s + dir[2] * c);
+	}
+
+	//! Random horizontal offset within a radius (random direction + distance).
+	static vector RandomHorizontalOffset(float radius)
+	{
+		float angle = Math.RandomFloat(0.0, 360.0);
+		float dist = Math.RandomFloat(0.0, radius);
+		float rad = angle * Math.DEG2RAD;
+		return Vector(Math.Cos(rad) * dist, 0.0, Math.Sin(rad) * dist);
 	}
 }

@@ -29,6 +29,19 @@ static const string DM_CHAT_FSM_STEALTH = "stealth";
 //! Test command family ("/test ...").
 static const string DM_CHAT_CMD_TEST = "test";
 
+//! Test scenario "overload" and its sub-commands.
+static const string DM_CHAT_TEST_OVERLOAD = "overload";
+static const string DM_CHAT_TEST_PREPARE = "prepare";
+static const string DM_CHAT_TEST_RUN = "run";
+
+//! Overload test: spawn radius / patrol radius / patrol point count.
+static const float DM_TEST_OVERLOAD_SPAWN_RADIUS = 15.0;
+static const float DM_TEST_OVERLOAD_PATROL_RADIUS = 100.0;
+static const int DM_TEST_OVERLOAD_POINTS = 25;
+
+//! Overload test: look-at-player intent lifetime (10 minutes).
+static const float DM_TEST_OVERLOAD_LOOK_DEADLINE = 600.0;
+
 //! Intent "stance" action and stance names.
 static const string DM_CHAT_STANCE = "stance";
 static const string DM_CHAT_STANCE_ERECT = "erect";
