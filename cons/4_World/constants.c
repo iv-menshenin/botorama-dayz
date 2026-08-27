@@ -44,3 +44,12 @@ static const float DM_PATH_WAYPOINT_REACH = 0.5;
 
 //! Max path recalculations on stuck before MoveTo aborts.
 static const int DM_MOVE_MAX_RECALC = 1;
+
+//! Stance transition timeout (seconds) for erect<->crouch.
+static const float DM_STANCE_TIMEOUT_CROUCH = 0.3;
+
+//! Stance transition timeout (seconds) for crouch<->prone.
+static const float DM_STANCE_TIMEOUT_PRONE = 0.75;
+
+//! Time (seconds) the bot stays prone at cover before exiting Stealth.
+static const float DM_STEALTH_PRONE_DWELL_TIME = 300.0;

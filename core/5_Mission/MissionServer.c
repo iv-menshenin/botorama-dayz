@@ -16,6 +16,7 @@ modded class MissionServer
 {
 	static ref map<string, ref dmAISurvivor> s_TestBotByPlayer = new map<string, ref dmAISurvivor>;
 	static ref array<string> s_DraftStates = new array<string>;
+	static vector s_DraftStealthCover;
 
 	override void OnInit()
 	{
@@ -200,6 +201,8 @@ modded class MissionServer
 			return HandleIntentLookAtMe(playerName);
 		if (action == DM_CHAT_GOTO)
 			return HandleIntentGoto(playerName);
+		if (action == DM_CHAT_STANCE)
+			return HandleIntentStance(playerName, parts);
 		if (action == DM_CHAT_CLEAR)
 			return HandleIntentClear(playerName);
 		return false;
@@ -293,6 +296,50 @@ modded class MissionServer
 		dmBotLog.Debug("HandleIntentGoto() target=" + point);
 		#endif
 		GetGame().ChatMP(player, "Иду в точку " + point, "colorAction");
+		return true;
+	}
+
+	//! Bot holds a stance (erect/crouch/prone) until cleared (no deadline).
+	bool HandleIntentStance(string playerName, array<string> parts)
+	{
+		if (parts.Count() < 4)
+		{
+			ChatToPlayer(playerName, "Укажи стойку: /bot intent stance erect|crouch|prone");
+			return false;
+		}
+
+		dmAISurvivor bot = FindBotForPlayer(playerName);
+		if (!bot)
+		{
+			ChatToPlayer(playerName, "Нет бота — сначала /bot spawn test");
+			return false;
+		}
+
+		string stanceName = parts[3];
+		int stanceIdx;
+		if (stanceName == DM_CHAT_STANCE_ERECT)
+			stanceIdx = DayZPlayerConstants.STANCEIDX_ERECT;
+		else if (stanceName == DM_CHAT_STANCE_CROUCH)
+			stanceIdx = DayZPlayerConstants.STANCEIDX_CROUCH;
+		else if (stanceName == DM_CHAT_STANCE_PRONE)
+			stanceIdx = DayZPlayerConstants.STANCEIDX_PRONE;
+		else
+		{
+			ChatToPlayer(playerName, "Неизвестная стойка: " + stanceName);
+			return false;
+		}
+
+		dmBotIntent_Stance stance = new dmBotIntent_Stance();
+		stance.m_Stance = stanceIdx;
+		stance.m_Priority = dmBotIntentPriority.CRITICAL;
+		stance.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+		stance.m_Deadline = -1.0;
+		bot.AddCommandIntent(stance);
+
+		#ifdef DM_BOT_DEBUG
+		dmBotLog.Debug("HandleIntentStance() stance=" + stanceName);
+		#endif
+		ChatToPlayer(playerName, "Стойка: " + stanceName + " (сброс — /bot intent clear)");
 		return true;
 	}
 
@@ -415,10 +462,25 @@ modded class MissionServer
 		}
 
 		string state = parts[2];
-		if (state != DM_CHAT_FSM_IDLE && state != DM_CHAT_FSM_PATROL)
+		if (state != DM_CHAT_FSM_IDLE && state != DM_CHAT_FSM_PATROL && state != DM_CHAT_FSM_STEALTH)
 		{
 			ChatToPlayer(playerName, "Неизвестное состояние: " + state);
 			return false;
+		}
+
+		if (state == DM_CHAT_FSM_STEALTH)
+		{
+			PlayerBase player = FindPlayerByName(playerName);
+			if (!player)
+			{
+				ChatToPlayer(playerName, "Игрок не найден");
+				return false;
+			}
+
+			GetPlayerLookPoint(player, s_DraftStealthCover);
+			#ifdef DM_BOT_DEBUG
+			dmBotLog.Debug("HandleFSMAdd() stealth cover=" + s_DraftStealthCover);
+			#endif
 		}
 
 		s_DraftStates.Insert(state);
@@ -446,6 +508,12 @@ modded class MissionServer
 			return new dmBotState_Idle();
 		if (name == DM_CHAT_FSM_PATROL)
 			return new dmBotState_Patrol();
+		if (name == DM_CHAT_FSM_STEALTH)
+		{
+			dmBotState_Stealth stealth = new dmBotState_Stealth();
+			stealth.m_CoverPosition = s_DraftStealthCover;
+			return stealth;
+		}
 		return null;
 	}
 

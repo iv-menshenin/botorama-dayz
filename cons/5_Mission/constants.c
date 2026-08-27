@@ -24,6 +24,13 @@ static const string DM_CHAT_FSM_NEW = "new";
 static const string DM_CHAT_FSM_APPLY = "apply";
 static const string DM_CHAT_FSM_IDLE = "idle";
 static const string DM_CHAT_FSM_PATROL = "patrol";
+static const string DM_CHAT_FSM_STEALTH = "stealth";
+
+//! Intent "stance" action and stance names.
+static const string DM_CHAT_STANCE = "stance";
+static const string DM_CHAT_STANCE_ERECT = "erect";
+static const string DM_CHAT_STANCE_CROUCH = "crouch";
+static const string DM_CHAT_STANCE_PRONE = "prone";
 
 //! Distance (meters) for the "where is the player looking" raycast.
 static const float DM_LOOK_RAYCAST_DISTANCE = 200.0;

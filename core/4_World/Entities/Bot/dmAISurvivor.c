@@ -42,6 +42,16 @@ class dmAISurvivor
 	//! True while walking (movement controls body facing).
 	private bool m_IsMoving = false;
 
+	//! Desired stance (DayZPlayerConstants.STANCEIDX_*), set by stance intents
+	//! and reset to ERECT each arbitration tick (the background "stand" intent).
+	private int m_DesiredStance;
+
+	//! Timeout until the next stance-change step may be forced.
+	private float m_StanceTimeout = 0.0;
+
+	//! Reused buffer for reading the pawn's movement state (stance).
+	private ref HumanMovementState m_MoveState;
+
 	//! Intent pools: FSM (automatic), personality (interrupts), command (orders).
 	private ref dmBotIntentPool m_FSMIntents;
 	private ref dmBotIntentPool m_PersonalityIntents;
@@ -60,6 +70,8 @@ class dmAISurvivor
 		m_CommandIntents = new dmBotIntentPool();
 		m_PatrolPoints = new array<vector>();
 		m_Targets = new array<ref dmTarget>();
+		m_MoveState = new HumanMovementState();
+		m_DesiredStance = DayZPlayerConstants.STANCEIDX_ERECT;
 	}
 
 	//! Model class to use. Must be set before Spawn().
@@ -275,6 +287,7 @@ class dmAISurvivor
 
 		UpdateIntents(pDt);
 		UpdateLook(pDt);
+		ApplyStance(pDt);
 	}
 
 	//------------------------------------------------------------------
@@ -372,6 +385,56 @@ class dmAISurvivor
 			return false;
 
 		return m_Pathfinder.FindPath(GetPosition(), sampled, path);
+	}
+
+	//! Set the desired stance (STANCEIDX_ERECT/CROUCH/PRONE). Called by stance
+	//! intents during arbitration; applied by ApplyStance when it changes.
+	void SetStance(int stanceIdx)
+	{
+		m_DesiredStance = stanceIdx;
+	}
+
+	//! Apply the desired stance, transitioning through crouch for erect<->prone.
+	//! Called after arbitration; ForceStance is invoked only on actual change.
+	void ApplyStance(float pDt)
+	{
+		if (!m_Pawn)
+			return;
+
+		HumanCommandMove move = m_Pawn.GetCommand_Move();
+		if (!move)
+			return;
+
+		m_Pawn.GetMovementState(m_MoveState);
+		int current = m_MoveState.m_iStanceIdx;
+		if (current >= DayZPlayerConstants.STANCEIDX_RAISED)
+			current -= DayZPlayerConstants.STANCEIDX_RAISED;
+
+		if (m_DesiredStance == current)
+		{
+			m_StanceTimeout = 0.0;
+			return;
+		}
+
+		if (m_StanceTimeout > 0.0)
+		{
+			m_StanceTimeout -= pDt;
+			return;
+		}
+
+		//! erect<->prone can't be done directly; step through crouch.
+		int next = m_DesiredStance;
+		if (current == DayZPlayerConstants.STANCEIDX_ERECT && m_DesiredStance == DayZPlayerConstants.STANCEIDX_PRONE)
+			next = DayZPlayerConstants.STANCEIDX_CROUCH;
+		else if (current == DayZPlayerConstants.STANCEIDX_PRONE && m_DesiredStance == DayZPlayerConstants.STANCEIDX_ERECT)
+			next = DayZPlayerConstants.STANCEIDX_CROUCH;
+
+		move.ForceStance(next);
+
+		if (next == DayZPlayerConstants.STANCEIDX_PRONE || current == DayZPlayerConstants.STANCEIDX_PRONE)
+			m_StanceTimeout = DM_STANCE_TIMEOUT_PRONE;
+		else
+			m_StanceTimeout = DM_STANCE_TIMEOUT_CROUCH;
 	}
 
 	//------------------------------------------------------------------
@@ -473,6 +536,7 @@ class dmAISurvivor
 	{
 		LookForward();   // взгляд — канал: сброс вперёд; победитель переустанавливает
 		SetWalk(false);  // движение — канал: сброс; победитель переустанавливает
+		SetStance(DayZPlayerConstants.STANCEIDX_ERECT); // стойка — фоновое «стоять»
 
 		m_FSMIntents.Tick(this, pDt);
 		m_CommandIntents.Tick(this, pDt);
