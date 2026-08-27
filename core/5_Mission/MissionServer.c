@@ -114,6 +114,9 @@ modded class MissionServer
 		if (parts[1] == DM_CHAT_PATROL)
 			return HandleBotPatrol(playerName, parts);
 
+		if (parts[1] == DM_CHAT_SPEED)
+			return HandleBotSpeed(playerName, parts);
+
 		return false;
 	}
 
@@ -203,6 +206,8 @@ modded class MissionServer
 			return HandleIntentGoto(playerName);
 		if (action == DM_CHAT_STANCE)
 			return HandleIntentStance(playerName, parts);
+		if (action == DM_CHAT_STANCE_CROUCH)
+			return HandleIntentCrouch(playerName);
 		if (action == DM_CHAT_CLEAR)
 			return HandleIntentClear(playerName);
 		return false;
@@ -290,6 +295,7 @@ modded class MissionServer
 		move.m_Target = point;
 		move.m_Priority = dmBotIntentPriority.CRITICAL;
 		move.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+		move.m_Deadline = DM_TEST_COMMAND_DEADLINE;
 		bot.AddCommandIntent(move);
 
 		#ifdef DM_BOT_DEBUG
@@ -333,13 +339,37 @@ modded class MissionServer
 		stance.m_Stance = stanceIdx;
 		stance.m_Priority = dmBotIntentPriority.CRITICAL;
 		stance.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
-		stance.m_Deadline = -1.0;
+		stance.m_Deadline = DM_TEST_COMMAND_DEADLINE;
 		bot.AddCommandIntent(stance);
 
 		#ifdef DM_BOT_DEBUG
 		dmBotLog.Debug("HandleIntentStance() stance=" + stanceName);
 		#endif
 		ChatToPlayer(playerName, "Стойка: " + stanceName + " (сброс — /bot intent clear)");
+		return true;
+	}
+
+	//! Shortcut: crouch for a limited time (5 minutes), then auto-stand.
+	bool HandleIntentCrouch(string playerName)
+	{
+		dmAISurvivor bot = FindBotForPlayer(playerName);
+		if (!bot)
+		{
+			ChatToPlayer(playerName, "Нет бота — сначала /bot spawn test");
+			return false;
+		}
+
+		dmBotIntent_Stance stance = new dmBotIntent_Stance();
+		stance.m_Stance = DayZPlayerConstants.STANCEIDX_CROUCH;
+		stance.m_Priority = dmBotIntentPriority.CRITICAL;
+		stance.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+		stance.m_Deadline = DM_TEST_STANCE_DEADLINE;
+		bot.AddCommandIntent(stance);
+
+		#ifdef DM_BOT_DEBUG
+		dmBotLog.Debug("HandleIntentCrouch()");
+		#endif
+		ChatToPlayer(playerName, "Крадучись (5 минут)");
 		return true;
 	}
 
@@ -418,6 +448,44 @@ modded class MissionServer
 
 		bot.ClearPatrolPoints();
 		ChatToPlayer(playerName, "Точки патруля очищены");
+		return true;
+	}
+
+	//------------------------------------------------------------------
+	// Speed (/bot speed ...)
+	//------------------------------------------------------------------
+
+	bool HandleBotSpeed(string playerName, array<string> parts)
+	{
+		if (parts.Count() < 3)
+		{
+			ChatToPlayer(playerName, "Укажи скорость: /bot speed walk|jog|sprint");
+			return false;
+		}
+
+		dmAISurvivor bot = FindBotForPlayer(playerName);
+		if (!bot)
+		{
+			ChatToPlayer(playerName, "Нет бота — сначала /bot spawn test");
+			return false;
+		}
+
+		string speedName = parts[2];
+		float speed;
+		if (speedName == DM_CHAT_SPEED_WALK)
+			speed = 1.0;
+		else if (speedName == DM_CHAT_SPEED_JOG)
+			speed = 2.0;
+		else if (speedName == DM_CHAT_SPEED_SPRINT)
+			speed = 3.0;
+		else
+		{
+			ChatToPlayer(playerName, "Неизвестная скорость: " + speedName);
+			return false;
+		}
+
+		bot.SetPreferredSpeed(speed);
+		ChatToPlayer(playerName, "Предпочтительная скорость: " + speedName);
 		return true;
 	}
 

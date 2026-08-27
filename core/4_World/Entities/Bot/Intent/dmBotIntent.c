@@ -71,7 +71,9 @@ class dmBotIntent
 
 	bool IsExpired()
 	{
-		return m_Deadline >= 0.0 && m_Age > m_Deadline;
+		if (m_Deadline >= 0.0)
+			return m_Age > m_Deadline;
+		return m_Age > DM_INTENT_MAX_AGE; // нет дедлайна -> автодедлайн (безопасность)
 	}
 
 	dmBotIntentPriority GetPriority()

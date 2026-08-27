@@ -12,7 +12,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 {
 	vector m_Target;
 	float m_ReachDistance = 0.5;
-	float m_Speed = 1.0;
+	float m_ReachDeadline = 0.0;   // seconds to reach the target; 0 = no deadline
 
 	ref array<vector> m_Path;
 	int m_PathIdx = 0;
@@ -70,10 +70,21 @@ class dmBotIntent_MoveTo : dmBotIntent
 		float bodyYaw = bot.GetOrientation()[0];
 		float moveAngle = dmAISurvivor.AngleDiff(subYaw, bodyYaw);
 
+		//! Stop-turn-walk: if the body faces away from the movement direction, stop
+		//! and let the idle foot-step turn rotate it (the moving slide-turn is broken
+		//! — vanilla heading model overrides it). Pause the progress monitor.
+		if (Math.AbsFloat(moveAngle) > DM_MOVE_FACE_THRESHOLD)
+		{
+			bot.LookAtPoint(subGoal + Vector(0, DM_EYE_HEIGHT, 0), dmBotLookTurn.FULL);
+			bot.SetMove(0.0, 0.0);
+			m_NoProgressTime = 0.0;
+			return;
+		}
+
 		//! Request the body to face the waypoint. If a higher-priority look intent
 		//! owns the body, moveAngle becomes the strafe/backpedal direction instead.
 		bot.LookAtPoint(subGoal + Vector(0, DM_EYE_HEIGHT, 0), dmBotLookTurn.FULL);
-		bot.SetMove(moveAngle, m_Speed);
+		bot.SetMove(moveAngle, bot.CalcSpeed(m_Target, m_ReachDeadline));
 
 		if (m_BestDist < 0.0)
 		{

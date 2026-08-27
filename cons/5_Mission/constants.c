@@ -32,6 +32,18 @@ static const string DM_CHAT_STANCE_ERECT = "erect";
 static const string DM_CHAT_STANCE_CROUCH = "crouch";
 static const string DM_CHAT_STANCE_PRONE = "prone";
 
+//! Sub-command "speed" and its values (preferred movement speed).
+static const string DM_CHAT_SPEED = "speed";
+static const string DM_CHAT_SPEED_WALK = "walk";
+static const string DM_CHAT_SPEED_JOG = "jog";
+static const string DM_CHAT_SPEED_SPRINT = "sprint";
+
+//! Lifetime (seconds) for the "/bot intent crouch" shortcut intent.
+static const float DM_TEST_STANCE_DEADLINE = 300.0;
+
+//! Default deadline (seconds) for /bot intent commands without an explicit one.
+static const float DM_TEST_COMMAND_DEADLINE = 60.0;
+
 //! Distance (meters) for the "where is the player looking" raycast.
 static const float DM_LOOK_RAYCAST_DISTANCE = 200.0;
 

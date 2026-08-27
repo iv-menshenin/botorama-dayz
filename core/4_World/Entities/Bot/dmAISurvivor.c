@@ -52,6 +52,9 @@ class dmAISurvivor
 	//! Reused buffer for reading the pawn's movement state (stance).
 	private ref HumanMovementState m_MoveState;
 
+	//! Preferred movement speed (1=walk, 2=jog, 3=sprint). Base for CalcSpeed.
+	private float m_PreferredSpeed = 2.0;
+
 	//! Intent pools: FSM (automatic), personality (interrupts), command (orders).
 	private ref dmBotIntentPool m_FSMIntents;
 	private ref dmBotIntentPool m_PersonalityIntents;
@@ -392,6 +395,35 @@ class dmAISurvivor
 	void SetStance(int stanceIdx)
 	{
 		m_DesiredStance = stanceIdx;
+	}
+
+	//! Set the bot's preferred movement speed (1=walk, 2=jog, 3=sprint).
+	void SetPreferredSpeed(float speed)
+	{
+		m_PreferredSpeed = speed;
+	}
+
+	//! Compute the movement speed for reaching toPoint, isolated here so the
+	//! movement machinery doesn't hardcode it and character traits can be added.
+	//! @param deadline seconds; 0 = no deadline (use preferred speed). If > 0,
+	//!        the speed is raised to the minimum needed to reach toPoint in time.
+	float CalcSpeed(vector toPoint, float deadline)
+	{
+		float speed = m_PreferredSpeed;
+		if (deadline > 0.0)
+		{
+			vector dir = toPoint - GetPosition();
+			dir[1] = 0.0;
+			float required = dir.Length() / deadline;
+			float reqIdx = 1.0;
+			if (required > DM_SPEED_JOG)
+				reqIdx = 3.0;
+			else if (required > DM_SPEED_WALK)
+				reqIdx = 2.0;
+			if (reqIdx > speed)
+				speed = reqIdx;
+		}
+		return speed;
 	}
 
 	//! Apply the desired stance, transitioning through crouch for erect<->prone.
