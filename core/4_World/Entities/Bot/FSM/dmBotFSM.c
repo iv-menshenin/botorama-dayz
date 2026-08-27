@@ -83,6 +83,10 @@ class dmBotFSM
 	//! Advance one tick. Called by the bot's OnUpdate.
 	void Update(float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("FSM.Update");
+		#endif
+
 		if (!m_CurrentState)
 		{
 			Start();

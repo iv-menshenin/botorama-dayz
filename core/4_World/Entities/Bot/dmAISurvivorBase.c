@@ -134,6 +134,10 @@ class dmAISurvivorBase : PlayerBase
 	//! so the vanilla command processing doesn't consume/overwrite them.
 	override void CommandHandler(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("CommandHandler");
+		#endif
+
 		ApplyLookVars();
 
 		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);

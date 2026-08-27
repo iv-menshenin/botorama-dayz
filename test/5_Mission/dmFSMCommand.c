@@ -1,4 +1,13 @@
-//! dmFSMCommand — "/fsm ..." commands: draft a state machine (new/add/apply).
+//! dmFSMCommand — команды "/fsm ...": сборка машины состояний из черновика.
+//!
+//!   /fsm new         — начать новый (пустой) черновик FSM.
+//!   /fsm add idle    — добавить в черновик состояние Idle.
+//!   /fsm add patrol  — добавить в черновик состояние Patrol.
+//!   /fsm add stealth — добавить в черновик состояние Stealth (запоминает точку
+//!                      взгляда игрока как укрытие).
+//!   /fsm apply       — собрать FSM из черновика (все состояния соединяются
+//!                      переходами между собой) и применить его к боту,
+//!                      привязанному к игроку.
 
 class dmFSMCommand : dmCommandModule
 {

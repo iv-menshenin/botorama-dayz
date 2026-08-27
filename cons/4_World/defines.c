@@ -17,6 +17,7 @@
 //! Available defines:
 //!   DM_BOT_DEBUG — basic debug logging (spawn/despawn, chat commands).
 //!   DM_BOT_TRACE — verbose trace logging.
+//!   DM_BOT_PROFILE — accumulate per-frame timings (dmBotProfiler); dump via "/prof dump".
 //!
 //! Gating is done at the CALL SITE, not inside dmBotLog:
 //!

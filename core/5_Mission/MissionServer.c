@@ -28,6 +28,10 @@ modded class MissionServer
 	{
 		super.OnUpdate(timeslice);
 
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Tick");
+		#endif
+
 		//! Heartbeat for all bots.
 		dmAISurvivor.TickAll(timeslice);
 	}

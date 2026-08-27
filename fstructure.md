@@ -26,6 +26,7 @@
 - `Commands/` — движок чат-команд (`dmCommandManager`/`dmCommandModule`).
 - `Logging/` — логирование (`dmBotLog`).
 - `Config/` — чтение/запись JSON-конфигов (`dmJsonFile`, `dmJsonConfigBase`).
+- `Profiling/` — профайлер (`dmBotProfiler`, scope-guard + CSV-дамп).
 
 ## Дерево
 
@@ -53,6 +54,8 @@ botorama/
     │   └── Config/              # JSON-конфиги (переиспользуемые, без привязки к ботам)
     │       ├── dmJsonFile.c     # generic reader/writer + версионирование
     │       └── dmJsonConfigBase.c # база для версионируемых конфиг-структур
+    │   └── Profiling/           # профайлер (scope-guard + CSV-дамп)
+    │       └── dmBotProfiler.c  # dmBotProfiler/dmBotSpan/dmProfEntry
     ├── 4_World/
     │   └── Entities/
     │       └── Bot/
@@ -83,7 +86,8 @@ test/                       # тестовые команды/сценарии (
         ├── dmCommandContext.c  # общее состояние + доменные хелперы
         ├── dmBotCommand.c      # "/bot ..." (spawn/intent/patrol/speed)
         ├── dmFSMCommand.c      # "/fsm ..." (new/add/apply)
-        └── dmTestCommand.c     # "/test ..." (сценарии)
+        ├── dmTestCommand.c     # "/test ..." (сценарии)
+        └── dmProfCommand.c     # "/prof ..." (dump/clear)
 ```
 
 ## Правила размещения
@@ -97,12 +101,14 @@ test/                       # тестовые команды/сценарии (
 - Pathfinding (`dmBotPathfinder`) → `core/4_World/Entities/Bot/Pathfinding/`.
 - Логирование (`dmBotLog`) → `core/3_Game/Logging/` (нужно и серверу, и клиенту).
 - Читатель JSON-конфигов (`dmJsonFile`/`dmJsonConfigBase`) → `core/3_Game/Config/` (переиспользуемый, не привязан к ботам).
+- Профайлер (`dmBotProfiler`) → `core/3_Game/Profiling/` (нужен серверу; грузится до world/mission, откуда он инструментируется).
 - Константы → `cons/<слой>/constants.c`.
 - Версия мода (`DM_BOTORAMA_VERSION`) → `cons/3_Game/constants.c` (используется из 3_Game; модуль грузится первым).
 - Дефайны логирования → `cons/4_World/defines.c`.
 - Миссия (`MissionServer`/`MissionGameplay`) → `core/5_Mission/`.
 - Движок чат-команд (`dmCommandManager`/`dmCommandModule`) → `core/5_Mission/Commands/`.
 - Тестовые команды/сценарии (`dmBotCommand`/`dmFSMCommand`/`dmTestCommand`, `dmCommandContext`) → `test/5_Mission/`.
+- Команда профайлера (`dmProfCommand`) → `test/5_Mission/`.
 - Графы анимаций → `Animations/`.
 
 При добавлении нового файла: кладём в подходящую функциональную папку своего слоя;

@@ -32,6 +32,10 @@ class dmBotPathfinder
 	//! when no path exists (or the AIWorld is unavailable).
 	bool FindPath(vector from, vector to, inout array<vector> waypoints)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Path.Find");
+		#endif
+
 		if (!m_AIWorld)
 			return false;
 

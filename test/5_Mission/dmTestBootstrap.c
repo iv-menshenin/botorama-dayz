@@ -15,5 +15,6 @@ modded class MissionServer
 		mgr.Register(new dmBotCommand());
 		mgr.Register(new dmFSMCommand());
 		mgr.Register(new dmTestCommand());
+		mgr.Register(new dmProfCommand());
 	}
 }

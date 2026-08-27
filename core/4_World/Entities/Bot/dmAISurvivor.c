@@ -275,6 +275,10 @@ class dmAISurvivor
 	//! The bot's heartbeat. Called every frame by the server driver.
 	void OnUpdate(float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Bot.Update");
+		#endif
+
 		if (!m_Pawn)
 			return;
 
@@ -528,6 +532,10 @@ class dmAISurvivor
 	//! Resolve and execute intents each tick (arbitration, recomputed every tick).
 	void UpdateIntents(float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Intents");
+		#endif
+
 		LookForward();   // взгляд — канал: сброс вперёд; победитель переустанавливает
 		SetWalk(false);  // движение — канал: сброс; победитель переустанавливает
 		SetStance(DayZPlayerConstants.STANCEIDX_ERECT); // стойка — фоновое «стоять»
@@ -635,6 +643,10 @@ class dmAISurvivor
 	//! (looking back over the shoulder instead of getting stuck).
 	void UpdateLook(float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Look");
+		#endif
+
 		if (!m_Pawn)
 			return;
 

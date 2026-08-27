@@ -21,7 +21,7 @@ class CfgMods
 		author = "devalio";
 		version = 2.4;
 		type = "mod";
-		defines[] = { "DM_BOT_DEBUG", "DM_BOT_TRACE" };	
+		defines[] = { "DM_BOT_DEBUG", "DM_BOT_TRACE", "DM_BOT_PROFILE" };	
 		class defs 
 		{
 			class gameScriptModule {

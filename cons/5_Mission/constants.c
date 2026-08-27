@@ -65,3 +65,10 @@ static const float DM_LOOK_RAYCAST_DISTANCE = 200.0;
 
 //! Deadline (seconds) for the test "look" intents.
 static const float DM_TEST_LOOK_DEADLINE = 30.0;
+
+//! Profiler command family ("/prof ...").
+static const string DM_CHAT_PROF = "prof";
+static const string DM_CHAT_PROF_DUMP = "dump";
+static const string DM_CHAT_PROF_CLEAR = "clear";
+static const string DM_CHAT_PROF_START = "start";
+static const string DM_CHAT_PROF_STOP = "stop";
