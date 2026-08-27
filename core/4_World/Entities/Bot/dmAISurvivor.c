@@ -348,6 +348,10 @@ class dmAISurvivor
 
 		m_IsMoving = speed > 0.0;
 
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Pawn);
+		if (pawn)
+			pawn.SetMoving(speed > 0.0);
+
 		HumanInputController hic = m_Pawn.GetInputController();
 		hic.OverrideMovementAngle(HumanInputControllerOverrideType.ENABLED, angle);
 		hic.OverrideMovementSpeed(HumanInputControllerOverrideType.ENABLED, speed);

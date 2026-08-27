@@ -35,6 +35,11 @@ class dmAISurvivorBase : PlayerBase
 	private int m_TurnState = 0;
 	private float m_TurnTime = 0.0;
 
+	//! Whether the brain intends the bot to move (set by SetMove). Used to pick
+	//! slide-turn (moving) vs foot-step turn (idle) — NOT GetCurrentMovementSpeed(),
+	//! which flips non-zero during the foot-step turn itself and cancels it.
+	private bool m_IsMoving = false;
+
 	void dmAISurvivorBase()
 	{
 		RegisterNetSyncVariableFloat("m_LookYawDeg", -DM_LOOK_MAX_YAW, DM_LOOK_MAX_YAW, 1);
@@ -126,6 +131,24 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
+	//! Disable the vanilla body-turn (HeadingModel::RotateOrient) for the MOVE
+	//! command: it rotates the body toward the movement direction and overrides our
+	//! SetOrientation. We control the body orientation manually in ApplyBodyTurn.
+	//! Mirrors Expansion eAIBase.HeadingModel.
+	override bool HeadingModel(float pDt, SDayZPlayerHeadingModel pModel)
+	{
+		GetMovementState(m_MovementState);
+		if (m_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_MOVE)
+		{
+			m_fLastHeadingDiff = 0;
+			float angle = GetOrientation()[0] * Math.DEG2RAD;
+			pModel.m_fHeadingAngle = angle;
+			pModel.m_fOrientationAngle = angle;
+			return true;
+		}
+		return super.HeadingModel(pDt, pModel);
+	}
+
 	//! Signed angle difference, normalized to (-180, 180].
 	static float AngleDiff(float a, float b)
 	{
@@ -145,12 +168,13 @@ class dmAISurvivorBase : PlayerBase
 		float bodyYaw = GetOrientation()[0];
 		float dBody = AngleDiff(m_TargetBodyYaw, bodyYaw);
 
-		HumanCommandMove move = GetCommand_Move();
-		bool moving = move && move.GetCurrentMovementSpeed() > 0.01;
+		bool moving = m_IsMoving;
 
+		//! Slide-turn (SetOrientation) while moving (vanilla HeadingModel disabled,
+		//! so SetOrientation is authoritative).
 		if (moving)
 		{
-			//! Cancel any in-progress foot-step turn; slide instead while walking.
+			//! Cancel any in-progress foot-step turn; slide instead.
 			if (m_TurnState != 0)
 			{
 				if (m_CmdStopTurn >= 0)
@@ -168,6 +192,9 @@ class dmAISurvivorBase : PlayerBase
 			return;
 		}
 
+		//! Idle: native foot-stepping turn (root motion) for ALL stances — the
+		//! graph's TurnStanceSTM picks the stance-specific turn (erect step, crouch
+		//! step, prone roll).
 		if (m_TurnState == 0)
 		{
 			if (Math.AbsFloat(dBody) > 1.0)
@@ -198,6 +225,12 @@ class dmAISurvivorBase : PlayerBase
 	void SetTargetBodyYaw(float yaw)
 	{
 		m_TargetBodyYaw = yaw;
+	}
+
+	//! Set whether the bot should be moving. Called by the controller (SetMove).
+	void SetMoving(bool moving)
+	{
+		m_IsMoving = moving;
 	}
 
 	//! Set the head look horizontal offset (degrees, relative to the body facing).

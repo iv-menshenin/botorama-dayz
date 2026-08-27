@@ -628,11 +628,29 @@ modded class MissionServer
 		return null;
 	}
 
-	//! World point the player is looking at (raycast from their eyes).
+	//! World point the player is looking at (raycast along the camera look direction).
+	//! The camera direction is approximated on the server by the head bone's forward
+	//! vector (includes pitch), which is much closer to the crosshair than the
+	//! horizontal body heading (GetHeadingVector).
 	void GetPlayerLookPoint(PlayerBase player, out vector point)
 	{
-		vector beg = player.GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
-		vector dir = MiscGameplayFunctions.GetHeadingVector(player);
+		vector beg;
+		vector dir;
+
+		int headBone = player.GetBoneIndexByName("Head");
+		if (headBone != -1)
+		{
+			vector headTransform[4];
+			player.GetBoneTransformWS(headBone, headTransform);
+			beg = player.GetBonePositionWS(headBone);
+			dir = headTransform[1];
+		}
+		else
+		{
+			beg = player.GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
+			dir = MiscGameplayFunctions.GetHeadingVector(player);
+		}
+
 		vector end = beg + dir * DM_LOOK_RAYCAST_DISTANCE;
 		vector contactPos;
 		vector contactDir;
