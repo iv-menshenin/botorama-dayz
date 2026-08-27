@@ -59,6 +59,15 @@ static const float DM_STEALTH_PRONE_DWELL_TIME = 300.0;
 static const float DM_SPEED_WALK = 1.4;
 static const float DM_SPEED_JOG = 3.6;
 
+//! Speed ramp rate (speed units per second) for smooth acceleration/deceleration.
+static const float DM_MOVE_ACCEL_RATE = 6.0;
+
+//! Turn angle (degrees) beyond which the bot slows down while moving (turn-slow).
+static const float DM_MOVE_TURN_SLOW_THRESHOLD = 30.0;
+
+//! Speed cap (0..3) applied while turning sharply.
+static const float DM_MOVE_TURN_SLOW_SPEED = 1.0;
+
 //! Max age (seconds) of an intent without a deadline before the arbitration
 //! removes it (safety net — no intent lives forever).
 static const float DM_INTENT_MAX_AGE = 300.0;

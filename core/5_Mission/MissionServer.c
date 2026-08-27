@@ -117,6 +117,9 @@ modded class MissionServer
 		if (parts[1] == DM_CHAT_SPEED)
 			return HandleBotSpeed(playerName, parts);
 
+		if (parts[1] == DM_CHAT_TESTCASE)
+			return HandleBotTestcase(playerName, parts);
+
 		return false;
 	}
 
@@ -180,6 +183,85 @@ modded class MissionServer
 		}
 
 		return true;
+	}
+
+	//! "testcase" — scripted test scenario (third word decides the scenario).
+	bool HandleBotTestcase(string playerName, array<string> parts)
+	{
+		if (parts.Count() < 3)
+		{
+			ChatToPlayer(playerName, "Укажи сценарий: /bot testcase patrol");
+			return false;
+		}
+
+		if (parts[2] == DM_CHAT_FSM_PATROL)
+			return HandleTestcasePatrol(playerName);
+
+		ChatToPlayer(playerName, "Неизвестный сценарий: " + parts[2]);
+		return false;
+	}
+
+	//! Test scenario: spawn a bot in front of the player and give it a patrol route
+	//! that forces turns — 50m behind, then right 90° for 50m, then right 135° for 100m.
+	//! Builds an FSM (patrol + idle) and starts it.
+	bool HandleTestcasePatrol(string playerName)
+	{
+		PlayerBase player = FindPlayerByName(playerName);
+		if (!player)
+			return false;
+
+		vector fwd = player.GetDirection();
+		fwd[1] = 0.0;
+		fwd.Normalize();
+
+		vector spawnPos = player.GetPosition() + fwd * DM_SPAWN_DISTANCE;
+
+		ref dmAISurvivor bot = new dmAISurvivor();
+		PlayerBase pawn = bot.Spawn(spawnPos, player.GetOrientation());
+		if (!pawn)
+		{
+			ChatToPlayer(playerName, "Не удалось заспавнить бота.");
+			return false;
+		}
+
+		string key = playerName;
+		key.ToLower();
+		s_TestBotByPlayer.Set(key, bot);
+
+		//! Patrol route (right turns = negative rotation around the up axis).
+		vector behind = fwd * -1.0;
+		vector p1 = spawnPos + behind * 50.0;
+		vector d2 = RotateHorizontal(behind, -90.0);
+		vector p2 = p1 + d2 * 50.0;
+		vector d3 = RotateHorizontal(d2, -135.0);
+		vector p3 = p2 + d3 * 100.0;
+
+		bot.AddPatrolPoint(p1);
+		bot.AddPatrolPoint(p2);
+		bot.AddPatrolPoint(p3);
+
+		dmBotFSM fsm = new dmBotFSM(bot);
+		dmBotState patrol = new dmBotState_Patrol();
+		dmBotState idle = new dmBotState_Idle();
+		fsm.AddState(patrol, "patrol");
+		fsm.AddState(idle, "idle");
+		patrol.AddTransition(idle, 1.0);
+		idle.AddTransition(patrol, 1.0);
+		fsm.SetDefaultState("patrol");
+		fsm.Start();
+		bot.SetFSM(fsm);
+
+		ChatToPlayer(playerName, "Тест-сценарий patrol запущен (3 точки, повороты)");
+		return true;
+	}
+
+	//! Rotate a horizontal direction around the up axis (counter-clockwise positive).
+	static vector RotateHorizontal(vector dir, float degrees)
+	{
+		float rad = degrees * Math.DEG2RAD;
+		float c = Math.Cos(rad);
+		float s = Math.Sin(rad);
+		return Vector(dir[0] * c - dir[2] * s, 0.0, dir[0] * s + dir[2] * c);
 	}
 
 	//! "intent" — third word decides the intent action.

@@ -51,6 +51,13 @@ class dmAISurvivorBase : PlayerBase
 	//! Timeout until the next stance-change step may be forced.
 	private float m_StanceTimeout = 0.0;
 
+	//! Actual (smoothed) movement speed, ramped toward m_DesiredSpeed each frame.
+	private float m_ActualSpeed = 0.0;
+
+	//! True while moving with a sharp turn (|dBody| > DM_MOVE_TURN_SLOW_THRESHOLD);
+	//! ApplyMovement caps the speed to DM_MOVE_TURN_SLOW_SPEED while turning.
+	private bool m_TurnSharp = false;
+
 	void dmAISurvivorBase()
 	{
 		m_DesiredStance = DayZPlayerConstants.STANCEIDX_ERECT;
@@ -132,7 +139,7 @@ class dmAISurvivorBase : PlayerBase
 		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);
 
 		ApplyBodyTurn(pDt);
-		ApplyMovement();
+		ApplyMovement(pDt);
 		ApplyStance(pDt);
 
 		if (Math.AbsFloat(m_LookYawDeg - m_LastLogLookYaw) > 0.5 || Math.AbsFloat(m_LookPitchDeg - m_LastLogLookPitch) > 0.5)
@@ -189,6 +196,9 @@ class dmAISurvivorBase : PlayerBase
 		//! so SetOrientation is authoritative).
 		if (moving)
 		{
+			//! Sharp turn while moving -> slow down (consumed by ApplyMovement).
+			m_TurnSharp = Math.AbsFloat(dBody) > DM_MOVE_TURN_SLOW_THRESHOLD;
+
 			//! Cancel any in-progress foot-step turn; slide instead.
 			if (m_TurnState != 0)
 			{
@@ -206,6 +216,8 @@ class dmAISurvivorBase : PlayerBase
 			}
 			return;
 		}
+
+		m_TurnSharp = false;
 
 		//! Idle: native foot-stepping turn (root motion) for ALL stances — the
 		//! graph's TurnStanceSTM picks the stance-specific turn (erect step, crouch
@@ -237,13 +249,22 @@ class dmAISurvivorBase : PlayerBase
 	}
 
 	//! Apply the desired movement (direction + speed) via ONE_FRAME overrides.
+	//! The actual speed is ramped toward the desired speed (smooth acceleration/
+	//! deceleration); while turning sharply it is capped to DM_MOVE_TURN_SLOW_SPEED.
 	//! ONE_FRAME auto-disables after this CommandHandler, so a stale override can't
 	//! accumulate if the brain stops writing the desired state.
-	void ApplyMovement()
+	void ApplyMovement(float pDt)
 	{
+		float target = m_DesiredSpeed;
+		if (m_TurnSharp)
+			target = Math.Min(target, DM_MOVE_TURN_SLOW_SPEED);
+
+		float maxStep = DM_MOVE_ACCEL_RATE * pDt;
+		m_ActualSpeed += Math.Clamp(target - m_ActualSpeed, -maxStep, maxStep);
+
 		HumanInputController hic = GetInputController();
 		hic.OverrideMovementAngle(HumanInputControllerOverrideType.ONE_FRAME, m_DesiredMoveAngle);
-		hic.OverrideMovementSpeed(HumanInputControllerOverrideType.ONE_FRAME, m_DesiredSpeed);
+		hic.OverrideMovementSpeed(HumanInputControllerOverrideType.ONE_FRAME, m_ActualSpeed);
 	}
 
 	//! Apply the desired stance, stepping through crouch for erect<->prone.

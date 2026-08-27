@@ -70,9 +70,11 @@ class dmBotIntent_MoveTo : dmBotIntent
 		float bodyYaw = bot.GetOrientation()[0];
 		float moveAngle = dmAISurvivor.AngleDiff(subYaw, bodyYaw);
 
-		//! Request the body to face the waypoint. If a higher-priority look intent
-		//! owns the body, moveAngle becomes the strafe/backpedal direction instead.
-		bot.LookAtPoint(subGoal + Vector(0, DM_EYE_HEIGHT, 0), dmBotLookTurn.FULL);
+		//! Body faces the movement direction (comfort policy); the head looks at the
+		//! waypoint. If a higher-priority look intent holds the body (FULL), moveAngle
+		//! becomes the strafe/backpedal direction instead.
+		bot.SetMoveYaw(subYaw);
+		bot.LookAtPoint(subGoal + Vector(0, DM_EYE_HEIGHT, 0), dmBotLookTurn.NONE);
 		bot.SetMove(moveAngle, bot.CalcSpeed(m_Target, m_ReachDeadline));
 
 		if (m_BestDist < 0.0)

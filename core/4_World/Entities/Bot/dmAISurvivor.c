@@ -42,6 +42,11 @@ class dmAISurvivor
 	//! True while walking (movement controls body facing).
 	private bool m_IsMoving = false;
 
+	//! Desired movement direction (world yaw, degrees). Set by movement intents;
+	//! ComputeBodyYaw uses it to face the movement direction when the body isn't
+	//! held by a priority look intent.
+	private float m_MoveYaw = 0.0;
+
 	//! Preferred movement speed (1=walk, 2=jog, 3=sprint). Base for CalcSpeed.
 	private float m_PreferredSpeed = 2.0;
 
@@ -338,6 +343,14 @@ class dmAISurvivor
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Pawn);
 		if (pawn)
 			pawn.SetMove(angle, speed);
+	}
+
+	//! Set the desired movement direction as a WORLD yaw (degrees). Used by
+	//! ComputeBodyYaw to face the movement direction when the body isn't held by a
+	//! priority look intent.
+	void SetMoveYaw(float worldYaw)
+	{
+		m_MoveYaw = worldYaw;
 	}
 
 	//! Enable/disable forward walking (convenience wrapper over SetMove).
@@ -641,18 +654,32 @@ class dmAISurvivor
 		{
 			pawn.SetLookYaw(m_CurLookYaw);
 			pawn.SetLookPitch(m_TargetLookPitch);
-
-			if (m_LookTurnMode == dmBotLookTurn.FULL)
-				pawn.SetTargetBodyYaw(m_TargetLookYawAbs);
-			else if (!m_IsMoving && m_LookTurnMode == dmBotLookTurn.AUTO)
-				pawn.SetTargetBodyYaw(m_TargetLookYawAbs - headTarget);
-			// NONE: тело не трогаем (только голова). Движение тело крутит отдельно.
+			pawn.SetTargetBodyYaw(ComputeBodyYaw(headTarget));
 		}
 
 		if (Math.AbsFloat(applyYaw) > 0.1)
 			#ifdef DM_BOT_TRACE
 			dmBotLog.Trace("UpdateLook() targetYawAbs=" + m_TargetLookYawAbs + " bodyYaw=" + bodyYaw + " relTarget=" + relTarget + " curYaw=" + m_CurLookYaw + " pitch=" + m_TargetLookPitch);
 			#endif
+	}
+
+	//! Body-orientation policy ("comfort"): choose the body yaw from the look
+	//! target and the movement direction.
+	//!   - FULL (priority look holds the body) -> face the look target (strafe/backpedal);
+	//!   - idle + AUTO -> turn over-shoulder to center the head;
+	//!   - moving -> face the movement direction (walk where you go);
+	//!   - idle + NONE -> keep the body.
+	float ComputeBodyYaw(float headTarget)
+	{
+		if (m_LookTurnMode == dmBotLookTurn.FULL)
+			return m_TargetLookYawAbs;
+		if (!m_IsMoving && m_LookTurnMode == dmBotLookTurn.AUTO)
+			return m_TargetLookYawAbs - headTarget;
+		if (m_IsMoving)
+			return m_MoveYaw;
+		if (m_Pawn)
+			return m_Pawn.GetOrientation()[0];
+		return 0.0;
 	}
 
 	//! Signed angle difference, normalized to (-180, 180].

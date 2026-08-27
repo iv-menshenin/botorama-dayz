@@ -38,6 +38,9 @@ static const string DM_CHAT_SPEED_WALK = "walk";
 static const string DM_CHAT_SPEED_JOG = "jog";
 static const string DM_CHAT_SPEED_SPRINT = "sprint";
 
+//! Sub-command "testcase" (scripted test scenarios).
+static const string DM_CHAT_TESTCASE = "testcase";
+
 //! Lifetime (seconds) for the "/bot intent crouch" shortcut intent.
 static const float DM_TEST_STANCE_DEADLINE = 300.0;
 
