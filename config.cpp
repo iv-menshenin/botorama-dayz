@@ -43,7 +43,8 @@ class CfgMods
 				value="";
 				files[]={
 					"botorama/cons/5_Mission",
-					"botorama/core/5_Mission"
+					"botorama/core/5_Mission",
+					"botorama/test/5_Mission"
 				};
 			};
 		}; 

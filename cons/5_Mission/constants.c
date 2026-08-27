@@ -26,6 +26,9 @@ static const string DM_CHAT_FSM_IDLE = "idle";
 static const string DM_CHAT_FSM_PATROL = "patrol";
 static const string DM_CHAT_FSM_STEALTH = "stealth";
 
+//! Test command family ("/test ...").
+static const string DM_CHAT_CMD_TEST = "test";
+
 //! Intent "stance" action and stance names.
 static const string DM_CHAT_STANCE = "stance";
 static const string DM_CHAT_STANCE_ERECT = "erect";
@@ -37,9 +40,6 @@ static const string DM_CHAT_SPEED = "speed";
 static const string DM_CHAT_SPEED_WALK = "walk";
 static const string DM_CHAT_SPEED_JOG = "jog";
 static const string DM_CHAT_SPEED_SPRINT = "sprint";
-
-//! Sub-command "testcase" (scripted test scenarios).
-static const string DM_CHAT_TESTCASE = "testcase";
 
 //! Lifetime (seconds) for the "/bot intent crouch" shortcut intent.
 static const float DM_TEST_STANCE_DEADLINE = 300.0;

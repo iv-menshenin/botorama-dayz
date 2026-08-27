@@ -10,10 +10,11 @@
 | `4_World` | `worldScriptModule` | Сущности/логика мира (боты) |
 | `5_Mission` | `missionScriptModule` | Миссия (MissionServer/MissionGameplay, чат-команды) |
 
-Внутри слоя — два подкаталога:
+Внутри слоя — подкаталоги:
 
 - `cons/` — константы и дефайны: только `static const ...` и файлы-документация (без исполняемого кода).
-- `core/` — исполняемый код (классы, `modded class`, сущности).
+- `core/` — исполняемый код каркаса/продукта (классы, `modded class`, сущности, движок команд).
+- `test/` — тестовые команды/сценарии (модули чат-команд), отдельно от «продукта».
 
 Внутри `core/<слой>` код группируется по функциональным папкам:
 
@@ -22,6 +23,7 @@
 - `Entities/Bot/States/` — конкретные состояния FSM.
 - `Entities/Bot/Presets/` — пресеты FSM (фабрики).
 - `Entities/Bot/Pathfinding/` — обёртка над navmesh-API (`dmBotPathfinder`).
+- `Commands/` — движок чат-команд (`dmCommandManager`/`dmCommandModule`).
 - `Logging/` — логирование (`dmBotLog`).
 - `Config/` — чтение/запись JSON-конфигов (`dmJsonFile`, `dmJsonConfigBase`).
 
@@ -71,8 +73,17 @@ botorama/
     │           ├── Pathfinding/        # обёртка над navmesh-API (dmBotPathfinder)
     │           └── Presets/            # пресеты (dmBotPreset_*)
     └── 5_Mission/
-        ├── MissionServer.c      # сервер: OnInit, OnEvent, чат-команды, тикер
-        └── MissionGameplay.c    # клиент: OnInit (LogVersion)
+        ├── MissionServer.c      # сервер: OnInit (регистрация команд), OnEvent, тикер
+        ├── MissionGameplay.c    # клиент: OnInit (LogVersion)
+        └── Commands/            # движок чат-команд
+            ├── dmCommandManager.c   # register + delegate + утилиты
+            └── dmCommandModule.c    # базовый модуль команды
+test/                       # тестовые команды/сценарии (не «продукт»)
+    └── 5_Mission/
+        ├── dmCommandContext.c  # общее состояние + доменные хелперы
+        ├── dmBotCommand.c      # "/bot ..." (spawn/intent/patrol/speed)
+        ├── dmFSMCommand.c      # "/fsm ..." (new/add/apply)
+        └── dmTestCommand.c     # "/test ..." (сценарии)
 ```
 
 ## Правила размещения
@@ -90,6 +101,8 @@ botorama/
 - Версия мода (`DM_BOTORAMA_VERSION`) → `cons/3_Game/constants.c` (используется из 3_Game; модуль грузится первым).
 - Дефайны логирования → `cons/4_World/defines.c`.
 - Миссия (`MissionServer`/`MissionGameplay`) → `core/5_Mission/`.
+- Движок чат-команд (`dmCommandManager`/`dmCommandModule`) → `core/5_Mission/Commands/`.
+- Тестовые команды/сценарии (`dmBotCommand`/`dmFSMCommand`/`dmTestCommand`, `dmCommandContext`) → `test/5_Mission/`.
 - Графы анимаций → `Animations/`.
 
 При добавлении нового файла: кладём в подходящую функциональную папку своего слоя;
