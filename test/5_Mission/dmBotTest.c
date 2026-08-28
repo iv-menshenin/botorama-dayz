@@ -413,7 +413,8 @@ class dmBotTest_BrokenLeg : dmBotTestCase
 	}
 }
 
-//! Death: setting Health to 0 must kill the bot and trigger the brain cleanup.
+//! Death: setting Health to 0 must kill the bot and release its brain; the corpse
+//! stays in the world (engine decay).
 class dmBotTest_Death : dmBotTestCase
 {
 	override void Setup(dmAISurvivor bot, PlayerBase player)
@@ -423,7 +424,7 @@ class dmBotTest_Death : dmBotTestCase
 
 	override string GetSummary()
 	{
-		return "Тест «Смерть и очистка». Боту ставят Health=0. Ожидается: бот умирает, и мозг удаляет его (вместе с пешкой) из мира.";
+		return "Тест «Смерть». Боту ставят Health=0. Ожидается: бот умирает, мозг снимается с тиков (IsSpawned()=false), а труп остаётся в мире (протухает движком).";
 	}
 
 	override float GetDuration() { return 8.0; }
@@ -431,7 +432,7 @@ class dmBotTest_Death : dmBotTestCase
 	override string OnCheck(float elapsed)
 	{
 		if (!m_Bot || !m_Bot.IsSpawned())
-			return "PASS: бот удалён из мира (мозг очищен)";
+			return "PASS: мозг отпущен (IsSpawned()=false), труп остался в мире";
 
 		return "";
 	}

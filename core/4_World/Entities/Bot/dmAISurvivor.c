@@ -132,7 +132,8 @@ class dmAISurvivor
 		return m_Pawn;
 	}
 
-	//! Remove the bot's body from the world and unregister it.
+	//! Remove the bot's body from the world and unregister it (manual cleanup,
+	//! e.g. /test cancel). For a natural death use OnDeath() — it leaves the corpse.
 	void Despawn()
 	{
 		#ifdef DM_BOT_DEBUG_SPAWN
@@ -145,6 +146,21 @@ class dmAISurvivor
 		s_All.RemoveItem(this);
 		s_ByPawn.Remove(m_Pawn);
 		GetGame().ObjectDelete(m_Pawn);
+		m_Pawn = null;
+	}
+
+	//! Death: release the brain (stop its heartbeat, drop references) but leave the
+	//! corpse in the world — the engine owns its decay/TTL/removal from here.
+	void OnDeath()
+	{
+		#ifdef DM_BOT_DEBUG_SPAWN
+		dmBotLog.Debug("OnDeath() pawn=" + m_Pawn + " — мозг снимается, труп остаётся");
+		#endif
+
+		if (m_Pawn)
+			s_ByPawn.Remove(m_Pawn);
+
+		s_All.RemoveItem(this);
 		m_Pawn = null;
 	}
 
@@ -288,10 +304,10 @@ class dmAISurvivor
 		if (!m_Pawn)
 			return;
 
-		//! Death -> remove the bot and its brain from the world.
+		//! Death -> release the brain; the corpse stays in the world (engine decay).
 		if (!m_Pawn.IsAlive())
 		{
-			Despawn();
+			OnDeath();
 			return;
 		}
 
@@ -756,7 +772,7 @@ class dmAISurvivor
 		dmBotSpan _span = dmBotProfiler.Start("Tick");
 		#endif
 
-		//! Backward iteration: OnUpdate may Despawn() (death) and remove the bot
+		//! Backward iteration: OnUpdate may OnDeath() (death) and remove the bot
 		//! from s_All mid-loop; going backward keeps the indices valid.
 		for (int i = s_All.Count() - 1; i >= 0; i--)
 			s_All[i].OnUpdate(dt);
