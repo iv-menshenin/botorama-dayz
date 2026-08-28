@@ -202,7 +202,7 @@ class dmBotFSM
 	}
 
 	//! Weighted random among a pre-filtered list (higher weight = more likely).
-	private bool RollWeighted(ref array<ref dmBotTransition> eligible, float total, out dmBotState dst)
+	private bool RollWeighted(array<ref dmBotTransition> eligible, float total, out dmBotState dst)
 	{
 		if (eligible.Count() == 0 || total <= 0.0)
 			return false;

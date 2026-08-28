@@ -288,6 +288,18 @@ class dmAISurvivor
 		if (!m_Pawn)
 			return;
 
+		//! Death -> remove the bot and its brain from the world.
+		if (!m_Pawn.IsAlive())
+		{
+			Despawn();
+			return;
+		}
+
+		//! Incapacitated (unconscious/restrained) -> skip the motor; the pawn's
+		//! CommandHandler gate already stops actuation, so don't fight the body.
+		if (m_Pawn.IsUnconscious() || m_Pawn.IsRestrained())
+			return;
+
 		if (m_FSM)
 			m_FSM.Update(pDt);
 
@@ -744,7 +756,9 @@ class dmAISurvivor
 		dmBotSpan _span = dmBotProfiler.Start("Tick");
 		#endif
 
-		for (int i = 0; i < s_All.Count(); i++)
+		//! Backward iteration: OnUpdate may Despawn() (death) and remove the bot
+		//! from s_All mid-loop; going backward keeps the indices valid.
+		for (int i = s_All.Count() - 1; i >= 0; i--)
 			s_All[i].OnUpdate(dt);
 	}
 }

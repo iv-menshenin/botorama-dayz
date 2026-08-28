@@ -10,6 +10,16 @@
 //!   /test bot overload run    — собрать и запустить FSM (patrol + idle) на всех
 //!                                подготовленных ботах: с этого момента они
 //!                                начинают патрулировать.
+//!
+//! Самопроверяемые тесты честной симуляции тела (см. dmBotTest.c): при запуске
+//! в чат приходит описание + ожидаемый результат, а по таймеру скрипт фиксирует
+//! состояние бота и сравнивает его с ожидаемым (PASS/FAIL):
+//!
+//!   /test bot shock    — нокаут: бот без сознания, не двигается, приходит в себя.
+//!   /test bot stamina  — тяжёлый рюкзак (NailBox) + бег 300 м: вес режет кап, стамина тратится.
+//!   /test bot brokenleg — перелом: бот хромает, не спринтует.
+//!   /test bot death    — Health=0: бот умирает и удаляется из мира.
+//!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
 {
@@ -20,10 +30,14 @@ class dmTestCommand : dmCommandModule
 
 	override bool Handle(PlayerBase player, array<string> parts)
 	{
-		//! /test bot patrol | /test bot overload prepare|run
+		//! /test cancel — abort the running test
+		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
+			return HandleCancel(player);
+
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death");
 			return false;
 		}
 
@@ -36,8 +50,31 @@ class dmTestCommand : dmCommandModule
 		if (parts[2] == DM_CHAT_TEST_OVERLOAD)
 			return HandleOverload(player, parts);
 
+		if (parts[2] == DM_CHAT_TEST_SHOCK)
+			return HandleBodyTest(player, new dmBotTest_Shock());
+		if (parts[2] == DM_CHAT_TEST_STAMINA)
+			return HandleBodyTest(player, new dmBotTest_Stamina());
+		if (parts[2] == DM_CHAT_TEST_BROKENLEG)
+			return HandleBodyTest(player, new dmBotTest_BrokenLeg());
+		if (parts[2] == DM_CHAT_TEST_DEATH)
+			return HandleBodyTest(player, new dmBotTest_Death());
+
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий: " + parts[2]);
 		return false;
+	}
+
+	//! Launch a self-verifying body-simulation scenario through dmBotTestRunner.
+	private bool HandleBodyTest(PlayerBase player, dmBotTestCase test)
+	{
+		dmBotTestRunner.GetInstance().Start(test, player);
+		return true;
+	}
+
+	//! /test cancel — abort the running test and clean up after it.
+	private bool HandleCancel(PlayerBase player)
+	{
+		dmBotTestRunner.GetInstance().Cancel(player);
+		return true;
 	}
 
 	//! /test bot overload prepare {N} | run

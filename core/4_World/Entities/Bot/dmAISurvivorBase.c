@@ -58,6 +58,10 @@ class dmAISurvivorBase : PlayerBase
 	//! ApplyMovement caps the speed to DM_MOVE_TURN_SLOW_SPEED while turning.
 	private bool m_TurnSharp = false;
 
+	//! Accumulator for the reduced-frequency body-modifier tick (see
+	//! DM_BOT_MODIFIER_TICK_INTERVAL).
+	private float m_ModifierTickAccum = 0.0;
+
 	void dmAISurvivorBase()
 	{
 		m_DesiredStance = DayZPlayerConstants.STANCEIDX_ERECT;
@@ -132,15 +136,32 @@ class dmAISurvivorBase : PlayerBase
 	//! Look vars are set before super; the turn commands are set AFTER super
 	//! (matching how the Expansion AI calls its movement PreAnimUpdate after super),
 	//! so the vanilla command processing doesn't consume/overwrite them.
+	//! All body actuation is gated on CanAct() so the vanilla body state (death,
+	//! unconsciousness, restraint) is respected instead of overridden.
 	override void CommandHandler(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
 	{
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("CommandHandler");
 		#endif
 
-		ApplyLookVars();
+		if (IsAlive())
+		{
+			TickModifiers(pDt);
+			UpdateUnconsciousBridge();
+		}
+
+		bool canAct = CanAct();
+
+		if (canAct)
+			ApplyLookVars();
 
 		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);
+
+		if (!canAct)
+		{
+			ResetActuation();
+			return;
+		}
 
 		ApplyBodyTurn(pDt);
 		ApplyMovement(pDt);
@@ -155,6 +176,82 @@ class dmAISurvivorBase : PlayerBase
 			dmBotLog.Debug("dmAISurvivorBase.CommandHandler() lookYaw=" + m_LookYawDeg + " lookPitch=" + m_LookPitchDeg + " instType=" + GetInstanceType());
 			#endif
 		}
+	}
+
+	//! Vanilla ticks body modifiers in OnScheduledTick, gated on IsPlayerSelected()
+	//! and m_AllowModifierTick (enabled only in OnSelectPlayer) — neither happens
+	//! for an AI bot. Enable and tick them at a reduced rate so shock refill,
+	//! broken legs etc. actually run. The modifiers throttle internally, so a
+	//! 4 Hz tick is enough (their own intervals are >= 0.35 s).
+	void TickModifiers(float pDt)
+	{
+		ModifiersManager mngr = GetModifiersManager();
+		if (!mngr)
+			return;
+
+		mngr.SetModifiers(true);
+
+		m_ModifierTickAccum += pDt;
+		if (m_ModifierTickAccum < DM_BOT_MODIFIER_TICK_INTERVAL)
+			return;
+
+		float dt = m_ModifierTickAccum;
+		m_ModifierTickAccum = 0.0;
+		mngr.OnScheduledTick(dt);
+	}
+
+	//! Bridge the vanilla unconscious command from the shock value. The vanilla
+	//! UnconsciousnessMdfr signals it via a server<->client sync juncture, and the
+	//! command itself is normally started in a CommandHandler block gated on
+	//! m_ActionManager — null for an AI_SERVER bot. So start/stop the command
+	//! directly from the shock value.
+	void UpdateUnconsciousBridge()
+	{
+		float shock = GetHealth("", "Shock");
+
+		if (!IsUnconscious() && shock <= PlayerConstants.UNCONSCIOUS_THRESHOLD)
+		{
+			if (!m_ShouldBeUnconscious)
+			{
+				m_ShouldBeUnconscious = true;
+				StartCommand_Unconscious(0);
+			}
+		}
+		else if (IsUnconscious() && shock >= PlayerConstants.CONSCIOUS_THRESHOLD)
+		{
+			m_ShouldBeUnconscious = false;
+			HumanCommandUnconscious hcu = GetCommand_Unconscious();
+			if (hcu)
+				hcu.WakeUp(DayZPlayerConstants.STANCEIDX_PRONE);
+		}
+	}
+
+	//! Whether the body may actuate (move/turn/stance/look). False while dead,
+	//! unconscious or restrained — the vanilla body state must win.
+	bool CanAct()
+	{
+		return IsAlive() && !IsUnconscious() && !IsRestrained();
+	}
+
+	//! Stop any in-progress body actuation and drop the head to neutral. Called
+	//! every frame while CanAct() is false, so a foot-step turn or a movement
+	//! speed can't resume mid-incapacitation.
+	void ResetActuation()
+	{
+		if (m_TurnState != 0)
+		{
+			if (m_CmdStopTurn >= 0)
+				AnimCallCommand(m_CmdStopTurn, 0, 0.0);
+			if (m_VarTurnAmount >= 0)
+				AnimSetFloat(m_VarTurnAmount, 0.0);
+		}
+		m_TurnState = 0;
+		m_TurnTime = 0.0;
+		m_TurnSharp = false;
+		m_ActualSpeed = 0.0;
+
+		if (m_VarLook >= 0)
+			AnimSetBool(m_VarLook, false);
 	}
 
 	//! Disable the vanilla body-turn (HeadingModel::RotateOrient) for the MOVE
@@ -255,6 +352,11 @@ class dmAISurvivorBase : PlayerBase
 	//! Apply the desired movement (direction + speed) via ONE_FRAME overrides.
 	//! The actual speed is ramped toward the desired speed (smooth acceleration/
 	//! deceleration); while turning sharply it is capped to DM_MOVE_TURN_SLOW_SPEED.
+	//! The vanilla sprint limit (hic.LimitsDisableSprint) is bypassed by our
+	//! OverrideMovementSpeed, so enforce the same condition here: no sprint when
+	//! the body can't consume sprint stamina or can't sprint (broken legs etc.).
+	//! The broken-legs walk shock (BrokenLegWalkShock) is dealt by the vanilla
+	//! modifier at jog speed, so keep jog allowed here to let that chain run.
 	//! ONE_FRAME auto-disables after this CommandHandler, so a stale override can't
 	//! accumulate if the brain stops writing the desired state.
 	void ApplyMovement(float pDt)
@@ -262,6 +364,8 @@ class dmAISurvivorBase : PlayerBase
 		float target = m_DesiredSpeed;
 		if (m_TurnSharp)
 			target = Math.Min(target, DM_MOVE_TURN_SLOW_SPEED);
+		if (target > DM_SPEED_IDX_JOG && !(CanConsumeStamina(EStaminaConsumers.SPRINT) && CanSprint()))
+			target = DM_SPEED_IDX_JOG;
 
 		float maxStep = DM_MOVE_ACCEL_RATE * pDt;
 		m_ActualSpeed += Math.Clamp(target - m_ActualSpeed, -maxStep, maxStep);

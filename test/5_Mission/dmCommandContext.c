@@ -100,4 +100,22 @@ class dmCommandContext
 		float rad = angle * Math.DEG2RAD;
 		return Vector(Math.Cos(rad) * dist, 0.0, Math.Sin(rad) * dist);
 	}
+
+	//! Give the bot a short MoveTo command one meter toward the player. Used right
+	//! after spawn as a "kick": a stationary AI character isn't re-evaluated for
+	//! ground collision/fall by the engine, so this real movement wakes its physics
+	//! and lets a bot spawned in the air fall to the ground.
+	static void GiveMoveKick(dmAISurvivor bot, PlayerBase player)
+	{
+		vector fwd = player.GetDirection();
+		fwd[1] = 0.0;
+		fwd.Normalize();
+		vector target = bot.GetPosition() - fwd * 1.0; // 1 m toward the player
+
+		dmBotIntent_MoveTo move = new dmBotIntent_MoveTo();
+		move.m_Target = target;
+		move.m_Priority = dmBotIntentPriority.CRITICAL;
+		move.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+		bot.AddCommandIntent(move);
+	}
 }

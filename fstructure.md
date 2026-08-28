@@ -84,10 +84,11 @@ botorama/
 test/                       # тестовые команды/сценарии (не «продукт»)
     └── 5_Mission/
         ├── dmCommandContext.c  # общее состояние + доменные хелперы
-        ├── dmBotCommand.c      # "/bot ..." (spawn/intent/patrol/speed)
+        ├── dmBotCommand.c      # "/bot ..." (spawn/intent/patrol/speed/status/setX)
         ├── dmFSMCommand.c      # "/fsm ..." (new/add/apply)
         ├── dmTestCommand.c     # "/test ..." (сценарии)
-        └── dmProfCommand.c     # "/prof ..." (dump/clear)
+        ├── dmBotTest.c         # самопроверяемые тесты тела (base + runner + shock/stamina/brokenleg/death)
+        └── dmProfCommand.c     # "/prof ..." (dump/clear/start/stop)
 ```
 
 ## Правила размещения
@@ -165,3 +166,65 @@ test/                       # тестовые команды/сценарии (
   пешки (`Bot.Update`/`CommandHandler` ≈ 1.0).
 - Оговорка: `GetTickTime()` квантуется ~1 мс — средние по большому числу вызовов
   корректны, единичные значения < 1 мс — лишь оценка.
+
+## Симуляция тела (честные пределы)
+
+- Пешка (`dmAISurvivorBase`) — полноценный `PlayerBase`: все системы тела (здоровье,
+  кровь, шок, стамина, температура, токсичность, переломы, болезни) считает
+  ванильный DayZ. Мы их не переопределяем — мы лишь перестали их «перебивать».
+- **Ванильный тик систем тела** (`PlayerBase.OnScheduledTick`) гейтится на
+  `IsPlayerSelected()` (всегда `false` у AI-бота) и на `m_AllowModifierTick`
+  (включается только в `OnSelectPlayer`). Поэтому модификаторы сами не тикают.
+  Мы в `CommandHandler` делаем `SetModifiers(true)` и тикаем
+  `GetModifiersManager().OnScheduledTick(dt)` **по пониженной частоте**
+  (`DM_BOT_MODIFIER_TICK_INTERVAL` = 0.25 c, аккумулятор) — внутренние интервалы
+  модификаторов ≥ 0.35 c, чаще не нужно.
+- **Нокаут (мост команды)**: синк-джанктура `UnconsciousnessMdfr → SendSyncJuncture`
+  до server-only бота не доходит, а ванильный блок, который стартует команду, гейтится
+  на `m_ActionManager` (у `INSTANCETYPE_AI_SERVER` он `NULL`). Поэтому `m_ShouldBeUnconscious`
+  ведём сами из `GetHealth("","Shock")` и **напрямую** зовём
+  `StartCommand_Unconscious(0)` / `hcu.WakeUp(PRONE)` (граф анимаций поддерживает
+  `CMD_Unconscious`). Пороги — `PlayerConstants.UNCONSCIOUS_THRESHOLD` / `CONSCIOUS_THRESHOLD`.
+- **Перелом**: `SetBrokenLegs(-eBrokenLegs.BROKEN_LEGS)` (отрицательное = первичная
+  активация) ставит состояние сразу; `ActivateModifier(MDF_BROKEN_LEGS)` (через наш
+  тик) применяет инжури-анимацию (хромоту) и `BrokenLegWalkShock` (шок от бега со
+  сломанной ногой, без шины → в итоге нокаут).
+- Гейт честности: `dmAISurvivorBase.CanAct()` = `IsAlive() && !IsUnconscious() && !IsRestrained()`.
+  - `CommandHandler` применяет `ApplyLookVars`/`ApplyBodyTurn`/`ApplyMovement`/`ApplyStance`
+    только при `CanAct()`, иначе вызывает `ResetActuation()` (останов поворота/движения,
+    голова в нейтраль).
+  - Мозг (`dmAISurvivor.OnUpdate`): при смерти — `Despawn()` (бот+мозг удаляются из мира);
+    при бессознательном/связанном состоянии — пропуск моторики (FSM/интенты/взгляд).
+- **Кап скорости (стамина + перелом)**: ванильный лимит спринта
+  `hic.LimitsDisableSprint` обходится нашим `OverrideMovementSpeed`, поэтому в
+  `ApplyMovement` капаем `target` до `DM_SPEED_IDX_JOG` (=2), если
+  `!(CanConsumeStamina(SPRINT) && CanSprint())` (`CanSprint()` уже включает
+  `GetBrokenLegs()`). Джог оставляем разрешённым намеренно: ванильный
+  `BrokenLegWalkShock` бьёт шоком именно на джоге/спринте со сломанной ногой,
+  что в итоге вырубает бота.
+- Стамина — ванильная (`StaminaHandler`): вес в инвентаре режет кап, спринт честно
+  её расходует, при нуле — форс на джог, реген. Мы её не обходим.
+- Отладка: `/bot status` (полный отчёт о теле+мозге) и
+  `/bot sethealth|setblood|setshock|setstamina|setheatbuffer|settoxicity|setenergy|setwater <число>`
+  (каждая принимает обязательный float, без дефолтов).
+- Самопроверяемые сценарии (`/test bot shock|stamina|brokenleg|death`): печатают
+  ожидаемый результат и сами сверяют состояние бота по таймеру (`dmBotTest.c`);
+  `/test cancel` — прервать работающий тест и удалить его бота.
+- Отложено — см. `TECHDEBT.md` (кровотечение, холод/жара, токсичность, утопление,
+  ослепление; реакции мозга на состояние тела).
+
+## План развития «человечивание бота» — статус
+
+**Выполнено** (честная симуляция тела, см. «Симуляция тела» выше):
+- Шок → нокаут: падает, лежит (не двигается даже под `MoveTo`), приходит в себя.
+- Стамина: вес в инвентаре режет кап, спринт честно тратит, при нуле — джог.
+- Перелом: хромота (инжури-анимация) + шок от бега → нокаут (без шины).
+- Смерть: детект + удаление бота и мозга из мира.
+- Единый кап скорости, ручной тик модификаторов по пониженной частоте.
+- Инструменты: `/bot status`, `/bot set*`, самопроверяемые `/test bot shock|stamina|brokenleg|death`, `/test cancel`.
+
+**Отложено / осталось** (см. `TECHDEBT.md`):
+- Тесты тела со сложной индукцией: кровотечение, холод/жара, токсичность, утопление, ослепление.
+- Реакции мозга на состояние тела (искать тепло/еду/воду, отдых, бой/бегство).
+- Голод/жажда/болезни (статы уже тикают, но мозг пока не ест/не пьёт).
+- Сенсорика (ослепление и т.п.).

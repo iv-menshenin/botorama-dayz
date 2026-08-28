@@ -37,6 +37,24 @@ class dmBotCommand : dmCommandModule
 			return HandlePatrol(player, parts);
 		if (parts[1] == DM_CHAT_SPEED)
 			return HandleSpeed(player, parts);
+		if (parts[1] == DM_CHAT_STATUS)
+			return HandleStatus(player);
+		if (parts[1] == DM_CHAT_SETHEALTH)
+			return HandleSetHealth(player, parts);
+		if (parts[1] == DM_CHAT_SETBLOOD)
+			return HandleSetBlood(player, parts);
+		if (parts[1] == DM_CHAT_SETSHOCK)
+			return HandleSetShock(player, parts);
+		if (parts[1] == DM_CHAT_SETSTAMINA)
+			return HandleSetStamina(player, parts);
+		if (parts[1] == DM_CHAT_SETHEATBUFFER)
+			return HandleSetHeatBuffer(player, parts);
+		if (parts[1] == DM_CHAT_SETTOXICITY)
+			return HandleSetToxicity(player, parts);
+		if (parts[1] == DM_CHAT_SETENERGY)
+			return HandleSetEnergy(player, parts);
+		if (parts[1] == DM_CHAT_SETWATER)
+			return HandleSetWater(player, parts);
 
 		return false;
 	}
@@ -56,7 +74,10 @@ class dmBotCommand : dmCommandModule
 	//! Spawn a bot one meter in front of the player and bind it to them.
 	private bool HandleSpawnTest(PlayerBase player)
 	{
-		vector spawnPos = player.GetPosition() + player.GetDirection() * DM_SPAWN_DISTANCE;
+		vector fwd = player.GetDirection();
+		fwd[1] = 0.0;
+		fwd.Normalize();
+		vector spawnPos = player.GetPosition() + fwd * DM_SPAWN_DISTANCE;
 
 		ref dmAISurvivor bot = new dmAISurvivor();
 		PlayerBase pawn = bot.Spawn(spawnPos, Vector(0, 0, 0));
@@ -64,6 +85,8 @@ class dmBotCommand : dmCommandModule
 		if (pawn)
 		{
 			dmCommandContext.BindBot(player, bot);
+			//! Kick: real movement wakes the bot's physics so a bot spawned in the air falls.
+			dmCommandContext.GiveMoveKick(bot, player);
 			dmCommandManager.ChatToPlayer(player, "Бот заспавнен (test). Всего ботов: " + dmAISurvivor.Count());
 		}
 		else
@@ -324,5 +347,177 @@ class dmBotCommand : dmCommandModule
 		bot.SetPreferredSpeed(speed);
 		dmCommandManager.ChatToPlayer(player, "Предпочтительная скорость: " + speedName);
 		return true;
+	}
+
+	//! "/bot status" — full body/brain state report.
+	private bool HandleStatus(PlayerBase player)
+	{
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
+			return false;
+		}
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			dmCommandManager.ChatToPlayer(player, "У бота нет пешки");
+			return false;
+		}
+
+		StaminaHandler sh = pawn.GetStaminaHandler();
+
+		string state = "мёртв";
+		if (pawn.IsAlive())
+		{
+			if (pawn.IsUnconscious())
+				state = "БЕЗ СОЗНАНИЯ";
+			else
+				state = "в сознании";
+		}
+		if (pawn.IsRestrained())
+			state += ", связан";
+
+		string bleeding = "";
+		if (pawn.IsBleeding())
+			bleeding = ", кровоточит";
+
+		string statusLine = "Состояние: " + state + bleeding;
+		statusLine += " | Health=" + Fmt(pawn.GetHealth01());
+		statusLine += " Blood=" + Fmt(pawn.GetHealth("", "Blood"));
+		statusLine += " Shock=" + Fmt(pawn.GetHealth("", "Shock"));
+		dmCommandManager.ChatToPlayer(player, statusLine);
+
+		string stamina = "n/a";
+		if (sh)
+			stamina = Fmt(sh.GetStaminaNormalized()) + " (cap " + Fmt(sh.GetStaminaCap()) + ")";
+
+		string statsLine = "Статы: Stamina=" + stamina;
+		statsLine += " HeatBuffer=" + Fmt(pawn.GetStatHeatBuffer().Get());
+		statsLine += " HeatComfort=" + Fmt(pawn.GetStatHeatComfort().Get());
+		statsLine += " Tremor=" + Fmt(pawn.GetStatTremor().Get());
+		statsLine += " Wet=" + pawn.GetStatWet().Get();
+		statsLine += " Toxicity=" + Fmt(pawn.GetStatToxicity().Get());
+		statsLine += " Energy=" + Fmt(pawn.GetStatEnergy().Get());
+		statsLine += " Water=" + Fmt(pawn.GetStatWater().Get());
+		dmCommandManager.ChatToPlayer(player, statsLine);
+
+		dmBotFSM fsm = bot.GetFSM();
+		string fsmName = "нет FSM";
+		if (fsm && fsm.GetCurrentState())
+			fsmName = fsm.GetCurrentState().GetName();
+		dmCommandManager.ChatToPlayer(player, "Мозг: FSM=" + fsmName + " | FSM-интентов=" + bot.GetFSMIntents().Count());
+
+		return true;
+	}
+
+	//! Resolve the bound bot and parse the required float argument.
+	//! Returns null (and replies an error) when the command is malformed.
+	private dmAISurvivor ResolveForSet(PlayerBase player, array<string> parts, out float value)
+	{
+		if (parts.Count() < 3)
+		{
+			dmCommandManager.ChatToPlayer(player, "Укажи значение: /bot " + parts[1] + " <число>");
+			return null;
+		}
+
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
+			return null;
+		}
+
+		value = parts[2].ToFloat();
+		return bot;
+	}
+
+	private bool HandleSetHealth(PlayerBase player, array<string> parts)
+	{
+		float value;
+		dmAISurvivor bot = ResolveForSet(player, parts, value);
+		if (!bot) return true;
+		bot.GetPawn().SetHealth("", "Health", value);
+		dmCommandManager.ChatToPlayer(player, "Health = " + value);
+		return true;
+	}
+
+	private bool HandleSetBlood(PlayerBase player, array<string> parts)
+	{
+		float value;
+		dmAISurvivor bot = ResolveForSet(player, parts, value);
+		if (!bot) return true;
+		bot.GetPawn().SetHealth("", "Blood", value);
+		dmCommandManager.ChatToPlayer(player, "Blood = " + value);
+		return true;
+	}
+
+	private bool HandleSetShock(PlayerBase player, array<string> parts)
+	{
+		float value;
+		dmAISurvivor bot = ResolveForSet(player, parts, value);
+		if (!bot) return true;
+		bot.GetPawn().SetHealth("", "Shock", value);
+		dmCommandManager.ChatToPlayer(player, "Shock = " + value);
+		return true;
+	}
+
+	private bool HandleSetStamina(PlayerBase player, array<string> parts)
+	{
+		float value;
+		dmAISurvivor bot = ResolveForSet(player, parts, value);
+		if (!bot) return true;
+		StaminaHandler sh = bot.GetPawn().GetStaminaHandler();
+		if (sh)
+			sh.SetStamina(value);
+		dmCommandManager.ChatToPlayer(player, "Stamina = " + value);
+		return true;
+	}
+
+	private bool HandleSetHeatBuffer(PlayerBase player, array<string> parts)
+	{
+		float value;
+		dmAISurvivor bot = ResolveForSet(player, parts, value);
+		if (!bot) return true;
+		bot.GetPawn().GetStatHeatBuffer().Set(value);
+		dmCommandManager.ChatToPlayer(player, "HeatBuffer = " + value);
+		return true;
+	}
+
+	private bool HandleSetToxicity(PlayerBase player, array<string> parts)
+	{
+		float value;
+		dmAISurvivor bot = ResolveForSet(player, parts, value);
+		if (!bot) return true;
+		bot.GetPawn().GetStatToxicity().Set(value);
+		dmCommandManager.ChatToPlayer(player, "Toxicity = " + value);
+		return true;
+	}
+
+	private bool HandleSetEnergy(PlayerBase player, array<string> parts)
+	{
+		float value;
+		dmAISurvivor bot = ResolveForSet(player, parts, value);
+		if (!bot) return true;
+		bot.GetPawn().GetStatEnergy().Set(value);
+		dmCommandManager.ChatToPlayer(player, "Energy = " + value);
+		return true;
+	}
+
+	private bool HandleSetWater(PlayerBase player, array<string> parts)
+	{
+		float value;
+		dmAISurvivor bot = ResolveForSet(player, parts, value);
+		if (!bot) return true;
+		bot.GetPawn().GetStatWater().Set(value);
+		dmCommandManager.ChatToPlayer(player, "Water = " + value);
+		return true;
+	}
+
+	//! Trim a float to 3 decimals for readable chat output.
+	private static string Fmt(float v)
+	{
+		return (Math.Round(v * 1000.0) / 1000.0).ToString();
 	}
 }

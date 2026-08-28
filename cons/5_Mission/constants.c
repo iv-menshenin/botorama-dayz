@@ -72,3 +72,28 @@ static const string DM_CHAT_PROF_DUMP = "dump";
 static const string DM_CHAT_PROF_CLEAR = "clear";
 static const string DM_CHAT_PROF_START = "start";
 static const string DM_CHAT_PROF_STOP = "stop";
+
+//! Sub-command "status" — full body/brain state report.
+static const string DM_CHAT_STATUS = "status";
+
+//! "set" sub-commands ("/bot setX <float>"): each takes a REQUIRED float value.
+static const string DM_CHAT_SETHEALTH = "sethealth";
+static const string DM_CHAT_SETBLOOD = "setblood";
+static const string DM_CHAT_SETSHOCK = "setshock";
+static const string DM_CHAT_SETSTAMINA = "setstamina";
+static const string DM_CHAT_SETHEATBUFFER = "setheatbuffer";
+static const string DM_CHAT_SETTOXICITY = "settoxicity";
+static const string DM_CHAT_SETENERGY = "setenergy";
+static const string DM_CHAT_SETWATER = "setwater";
+
+//! Test scenario sub-commands ("/test bot <scenario>").
+static const string DM_CHAT_TEST_SHOCK = "shock";
+static const string DM_CHAT_TEST_STAMINA = "stamina";
+static const string DM_CHAT_TEST_BROKENLEG = "brokenleg";
+static const string DM_CHAT_TEST_DEATH = "death";
+
+//! Test command "cancel" — aborts the running test and cleans it up.
+static const string DM_CHAT_TEST_CANCEL = "cancel";
+
+//! Quiet delay (seconds) after showing a test summary before the test actually runs.
+static const float DM_TEST_QUIET_SECONDS = 5.0;

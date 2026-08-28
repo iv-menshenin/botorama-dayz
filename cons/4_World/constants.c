@@ -4,7 +4,7 @@
 static const string DM_DEFAULT_MODEL = "dmAI_SurvivorM_Denis";
 
 //! Distance (meters) in front of the player at which a bot spawns.
-static const float DM_SPAWN_DISTANCE = 1.0;
+static const float DM_SPAWN_DISTANCE = 5.0;
 
 //! Approximate eye/head height above the feet (meters).
 static const float DM_EYE_HEIGHT = 1.4;
@@ -33,6 +33,15 @@ static const float DM_FSM_PREEMPT_INTERVAL = 0.25;
 //! brain at this fixed rate (~30 Hz) so it doesn't over-tick relative to the
 //! pawn's simulation (see fstructure.md "Профилирование").
 static const float DM_BOT_TICK_INTERVAL = 0.033;
+
+//! Reduced-frequency interval (seconds) for the AI-bot body-modifier tick.
+//! Vanilla ticks modifiers every frame for the selected player; for an AI bot we
+//! tick them here (~4 Hz) — their own intervals are >= 0.35 s, so this is enough.
+static const float DM_BOT_MODIFIER_TICK_INTERVAL = 0.25;
+
+//! Movement speed index for "jog/run" (0=idle, 1=walk, 2=jog, 3=sprint). Used to
+//! cap the bot's speed when the body can't sprint (stamina depleted / broken legs).
+static const float DM_SPEED_IDX_JOG = 2.0;
 
 //! Max body slide-turn rate while moving (degrees per second).
 static const float DM_MOVE_TURN_RATE = 180.0;
