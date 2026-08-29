@@ -132,3 +132,16 @@ static const float DM_SCAN_HOLD_MAX = 15.0;
 //! Scan: body turn angle range (±degrees), used when body turning is allowed.
 static const float DM_SCAN_BODY_ANGLE_MIN = 15.0;
 static const float DM_SCAN_BODY_ANGLE_MAX = 120.0;
+
+//! Perception: scan radius (meters) around the bot for threats.
+static const float DM_PERCEPTION_RADIUS = 30.0;
+
+//! Perception: horizontal field of view (degrees). A target within ±half this angle
+//! from the look direction counts as "in front".
+static const float DM_PERCEPTION_FOV = 120.0;
+
+//! Perception: scan interval (seconds) — how often the bot runs a full scan.
+static const float DM_PERCEPTION_INTERVAL = 0.3;
+
+//! Perception: half-height (meters) of the scan box around the bot.
+static const float DM_PERCEPTION_HEIGHT = 2.0;

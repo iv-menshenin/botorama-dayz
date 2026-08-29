@@ -83,6 +83,10 @@ static const string DM_CHAT_LOADOUT = "loadout";
 static const string DM_CHAT_FOLLOW = "follow";
 static const string DM_CHAT_STOP = "stop";
 
+//! Sub-command "vision" — report/control the bot's perception ("/bot vision [switch]").
+static const string DM_CHAT_VISION = "vision";
+static const string DM_CHAT_SWITCH = "switch";
+
 //! Sub-command "deadmans" — report the vanilla corpse-decay state (CorpseData).
 static const string DM_CHAT_DEADMANS = "deadmans";
 

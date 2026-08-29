@@ -40,6 +40,9 @@ class dmAISurvivor
 	//! Behaviour state machine (null until a preset is loaded).
 	private ref dmBotFSM m_FSM;
 
+	//! Perception (vision): scans for visible threats on a throttled cadence.
+	private ref dmVision m_Vision;
+
 	//! Pathfinder (navmesh wrapper), lazily created on first use.
 	private ref dmBotPathfinder m_Pathfinder;
 
@@ -328,6 +331,10 @@ class dmAISurvivor
 		if (m_Pawn.IsUnconscious() || m_Pawn.IsRestrained())
 			return;
 
+		if (!m_Vision)
+			m_Vision = new dmVision();
+		m_Vision.Update(this, pDt);
+
 		if (m_FSM)
 			m_FSM.Update(pDt);
 
@@ -348,6 +355,11 @@ class dmAISurvivor
 	dmBotFSM GetFSM()
 	{
 		return m_FSM;
+	}
+
+	dmVision GetVision()
+	{
+		return m_Vision;
 	}
 
 	//------------------------------------------------------------------

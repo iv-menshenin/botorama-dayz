@@ -177,10 +177,25 @@ description: Живой справочник по серверным ИИ-бот
 
 ## Зрение / слух (восприятие)
 
-- Пока НЕ реализовано (фундамент для боя/лута/реактивного эскорта). Research-детали —
-  `docs/research/perception.md`. Стартовые точки: `GetGame().GetPlayers()`,
-  `DayZPlayerUtils.SceneGetEntitiesInBox/PhysicsGetEntitiesInBox/GetEntitiesInCone`,
-  классы `ZombieBase`/`ZombieMaleBase`/`AnimalBase`, LOS через `DayZPhysics.RaycastRV`.
+- **Реализовано (T3)**: `dmVision` (`core/4_World/Entities/Bot/Perception/dmVision.c`) —
+  поле `ref dmVision m_Vision` в мозге, тикает из `OnUpdate` с троттлингом
+  `DM_PERCEPTION_INTERVAL` (0.3 c).
+- Пайплайн `Scan()`: box-запрос вокруг бота (`SceneGetEntitiesInBox` с `QueryFlags.DYNAMIC`
+  или `PhysicsGetEntitiesInBox` — переключается `ToggleQuery()`/`m_UseScene`) →
+  классификация (`PlayerBase.Cast` / `IsInherited(ZombieBase)` / `IsInherited(AnimalBase)`)
+  → дистанция → FOV (полуугол `DM_PERCEPTION_FOV/2` от направления взгляда) → LOS.
+- Направление взгляда — корпус+голова: head-bone `GetBoneTransformWS` → `transform[1]`
+  (forward), кэш `m_HeadBone`; нет кости → `GetDirection()`. `lookDir[1]=0` + `Normalize()`.
+- LOS — `DayZPhysics.RaycastRVProxy(RaycastRVParams(eye, end, pawn), hits)`: глаза
+  (`botPos + Vector(0, DM_EYE_HEIGHT, 0)`) → голова цели (`GetBonePositionWS("Head")`,
+  фолбэк — ноги+высота глаз); видно, если ближайшее попадание `hits[0].obj`/`.parent`
+  — сама цель.
+- Результат — `dmTarget` (`dmTargetType.DESTROY`, `m_Entity`, `m_LastPosition`,
+  `m_Priority` по виду: игрок 2.0 / зомби 1.5 / животное 1.0) через `bot.AddTarget()`.
+  `Scan()` делает `bot.ClearTargets()` — каждый скан перезаписывает снимок; память/
+  забывание — задача T4.
+- Команда `/bot vision [switch]` — печать видимых целей или переключение Scene/Physics.
+- Слух и перцепция предметов (лут) — TODO. Research-детали — `docs/research/perception.md`.
 
 ## Бой
 
