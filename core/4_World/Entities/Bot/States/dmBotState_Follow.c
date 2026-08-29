@@ -13,6 +13,8 @@ class dmBotState_Follow : dmBotState
 	float m_ExitTimer;
 	vector m_ExitRefPos;
 	vector m_LastTargetPos;
+	float m_DebugAccum = 0.0;
+	float m_ExitDebugAccum = 0.0;
 
 	//! Catch-up threshold by target kind: players may lead farther than others.
 	static float GetThresholdDistance(EntityAI target)
@@ -67,6 +69,16 @@ class dmBotState_Follow : dmBotState
 		toT[1] = 0.0;
 		float dist = toT.Length();
 
+		#ifdef DM_BOT_DEBUG_FSM
+		m_DebugAccum += pDt;
+		if (m_DebugAccum >= 1.0)
+		{
+			m_DebugAccum = 0.0;
+			dmBotLog.Debug("[FSM] Follow: dist=" + dist + " botPos=" + bot.GetPosition());
+			dmBotLog.Debug("[FSM] Follow: targetPos=" + target.GetPosition() + " targetType=" + target.GetType());
+		}
+		#endif
+
 		//! Keep the head-scan intent alive (re-create if the pool dropped it).
 		if (m_Scan && (m_Scan.IsFinished() || m_Scan.IsExpired()))
 			m_Scan = null;
@@ -88,6 +100,16 @@ class dmBotState_Follow : dmBotState
 		else
 		{
 			m_ExitTimer += pDt;
+
+			#ifdef DM_BOT_DEBUG_FSM
+			m_ExitDebugAccum += pDt;
+			if (m_ExitDebugAccum >= 1.0)
+			{
+				m_ExitDebugAccum = 0.0;
+				dmBotLog.Debug("[FSM] Follow: exitWin dLen=" + d.Length() + " dist=" + dist + " exitTimer=" + m_ExitTimer);
+			}
+			#endif
+
 			if (m_ExitTimer >= DM_FOLLOW_EXIT_TIME)
 			{
 				#ifdef DM_BOT_DEBUG_FSM
