@@ -28,8 +28,13 @@
    Файлы: `dmAISurvivor.c` (+интент или режим). Критерий: бот идёт бок о бок, не сзади.
    — сделано без T1 (recovery) для happy path; recovery — отдельная доводка.
 6. `[x]` **Состояние `Escort/Follow`** — вести игрока + периодический осмотр головой.
-   Deps: 5. Файлы: `States/dmBotState_Follow.c`, `Presets/dmBotPreset_Escort.c`,
-   `/bot follow [stop]`. Критерий: бот следует за игроком и крутит головой по сторонам.
+   Deps: 5. Файлы: `States/dmBotState_Follow.c`, `States/dmBotState_Idle.c`,
+   `Intent/dmBotIntent_LookAround.c`, `FSM/Conditions/dmBotCondition_FollowFar.c`,
+   `Presets/dmBotPreset_Escort.c`, `/bot follow [stop]`.
+   Итоговая схема: `Follow(PREEMPTIVE)` / `Idle(INTERRUPTIBLE)`; `idle→follow`
+   через `Require(FollowFar)` (цель > `GetThresholdDistance`: игрок 5м / прочее 1м);
+   якорь «1м не доходя по маршруту» (`MoveTo` + `reach=1`); выход Follow — цель стоит
+   3с; scan-интент (голова 5–35°/корпус 15–120°); `DM_LOOK_TURN_SPEED=3` (плавнее).
 
 ### Группа 3 — продвинутый pathfinding
 7. `[ ]` **Vault/climb** — перепрыгивание забора / влезание на ящик. Deps: 1.
