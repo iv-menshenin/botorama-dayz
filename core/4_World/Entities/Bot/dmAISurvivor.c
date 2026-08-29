@@ -459,6 +459,12 @@ class dmAISurvivor
 		m_PreferredSpeed = speed;
 	}
 
+	//! Current preferred movement speed (1=walk, 2=jog, 3=sprint).
+	float GetPreferredSpeed()
+	{
+		return m_PreferredSpeed;
+	}
+
 	//! Compute the movement speed for reaching toPoint, isolated here so the
 	//! movement machinery doesn't hardcode it and character traits can be added.
 	//! @param deadline seconds; 0 = no deadline (use preferred speed). If > 0,

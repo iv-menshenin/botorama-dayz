@@ -88,9 +88,13 @@ description: Живой справочник по серверным ИИ-бот
   притормаживание на резком довороте (`DM_MOVE_TURN_SLOW_*`).
 - **Готча «бот не бежит»**: скорость движения берётся из `CalcSpeed(toPoint, deadline)`,
   и при `deadline == 0` (дефолт `m_ReachDeadline` у `MoveTo`) он ВСЕГДА возвращает
-  preferred speed (jog) — спринта не будет, без единой ошибки. Если бот должен догонять/
-  спешить — выставляй `m_ReachDeadline` (напр. `dist / DM_FOLLOW_CATCHUP_SPEED`), иначе
-  молча ползёт jog-ом. См. «Памятки».
+  preferred speed (jog) — спринта не будет, без единой ошибки. Follow управляет скоростью
+  сам — `SetPreferredSpeed` по дистанции до цели (sprint > `DM_FOLLOW_SPRINT_DISTANCE` 15м,
+  jog > `DM_FOLLOW_JOG_DISTANCE` 10м, walk иначе) с save в `OnEntry` / restore в `OnExit`,
+  а не через `m_ReachDeadline`. См. «Памятки».
+- **Якорь эскорта (Follow)**: для `PlayerBase` (игрок/бот) — плечо `±DM_FOLLOW_SIDE_DISTANCE`
+  (1м) вбок от направления взгляда цели (знак — `m_SideSign`, рандом в `OnEntry`); для
+  предмета — точка в `DM_FOLLOW_SIDE_DISTANCE` не доходя по линии бот→предмет.
 - `override HeadingModel` для `COMMANDID_MOVE`: ставим `m_fHeadingAngle = m_fOrientationAngle`
   и `return true` — иначе ваниль сама крутит корпус и перетирает наш `SetOrientation`.
 - «Движется ли бот» — **свой флаг** (`m_IsMoving` из `SetMove`), НЕ

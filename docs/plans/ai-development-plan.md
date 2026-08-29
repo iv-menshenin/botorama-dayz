@@ -33,8 +33,9 @@
    `Presets/dmBotPreset_Escort.c`, `/bot follow [stop]`.
    Итоговая схема: `Follow(PREEMPTIVE)` / `Idle(INTERRUPTIBLE)`; `idle→follow`
    через `Require(FollowFar)` (цель > `GetThresholdDistance`: игрок 5м / прочее 1м);
-   якорь «1м не доходя по маршруту» (`MoveTo` + `reach=1`); выход Follow — цель стоит
-   3с; scan-интент (голова 5–35°/корпус 15–120°); `DM_LOOK_TURN_SPEED=3` (плавнее).
+   якорь «плечо ±1м для игрока/бота, 1м не доходя для предмета»; скорость по дистанции
+   (sprint > 15м / jog > 10м / walk); выход Follow — цель стоит 3с; scan-интент
+   (голова 5–35°/корпус 15–120°); `DM_LOOK_TURN_SPEED=3` (плавнее).
 
 ### Группа 3 — продвинутый pathfinding
 7. `[ ]` **Vault/climb** — перепрыгивание забора / влезание на ящик. Deps: 1.

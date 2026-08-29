@@ -92,8 +92,8 @@ static const float DM_INTENT_MAX_AGE = 300.0;
 //! named "hunter" is stored at "$profile:dmBotorama/loadouts/hunter.json".
 static const string DM_LOADOUT_DIR = "$profile:dmBotorama/loadouts";
 
-//! Follow (escort): distance beyond which the bot catches up (via the MoveTo
-//! deadline). Players may lead farther than other entities before a catch-up.
+//! Follow (escort): distance beyond which the bot enters the Follow state (via
+//! dmBotCondition_FollowFar). Players may lead farther than other entities.
 static const float DM_FOLLOW_THRESHOLD_PLAYER = 5.0;
 static const float DM_FOLLOW_THRESHOLD_OTHER = 1.0;
 
@@ -101,15 +101,21 @@ static const float DM_FOLLOW_THRESHOLD_OTHER = 1.0;
 //! stops this far short of the target instead of colliding with it).
 static const float DM_FOLLOW_REACH = 1.0;
 
+//! Follow: lateral offset (meters) of the escort anchor from the target — the
+//! shoulder for a player/bot (±, by m_SideSign), or this far short of an item
+//! along the approach.
+static const float DM_FOLLOW_SIDE_DISTANCE = 1.0;
+
+//! Follow: distance bands (meters) that scale the escort's preferred speed by
+//! distance to the target — sprint beyond SPRINT, jog beyond JOG, walk otherwise.
+static const float DM_FOLLOW_SPRINT_DISTANCE = 15.0;
+static const float DM_FOLLOW_JOG_DISTANCE = 10.0;
+
 //! Follow: exit-window "stationary" radius (meters). The exit timer resets when
 //! the target moves farther than this from its reference point; the escort EXITs
 //! once the target stays put for DM_FOLLOW_EXIT_TIME with the bot within reach.
 static const float DM_FOLLOW_EXIT_DISTANCE = 1.0;
 static const float DM_FOLLOW_EXIT_TIME = 3.0;
-
-//! Follow: catch-up speed (m/s) used to derive the MoveTo deadline; above the jog
-//! threshold (DM_SPEED_JOG = 3.6 m/s), so CalcSpeed selects sprint when far.
-static const float DM_FOLLOW_CATCHUP_SPEED = 5.0;
 
 //! Scan: random interval (seconds) between idle direction changes.
 static const float DM_SCAN_INTERVAL_MIN = 10.0;
