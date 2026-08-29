@@ -96,7 +96,8 @@ class dmCommandManager
 		}
 		else
 		{
-			beg = player.GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
+			vector playerPos = player.GetPosition();
+			beg = playerPos + Vector(0, DM_EYE_HEIGHT, 0);
 			dir = MiscGameplayFunctions.GetHeadingVector(player);
 		}
 

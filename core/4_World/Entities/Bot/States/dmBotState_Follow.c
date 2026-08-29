@@ -65,7 +65,9 @@ class dmBotState_Follow : dmBotState
 			return EXIT;
 
 		//! Horizontal distance bot -> target, computed once and reused below.
-		vector toT = target.GetPosition() - bot.GetPosition();
+		vector botPos = bot.GetPosition();
+		vector targetPos = target.GetPosition();
+		vector toT = targetPos - botPos;
 		toT[1] = 0.0;
 		float dist = toT.Length();
 
@@ -74,8 +76,8 @@ class dmBotState_Follow : dmBotState
 		if (m_DebugAccum >= 1.0)
 		{
 			m_DebugAccum = 0.0;
-			dmBotLog.Debug("[FSM] Follow: dist=" + dist + " botPos=" + bot.GetPosition());
-			dmBotLog.Debug("[FSM] Follow: targetPos=" + target.GetPosition() + " targetType=" + target.GetType());
+			dmBotLog.Debug("[FSM] Follow: dist=" + dist + " botPos=" + botPos);
+			dmBotLog.Debug("[FSM] Follow: targetPos=" + targetPos + " targetType=" + target.GetType());
 		}
 		#endif
 
@@ -90,11 +92,11 @@ class dmBotState_Follow : dmBotState
 		//! the bot is still outside DM_FOLLOW_REACH (has to catch up). EXIT only
 		//! once the target is effectively motionless AND the bot is within reach
 		//! for DM_FOLLOW_EXIT_TIME seconds.
-		vector d = target.GetPosition() - m_ExitRefPos;
+		vector d = targetPos - m_ExitRefPos;
 		d[1] = 0.0;
 		if (d.Length() > DM_FOLLOW_EXIT_DISTANCE || dist > DM_FOLLOW_REACH)
 		{
-			m_ExitRefPos = target.GetPosition();
+			m_ExitRefPos = targetPos;
 			m_ExitTimer = 0.0;
 		}
 		else
@@ -122,7 +124,7 @@ class dmBotState_Follow : dmBotState
 		//! Movement: walk toward the target until within DM_FOLLOW_REACH.
 		if (dist > DM_FOLLOW_REACH)
 		{
-			vector drift = target.GetPosition() - m_LastTargetPos;
+			vector drift = targetPos - m_LastTargetPos;
 			drift[1] = 0.0;
 			if (m_Move && drift.Length() > 1.0)
 			{
@@ -139,7 +141,7 @@ class dmBotState_Follow : dmBotState
 				if (dist > m_Threshold)
 					deadline = dist / DM_FOLLOW_CATCHUP_SPEED;
 				m_Move = new dmBotIntent_MoveTo();
-				m_Move.m_Target = target.GetPosition();
+				m_Move.m_Target = targetPos;
 				m_Move.m_ReachDistance = DM_FOLLOW_REACH;
 				m_Move.m_ReachDeadline = deadline;
 
@@ -149,7 +151,7 @@ class dmBotState_Follow : dmBotState
 
 				bot.AddFSMIntent(m_Move);
 			}
-			m_LastTargetPos = target.GetPosition();
+			m_LastTargetPos = targetPos;
 		}
 		else
 		{
@@ -158,7 +160,7 @@ class dmBotState_Follow : dmBotState
 				m_Move.Finish();
 				m_Move = null;
 			}
-			m_LastTargetPos = target.GetPosition();
+			m_LastTargetPos = targetPos;
 		}
 
 		return CONTINUE;

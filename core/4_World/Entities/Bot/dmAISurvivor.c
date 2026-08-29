@@ -248,7 +248,8 @@ class dmAISurvivor
 			return;
 		}
 
-		vector origin = m_Pawn.GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
+		vector pawnPos = m_Pawn.GetPosition();
+		vector origin = pawnPos + Vector(0, DM_EYE_HEIGHT, 0);
 		vector dir = pt - origin;
 		vector angles = dir.VectorToAngles();
 
@@ -417,7 +418,8 @@ class dmAISurvivor
 		if (!m_Pawn)
 			return;
 
-		vector dir = point - m_Pawn.GetPosition();
+		vector pawnPos = m_Pawn.GetPosition();
+		vector dir = point - pawnPos;
 		dir[1] = 0.0;
 		if (dir.Length() < 0.001)
 			return;
@@ -466,7 +468,8 @@ class dmAISurvivor
 		float speed = m_PreferredSpeed;
 		if (deadline > 0.0)
 		{
-			vector dir = toPoint - GetPosition();
+			vector pos = GetPosition();
+			vector dir = toPoint - pos;
 			dir[1] = 0.0;
 			float required = dir.Length() / deadline;
 			float reqIdx = 1.0;

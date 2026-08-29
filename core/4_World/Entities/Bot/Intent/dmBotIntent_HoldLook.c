@@ -8,7 +8,10 @@ class dmBotIntent_HoldLook : dmBotIntent
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
 		if (m_Entity)
-			bot.LookAtPoint(m_Entity.GetPosition() + Vector(0, DM_EYE_HEIGHT, 0), m_Turn);
+		{
+			vector pos = m_Entity.GetPosition();
+			bot.LookAtPoint(pos + Vector(0, DM_EYE_HEIGHT, 0), m_Turn);
+		}
 		else
 			bot.LookAtPoint(m_Point, m_Turn);
 	}
