@@ -113,6 +113,13 @@ description: Живой справочник по серверным ИИ-бот
   вход), `GetKind()` (NORMAL/INTERRUPTIBLE/PREEMPTIVE), `AddTransition(to, weight)`
   с fluent `BlockWhen/Require(условие)`.
 - `dmBotCondition` — stateless-предикат + композиты `And/Or/Not` (фабрики — `dmBotConditions`).
+- **Состояния НЕ диктуют переходы** (главное правило при планировании): состояние лишь
+  возвращает `EXIT` («моя работа кончилась») или живёт, а ВЫБОР перехода делает FSM по
+  guard'ам на рёбрах (`Require`/`BlockWhen` + `CanEnter`). Реакция на внешний фактор
+  (напр. «игрок отошёл > порога») — НЕ `if (...) return EXIT;` внутри `OnUpdate`, а
+  вытесняющий переход: целевое состояние делаем `PREEMPTIVE`, текущее — `INTERRUPTIBLE`,
+  а ребро — `Require(условие)`. FSM сам вытеснит (`SelectPreemptive` раз в
+  `DM_FSM_PREEMPT_INTERVAL`). Повторять ошибку «состояние само решает, куда идти» — нельзя.
 - Состояния сейчас: **Idle**✅ (глядит/поворачивается), **Patrol**✅ (intent-driven),
   **Stealth**✅ (укрытие: crouch→move→prone→dwell), **Hunting/Fighting/Surrender** ⚠️ заглушки.
 - Состояние-владелец держит `ref` на свои интенты и реагирует на `IsFinished()/IsFailed()`;
