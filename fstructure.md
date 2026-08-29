@@ -174,11 +174,12 @@ test/                       # тестовые команды/сценарии (
   ванильный DayZ. Мы их не переопределяем — мы лишь перестали их «перебивать».
 - **Ванильный тик систем тела** (`PlayerBase.OnScheduledTick`) гейтится на
   `IsPlayerSelected()` (всегда `false` у AI-бота) и на `m_AllowModifierTick`
-  (включается только в `OnSelectPlayer`). Поэтому модификаторы сами не тикают.
-  Мы в `CommandHandler` делаем `SetModifiers(true)` и тикаем
-  `GetModifiersManager().OnScheduledTick(dt)` **по пониженной частоте**
+  (включается только в `OnSelectPlayer`). Поэтому модификаторы и менеджер
+  кровотечений сами не тикают. Мы в `CommandHandler` делаем `SetModifiers(true)`
+  и в `TickBodySystems` тикаем `GetModifiersManager().OnScheduledTick(dt)` +
+  `GetBleedingManagerServer().OnTick(dt)` **по пониженной частоте**
   (`DM_BOT_MODIFIER_TICK_INTERVAL` = 0.25 c, аккумулятор) — внутренние интервалы
-  модификаторов ≥ 0.35 c, чаще не нужно.
+  систем ≥ 0.35 c, чаще не нужно.
 - **Нокаут (мост команды)**: синк-джанктура `UnconsciousnessMdfr → SendSyncJuncture`
   до server-only бота не доходит, а ванильный блок, который стартует команду, гейтится
   на `m_ActionManager` (у `INSTANCETYPE_AI_SERVER` он `NULL`). Поэтому `m_ShouldBeUnconscious`
@@ -189,14 +190,21 @@ test/                       # тестовые команды/сценарии (
   активация) ставит состояние сразу; `ActivateModifier(MDF_BROKEN_LEGS)` (через наш
   тик) применяет инжури-анимацию (хромоту) и `BrokenLegWalkShock` (шок от бега со
   сломанной ногой, без шины → в итоге нокаут).
+- **Кровотечение**: источники кровотечения режут кровь в `BleedingSourcesManagerServer.OnTick`
+  (тикаем в `TickBodySystems`). Кровь `< 3000` (`SHOCK_DAMAGE_BLOOD_THRESHOLD_HIGH`) →
+  модификатор `MDF_SHOCK_DAMAGE` бьёт шок → шок `<= 25` → нокаут (через мост выше).
+  Цепочка «рана → кровь → шок → обморок» ванильная, работает после фикса тика.
 - Гейт честности: `dmAISurvivorBase.CanAct()` = `IsAlive() && !IsUnconscious() && !IsRestrained()`.
   - `CommandHandler` применяет `ApplyLookVars`/`ApplyBodyTurn`/`ApplyMovement`/`ApplyStance`
     только при `CanAct()`, иначе вызывает `ResetActuation()` (останов поворота/движения,
     голова в нейтраль).
   - Мозг (`dmAISurvivor.OnUpdate`): при смерти — `OnDeath()` (мозг снимается с тиков,
-    ссылки отпускаются, **труп остаётся** — протуханием/TTL владеет движок); `Despawn()`
-    (с `ObjectDelete`) остаётся только для ручного удаления (`/test cancel`);
-    при бессознательном/связанном состоянии — пропуск моторики (FSM/интенты/взгляд).
+    ссылки отпускаются, **труп остаётся**); `Despawn()` (с `ObjectDelete`) — только для
+    ручного удаления (`/test cancel`); при бессознательном/связанном состоянии —
+    пропуск моторики (FSM/интенты/взгляд).
+  - **Протухание трупа**: пешка спавнится через CE (`GetGame().CreateObject(m_Model, pos)`,
+    как у Expansion) — это даёт ей `EconomyProfile`, и ванильный `EEKilled` сам регистрирует
+    труп (`InsertCorpse`) и ведёт протухание/TTL. `CreatePlayer(null, …)` профиля не давал.
 - **Кап скорости (стамина + перелом)**: ванильный лимит спринта
   `hic.LimitsDisableSprint` обходится нашим `OverrideMovementSpeed`, поэтому в
   `ApplyMovement` капаем `target` до `DM_SPEED_IDX_JOG` (=2), если
@@ -206,6 +214,11 @@ test/                       # тестовые команды/сценарии (
   что в итоге вырубает бота.
 - Стамина — ванильная (`StaminaHandler`): вес в инвентаре режет кап, спринт честно
   её расходует, при нуле — форс на джог, реген. Мы её не обходим.
+- **Мили-логика отключена**: ванильный `HandleFightLogic` без null-проверки `hcm`
+  кидает VM Exception, когда бот не в MOVE (без сознания/мёртв) — у AI-бота
+  `CanFight()` всегда `true` (нет `ActionManager`). Подменяем `m_MeleeFightLogic`
+  на `dmBotMeleeFightLogic_LightHeavy` (пропускает мили). Ближний бой ботов —
+  отдельная задача (см. `TECHDEBT.md`).
 - Отладка: `/bot status` (полный отчёт о теле+мозге) и
   `/bot sethealth|setblood|setshock|setstamina|setheatbuffer|settoxicity|setenergy|setwater <число>`
   (каждая принимает обязательный float, без дефолтов).
@@ -230,3 +243,4 @@ test/                       # тестовые команды/сценарии (
 - Реакции мозга на состояние тела (искать тепло/еду/воду, отдых, бой/бегство).
 - Голод/жажда/болезни (статы уже тикают, но мозг пока не ест/не пьёт).
 - Сенсорика (ослепление и т.п.).
+- **Мили-бой ботов** (сейчас заглушка `dmBotMeleeFightLogic_LightHeavy`).

@@ -39,6 +39,8 @@ class dmBotCommand : dmCommandModule
 			return HandleSpeed(player, parts);
 		if (parts[1] == DM_CHAT_STATUS)
 			return HandleStatus(player);
+		if (parts[1] == DM_CHAT_DEADMANS)
+			return HandleDeadMans(player);
 		if (parts[1] == DM_CHAT_SETHEALTH)
 			return HandleSetHealth(player, parts);
 		if (parts[1] == DM_CHAT_SETBLOOD)
@@ -408,6 +410,49 @@ class dmBotCommand : dmCommandModule
 		if (fsm && fsm.GetCurrentState())
 			fsmName = fsm.GetCurrentState().GetName();
 		dmCommandManager.ChatToPlayer(player, "Мозг: FSM=" + fsmName + " | FSM-интентов=" + bot.GetFSMIntents().Count());
+
+		return true;
+	}
+
+	//! "/bot deadmans" — report the vanilla corpse-decay state (MissionServer's
+	//! m_DeadPlayersArray + CorpseData) to diagnose why corpses don't rot.
+	private bool HandleDeadMans(PlayerBase player)
+	{
+		MissionServer ms = MissionServer.Cast(g_Game.GetMission());
+		if (!ms)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет MissionServer");
+			return true;
+		}
+
+		int total = ms.m_DeadPlayersArray.Count();
+		dmCommandManager.ChatToPlayer(player, "Трупов в m_DeadPlayersArray: " + total);
+
+		float snowMin;
+		float snowMax;
+		g_Game.GetWeather().GetSnowfall().GetLimits(snowMin, snowMax);
+		dmCommandManager.ChatToPlayer(player, "Snowfall max=" + Fmt(snowMax) + " (decayEffects=" + (snowMax <= 0) + ")");
+
+		int i;
+		for (i = 0; i < total; i++)
+		{
+			CorpseData cd = ms.m_DeadPlayersArray.Get(i);
+			if (!cd || !cd.m_Player)
+				continue;
+
+			bool isBot = dmAISurvivorBase.Cast(cd.m_Player) != null;
+
+			string line = "[" + i + "] " + isBot + " corpseState=" + cd.m_iCorpseState;
+			line += " bUpdate=" + cd.m_bUpdate;
+			line += " maxLifetime=" + cd.m_iMaxLifetime;
+			line += " lifetimeAdj=" + Fmt(cd.m_LifetimeAdjusted);
+			line += " lastLifetime=" + Fmt(cd.m_LastLifetime);
+			line += " | pawn: lifetime=" + Fmt(cd.m_Player.GetLifetime());
+			line += " frozen=" + cd.m_Player.GetIsFrozen();
+			line += " temp=" + Fmt(cd.m_Player.GetTemperature());
+			line += " corpseStateField=" + cd.m_Player.m_CorpseState;
+			dmCommandManager.ChatToPlayer(player, line);
+		}
 
 		return true;
 	}

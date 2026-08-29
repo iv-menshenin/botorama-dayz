@@ -62,12 +62,21 @@ class dmAISurvivorBase : PlayerBase
 	//! DM_BOT_MODIFIER_TICK_INTERVAL).
 	private float m_ModifierTickAccum = 0.0;
 
+	//! Accumulator for the periodic body-stats debug log (DM_BOT_DEBUG_BODY).
+	private float m_BodyDebugAccum = 0.0;
+
 	void dmAISurvivorBase()
 	{
 		m_DesiredStance = DayZPlayerConstants.STANCEIDX_ERECT;
 
 		RegisterNetSyncVariableFloat("m_LookYawDeg", -DM_LOOK_MAX_YAW, DM_LOOK_MAX_YAW, 1);
 		RegisterNetSyncVariableFloat("m_LookPitchDeg", -DM_LOOK_MAX_PITCH, DM_LOOK_MAX_PITCH, 1);
+
+		//! Replace the vanilla melee fight logic: it null-derefs hcm (HumanCommandMove)
+		//! whenever the bot isn't in the MOVE command (unconscious/dead), because
+		//! CanFight() is true for an AI bot (no ActionManager). Our subclass skips
+		//! melee entirely (the bot doesn't fight yet — see TECHDEBT.md).
+		m_MeleeFightLogic = new dmBotMeleeFightLogic_LightHeavy(this);
 	}
 
 	//! Bind the custom head-look animation graph variables.
@@ -145,10 +154,7 @@ class dmAISurvivorBase : PlayerBase
 		#endif
 
 		if (IsAlive())
-		{
-			TickModifiers(pDt);
-			UpdateUnconsciousBridge();
-		}
+			TickBodySystems(pDt);
 
 		bool canAct = CanAct();
 
@@ -156,6 +162,12 @@ class dmAISurvivorBase : PlayerBase
 			ApplyLookVars();
 
 		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);
+
+		//! Transition to/from unconscious AFTER super: the vanilla command logic
+		//! (melee fight etc.) reads HumanCommandMove inside super, so starting the
+		//! unconscious command before it would null hcm and throw a VM exception.
+		if (IsAlive())
+			UpdateUnconsciousBridge();
 
 		if (!canAct)
 		{
@@ -178,12 +190,12 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
-	//! Vanilla ticks body modifiers in OnScheduledTick, gated on IsPlayerSelected()
+	//! Vanilla ticks body systems in OnScheduledTick, gated on IsPlayerSelected()
 	//! and m_AllowModifierTick (enabled only in OnSelectPlayer) — neither happens
 	//! for an AI bot. Enable and tick them at a reduced rate so shock refill,
-	//! broken legs etc. actually run. The modifiers throttle internally, so a
-	//! 4 Hz tick is enough (their own intervals are >= 0.35 s).
-	void TickModifiers(float pDt)
+	//! broken legs, bleeding (blood loss) etc. actually run. The systems throttle
+	//! internally, so a 4 Hz tick is enough.
+	void TickBodySystems(float pDt)
 	{
 		ModifiersManager mngr = GetModifiersManager();
 		if (!mngr)
@@ -191,13 +203,27 @@ class dmAISurvivorBase : PlayerBase
 
 		mngr.SetModifiers(true);
 
+		#ifdef DM_BOT_DEBUG_BODY
+		m_BodyDebugAccum += pDt;
+		if (m_BodyDebugAccum >= 2.0)
+		{
+			m_BodyDebugAccum = 0.0;
+			dmBotLog.Debug("Body: blood=" + GetHealth("", "Blood") + " shock=" + GetHealth("", "Shock") + " bleeding=" + IsBleeding() + " unconscious=" + IsUnconscious() + " brokenLegs=" + (GetBrokenLegs() != eBrokenLegs.NO_BROKEN_LEGS));
+		}
+		#endif
+
 		m_ModifierTickAccum += pDt;
 		if (m_ModifierTickAccum < DM_BOT_MODIFIER_TICK_INTERVAL)
 			return;
 
 		float dt = m_ModifierTickAccum;
 		m_ModifierTickAccum = 0.0;
+
 		mngr.OnScheduledTick(dt);
+
+		BleedingSourcesManagerServer bsm = GetBleedingManagerServer();
+		if (bsm)
+			bsm.OnTick(dt);
 	}
 
 	//! Bridge the vanilla unconscious command from the shock value. The vanilla
@@ -215,6 +241,10 @@ class dmAISurvivorBase : PlayerBase
 			{
 				m_ShouldBeUnconscious = true;
 				StartCommand_Unconscious(0);
+
+				#ifdef DM_BOT_DEBUG_BODY
+				dmBotLog.Debug("UnconsciousBridge: shock=" + shock + " -> StartCommand_Unconscious(0)");
+				#endif
 			}
 		}
 		else if (IsUnconscious() && shock >= PlayerConstants.CONSCIOUS_THRESHOLD)
@@ -222,8 +252,25 @@ class dmAISurvivorBase : PlayerBase
 			m_ShouldBeUnconscious = false;
 			HumanCommandUnconscious hcu = GetCommand_Unconscious();
 			if (hcu)
+			{
 				hcu.WakeUp(DayZPlayerConstants.STANCEIDX_PRONE);
+
+				#ifdef DM_BOT_DEBUG_BODY
+				dmBotLog.Debug("UnconsciousBridge: shock=" + shock + " -> WakeUp");
+				#endif
+			}
 		}
+	}
+
+	//! Death — logging only: report whether the vanilla EEKilled registered the
+	//! corpse for decay (depends on the pawn having a CE profile from CreateObject).
+	override void EEKilled(Object killer)
+	{
+		super.EEKilled(killer);
+
+		#ifdef DM_BOT_DEBUG_BODY
+		dmBotLog.Debug("EEKilled: hasCEProfile=" + (GetEconomyProfile() != null) + " corpseProcessing=" + m_CorpseProcessing + " corpseState=" + m_CorpseState + " lifetime=" + GetLifetime());
+		#endif
 	}
 
 	//! Whether the body may actuate (move/turn/stance/look). False while dead,
@@ -476,3 +523,17 @@ class dmAISurvivorBase : PlayerBase
 class dmAI_SurvivorM_Denis : dmAISurvivorBase {};
 class dmAI_SurvivorM_Mirek : dmAISurvivorBase {};
 class dmAI_SurvivorF_Eva : dmAISurvivorBase {};
+
+//! Null-safe melee fight logic for the bot. The vanilla
+//! DayZPlayerMeleeFightLogic_LightHeavy.HandleFightLogic reads HumanCommandMove
+//! without null-checking it, and CanFight() is true for an AI bot (no
+//! ActionManager), so it throws a VM exception whenever the bot isn't in the MOVE
+//! command (unconscious/dead). The bot doesn't fight yet, so we just skip melee.
+class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
+{
+	override bool HandleFightLogic(int pCurrentCommandID, HumanInputController pInputs, EntityAI pEntityInHands, HumanMovementState pMovementState, out bool pContinueAttack)
+	{
+		pContinueAttack = false;
+		return false;
+	}
+}

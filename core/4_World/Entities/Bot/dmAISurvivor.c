@@ -1,7 +1,8 @@
 //! dmAISurvivor — server-side bot controller (Layer 0 + head look).
 //!
 //! The "brain" object is separate from the visual model (pawn). The pawn is a
-//! dmAISurvivorBase entity (client-server mod) created via GetGame().CreatePlayer.
+//! dmAISurvivorBase entity (client-server mod) created via GetGame().CreateObject
+//! (CE spawn, so it has an EconomyProfile and the vanilla corpse decay works).
 //!
 //! Head look: the controller computes a look offset (relative to the body) and
 //! pushes it to the pawn, whose HeadingModel override turns the head while the
@@ -105,9 +106,12 @@ class dmAISurvivor
 			return null;
 		}
 
-		Entity entity = GetGame().CreatePlayer(null, m_Model, position, 0.0, "NONE");
+		//! CE spawn (like Expansion AI): gives the pawn a Central Economy profile,
+		//! so the vanilla corpse decay (lifetime/TTL) works. CreatePlayer(null, ...)
+		//! would leave the pawn without a profile.
+		Object entity = GetGame().CreateObject(m_Model, position);
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("Spawn() CreatePlayer returned entity=" + entity);
+		dmBotLog.Debug("Spawn() CreateObject returned entity=" + entity);
 		#endif
 
 		PlayerBase pawn = PlayerBase.Cast(entity);
@@ -118,6 +122,10 @@ class dmAISurvivor
 			#endif
 			return null;
 		}
+
+		#ifdef DM_BOT_DEBUG_BODY
+		dmBotLog.Debug("Spawn() hasCEProfile=" + (pawn.GetEconomyProfile() != null) + " hasIdentity=" + (pawn.GetIdentity() != null));
+		#endif
 
 		m_Pawn = pawn;
 		m_Pawn.SetPosition(position);

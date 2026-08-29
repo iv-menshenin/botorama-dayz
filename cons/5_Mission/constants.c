@@ -76,6 +76,9 @@ static const string DM_CHAT_PROF_STOP = "stop";
 //! Sub-command "status" — full body/brain state report.
 static const string DM_CHAT_STATUS = "status";
 
+//! Sub-command "deadmans" — report the vanilla corpse-decay state (CorpseData).
+static const string DM_CHAT_DEADMANS = "deadmans";
+
 //! "set" sub-commands ("/bot setX <float>"): each takes a REQUIRED float value.
 static const string DM_CHAT_SETHEALTH = "sethealth";
 static const string DM_CHAT_SETBLOOD = "setblood";
