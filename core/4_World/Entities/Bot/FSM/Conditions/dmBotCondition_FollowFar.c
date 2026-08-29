@@ -13,13 +13,15 @@ class dmBotCondition_FollowFar : dmBotCondition
 			return false;
 		}
 
-		vector d = t.GetPosition() - bot.GetPosition();
+		vector targetPos = t.GetPosition();
+		vector botPos = bot.GetPosition();
+		vector d = targetPos - botPos;
 		d[1] = 0.0;
 		float dist = d.Length();
 		float threshold = dmBotState_Follow.GetThresholdDistance(t);
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] FollowFar: target=" + t.GetType() + " dist=" + dist + " threshold=" + threshold + " -> " + (dist > threshold));
+		dmBotLog.Debug("[FSM] FollowFar: target=" + t.GetType() + " tPos=" + targetPos + " botPos=" + botPos + " isPawn=" + (t == bot.GetPawn()) + " dist=" + dist + " threshold=" + threshold + " -> " + (dist > threshold));
 		#endif
 
 		return dist > threshold;
