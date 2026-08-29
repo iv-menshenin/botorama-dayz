@@ -40,6 +40,11 @@ botorama/
 ├── config.cpp                   # CfgPatches / CfgMods / CfgVehicles (defines, modules)
 ├── fstructure.md                # этот файл — принцип размещения
 ├── loadouts.md                  # формат loadout + примеры (для пользователя)
+├── docs/                        # документация (см. AGENTS.md)
+│   ├── codeguide.md             # синтаксис/движок Enfusion
+│   ├── techdebt.md              # техдолг
+│   ├── plans/                   # планы (ai-development-plan, fsm-implementation-plan, …)
+│   └── research/                # research-заметки по API (perception/navigation/entityai/combat/loot)
 ├── cons/                        # константы и дефайны
 │   ├── 3_Game/
 │   │   └── constants.c          # DM_BOTORAMA_VERSION (версия мода)
@@ -225,14 +230,14 @@ test/                       # тестовые команды/сценарии (
   кидает VM Exception, когда бот не в MOVE (без сознания/мёртв) — у AI-бота
   `CanFight()` всегда `true` (нет `ActionManager`). Подменяем `m_MeleeFightLogic`
   на `dmBotMeleeFightLogic_LightHeavy` (пропускает мили). Ближний бой ботов —
-  отдельная задача (см. `TECHDEBT.md`).
+  отдельная задача (см. `docs/techdebt.md`).
 - Отладка: `/bot status` (полный отчёт о теле+мозге) и
   `/bot sethealth|setblood|setshock|setstamina|setheatbuffer|settoxicity|setenergy|setwater <число>`
   (каждая принимает обязательный float, без дефолтов).
 - Самопроверяемые сценарии (`/test bot shock|stamina|brokenleg|death`): печатают
   ожидаемый результат и сами сверяют состояние бота по таймеру (`dmBotTest.c`);
   `/test cancel` — прервать работающий тест и удалить его бота.
-- Отложено — см. `TECHDEBT.md` (кровотечение, холод/жара, токсичность, утопление,
+- Отложено — см. `docs/techdebt.md` (кровотечение, холод/жара, токсичность, утопление,
   ослепление; реакции мозга на состояние тела).
 
 ## Loadout-ы ботов
@@ -258,7 +263,7 @@ test/                       # тестовые команды/сценарии (
 - Единый кап скорости, ручной тик модификаторов по пониженной частоте.
 - Инструменты: `/bot status`, `/bot set*`, самопроверяемые `/test bot shock|stamina|brokenleg|death`, `/test cancel`.
 
-**Отложено / осталось** (см. `TECHDEBT.md`):
+**Отложено / осталось** (см. `docs/techdebt.md`):
 - Тесты тела со сложной индукцией: кровотечение, холод/жара, токсичность, утопление, ослепление.
 - Реакции мозга на состояние тела (искать тепло/еду/воду, отдых, бой/бегство).
 - Голод/жажда/болезни (статы уже тикают, но мозг пока не ест/не пьёт).

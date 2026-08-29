@@ -75,7 +75,7 @@ class dmAISurvivorBase : PlayerBase
 		//! Replace the vanilla melee fight logic: it null-derefs hcm (HumanCommandMove)
 		//! whenever the bot isn't in the MOVE command (unconscious/dead), because
 		//! CanFight() is true for an AI bot (no ActionManager). Our subclass skips
-		//! melee entirely (the bot doesn't fight yet — see TECHDEBT.md).
+		//! melee entirely (the bot doesn't fight yet — see docs/techdebt.md).
 		m_MeleeFightLogic = new dmBotMeleeFightLogic_LightHeavy(this);
 	}
 

@@ -5,7 +5,7 @@
 //!   - m_Filter       — walkable ground (WALK/DOOR/INSIDE), no swim/special/unreachable.
 //!   - m_SampleFilter — snap a target onto the navmesh (everything except crawl/crouch).
 //!
-//! Deferred (see Reference/fsm-implementation-plan.md "Pathfinding"): door handling,
+//! Deferred (see docs/plans/fsm-implementation-plan.md "Pathfinding"): door handling,
 //! vault/climb, ladders, swimming, attachment navmesh, string-pulling, path-cost tuning.
 
 class dmBotPathfinder

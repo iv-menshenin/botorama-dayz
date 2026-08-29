@@ -4,3 +4,6 @@ serverLog/
 
 # IDE
 .vscode/
+
+# Runtime profiler dumps (/prof dump)
+profiles/
