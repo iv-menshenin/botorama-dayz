@@ -86,6 +86,11 @@ description: Живой справочник по серверным ИИ-бот
   корпуса) + `CalcSpeed` (скорость; дедлайн ускоряет). Пешка: `ApplyMovement` рампует
   скорость (`DM_MOVE_ACCEL_RATE`), кэп спринта (`CanConsumeStamina`/`CanSprint`),
   притормаживание на резком довороте (`DM_MOVE_TURN_SLOW_*`).
+- **Готча «бот не бежит»**: скорость движения берётся из `CalcSpeed(toPoint, deadline)`,
+  и при `deadline == 0` (дефолт `m_ReachDeadline` у `MoveTo`) он ВСЕГДА возвращает
+  preferred speed (jog) — спринта не будет, без единой ошибки. Если бот должен догонять/
+  спешить — выставляй `m_ReachDeadline` (напр. `dist / DM_FOLLOW_CATCHUP_SPEED`), иначе
+  молча ползёт jog-ом. См. «Памятки».
 - `override HeadingModel` для `COMMANDID_MOVE`: ставим `m_fHeadingAngle = m_fOrientationAngle`
   и `return true` — иначе ваниль сама крутит корпус и перетирает наш `SetOrientation`.
 - «Движется ли бот» — **свой флаг** (`m_IsMoving` из `SetMove`), НЕ
@@ -205,6 +210,17 @@ description: Живой справочник по серверным ИИ-бот
 - Цели (паттерн Expansion): `eAITargetInformation` + `eAITargetInformationState`
   (последняя известная позиция, поиск, LOS, threat). У нас упрощённый `dmTarget`
   (entity/class/priority/lastPosition) — скелет, к поведению не подключён.
+
+## Памятки (когда пишешь код)
+
+- **Интент/состояние движения** → помни про цепочку `SetMove(angle, CalcSpeed(target, m_ReachDeadline))`.
+  Без дедлайна бот бежит только на preferred speed (jog); чтобы догонял/спринтовал —
+  выставляй `m_ReachDeadline`. Ревизуя движение, пройди всю цепочку «кто зовёт SetMove →
+  с каким speed → CalcSpeed → m_ReachDeadline» (это был пропущенный недочёт при ревью эскорта).
+- **Новый FSM-стейт** → обязательно `GetKind()` (INTERRUPTIBLE, если должен вытесняться боем)
+  и `CanEnter()` (условие входа); иначе зависнет или войдёт в нерелевантном контексте.
+- **Состояние, владеющее интентом** → держит `ref` и пересоздаёт его, если пул сожрал
+  (автодедлайн `DM_INTENT_MAX_AGE`).
 
 ## Ключевые файлы
 
