@@ -21,7 +21,7 @@ class CfgMods
 		author = "devalio";
 		version = 2.4;
 		type = "mod";
-		defines[] = { "DM_BOT_PROFILE", "DM_BOT_DEBUG_BODY" };	
+		defines[] = { "DM_BOT_PROFILE", "DM_BOT_DEBUG_BODY", "DM_BOT_DEBUG_LOADOUT" };	
 		class defs 
 		{
 			class gameScriptModule {
@@ -35,7 +35,8 @@ class CfgMods
 				value = "";
 				files[] = {
 					"botorama/cons/4_World",
-					"botorama/core/4_World"
+					"botorama/core/4_World",
+					"botorama/loadout/4_World"
 				};
 			};
 			class missionScriptModule

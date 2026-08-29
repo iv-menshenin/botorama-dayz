@@ -87,3 +87,7 @@ static const float DM_MOVE_TURN_SLOW_SPEED = 1.0;
 //! Max age (seconds) of an intent without a deadline before the arbitration
 //! removes it (safety net — no intent lives forever).
 static const float DM_INTENT_MAX_AGE = 300.0;
+
+//! Directory for loadout files (relative to the DayZ profile root). A loadout
+//! named "hunter" is stored at "$profile:dmBotorama/loadouts/hunter.json".
+static const string DM_LOADOUT_DIR = "$profile:dmBotorama/loadouts";

@@ -18,12 +18,13 @@
 //! the area you are debugging. Each call site is gated with its own domain define.
 //!
 //! DEBUG — discrete events (spawn, transitions, sync):
-//!   DM_BOT_DEBUG_SPAWN — spawn/despawn lifecycle.
-//!   DM_BOT_DEBUG_BRAIN — body control (orientation, failed look).
-//!   DM_BOT_DEBUG_FSM   — FSM transitions and state entry/exit.
-//!   DM_BOT_DEBUG_PAWN  — pawn/animation (variable binding, look sync).
-//!   DM_BOT_DEBUG_BODY  — body mechanics (CE profile, corpse registration, blood/
-//!                        shock/unconscious bridge, periodic body stats).
+//!   DM_BOT_DEBUG_SPAWN   — spawn/despawn lifecycle.
+//!   DM_BOT_DEBUG_BRAIN   — body control (orientation, failed look).
+//!   DM_BOT_DEBUG_FSM     — FSM transitions and state entry/exit.
+//!   DM_BOT_DEBUG_PAWN    — pawn/animation (variable binding, look sync).
+//!   DM_BOT_DEBUG_BODY    — body mechanics (CE profile, corpse registration, blood/
+//!                          shock/unconscious bridge, periodic body stats).
+//!   DM_BOT_DEBUG_LOADOUT — loadout application (dmLoadoutApplier).
 //!
 //! TRACE — per-frame, verbose:
 //!   DM_BOT_TRACE_LOOK — head look steering (LookAtPoint, UpdateLook).

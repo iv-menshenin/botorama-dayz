@@ -12,6 +12,7 @@
 //!   /bot patrol add            — добавить точку патруля в точку взгляда игрока.
 //!   /bot patrol clear          — очистить точки патруля.
 //!   /bot speed walk|jog|sprint — задать предпочтительную скорость ходьбы.
+//!   /bot loadout {name}        — применить loadout к боту (или список без имени).
 //!
 //! Интенты добавляются в командный пул (приоритет CRITICAL), поэтому они
 //! перебивают автоматическое поведение; "/bot intent clear" возвращает бота
@@ -41,6 +42,8 @@ class dmBotCommand : dmCommandModule
 			return HandleStatus(player);
 		if (parts[1] == DM_CHAT_DEADMANS)
 			return HandleDeadMans(player);
+		if (parts[1] == DM_CHAT_LOADOUT)
+			return HandleLoadout(player, parts);
 		if (parts[1] == DM_CHAT_SETHEALTH)
 			return HandleSetHealth(player, parts);
 		if (parts[1] == DM_CHAT_SETBLOOD)
@@ -454,6 +457,54 @@ class dmBotCommand : dmCommandModule
 			dmCommandManager.ChatToPlayer(player, line);
 		}
 
+		return true;
+	}
+
+	//! "/bot loadout {name}" — apply a loadout to the bound bot; without a name,
+	//! list the loadout files available in DM_LOADOUT_DIR.
+	private bool HandleLoadout(PlayerBase player, array<string> parts)
+	{
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
+			return true;
+		}
+
+		if (parts.Count() < 3)
+		{
+			array<string> names = new array<string>();
+			dmLoadoutApplier.List(names);
+			if (names.Count() == 0)
+			{
+				dmCommandManager.ChatToPlayer(player, "Нет loadout-файлов в " + DM_LOADOUT_DIR);
+				return true;
+			}
+
+			string line = "Loadout-ы:";
+			for (int i = 0; i < names.Count(); i++)
+				line += " " + names[i];
+			dmCommandManager.ChatToPlayer(player, line);
+			return true;
+		}
+
+		string name = parts[2];
+		dmLoadoutConfig cfg = dmLoadoutApplier.Load(name);
+		if (!cfg)
+		{
+			dmCommandManager.ChatToPlayer(player, "Loadout '" + name + "' не найден в " + DM_LOADOUT_DIR);
+			return true;
+		}
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			dmCommandManager.ChatToPlayer(player, "У бота нет пешки");
+			return true;
+		}
+
+		dmLoadoutApplier.Apply(pawn, cfg);
+		dmCommandManager.ChatToPlayer(player, "Loadout '" + name + "' применён");
 		return true;
 	}
 

@@ -39,6 +39,7 @@ botorama/
 │   └── Tests.agr
 ├── config.cpp                   # CfgPatches / CfgMods / CfgVehicles (defines, modules)
 ├── fstructure.md                # этот файл — принцип размещения
+├── loadouts.md                  # формат loadout + примеры (для пользователя)
 ├── cons/                        # константы и дефайны
 │   ├── 3_Game/
 │   │   └── constants.c          # DM_BOTORAMA_VERSION (версия мода)
@@ -81,6 +82,11 @@ botorama/
         └── Commands/            # движок чат-команд
             ├── dmCommandManager.c   # register + delegate + утилиты
             └── dmCommandModule.c    # базовый модуль команды
+├── loadout/                    # loadout-ы ботов (свой компактный JSON-формат)
+│   └── 4_World/
+│       ├── dmLoadoutConfig.c   # структуры данных (схема JSON)
+│       ├── dmLoadoutApplier.c  # загрузка + применение
+│       └── README.md           # «как это работает»
 test/                       # тестовые команды/сценарии (не «продукт»)
     └── 5_Mission/
         ├── dmCommandContext.c  # общее состояние + доменные хелперы
@@ -103,6 +109,7 @@ test/                       # тестовые команды/сценарии (
 - Логирование (`dmBotLog`) → `core/3_Game/Logging/` (нужно и серверу, и клиенту).
 - Читатель JSON-конфигов (`dmJsonFile`/`dmJsonConfigBase`) → `core/3_Game/Config/` (переиспользуемый, не привязан к ботам).
 - Профайлер (`dmBotProfiler`) → `core/3_Game/Profiling/` (нужен серверу; грузится до world/mission, откуда он инструментируется).
+- Loadout (`dmLoadoutConfig`/`dmLoadoutApplier`) → `loadout/4_World/` (свой формат JSON; применяется к пешке бота).
 - Константы → `cons/<слой>/constants.c`.
 - Версия мода (`DM_BOTORAMA_VERSION`) → `cons/3_Game/constants.c` (используется из 3_Game; модуль грузится первым).
 - Дефайны логирования → `cons/4_World/defines.c`.
@@ -227,6 +234,19 @@ test/                       # тестовые команды/сценарии (
   `/test cancel` — прервать работающий тест и удалить его бота.
 - Отложено — см. `TECHDEBT.md` (кровотечение, холод/жара, токсичность, утопление,
   ослепление; реакции мозга на состояние тела).
+
+## Loadout-ы ботов
+
+- Свой компактный JSON-формат (не Expansion). Файлы в
+  `$profile:dmBotorama/loadouts/<имя>.json`; имя loadout = имя файла.
+- Пользовательский формат и примеры — `loadouts.md`; внутренняя механика —
+  `loadout/4_World/README.md`.
+- Применение: `/bot loadout {name}` к привязанному боту (аддитивно, без
+  авто-применения при спавне); `/bot loadout` — список файлов.
+- Прямое создание на месте (как vanilla spawn-gear: `CreateAttachmentEx` /
+  `CreateInHands` / `CreateInInventory` / `wep.SpawnAmmo`). Фолбэк для
+  вложенного контейнера (`CreateInContainerFallback`) — «танец на полу», только
+  если прямое создание вернуло `null`.
 
 ## План развития «человечивание бота» — статус
 

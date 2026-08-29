@@ -76,6 +76,9 @@ static const string DM_CHAT_PROF_STOP = "stop";
 //! Sub-command "status" — full body/brain state report.
 static const string DM_CHAT_STATUS = "status";
 
+//! Sub-command "loadout" — apply a loadout to the bound bot ("/bot loadout {name}").
+static const string DM_CHAT_LOADOUT = "loadout";
+
 //! Sub-command "deadmans" — report the vanilla corpse-decay state (CorpseData).
 static const string DM_CHAT_DEADMANS = "deadmans";
 
