@@ -95,7 +95,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (m_DebugAccum >= 1.0)
 		{
 			m_DebugAccum = 0.0;
-			dmBotLog.Debug("[FSM] MoveTo: subGoal=" + subGoal + " pos=" + pos + " dist=" + dist + " reach=" + reach + " pathIdx=" + m_PathIdx + " pathPoints=" + m_Path.Count() + " moveAngle=" + moveAngle + " speed=" + speed + " deadline=" + m_ReachDeadline);
+			dmBotLog.Debug("[FSM] MoveTo: subGoal=" + subGoal + " pos=" + pos + " dist=" + dist + " reach=" + reach + " pathIdx=" + m_PathIdx + " pathPoints=" + m_Path.Count());
+			dmBotLog.Debug("[FSM] MoveTo: moveAngle=" + moveAngle + " speed=" + speed + " deadline=" + m_ReachDeadline);
 		}
 		#endif
 
