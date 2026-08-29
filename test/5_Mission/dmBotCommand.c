@@ -16,6 +16,7 @@
 //!   /bot follow [stop]         — сопровождать игрока (бок о бок); "stop" — сброс.
 //!   /bot vision [switch]       — показать видимые цели бота; "switch" — Scene/Physics.
 //!   /bot give {item}            — выдать предмет в руки бота.
+//!   /bot melee                  — ударить враждебную цель (мили-удар).
 //!
 //! Интенты добавляются в командный пул (приоритет CRITICAL), поэтому они
 //! перебивают автоматическое поведение; "/bot intent clear" возвращает бота
@@ -53,6 +54,8 @@ class dmBotCommand : dmCommandModule
 			return HandleVision(player, parts);
 		if (parts[1] == DM_CHAT_GIVE)
 			return HandleGive(player, parts);
+		if (parts[1] == DM_CHAT_MELEE)
+			return HandleMelee(player, parts);
 		if (parts[1] == DM_CHAT_SETHEALTH)
 			return HandleSetHealth(player, parts);
 		if (parts[1] == DM_CHAT_SETBLOOD)
@@ -633,6 +636,35 @@ class dmBotCommand : dmCommandModule
 		}
 
 		dmCommandManager.ChatToPlayer(player, "Не удалось выдать " + cls);
+		return true;
+	}
+
+	//! "/bot melee" — order the bound bot to strike its current hostile target.
+	private bool HandleMelee(PlayerBase player, array<string> parts)
+	{
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота");
+			return true;
+		}
+
+		dmTarget t = bot.GetHostileTarget();
+		if (!t || !t.m_Entity)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет враждебной цели в радиусе");
+			return true;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет пешки");
+			return true;
+		}
+
+		pawn.RequestMeleeAttack(t.m_Entity);
+		dmCommandManager.ChatToPlayer(player, "Удар по " + t.m_Entity.GetType());
 		return true;
 	}
 

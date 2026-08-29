@@ -68,6 +68,11 @@ class dmAISurvivorBase : PlayerBase
 	//! Accumulator for the periodic movement-apply debug log (DM_BOT_DEBUG_BODY).
 	private float m_MoveDebugAccum = 0.0;
 
+	//! One-shot melee attack request from the brain (see RequestMeleeAttack). The
+	//! fight logic consumes it as soon as the strike starts.
+	private bool m_MeleeAttackRequest = false;
+	private EntityAI m_MeleeTarget;
+
 	void dmAISurvivorBase()
 	{
 		m_DesiredStance = DayZPlayerConstants.STANCEIDX_ERECT;
@@ -75,10 +80,12 @@ class dmAISurvivorBase : PlayerBase
 		RegisterNetSyncVariableFloat("m_LookYawDeg", -DM_LOOK_MAX_YAW, DM_LOOK_MAX_YAW, 1);
 		RegisterNetSyncVariableFloat("m_LookPitchDeg", -DM_LOOK_MAX_PITCH, DM_LOOK_MAX_PITCH, 1);
 
-		//! Replace the vanilla melee fight logic: it null-derefs hcm (HumanCommandMove)
-		//! whenever the bot isn't in the MOVE command (unconscious/dead), because
-		//! CanFight() is true for an AI bot (no ActionManager). Our subclass skips
-		//! melee entirely (the bot doesn't fight yet — see docs/techdebt.md).
+		//! Replace the vanilla melee combat + fight logic. The vanilla
+		//! DayZPlayerMeleeFightLogic_LightHeavy.HandleFightLogic null-derefs hcm
+		//! (HumanCommandMove) whenever the bot isn't in the MOVE command, because
+		//! CanFight() is true for an AI bot (no ActionManager). The fight logic
+		//! must be created after the combat, so it picks up our dmBotMeleeCombat.
+		m_MeleeCombat = new dmBotMeleeCombat(this);
 		m_MeleeFightLogic = new dmBotMeleeFightLogic_LightHeavy(this);
 	}
 
@@ -531,6 +538,30 @@ class dmAISurvivorBase : PlayerBase
 	{
 		return m_LookPitchDeg;
 	}
+
+	//! Ask the fight logic to perform one melee strike against the given target.
+	//! The request is consumed by dmBotMeleeFightLogic_LightHeavy.HandleFightLogic.
+	void RequestMeleeAttack(EntityAI target)
+	{
+		m_MeleeAttackRequest = true;
+		m_MeleeTarget = target;
+	}
+
+	bool HasMeleeAttackRequest()
+	{
+		return m_MeleeAttackRequest;
+	}
+
+	EntityAI GetMeleeAttackTarget()
+	{
+		return m_MeleeTarget;
+	}
+
+	void ConsumeMeleeAttackRequest()
+	{
+		m_MeleeAttackRequest = false;
+		m_MeleeTarget = null;
+	}
 }
 
 //! Model-specific classes. The config (CfgVehicles) inherits the vanilla
@@ -538,17 +569,3 @@ class dmAISurvivorBase : PlayerBase
 class dmAI_SurvivorM_Denis : dmAISurvivorBase {};
 class dmAI_SurvivorM_Mirek : dmAISurvivorBase {};
 class dmAI_SurvivorF_Eva : dmAISurvivorBase {};
-
-//! Null-safe melee fight logic for the bot. The vanilla
-//! DayZPlayerMeleeFightLogic_LightHeavy.HandleFightLogic reads HumanCommandMove
-//! without null-checking it, and CanFight() is true for an AI bot (no
-//! ActionManager), so it throws a VM exception whenever the bot isn't in the MOVE
-//! command (unconscious/dead). The bot doesn't fight yet, so we just skip melee.
-class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
-{
-	override bool HandleFightLogic(int pCurrentCommandID, HumanInputController pInputs, EntityAI pEntityInHands, HumanMovementState pMovementState, out bool pContinueAttack)
-	{
-		pContinueAttack = false;
-		return false;
-	}
-}
