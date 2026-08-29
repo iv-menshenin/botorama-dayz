@@ -101,9 +101,10 @@ static const float DM_FOLLOW_THRESHOLD_OTHER = 1.0;
 //! stops this far short of the target instead of colliding with it).
 static const float DM_FOLLOW_REACH = 1.0;
 
-//! Follow: exit window — if the target stays within DM_FOLLOW_EXIT_DISTANCE for
-//! DM_FOLLOW_EXIT_TIME seconds, the escort is considered done (state EXITs).
-static const float DM_FOLLOW_EXIT_DISTANCE = 5.0;
+//! Follow: exit-window "stationary" radius (meters). The exit timer resets when
+//! the target moves farther than this from its reference point; the escort EXITs
+//! once the target stays put for DM_FOLLOW_EXIT_TIME with the bot within reach.
+static const float DM_FOLLOW_EXIT_DISTANCE = 1.0;
 static const float DM_FOLLOW_EXIT_TIME = 3.0;
 
 //! Follow: catch-up speed (m/s) used to derive the MoveTo deadline; above the jog

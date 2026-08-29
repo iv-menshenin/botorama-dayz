@@ -21,6 +21,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 	float m_BestDist = -1.0;
 	float m_NoProgressTime = 0.0;
 
+	//! Accumulator for the periodic movement debug log (DM_BOT_DEBUG_FSM).
+	float m_DebugAccum = 0.0;
+
 	override void OnStart(dmAISurvivor bot)
 	{
 		m_BestDist = -1.0;
@@ -29,7 +32,16 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_PathIdx = 0;
 
 		m_Path = new array<vector>();
-		if (!bot.FindPathTo(m_Target, m_Path) || m_Path.Count() == 0)
+		bool hasPath = bot.FindPathTo(m_Target, m_Path);
+
+		#ifdef DM_BOT_DEBUG_FSM
+		if (!hasPath)
+			dmBotLog.Debug("[FSM] MoveTo.OnStart: FindPathTo=false target=" + m_Target);
+		else
+			dmBotLog.Debug("[FSM] MoveTo.OnStart: target=" + m_Target + " pathPoints=" + m_Path.Count());
+		#endif
+
+		if (!hasPath || m_Path.Count() == 0)
 		{
 			dmBotLog.Error("MoveTo: нет пути к " + m_Target + " (вне navmesh или недостижимо), abort");
 			Fail();
@@ -75,7 +87,17 @@ class dmBotIntent_MoveTo : dmBotIntent
 		//! becomes the strafe/backpedal direction instead.
 		bot.SetMoveYaw(subYaw);
 		bot.LookAtPoint(subGoal + Vector(0, DM_EYE_HEIGHT, 0), dmBotLookTurn.NONE);
-		bot.SetMove(moveAngle, bot.CalcSpeed(m_Target, m_ReachDeadline));
+		float speed = bot.CalcSpeed(m_Target, m_ReachDeadline);
+		bot.SetMove(moveAngle, speed);
+
+		#ifdef DM_BOT_DEBUG_FSM
+		m_DebugAccum += pDt;
+		if (m_DebugAccum >= 1.0)
+		{
+			m_DebugAccum = 0.0;
+			dmBotLog.Debug("[FSM] MoveTo: subGoal=" + subGoal + " pos=" + pos + " dist=" + dist + " reach=" + reach + " pathIdx=" + m_PathIdx + " pathPoints=" + m_Path.Count() + " moveAngle=" + moveAngle + " speed=" + speed + " deadline=" + m_ReachDeadline);
+		}
+		#endif
 
 		if (m_BestDist < 0.0)
 		{

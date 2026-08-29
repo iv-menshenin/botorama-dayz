@@ -65,6 +65,9 @@ class dmAISurvivorBase : PlayerBase
 	//! Accumulator for the periodic body-stats debug log (DM_BOT_DEBUG_BODY).
 	private float m_BodyDebugAccum = 0.0;
 
+	//! Accumulator for the periodic movement-apply debug log (DM_BOT_DEBUG_BODY).
+	private float m_MoveDebugAccum = 0.0;
+
 	void dmAISurvivorBase()
 	{
 		m_DesiredStance = DayZPlayerConstants.STANCEIDX_ERECT;
@@ -420,6 +423,18 @@ class dmAISurvivorBase : PlayerBase
 		HumanInputController hic = GetInputController();
 		hic.OverrideMovementAngle(HumanInputControllerOverrideType.ONE_FRAME, m_DesiredMoveAngle);
 		hic.OverrideMovementSpeed(HumanInputControllerOverrideType.ONE_FRAME, m_ActualSpeed);
+
+		#ifdef DM_BOT_DEBUG_BODY
+		if (m_DesiredSpeed > 0.0)
+		{
+			m_MoveDebugAccum += pDt;
+			if (m_MoveDebugAccum >= 2.0)
+			{
+				m_MoveDebugAccum = 0.0;
+				dmBotLog.Debug("Move: hic=" + (hic != null) + " angle=" + m_DesiredMoveAngle + " desired=" + m_DesiredSpeed + " actual=" + m_ActualSpeed + " turnSharp=" + m_TurnSharp + " alive=" + IsAlive() + " unconscious=" + IsUnconscious() + " restrained=" + IsRestrained());
+			}
+		}
+		#endif
 	}
 
 	//! Apply the desired stance, stepping through crouch for erect<->prone.

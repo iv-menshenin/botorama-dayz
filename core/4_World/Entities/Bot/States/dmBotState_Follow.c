@@ -62,17 +62,25 @@ class dmBotState_Follow : dmBotState
 		if (player && !player.IsAlive())
 			return EXIT;
 
+		//! Horizontal distance bot -> target, computed once and reused below.
+		vector toT = target.GetPosition() - bot.GetPosition();
+		toT[1] = 0.0;
+		float dist = toT.Length();
+
 		//! Keep the head-scan intent alive (re-create if the pool dropped it).
 		if (m_Scan && (m_Scan.IsFinished() || m_Scan.IsExpired()))
 			m_Scan = null;
 		if (!m_Scan)
 			CreateScan();
 
-		//! Exit window: if the target stays within DM_FOLLOW_EXIT_DISTANCE for
-		//! DM_FOLLOW_EXIT_TIME seconds, the escort is done.
+		//! Exit window: reset the "target stood still" timer when the target moves
+		//! farther than DM_FOLLOW_EXIT_DISTANCE from its reference point, or when
+		//! the bot is still outside DM_FOLLOW_REACH (has to catch up). EXIT only
+		//! once the target is effectively motionless AND the bot is within reach
+		//! for DM_FOLLOW_EXIT_TIME seconds.
 		vector d = target.GetPosition() - m_ExitRefPos;
 		d[1] = 0.0;
-		if (d.Length() > DM_FOLLOW_EXIT_DISTANCE)
+		if (d.Length() > DM_FOLLOW_EXIT_DISTANCE || dist > DM_FOLLOW_REACH)
 		{
 			m_ExitRefPos = target.GetPosition();
 			m_ExitTimer = 0.0;
@@ -90,10 +98,6 @@ class dmBotState_Follow : dmBotState
 		}
 
 		//! Movement: walk toward the target until within DM_FOLLOW_REACH.
-		vector toT = target.GetPosition() - bot.GetPosition();
-		toT[1] = 0.0;
-		float dist = toT.Length();
-
 		if (dist > DM_FOLLOW_REACH)
 		{
 			vector drift = target.GetPosition() - m_LastTargetPos;
@@ -116,6 +120,11 @@ class dmBotState_Follow : dmBotState
 				m_Move.m_Target = target.GetPosition();
 				m_Move.m_ReachDistance = DM_FOLLOW_REACH;
 				m_Move.m_ReachDeadline = deadline;
+
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug("[FSM] Follow: MoveTo dist=" + dist + " target=" + m_Move.m_Target + " deadline=" + deadline + " threshold=" + m_Threshold);
+				#endif
+
 				bot.AddFSMIntent(m_Move);
 			}
 			m_LastTargetPos = target.GetPosition();
