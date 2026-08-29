@@ -13,6 +13,7 @@
 //!   /bot patrol clear          — очистить точки патруля.
 //!   /bot speed walk|jog|sprint — задать предпочтительную скорость ходьбы.
 //!   /bot loadout {name}        — применить loadout к боту (или список без имени).
+//!   /bot follow [stop]         — сопровождать игрока (бок о бок); "stop" — сброс.
 //!
 //! Интенты добавляются в командный пул (приоритет CRITICAL), поэтому они
 //! перебивают автоматическое поведение; "/bot intent clear" возвращает бота
@@ -44,6 +45,8 @@ class dmBotCommand : dmCommandModule
 			return HandleDeadMans(player);
 		if (parts[1] == DM_CHAT_LOADOUT)
 			return HandleLoadout(player, parts);
+		if (parts[1] == DM_CHAT_FOLLOW)
+			return HandleFollow(player, parts);
 		if (parts[1] == DM_CHAT_SETHEALTH)
 			return HandleSetHealth(player, parts);
 		if (parts[1] == DM_CHAT_SETBLOOD)
@@ -505,6 +508,32 @@ class dmBotCommand : dmCommandModule
 
 		dmLoadoutApplier.Apply(pawn, cfg);
 		dmCommandManager.ChatToPlayer(player, "Loadout '" + name + "' применён");
+		return true;
+	}
+
+	//! "/bot follow [stop]" — make the bound bot escort the player (alongside);
+	//! "stop" clears the follow target and the escort FSM.
+	private bool HandleFollow(PlayerBase player, array<string> parts)
+	{
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
+			return true;
+		}
+
+		if (parts.Count() >= 3 && parts[2] == DM_CHAT_STOP)
+		{
+			bot.SetFollowPlayer(null);
+			bot.ClearFSMIntents();
+			dmCommandManager.ChatToPlayer(player, "Сопровождение остановлено");
+			return true;
+		}
+
+		bot.SetFollowPlayer(player);
+		bot.ClearFSMIntents();
+		bot.SetFSM(dmBotPreset_Escort.Create(bot));
+		dmCommandManager.ChatToPlayer(player, "Сопровождаю (сброс — /bot follow stop)");
 		return true;
 	}
 

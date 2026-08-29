@@ -68,6 +68,9 @@ class dmAISurvivor
 	//! Goal targets (memory, survives FSM transitions).
 	private ref array<ref dmTarget> m_Targets;
 
+	//! Player the bot escorts (follows alongside). null when not escorting.
+	private PlayerBase m_FollowPlayer;
+
 	void dmAISurvivor()
 	{
 		m_FSMIntents = new dmBotIntentPool();
@@ -569,6 +572,21 @@ class dmAISurvivor
 	ref array<ref dmTarget> GetTargets()
 	{
 		return m_Targets;
+	}
+
+	//------------------------------------------------------------------
+	// Follow (escort)
+	//------------------------------------------------------------------
+
+	//! Set the player the bot escorts (follows alongside). null stops following.
+	void SetFollowPlayer(PlayerBase player)
+	{
+		m_FollowPlayer = player;
+	}
+
+	PlayerBase GetFollowPlayer()
+	{
+		return m_FollowPlayer;
 	}
 
 	//! Resolve and execute intents each tick (arbitration, recomputed every tick).

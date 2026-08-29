@@ -91,3 +91,17 @@ static const float DM_INTENT_MAX_AGE = 300.0;
 //! Directory for loadout files (relative to the DayZ profile root). A loadout
 //! named "hunter" is stored at "$profile:dmBotorama/loadouts/hunter.json".
 static const string DM_LOADOUT_DIR = "$profile:dmBotorama/loadouts";
+
+//! Follow (escort): perpendicular side offset (meters) — the bot walks alongside
+//! the player, not behind.
+static const float DM_FOLLOW_SIDE_DISTANCE = 1.8;
+
+//! Follow: distance to the alongside point at which the bot counts as "in place".
+static const float DM_FOLLOW_REACH_DISTANCE = 1.0;
+
+//! Follow: how far the alongside point may drift before re-aiming the MoveTo.
+static const float DM_FOLLOW_RETARGET_DISTANCE = 2.0;
+
+//! Follow: head-scan interval (seconds) and yaw range (±degrees) while escorting.
+static const float DM_FOLLOW_LOOK_INTERVAL = 3.0;
+static const float DM_FOLLOW_LOOK_RANGE = 90.0;
