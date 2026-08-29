@@ -36,6 +36,10 @@
 
 ## Субагенты
 
-Определения (source of truth) — `.opencode/agent/dayz-dev.md`, `.opencode/agent/dayz-research.md`
-(дублируются в глобальный `~/.config/opencode/agent/` для загрузки — держать в синхроне).
-Скилл `dayz-ai-bot` — `.opencode/skills/dayz-ai-bot/`.
+Определения (source of truth) — `.opencode/agent/dayz-dev.md`, `.opencode/agent/dayz-research.md`,
+`.opencode/agent/dayz-orchestrator.md` (дублируются в глобальный `~/.config/opencode/agent/`
+для загрузки — держать в синхроне). Скилл `dayz-ai-bot` — `.opencode/skills/dayz-ai-bot/`.
+
+- **`dayz-orchestrator`** — агент по умолчанию (`default_agent` в `opencode.jsonc`): он сам
+  не пишет код, а делегирует реализацию `dayz-dev`, исследование — `dayz-research`,
+  и делает ревью/рефлексию.
