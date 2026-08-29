@@ -68,8 +68,8 @@ class dmAISurvivor
 	//! Goal targets (memory, survives FSM transitions).
 	private ref array<ref dmTarget> m_Targets;
 
-	//! Player the bot escorts (follows alongside). null when not escorting.
-	private PlayerBase m_FollowPlayer;
+	//! Entity the bot escorts (follows alongside). null when not escorting.
+	private EntityAI m_FollowTarget;
 
 	void dmAISurvivor()
 	{
@@ -578,15 +578,15 @@ class dmAISurvivor
 	// Follow (escort)
 	//------------------------------------------------------------------
 
-	//! Set the player the bot escorts (follows alongside). null stops following.
-	void SetFollowPlayer(PlayerBase player)
+	//! Set the entity the bot escorts (follows alongside). null stops following.
+	void SetFollowTarget(EntityAI target)
 	{
-		m_FollowPlayer = player;
+		m_FollowTarget = target;
 	}
 
-	PlayerBase GetFollowPlayer()
+	EntityAI GetFollowTarget()
 	{
-		return m_FollowPlayer;
+		return m_FollowTarget;
 	}
 
 	//! Resolve and execute intents each tick (arbitration, recomputed every tick).

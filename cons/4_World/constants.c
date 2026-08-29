@@ -10,7 +10,7 @@ static const float DM_SPAWN_DISTANCE = 5.0;
 static const float DM_EYE_HEIGHT = 1.4;
 
 //! Look turn smoothing speed (per second). Higher = faster head turn.
-static const float DM_LOOK_TURN_SPEED = 10.0;
+static const float DM_LOOK_TURN_SPEED = 3.0;
 
 //! Maximum head look yaw offset from the body (degrees).
 static const float DM_LOOK_MAX_YAW = 90.0;
@@ -92,26 +92,36 @@ static const float DM_INTENT_MAX_AGE = 300.0;
 //! named "hunter" is stored at "$profile:dmBotorama/loadouts/hunter.json".
 static const string DM_LOADOUT_DIR = "$profile:dmBotorama/loadouts";
 
-//! Follow (escort): maximum perpendicular side offset (meters). The bot picks a
-//! random side (±1) and a random offset in [0.5, 1.0] * this, and fixes that
-//! stand point beside the player (not behind).
-static const float DM_FOLLOW_SIDE_DISTANCE = 1.0;
+//! Follow (escort): distance beyond which the bot catches up (via the MoveTo
+//! deadline). Players may lead farther than other entities before a catch-up.
+static const float DM_FOLLOW_THRESHOLD_PLAYER = 5.0;
+static const float DM_FOLLOW_THRESHOLD_OTHER = 1.0;
 
-//! Follow: distance to the stand point at which the bot counts as "in place".
-static const float DM_FOLLOW_REACH_DISTANCE = 1.0;
+//! Follow: distance to the target at which the bot counts as "in place" (anchor —
+//! stops this far short of the target instead of colliding with it).
+static const float DM_FOLLOW_REACH = 1.0;
 
-//! Follow: player distance beyond which the bot catches up (sprint) and re-picks
-//! its side. Turning/shuffling within this deadband does NOT trigger movement.
-static const float DM_FOLLOW_FAR_DISTANCE = 5.0;
-
-//! Follow: how long the bot stands still while the player is nearby, before it
-//! re-picks the side and nudges back to the player.
-static const float DM_FOLLOW_WAIT_TIME = 15.0;
+//! Follow: exit window — if the target stays within DM_FOLLOW_EXIT_DISTANCE for
+//! DM_FOLLOW_EXIT_TIME seconds, the escort is considered done (state EXITs).
+static const float DM_FOLLOW_EXIT_DISTANCE = 5.0;
+static const float DM_FOLLOW_EXIT_TIME = 3.0;
 
 //! Follow: catch-up speed (m/s) used to derive the MoveTo deadline; above the jog
 //! threshold (DM_SPEED_JOG = 3.6 m/s), so CalcSpeed selects sprint when far.
 static const float DM_FOLLOW_CATCHUP_SPEED = 5.0;
 
-//! Follow: head-scan interval (seconds) and yaw range (±degrees) while escorting.
-static const float DM_FOLLOW_LOOK_INTERVAL = 3.0;
-static const float DM_FOLLOW_LOOK_RANGE = 90.0;
+//! Scan: random interval (seconds) between idle direction changes.
+static const float DM_SCAN_INTERVAL_MIN = 10.0;
+static const float DM_SCAN_INTERVAL_MAX = 30.0;
+
+//! Scan: head turn angle range (±degrees from the body).
+static const float DM_SCAN_ANGLE_MIN = 5.0;
+static const float DM_SCAN_ANGLE_MAX = 35.0;
+
+//! Scan: how long the head holds a new direction before recentering (seconds).
+static const float DM_SCAN_HOLD_MIN = 5.0;
+static const float DM_SCAN_HOLD_MAX = 15.0;
+
+//! Scan: body turn angle range (±degrees), used when body turning is allowed.
+static const float DM_SCAN_BODY_ANGLE_MIN = 15.0;
+static const float DM_SCAN_BODY_ANGLE_MAX = 120.0;

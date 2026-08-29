@@ -524,13 +524,13 @@ class dmBotCommand : dmCommandModule
 
 		if (parts.Count() >= 3 && parts[2] == DM_CHAT_STOP)
 		{
-			bot.SetFollowPlayer(null);
+			bot.SetFollowTarget(null);
 			bot.ClearFSMIntents();
 			dmCommandManager.ChatToPlayer(player, "Сопровождение остановлено");
 			return true;
 		}
 
-		bot.SetFollowPlayer(player);
+		bot.SetFollowTarget(player);
 		bot.ClearFSMIntents();
 		bot.SetFSM(dmBotPreset_Escort.Create(bot));
 		dmCommandManager.ChatToPlayer(player, "Сопровождаю (сброс — /bot follow stop)");

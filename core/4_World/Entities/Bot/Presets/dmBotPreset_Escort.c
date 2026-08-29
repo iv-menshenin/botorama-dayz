@@ -1,5 +1,5 @@
-//! dmBotPreset_Escort — FSM for escorting the player: follow alongside, or idle
-//! when there is nobody to follow.
+//! dmBotPreset_Escort — FSM for escorting an entity: Follow (PREEMPTIVE) when the
+//! target is far, Idle (INTERRUPTIBLE) when it is close.
 class dmBotPreset_Escort
 {
 	static dmBotFSM Create(dmAISurvivor owner)
@@ -12,8 +12,8 @@ class dmBotPreset_Escort
 		fsm.AddState(follow, "Follow");
 		fsm.AddState(idle, "Idle");
 
+		idle.AddTransition(follow, 1.0).Require(dmBotConditions.FollowFar());
 		follow.AddTransition(idle, 1.0);
-		idle.AddTransition(follow, 1.0);
 
 		fsm.SetDefaultState("Follow");
 		fsm.Start();

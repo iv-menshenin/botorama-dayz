@@ -19,4 +19,9 @@ class dmBotConditions
 	{
 		return new dmBotCondition_HasPlayerSigns();
 	}
+
+	static dmBotCondition FollowFar()
+	{
+		return new dmBotCondition_FollowFar();
+	}
 }

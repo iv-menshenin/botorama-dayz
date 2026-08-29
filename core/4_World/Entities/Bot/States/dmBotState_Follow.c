@@ -1,151 +1,135 @@
-//! dmBotState_Follow — escort the bound player.
+//! dmBotState_Follow — escort the bound entity (player or other).
 //!
-//! The bot picks a random side (left/right) and a random offset within ~1 m and
-//! fixes a stand point beside the player (perpendicular to their current facing).
-//! It only moves when it has to:
-//!  - player farther than DM_FOLLOW_FAR_DISTANCE -> re-pick the side and catch up
-//!    (sprint, via the MoveTo deadline);
-//!  - not yet at the stand point -> walk there (jog);
-//!  - settled and nearby -> stand; after DM_FOLLOW_WAIT_TIME re-pick the side and
-//!    nudge back to the player.
-//! Turning/shuffling within DM_FOLLOW_FAR_DISTANCE does NOT trigger movement —
-//! the stand point is fixed until re-picked. A LookAround intent keeps the head
-//! scanning (NONE turn). Exits when the player is gone/dead.
+//! The bot walks toward the follow target until it is within DM_FOLLOW_REACH, then
+//! stands. It re-aims its MoveTo when the target drifts more than ~1 m, catches up
+//! (sprint, via the MoveTo deadline) when the target is beyond the threshold, and
+//! exits once the target has stayed put for DM_FOLLOW_EXIT_TIME (within
+//! DM_FOLLOW_EXIT_DISTANCE). A LookAround intent keeps the head scanning (NONE).
 class dmBotState_Follow : dmBotState
 {
 	ref dmBotIntent_MoveTo m_Move;
-	ref dmBotIntent_LookAround m_Look;
-	vector m_StandPoint;
-	bool m_Settled;
-	float m_WaitTimer;
+	ref dmBotIntent_LookAround m_Scan;
+	float m_Threshold;
+	float m_ExitTimer;
+	vector m_ExitRefPos;
+	vector m_LastTargetPos;
+
+	//! Catch-up threshold by target kind: players may lead farther than others.
+	static float GetThresholdDistance(EntityAI target)
+	{
+		if (PlayerBase.Cast(target) != null)
+			return DM_FOLLOW_THRESHOLD_PLAYER;
+		return DM_FOLLOW_THRESHOLD_OTHER;
+	}
 
 	override bool CanEnter()
 	{
-		return GetOwner().GetFollowPlayer() != null;
+		return true;
 	}
 
-	//! Follow is a movement state — a future Fight (PREEMPTIVE) can evict it.
+	//! Follow is a PREEMPTIVE state — it evicts an INTERRUPTIBLE Idle when the
+	//! target gets far, so escorting takes priority over standing around.
 	override dmBotStateKind GetKind()
 	{
-		return dmBotStateKind.INTERRUPTIBLE;
+		return dmBotStateKind.PREEMPTIVE;
 	}
 
 	override void OnEntry(dmBotState from)
 	{
+		EntityAI target = GetOwner().GetFollowTarget();
+		m_Threshold = GetThresholdDistance(target);
+		m_ExitTimer = 0.0;
+		m_ExitRefPos = vector.Zero;
+		if (target)
+			m_ExitRefPos = target.GetPosition();
 		m_Move = null;
-		m_Look = null;
-		m_Settled = false;
-		m_WaitTimer = 0.0;
-
-		PlayerBase player = GetOwner().GetFollowPlayer();
-		if (player)
-			PickStandPoint(player);
-
-		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] Follow.entry standPoint=" + m_StandPoint);
-		#endif
+		m_LastTargetPos = vector.Zero;
+		CreateScan();
 	}
 
 	override int OnUpdate(float pDt)
 	{
 		dmAISurvivor bot = GetOwner();
-		PlayerBase player = bot.GetFollowPlayer();
-		if (!player || !player.IsAlive())
+		EntityAI target = bot.GetFollowTarget();
+		if (!target)
+			return EXIT;
+
+		PlayerBase player = PlayerBase.Cast(target);
+		if (player && !player.IsAlive())
 			return EXIT;
 
 		//! Keep the head-scan intent alive (re-create if the pool dropped it).
-		if (m_Look && (m_Look.IsFinished() || m_Look.IsExpired()))
-			m_Look = null;
-		if (!m_Look)
+		if (m_Scan && (m_Scan.IsFinished() || m_Scan.IsExpired()))
+			m_Scan = null;
+		if (!m_Scan)
+			CreateScan();
+
+		//! Exit window: if the target stays within DM_FOLLOW_EXIT_DISTANCE for
+		//! DM_FOLLOW_EXIT_TIME seconds, the escort is done.
+		vector d = target.GetPosition() - m_ExitRefPos;
+		d[1] = 0.0;
+		if (d.Length() > DM_FOLLOW_EXIT_DISTANCE)
 		{
-			m_Look = new dmBotIntent_LookAround();
-			m_Look.m_Interval = DM_FOLLOW_LOOK_INTERVAL;
-			m_Look.m_YawRange = DM_FOLLOW_LOOK_RANGE;
-			m_Look.m_Turn = dmBotLookTurn.NONE;
-			m_Look.m_Priority = dmBotIntentPriority.DESIRABLE;
-			bot.AddFSMIntent(m_Look);
-		}
-
-		vector toPlayer = player.GetPosition() - bot.GetPosition();
-		toPlayer[1] = 0.0;
-		float distToPlayer = toPlayer.Length();
-
-		vector toPoint = m_StandPoint - bot.GetPosition();
-		toPoint[1] = 0.0;
-		float distToPoint = toPoint.Length();
-
-		if (distToPlayer > DM_FOLLOW_FAR_DISTANCE)
-		{
-			PickStandPoint(player);
-			m_Settled = false;
-			m_WaitTimer = 0.0;
-
-			toPoint = m_StandPoint - bot.GetPosition();
-			toPoint[1] = 0.0;
-			StartMove(bot, toPoint.Length() / DM_FOLLOW_CATCHUP_SPEED);
-		}
-		else if (!m_Settled)
-		{
-			if (m_Move && m_Move.IsFailed())
-			{
-				m_Move = null;
-			}
-			else if (m_Move && m_Move.IsFinished())
-			{
-				m_Move = null;
-				m_Settled = true;
-			}
-			else if (!m_Move && distToPoint > DM_FOLLOW_REACH_DISTANCE)
-			{
-				StartMove(bot, 0.0);
-			}
+			m_ExitRefPos = target.GetPosition();
+			m_ExitTimer = 0.0;
 		}
 		else
 		{
-			m_WaitTimer += pDt;
-			if (m_WaitTimer >= DM_FOLLOW_WAIT_TIME)
-			{
-				PickStandPoint(player);
-				m_Settled = false;
-				m_WaitTimer = 0.0;
+			m_ExitTimer += pDt;
+			if (m_ExitTimer >= DM_FOLLOW_EXIT_TIME)
+				return EXIT;
+		}
 
-				StartMove(bot, 0.0);
+		//! Movement: walk toward the target until within DM_FOLLOW_REACH.
+		vector toT = target.GetPosition() - bot.GetPosition();
+		toT[1] = 0.0;
+		float dist = toT.Length();
+
+		if (dist > DM_FOLLOW_REACH)
+		{
+			vector drift = target.GetPosition() - m_LastTargetPos;
+			drift[1] = 0.0;
+			if (m_Move && drift.Length() > 1.0)
+			{
+				m_Move.Finish();
+				m_Move = null;
 			}
+
+			if (m_Move && (m_Move.IsFailed() || m_Move.IsFinished()))
+				m_Move = null;
+
+			if (!m_Move)
+			{
+				float deadline = 0.0;
+				if (dist > m_Threshold)
+					deadline = dist / DM_FOLLOW_CATCHUP_SPEED;
+				m_Move = new dmBotIntent_MoveTo();
+				m_Move.m_Target = target.GetPosition();
+				m_Move.m_ReachDistance = DM_FOLLOW_REACH;
+				m_Move.m_ReachDeadline = deadline;
+				bot.AddFSMIntent(m_Move);
+			}
+			m_LastTargetPos = target.GetPosition();
+		}
+		else
+		{
+			if (m_Move)
+			{
+				m_Move.Finish();
+				m_Move = null;
+			}
+			m_LastTargetPos = target.GetPosition();
 		}
 
 		return CONTINUE;
 	}
 
-	//! Pick a random side (left/right) and a random offset, then fix the stand
-	//! point beside the player (perpendicular to their current facing).
-	void PickStandPoint(PlayerBase player)
+	void CreateScan()
 	{
-		float side = 1.0;
-		if (Math.RandomInt(0, 2) == 0)
-			side = -1.0;
-
-		float dist = Math.RandomFloat(0.5, 1.0);
-
-		vector pos = player.GetPosition();
-		vector fwd = player.GetDirection();
-		fwd[1] = 0.0;
-		fwd.Normalize();
-		vector perp = Vector(-fwd[2], 0.0, fwd[0]);
-
-		m_StandPoint = pos + perp * (side * dist * DM_FOLLOW_SIDE_DISTANCE);
-	}
-
-	//! (Re)start the MoveTo toward the stand point with the given deadline
-	//! (0 = no deadline, so CalcSpeed uses the preferred jog speed).
-	void StartMove(dmAISurvivor bot, float deadline)
-	{
-		if (m_Move)
-			m_Move.Finish();
-
-		m_Move = new dmBotIntent_MoveTo();
-		m_Move.m_Target = m_StandPoint;
-		m_Move.m_ReachDistance = DM_FOLLOW_REACH_DISTANCE;
-		m_Move.m_ReachDeadline = deadline;
-		bot.AddFSMIntent(m_Move);
+		m_Scan = new dmBotIntent_LookAround();
+		m_Scan.m_AllowBodyTurn = false;
+		m_Scan.m_Turn = dmBotLookTurn.NONE;
+		m_Scan.m_Priority = dmBotIntentPriority.DESIRABLE;
+		GetOwner().AddFSMIntent(m_Scan);
 	}
 }

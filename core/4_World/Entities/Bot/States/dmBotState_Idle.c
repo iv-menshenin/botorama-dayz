@@ -1,61 +1,46 @@
-//! dmBotState_Idle — stand still; occasionally glance around or turn, then exit
-//! so the FSM can transition (e.g. to Patrol).
+//! dmBotState_Idle — stand still and scan around (head, optionally body). Does
+//! NOT touch the follow target: it just idles until the FSM transitions away.
 class dmBotState_Idle : dmBotState
 {
-	float m_TurnTimer = 0.0;
-	float m_TurnInterval = 15.0;
-	float m_TotalTimer = 0.0;
-	float m_Duration = 30.0;
+	ref dmBotIntent_LookAround m_Scan;
+	float m_TotalTimer;
+
+	override dmBotStateKind GetKind()
+	{
+		return dmBotStateKind.INTERRUPTIBLE;
+	}
 
 	override void OnEntry(dmBotState from)
 	{
-		m_TurnTimer = 0.0;
-		m_TurnInterval = Math.RandomFloatInclusive(15.0, 60.0);
+		m_Scan = null;
 		m_TotalTimer = 0.0;
-		m_Duration = Math.RandomFloatInclusive(30.0, 90.0);
+		CreateScan();
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] Idle.entry duration=" + m_Duration);
+		dmBotLog.Debug("[FSM] Idle.entry");
 		#endif
 	}
 
 	override int OnUpdate(float pDt)
 	{
-		m_TurnTimer += pDt;
-		if (m_TurnTimer >= m_TurnInterval)
-		{
-			m_TurnTimer = 0.0;
-			m_TurnInterval = Math.RandomFloatInclusive(15.0, 60.0);
-			RandomLookOrTurn();
-		}
+		if (m_Scan && (m_Scan.IsFinished() || m_Scan.IsExpired()))
+			m_Scan = null;
+		if (!m_Scan)
+			CreateScan();
 
 		m_TotalTimer += pDt;
-		if (m_TotalTimer >= m_Duration)
+		if (m_TotalTimer >= 300.0)
 			return EXIT;
 
 		return CONTINUE;
 	}
 
-	void RandomLookOrTurn()
+	void CreateScan()
 	{
-		dmAISurvivor bot = GetOwner();
-		float angle = Math.RandomFloatInclusive(15.0, 120.0);
-		int sign = Math.RandomIntInclusive(0, 1);
-		if (sign == 1)
-			angle = -angle;
-
-		if (Math.AbsFloat(angle) < 45.0 && Math.RandomIntInclusive(0, 1) == 0)
-		{
-			dmBotIntent_Glance glance = new dmBotIntent_Glance();
-			glance.m_Angle = angle;
-			glance.m_Deadline = 15.0;
-			bot.AddFSMIntent(glance);
-		}
-		else
-		{
-			dmBotIntent_Turn turn = new dmBotIntent_Turn();
-			turn.m_Angle = angle;
-			bot.AddFSMIntent(turn);
-		}
+		m_Scan = new dmBotIntent_LookAround();
+		m_Scan.m_AllowBodyTurn = true;
+		m_Scan.m_Turn = dmBotLookTurn.NONE;
+		m_Scan.m_Priority = dmBotIntentPriority.DESIRABLE;
+		GetOwner().AddFSMIntent(m_Scan);
 	}
 }
