@@ -84,6 +84,16 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 			return;
 
 		string compName = target.GetDefaultHitComponent();
-		m_Player.ProcessMeleeHitName(weapon, m_MeleeCombat.GetWeaponMode(), target, compName, m_MeleeCombat.GetHitPos());
+		int weaponMode = m_MeleeCombat.GetWeaponMode();
+		vector hitPos = m_MeleeCombat.GetHitPos();
+
+		//! Zombies take DM_MELEE_DAMAGE_MULT_ZOMBIE hits per strike — the magic
+		//! melee has no raycast, so the damage is applied directly by name.
+		int mult = 1;
+		if (ZombieBase.Cast(target))
+			mult = DM_MELEE_DAMAGE_MULT_ZOMBIE;
+		int i;
+		for (i = 0; i < mult; i++)
+			m_Player.ProcessMeleeHitName(weapon, weaponMode, target, compName, hitPos);
 	}
 }

@@ -125,7 +125,8 @@ description: Живой справочник по серверным ИИ-бот
   а ребро — `Require(условие)`. FSM сам вытеснит (`SelectPreemptive` раз в
   `DM_FSM_PREEMPT_INTERVAL`). Повторять ошибку «состояние само решает, куда идти» — нельзя.
 - Состояния сейчас: **Idle**✅ (глядит/поворачивается), **Patrol**✅ (intent-driven),
-  **Stealth**✅ (укрытие: crouch→move→prone→dwell), **Hunting/Fighting/Surrender** ⚠️ заглушки.
+  **Stealth**✅ (укрытие: crouch→move→prone→dwell), **Fighting**✅ (мили: подойти/HoldLook
+  FULL/удар по кулдауну), **Hunting/Surrender** ⚠️ заглушки.
 - Состояние-владелец держит `ref` на свои интенты и реагирует на `IsFinished()/IsFailed()`;
   обязано ПЕРЕСОЗДАВАТЬ интенты, если их сожрал автодедлайн (`DM_INTENT_MAX_AGE`).
 
@@ -207,11 +208,27 @@ description: Живой справочник по серверным ИИ-бот
 
 ## Бой
 
-- **Мили-заглушка**: `dmBotMeleeFightLogic_LightHeavy` подменяет `m_MeleeFightLogic`
+- **Мили реализовано (T10)**: `dmBotMeleeFightLogic_LightHeavy` подменяет `m_MeleeFightLogic`
   (ванильный `DayZPlayerMeleeFightLogic_LightHeavy.HandleFightLogic` дёргает
   `GetCommand_Move()` без null-проверки, а `CanFight()` у AI-бота всегда `true` → VM
-  Exception вне MOVE-команды). Наша заглушка просто возвращает `false` (бот не дерётся).
-- Реальный мили/огнестрел (прицел/стрельба/перезарядка) — TODO, research `docs/research/combat.md`.
+  Exception вне MOVE-команды) и сам ведёт один light/heavy удар по запросу мозга
+  (`RequestMeleeAttack`/`HasMeleeAttackRequest`/`ConsumeMeleeAttackRequest`) через
+  `StartCommand_Melee2` из ERECT (без raised). Урон — `ProcessMeleeHitName` по имени
+  компонента (`GetDefaultHitComponent()`); по зомби — ×2 (`DM_MELEE_DAMAGE_MULT_ZOMBIE`)
+  циклом в `EvaluateHit`.
+- **Магия-цель** `dmBotMeleeCombat : DayZPlayerImplementMeleeCombat` — override `Update()`
+  (на сервере всегда `Reset` → `TargetSelection` → `SetFinisherType(-1)`) и
+  `TargetSelection()` без райкаста: цель берётся из `bot.GetHostileTarget()`;
+  `GetReach()` — публичная обёртка protected `GetRange()`.
+- **Состояние `dmBotState_Fighting`** (PREEMPTIVE, без raised, бьём из ERECT): линейный
+  флоу в `OnUpdate` — подойти (`dmBotIntent_MoveTo`, пересоздание при дрейфе цели >1м) →
+  держать `dmBotIntent_HoldLook` (FULL — корпус к врагу) → удар по кулдауну
+  (`DM_MELEE_COOLDOWN`) при `dist <= GetMeleeReach()`, `|angle| <= DM_MELEE_FACE_ANGLE`
+  и `m_HasLOS`; `EXIT` когда цели нет или враг мёртв (`IsAlive()`).
+- **Пресеты**: `dmBotPreset_Combat` (Idle + Fighting, вход из Idle по `ThreatInRange`);
+  в `dmBotPreset_Escort` добавлен Fighting (реакция на угрозу срабатывает из Idle,
+  Follow остаётся PREEMPTIVE). `/bot combat` переключает бота на боевой пресет.
+- Огнестрел (прицел/стрельба/перезарядка) — TODO, research `docs/research/combat.md`.
 - `HasNoAmmo()` — заглушка `false` (TODO: инспекция магазина). `HasPlayerSigns()` — заглушка `false`.
 
 ## Лут

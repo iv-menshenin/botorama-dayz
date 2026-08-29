@@ -8,11 +8,15 @@ class dmBotPreset_Escort
 
 		dmBotState follow = new dmBotState_Follow();
 		dmBotState idle   = new dmBotState_Idle();
+		dmBotState fight  = new dmBotState_Fighting();
 
 		fsm.AddState(follow, "Follow");
 		fsm.AddState(idle, "Idle");
+		fsm.AddState(fight, "Fighting");
 
 		idle.AddTransition(follow, 1.0).Require(dmBotConditions.FollowFar());
+		idle.AddTransition(fight, 1.0).Require(dmBotConditions.ThreatInRange());
+		fight.AddTransition(idle, 1.0);
 		follow.AddTransition(idle, 1.0);
 
 		fsm.SetDefaultState("Follow");

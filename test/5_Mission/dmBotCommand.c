@@ -17,6 +17,7 @@
 //!   /bot vision [switch]       — показать видимые цели бота; "switch" — Scene/Physics.
 //!   /bot give {item}            — выдать предмет в руки бота.
 //!   /bot melee                  — ударить враждебную цель (мили-удар).
+//!   /bot combat                 — боевой режим (атакует угрозы в радиусе).
 //!
 //! Интенты добавляются в командный пул (приоритет CRITICAL), поэтому они
 //! перебивают автоматическое поведение; "/bot intent clear" возвращает бота
@@ -56,6 +57,8 @@ class dmBotCommand : dmCommandModule
 			return HandleGive(player, parts);
 		if (parts[1] == DM_CHAT_MELEE)
 			return HandleMelee(player, parts);
+		if (parts[1] == DM_CHAT_COMBAT)
+			return HandleCombat(player, parts);
 		if (parts[1] == DM_CHAT_SETHEALTH)
 			return HandleSetHealth(player, parts);
 		if (parts[1] == DM_CHAT_SETBLOOD)
@@ -665,6 +668,21 @@ class dmBotCommand : dmCommandModule
 
 		pawn.RequestMeleeAttack(t.m_Entity);
 		dmCommandManager.ChatToPlayer(player, "Удар по " + t.m_Entity.GetType());
+		return true;
+	}
+
+	//! "/bot combat" — switch the bound bot to the combat preset (Idle + Fighting).
+	private bool HandleCombat(PlayerBase player, array<string> parts)
+	{
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
+			return true;
+		}
+
+		bot.SetFSM(dmBotPreset_Combat.Create(bot));
+		dmCommandManager.ChatToPlayer(player, "Боевой режим (атакует угрозы в радиусе)");
 		return true;
 	}
 

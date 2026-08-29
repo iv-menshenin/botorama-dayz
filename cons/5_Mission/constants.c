@@ -89,6 +89,9 @@ static const string DM_CHAT_GIVE = "give";
 //! Sub-command "melee" — order the bound bot to strike its hostile target.
 static const string DM_CHAT_MELEE = "melee";
 
+//! Sub-command "combat" — switch the bound bot to the combat preset.
+static const string DM_CHAT_COMBAT = "combat";
+
 //! Sub-command "vision" — report/control the bot's perception ("/bot vision [switch]").
 static const string DM_CHAT_VISION = "vision";
 static const string DM_CHAT_SWITCH = "switch";

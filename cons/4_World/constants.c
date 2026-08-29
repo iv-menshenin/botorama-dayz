@@ -165,3 +165,15 @@ static const float DM_TARGET_ATTRACT_ANIMAL = 0.5;
 
 //! Target memory: seconds without contact before a remembered target is forgotten.
 static const float DM_TARGET_FORGET_TIME = 300.0;
+
+//! Melee: cooldown (seconds) between the bot's strikes.
+static const float DM_MELEE_COOLDOWN = 0.6;
+
+//! Melee: allowed body-facing error (degrees) before a strike is thrown.
+static const float DM_MELEE_FACE_ANGLE = 15.0;
+
+//! Melee: damage multiplier applied per strike against zombies.
+static const int DM_MELEE_DAMAGE_MULT_ZOMBIE = 2;
+
+//! Melee: fallback strike reach (meters) when the weapon reach can't be read.
+static const float DM_MELEE_REACH = 1.5;
