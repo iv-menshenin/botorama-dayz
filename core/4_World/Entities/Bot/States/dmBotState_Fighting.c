@@ -10,6 +10,9 @@ class dmBotState_Fighting : dmBotState
 	ref dmBotIntent_HoldLook m_Look;
 	float m_Cooldown;
 	vector m_LastEnemyPos;
+	vector m_EnemyVel;
+	vector m_LastAimPos;
+	bool m_EnemyPosKnown = false;
 
 	override dmBotStateKind GetKind()
 	{
@@ -22,6 +25,9 @@ class dmBotState_Fighting : dmBotState
 		m_Look = null;
 		m_Cooldown = 0.0;
 		m_LastEnemyPos = vector.Zero;
+		m_EnemyVel = vector.Zero;
+		m_LastAimPos = vector.Zero;
+		m_EnemyPosKnown = false;
 
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Fighting.entry");
@@ -45,39 +51,42 @@ class dmBotState_Fighting : dmBotState
 		toE[1] = 0.0;
 		float dist = toE.Length();
 
+		//! Enemy velocity (smoothed per-axis) and the extrapolated aim point.
+		//! First frame m_LastEnemyPos is zero — skip velocity to avoid a huge spike.
+		vector aimPos = enemyPos;
+		if (m_EnemyPosKnown)
+		{
+			vector instVel = enemyPos - m_LastEnemyPos;
+			instVel[1] = 0.0;
+			if (pDt > 0.0)
+			{
+				instVel[0] = instVel[0] / pDt;
+				instVel[2] = instVel[2] / pDt;
+			}
+			m_EnemyVel[0] = m_EnemyVel[0] * 0.7 + instVel[0] * 0.3;
+			m_EnemyVel[2] = m_EnemyVel[2] * 0.7 + instVel[2] * 0.3;
+			aimPos = enemyPos + m_EnemyVel * DM_MELEE_EXTRAPOLATE_TIME;
+			aimPos[1] = enemyPos[1];
+		}
+		m_EnemyPosKnown = true;
+		m_LastEnemyPos = enemyPos;
+
 		float reach = GetMeleeReach(bot);
 
-		//! Movement: approach until within weapon reach. Re-aim MoveTo when the
-		//! target drifts more than ~1 m from the last aimed position.
+		//! Movement: approach the extrapolated enemy position until within reach.
+		//! Re-aim MoveTo when the aim point drifts more than 0.5 m.
 		if (dist > reach)
 		{
-			vector drift = enemyPos - m_LastEnemyPos;
-			drift[1] = 0.0;
-			if (m_Move && drift.Length() > 1.0)
-			{
-				m_Move.Finish();
-				m_Move = null;
-			}
-
-			if (m_Move && (m_Move.IsFailed() || m_Move.IsFinished()))
-				m_Move = null;
-
-			if (!m_Move)
-			{
-				m_Move = new dmBotIntent_MoveTo();
-				m_Move.m_Target = enemyPos;
-				m_Move.m_ReachDistance = reach;
-				bot.AddFSMIntent(m_Move);
-			}
-			m_LastEnemyPos = enemyPos;
+			vector aimDrift = aimPos - m_LastAimPos;
+			aimDrift[1] = 0.0;
+			if (m_Move && aimDrift.Length() > 0.5) { m_Move.Finish(); m_Move = null; }
+			if (m_Move && (m_Move.IsFailed() || m_Move.IsFinished())) m_Move = null;
+			if (!m_Move) { m_Move = new dmBotIntent_MoveTo(); m_Move.m_Target = aimPos; m_Move.m_ReachDistance = reach; bot.AddFSMIntent(m_Move); }
+			m_LastAimPos = aimPos;
 		}
 		else
 		{
-			if (m_Move)
-			{
-				m_Move.Finish();
-				m_Move = null;
-			}
+			if (m_Move) { m_Move.Finish(); m_Move = null; }
 		}
 
 		//! Face the enemy (FULL — body turned to the target) every tick.

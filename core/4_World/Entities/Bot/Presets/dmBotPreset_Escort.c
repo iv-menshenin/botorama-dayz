@@ -17,7 +17,8 @@ class dmBotPreset_Escort
 		idle.AddTransition(follow, 1.0).Require(dmBotConditions.FollowFar());
 		idle.AddTransition(fight, 1.0).Require(dmBotConditions.ThreatInRange());
 		fight.AddTransition(idle, 1.0);
-		follow.AddTransition(idle, 1.0);
+		follow.AddTransition(fight, 1.0).Require(dmBotConditions.ThreatInRange());
+		follow.AddTransition(idle, 1.0).BlockWhen(dmBotConditions.ThreatInRange());
 
 		fsm.SetDefaultState("Follow");
 		fsm.Start();

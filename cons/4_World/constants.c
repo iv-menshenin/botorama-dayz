@@ -140,8 +140,13 @@ static const float DM_PERCEPTION_RADIUS = 30.0;
 //! from the look direction counts as "in front".
 static const float DM_PERCEPTION_FOV = 120.0;
 
-//! Perception: scan interval (seconds) — how often the bot runs a full scan.
-static const float DM_PERCEPTION_INTERVAL = 0.3;
+//! Perception: visibility re-check interval (seconds) — how often the bot re-checks
+//! line of sight for every remembered target.
+static const float DM_PERCEPTION_INTERVAL = 0.1;
+
+//! Perception: box-scan interval (seconds) — how often the bot runs the expensive
+//! spatial query (classify -> distance/FOV -> LOS -> remember).
+static const float DM_PERCEPTION_BOX_INTERVAL = 1.0;
 
 //! Perception: half-height (meters) of the scan box around the bot.
 static const float DM_PERCEPTION_HEIGHT = 2.0;
@@ -177,3 +182,6 @@ static const int DM_MELEE_DAMAGE_MULT_ZOMBIE = 2;
 
 //! Melee: fallback strike reach (meters) when the weapon reach can't be read.
 static const float DM_MELEE_REACH = 1.5;
+
+//! Melee: seconds of enemy-position extrapolation ahead of the aim point.
+static const float DM_MELEE_EXTRAPOLATE_TIME = 0.3;

@@ -1,10 +1,11 @@
 //! dmVision — perception: server-side scan for visible threats around the bot.
 //!
-//! The brain ticks at a fixed rate (~30 Hz); a full spatial query + FOV/LOS scan is
-//! expensive, so dmVision throttles itself: it accumulates frame time and only runs
-//! a scan every DM_PERCEPTION_INTERVAL seconds. Each scan merges its results into the
-//! bot's target memory (m_Targets): BeginTargetScan + RememberTarget per visible
-//! entity + ForgetStaleTargets(DM_TARGET_FORGET_TIME) for entities lost from sight.
+//! Two independent cadences: an expensive box scan (spatial query + classify +
+//! distance/FOV/LOS + RememberTarget) runs every DM_PERCEPTION_BOX_INTERVAL, while a
+//! cheap visibility re-check (LOS for every remembered target) runs every
+//! DM_PERCEPTION_INTERVAL. The box scan merges results into the bot's target memory
+//! (m_Targets) via BeginTargetScan + RememberTarget; the visibility pass updates
+//! m_HasLOS/m_LastPosition/m_LastContact and forgets stale targets.
 //!
 //! Pipeline: box query (Scene or Physics, switchable) -> classify (player/zombie/
 //! animal) -> distance/FOV -> line-of-sight -> RememberTarget (DESTROY).
@@ -14,24 +15,27 @@ class dmVision
 	//! Spatial query switch: true = SceneGetEntitiesInBox, false = PhysicsGetEntitiesInBox.
 	bool m_UseScene = true;
 
-	//! Accumulated time toward the next scan.
+	//! Accumulated time toward the next visibility re-check (LOS).
 	float m_Accum = 0.0;
+
+	//! Accumulated time toward the next box scan.
+	float m_BoxAccum = 0.0;
 
 	//! Cached head-bone index of the bot's pawn (-1 = not resolved yet).
 	int m_HeadBone = -1;
 
-	//! Accumulate frame time and scan once every DM_PERCEPTION_INTERVAL.
+	//! Accumulate frame time: box scan every DM_PERCEPTION_BOX_INTERVAL, visibility
+	//! re-check every DM_PERCEPTION_INTERVAL.
 	void Update(dmAISurvivor bot, float pDt)
 	{
 		m_Accum += pDt;
-		if (m_Accum < DM_PERCEPTION_INTERVAL)
-			return;
-		m_Accum = 0.0;
-		Scan(bot);
+		m_BoxAccum += pDt;
+		if (m_BoxAccum >= DM_PERCEPTION_BOX_INTERVAL) { m_BoxAccum = 0.0; ScanBox(bot); }
+		if (m_Accum >= DM_PERCEPTION_INTERVAL) { m_Accum = 0.0; UpdateVisibility(bot); }
 	}
 
 	//! Snapshot the visible threats: box query -> classify -> distance/FOV/LOS -> targets.
-	void Scan(dmAISurvivor bot)
+	void ScanBox(dmAISurvivor bot)
 	{
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn)
@@ -133,6 +137,37 @@ class dmVision
 		#ifdef DM_BOT_DEBUG_VISION
 		dmBotLog.Debug("[Vision] scan: candidates=" + candidates.Count() + " targets=" + bot.GetTargets().Count() + " scene=" + m_UseScene);
 		#endif
+	}
+
+	//! Re-check line of sight for every remembered target at the visibility cadence.
+	//! Updates m_HasLOS/m_LastPosition/m_LastContact and forgets stale targets.
+	void UpdateVisibility(dmAISurvivor bot)
+	{
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return;
+
+		vector botPos = pawn.GetPosition();
+		float now = GetGame().GetTickTime();
+		ref array<ref dmTarget> targets = bot.GetTargets();
+		int i;
+		for (i = 0; i < targets.Count(); i++)
+		{
+			dmTarget t = targets[i];
+			EntityAI e = t.m_Entity;
+			if (!e)
+				continue;
+			vector targetPos = e.GetPosition();
+			bool visible = HasLOS(pawn, e, botPos, targetPos);
+			t.m_HasLOS = visible;
+			if (visible)
+			{
+				t.m_LastPosition = targetPos;
+				t.m_LastContact = now;
+			}
+		}
+
+		bot.ForgetStaleTargets(DM_TARGET_FORGET_TIME);
 	}
 
 	//! Line-of-sight from the bot's eye to the target's head (fallback: feet + eye

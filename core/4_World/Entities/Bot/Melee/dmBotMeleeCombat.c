@@ -35,7 +35,24 @@ class dmBotMeleeCombat : DayZPlayerImplementMeleeCombat
 		SetTargetObject(t.m_Entity);
 
 		vector hp = t.m_Entity.GetPosition();
-		hp[1] = hp[1] + DM_EYE_HEIGHT;
+		int chestBone = -1;
+		Human human = Human.Cast(t.m_Entity);
+		if (human)
+		{
+			chestBone = human.GetBoneIndexByName("Spine3");
+			if (chestBone >= 0)
+				hp = human.GetBonePositionWS(chestBone);
+		}
+		else
+		{
+			DayZCreature creature = DayZCreature.Cast(t.m_Entity);
+			if (creature)
+			{
+				chestBone = creature.GetBoneIndexByName("Spine3");
+				if (chestBone >= 0)
+					hp = creature.GetBonePositionWS(chestBone);
+			}
+		}
 		SetHitPos(hp);
 
 		SetHitZoneIdx(-1);
