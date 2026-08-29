@@ -30,6 +30,10 @@ class dmBotIntent_LookAround : dmBotIntent
 		m_HoldDuration = 0.0;
 		m_BodyTarget = 0.0;
 		m_Phase = 0;
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] LookAround.start interval=" + m_Interval + " bodyTurn=" + m_AllowBodyTurn);
+		#endif
 	}
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
@@ -103,6 +107,10 @@ class dmBotIntent_LookAround : dmBotIntent
 			m_BodyTarget = bodyYaw + sign * Math.RandomFloat(DM_SCAN_BODY_ANGLE_MIN, DM_SCAN_BODY_ANGLE_MAX);
 			m_Phase = 2;
 		}
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] LookAround.event roll=" + roll + " phase=" + m_Phase + " curYaw=" + m_CurYaw + " bodyTarget=" + m_BodyTarget);
+		#endif
 	}
 
 	float RandomInterval()

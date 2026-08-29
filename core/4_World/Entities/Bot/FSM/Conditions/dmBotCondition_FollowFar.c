@@ -6,9 +6,22 @@ class dmBotCondition_FollowFar : dmBotCondition
 	{
 		EntityAI t = bot.GetFollowTarget();
 		if (!t)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] FollowFar: нет цели следования");
+			#endif
 			return false;
+		}
+
 		vector d = t.GetPosition() - bot.GetPosition();
 		d[1] = 0.0;
-		return d.Length() > dmBotState_Follow.GetThresholdDistance(t);
+		float dist = d.Length();
+		float threshold = dmBotState_Follow.GetThresholdDistance(t);
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] FollowFar: target=" + t.GetType() + " dist=" + dist + " threshold=" + threshold + " -> " + (dist > threshold));
+		#endif
+
+		return dist > threshold;
 	}
 }

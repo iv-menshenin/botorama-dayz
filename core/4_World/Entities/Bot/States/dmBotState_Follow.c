@@ -45,6 +45,10 @@ class dmBotState_Follow : dmBotState
 		m_Move = null;
 		m_LastTargetPos = vector.Zero;
 		CreateScan();
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] Follow.entry threshold=" + m_Threshold + " target=" + target);
+		#endif
 	}
 
 	override int OnUpdate(float pDt)
@@ -77,7 +81,12 @@ class dmBotState_Follow : dmBotState
 		{
 			m_ExitTimer += pDt;
 			if (m_ExitTimer >= DM_FOLLOW_EXIT_TIME)
+			{
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug("[FSM] Follow: цель стоит " + DM_FOLLOW_EXIT_TIME + "с, выход");
+				#endif
 				return EXIT;
+			}
 		}
 
 		//! Movement: walk toward the target until within DM_FOLLOW_REACH.

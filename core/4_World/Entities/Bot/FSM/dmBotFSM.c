@@ -198,6 +198,13 @@ class dmBotFSM
 			total += t.GetWeight();
 		}
 
+		#ifdef DM_BOT_DEBUG_FSM
+		if (eligible.Count() == 0)
+			dmBotLog.Debug("[FSM] preemptive из '" + m_CurrentState.GetName() + "': нет подходящего перехода");
+		else
+			dmBotLog.Debug("[FSM] preemptive из '" + m_CurrentState.GetName() + "': кандидатов " + eligible.Count());
+		#endif
+
 		return RollWeighted(eligible, total, dst);
 	}
 
