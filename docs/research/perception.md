@@ -28,9 +28,11 @@
 - Классы существ: `ZombieBase extends DayZInfected`
   (`4_world/entities/creatures/infected/zombiebase.c`), `AnimalBase extends DayZAnimal`
   (`4_world/entities/creatures/animals/animalbase.c`).
-- Кости (`PlayerBase`): `GetBoneIndexByName("Head")` → `int` (-1 = нет);
-  `GetBonePositionWS(int)` → `vector`; `GetBoneTransformWS(int, out vector transform[4])`
-  — **forward = `transform[1]`** (костное пространство, индекс 1).
+- Кости: `GetBoneIndexByName("Head")` → `int` (-1 = нет) — **НЕ на `EntityAI`**, а на
+  `Human` (игроки) и `DayZCreature` (зомби/животные) → каст `Human.Cast` / `DayZCreature.Cast`
+  перед вызовом. `GetBonePositionWS(int)` → `vector` и `GetBoneTransformWS(int, out vector
+  transform[4])` — на `Object` (общий базовый, без каста). **forward = `transform[1]`**
+  (костное пространство, индекс 1).
 - LOS (`3_game/global/dayzphysics.c`):
   - `proto static bool RaycastRVProxy(notnull RaycastRVParams in, out notnull array<ref RaycastRVResult> results, array<Object> excluded = null);`
   - `class RaycastRVParams` (нативный, создаётся `new` БЕЗ `ref`): поля `vector begPos`,

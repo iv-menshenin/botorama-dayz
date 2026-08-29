@@ -189,7 +189,8 @@ description: Живой справочник по серверным ИИ-бот
 - LOS — `DayZPhysics.RaycastRVProxy(RaycastRVParams(eye, end, pawn), hits)`: глаза
   (`botPos + Vector(0, DM_EYE_HEIGHT, 0)`) → голова цели (`GetBonePositionWS("Head")`,
   фолбэк — ноги+высота глаз); видно, если ближайшее попадание `hits[0].obj`/`.parent`
-  — сама цель.
+  — сама цель. **Готча**: `GetBoneIndexByName` нет на `EntityAI` — каст к `Human`
+  (игрок) или `DayZCreature` (зомби/животное) перед вызовом (`Undefined function`).
 - Результат — `dmTarget` (`dmTargetType.DESTROY`, `m_Entity`, `m_LastPosition`,
   `m_Priority` по виду: игрок 2.0 / зомби 1.5 / животное 1.0) через `bot.AddTarget()`.
   `Scan()` делает `bot.ClearTargets()` — каждый скан перезаписывает снимок; память/

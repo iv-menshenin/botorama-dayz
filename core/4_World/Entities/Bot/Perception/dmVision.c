@@ -132,7 +132,19 @@ class dmVision
 	{
 		vector eye = botPos + Vector(0, DM_EYE_HEIGHT, 0);
 
-		int hb = target.GetBoneIndexByName("Head");
+		//! GetBoneIndexByName lives on Human (players) and DayZCreature (zombies/
+		//! animals), NOT on EntityAI — cast to the bone-owning class first.
+		int hb = -1;
+		Human human = Human.Cast(target);
+		if (human)
+			hb = human.GetBoneIndexByName("Head");
+		else
+		{
+			DayZCreature creature = DayZCreature.Cast(target);
+			if (creature)
+				hb = creature.GetBoneIndexByName("Head");
+		}
+
 		vector end;
 		if (hb >= 0)
 			end = target.GetBonePositionWS(hb);
