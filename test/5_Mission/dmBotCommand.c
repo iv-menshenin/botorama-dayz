@@ -15,6 +15,7 @@
 //!   /bot loadout {name}        — применить loadout к боту (или список без имени).
 //!   /bot follow [stop]         — сопровождать игрока (бок о бок); "stop" — сброс.
 //!   /bot vision [switch]       — показать видимые цели бота; "switch" — Scene/Physics.
+//!   /bot give {item}            — выдать предмет в руки бота.
 //!
 //! Интенты добавляются в командный пул (приоритет CRITICAL), поэтому они
 //! перебивают автоматическое поведение; "/bot intent clear" возвращает бота
@@ -50,6 +51,8 @@ class dmBotCommand : dmCommandModule
 			return HandleFollow(player, parts);
 		if (parts[1] == DM_CHAT_VISION)
 			return HandleVision(player, parts);
+		if (parts[1] == DM_CHAT_GIVE)
+			return HandleGive(player, parts);
 		if (parts[1] == DM_CHAT_SETHEALTH)
 			return HandleSetHealth(player, parts);
 		if (parts[1] == DM_CHAT_SETBLOOD)
@@ -595,6 +598,41 @@ class dmBotCommand : dmCommandModule
 			dmCommandManager.ChatToPlayer(player, line);
 		}
 
+		return true;
+	}
+
+	//! "/bot give {item}" — hand a class directly into the bound bot's hands.
+	private bool HandleGive(PlayerBase player, array<string> parts)
+	{
+		if (parts.Count() < 3)
+		{
+			dmCommandManager.ChatToPlayer(player, "Укажи класс: /bot give <item>");
+			return true;
+		}
+
+		string cls = parts[2];
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
+			return true;
+		}
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			dmCommandManager.ChatToPlayer(player, "У бота нет пешки");
+			return true;
+		}
+
+		EntityAI item = pawn.GetHumanInventory().CreateInHands(cls);
+		if (item)
+		{
+			dmCommandManager.ChatToPlayer(player, "Выдал " + cls);
+			return true;
+		}
+
+		dmCommandManager.ChatToPlayer(player, "Не удалось выдать " + cls);
 		return true;
 	}
 

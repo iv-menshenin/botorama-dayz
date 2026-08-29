@@ -608,6 +608,44 @@ class dmAISurvivor
 		return null;
 	}
 
+	//! Highest-threat hostile target within attack range (or null).
+	dmTarget GetHostileTarget()
+	{
+		dmTarget best = null;
+		float bestThreat = 0.0;
+		float bestDist = 0.0;
+		vector myPos = GetPosition();
+		int i;
+		for (i = 0; i < m_Targets.Count(); i++)
+		{
+			dmTarget t = m_Targets[i];
+			if (t.m_Friendly)
+				continue;
+			if (t.m_Threat <= DM_ATTACK_THREAT_THRESHOLD)
+				continue;
+
+			vector tPos;
+			if (t.m_Entity)
+				tPos = t.m_Entity.GetPosition();
+			else
+				tPos = t.m_LastPosition;
+
+			vector d = tPos - myPos;
+			d[1] = 0.0;
+			float dist = d.Length();
+			if (dist >= DM_ATTACK_RANGE)
+				continue;
+
+			if (!best || t.m_Threat > bestThreat || (t.m_Threat == bestThreat && dist < bestDist))
+			{
+				best = t;
+				bestThreat = t.m_Threat;
+				bestDist = dist;
+			}
+		}
+		return best;
+	}
+
 	//! Start a scan pass: mark every remembered target as not-seen; RememberTarget
 	//! flips the visible ones back to true.
 	void BeginTargetScan()

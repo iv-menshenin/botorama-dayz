@@ -83,6 +83,9 @@ static const string DM_CHAT_LOADOUT = "loadout";
 static const string DM_CHAT_FOLLOW = "follow";
 static const string DM_CHAT_STOP = "stop";
 
+//! Sub-command "give" — hand an item to the bound bot ("/bot give {item}").
+static const string DM_CHAT_GIVE = "give";
+
 //! Sub-command "vision" — report/control the bot's perception ("/bot vision [switch]").
 static const string DM_CHAT_VISION = "vision";
 static const string DM_CHAT_SWITCH = "switch";

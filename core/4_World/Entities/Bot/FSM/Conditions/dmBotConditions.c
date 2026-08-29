@@ -24,4 +24,9 @@ class dmBotConditions
 	{
 		return new dmBotCondition_FollowFar();
 	}
+
+	static dmBotCondition ThreatInRange()
+	{
+		return new dmBotCondition_ThreatInRange();
+	}
 }
