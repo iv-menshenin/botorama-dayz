@@ -93,27 +93,20 @@ static const float DM_INTENT_MAX_AGE = 300.0;
 static const string DM_LOADOUT_DIR = "$profile:dmBotorama/loadouts";
 
 //! Follow (escort): maximum perpendicular side offset (meters). The bot picks a
-//! random side (±1) and a random offset in [0.5, 1.0] * this — it walks alongside,
-//! not behind.
+//! random side (±1) and a random offset in [0.5, 1.0] * this, and fixes that
+//! stand point beside the player (not behind).
 static const float DM_FOLLOW_SIDE_DISTANCE = 1.0;
 
-//! Follow: distance to the alongside point at which the bot counts as "in place".
+//! Follow: distance to the stand point at which the bot counts as "in place".
 static const float DM_FOLLOW_REACH_DISTANCE = 1.0;
 
-//! Follow: how far the alongside point may drift before re-aiming the MoveTo.
-static const float DM_FOLLOW_RETARGET_DISTANCE = 2.0;
+//! Follow: player distance beyond which the bot catches up (sprint) and re-picks
+//! its side. Turning/shuffling within this deadband does NOT trigger movement.
+static const float DM_FOLLOW_FAR_DISTANCE = 5.0;
 
-//! Follow: player distance beyond which the bot catches up immediately (sprint).
-static const float DM_FOLLOW_FAR_DISTANCE = 4.0;
-
-//! Follow: how long the bot stands still while the player is stationary nearby,
-//! before it nudges back to the player.
+//! Follow: how long the bot stands still while the player is nearby, before it
+//! re-picks the side and nudges back to the player.
 static const float DM_FOLLOW_WAIT_TIME = 15.0;
-
-//! Follow: player-movement sampling interval (seconds) and displacement threshold
-//! (meters) — above it the player counts as "moving".
-static const float DM_FOLLOW_MOVE_CHECK_INTERVAL = 0.5;
-static const float DM_FOLLOW_MOVE_EPS = 0.3;
 
 //! Follow: catch-up speed (m/s) used to derive the MoveTo deadline; above the jog
 //! threshold (DM_SPEED_JOG = 3.6 m/s), so CalcSpeed selects sprint when far.
