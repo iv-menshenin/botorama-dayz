@@ -576,9 +576,22 @@ class dmBotCommand : dmCommandModule
 			string typeName = "null";
 			if (t.m_Entity)
 				typeName = t.m_Entity.GetType();
+
+			int los = 0;
+			if (t.m_HasLOS)
+				los = 1;
+			int friendly = 0;
+			if (t.m_Friendly)
+				friendly = 1;
+			float age = GetGame().GetTickTime() - t.m_LastContact;
+
 			string line = "[" + i + "] " + typeName;
 			line += " pos=" + t.m_LastPosition;
-			line += " prio=" + t.m_Priority;
+			line += " LOS=" + los;
+			line += " age=" + age;
+			line += " threat=" + t.m_Threat;
+			line += " attract=" + t.m_Attractiveness;
+			line += " friendly=" + friendly;
 			dmCommandManager.ChatToPlayer(player, line);
 		}
 

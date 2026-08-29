@@ -145,3 +145,16 @@ static const float DM_PERCEPTION_INTERVAL = 0.3;
 
 //! Perception: half-height (meters) of the scan box around the bot.
 static const float DM_PERCEPTION_HEIGHT = 2.0;
+
+//! Target evaluation: threat (0..1) — how dangerous a sighted entity is.
+static const float DM_TARGET_THREAT_PLAYER = 0.6;
+static const float DM_TARGET_THREAT_ZOMBIE = 0.9;
+static const float DM_TARGET_THREAT_ANIMAL = 0.2;
+
+//! Target evaluation: attractiveness (0..1) — how interesting a target is.
+static const float DM_TARGET_ATTRACT_PLAYER = 0.1;
+static const float DM_TARGET_ATTRACT_ZOMBIE = 0.2;
+static const float DM_TARGET_ATTRACT_ANIMAL = 0.5;
+
+//! Target memory: seconds without contact before a remembered target is forgotten.
+static const float DM_TARGET_FORGET_TIME = 300.0;

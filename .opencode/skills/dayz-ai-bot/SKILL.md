@@ -191,10 +191,17 @@ description: Живой справочник по серверным ИИ-бот
   фолбэк — ноги+высота глаз); видно, если ближайшее попадание `hits[0].obj`/`.parent`
   — сама цель. **Готча**: `GetBoneIndexByName` нет на `EntityAI` — каст к `Human`
   (игрок) или `DayZCreature` (зомби/животное) перед вызовом (`Undefined function`).
-- Результат — `dmTarget` (`dmTargetType.DESTROY`, `m_Entity`, `m_LastPosition`,
-  `m_Priority` по виду: игрок 2.0 / зомби 1.5 / животное 1.0) через `bot.AddTarget()`.
-  `Scan()` делает `bot.ClearTargets()` — каждый скан перезаписывает снимок; память/
-  забывание — задача T4.
+- Результат — `dmTarget` = **память + оценка** (T4): `m_Type` (DESTROY/ACQUIRE), `m_Entity`,
+  `m_ClassEntity` (лут, когда `m_Entity == null`), память `m_LastPosition`/`m_HasLOS`/
+  `m_LastContact` (время = `GetGame().GetTickTime()`, float секунды монотонного серверного
+  времени), оценка `m_Threat`/`m_Attractiveness` (0..1) и `m_Friendly` (пока = только
+  цель эскорта `GetFollowTarget()`).
+- `Scan()` делает merge-модель, а НЕ `ClearTargets()`: `BeginTargetScan()` сбрасывает
+  `m_HasLOS`, `RememberTarget(entity, threat, attract, friendly, pos)` создаёт/обновляет
+  цель (`m_HasLOS = true`, `m_LastContact = now`), затем `ForgetStaleTargets(DM_TARGET_FORGET_TIME = 300с)`
+  выкидывает цели без контакта дольше таймаута. Цель, скрывшаяся за стеной/кустами,
+  остаётся в `m_Targets` с последней известной позицией до таймаута. Оценка по виду —
+  `DM_TARGET_THREAT_*` / `DM_TARGET_ATTRACT_*` в `cons/4_World/constants.c`.
 - Команда `/bot vision [switch]` — печать видимых целей или переключение Scene/Physics.
 - Слух и перцепция предметов (лут) — TODO. Research-детали — `docs/research/perception.md`.
 
@@ -241,7 +248,8 @@ description: Живой справочник по серверным ИИ-бот
   время переступания) — используй свой флаг из `SetMove`.
 - Цели (паттерн Expansion): `eAITargetInformation` + `eAITargetInformationState`
   (последняя известная позиция, поиск, LOS, threat). У нас упрощённый `dmTarget`
-  (entity/class/priority/lastPosition) — скелет, к поведению не подключён.
+  (entity/class + память lastPosition/LOS/lastContact + оценка threat/attractiveness/
+  friendly) — к поведению (бой/лут) ещё не подключён.
 
 ## Памятки (когда пишешь код)
 

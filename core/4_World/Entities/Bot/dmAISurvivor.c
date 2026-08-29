@@ -595,6 +595,70 @@ class dmAISurvivor
 		return m_Targets;
 	}
 
+	//! Find a tracked target by its entity, or null if it isn't remembered.
+	dmTarget FindTarget(EntityAI entity)
+	{
+		int i;
+		for (i = 0; i < m_Targets.Count(); i++)
+		{
+			dmTarget t = m_Targets[i];
+			if (t.m_Entity == entity)
+				return t;
+		}
+		return null;
+	}
+
+	//! Start a scan pass: mark every remembered target as not-seen; RememberTarget
+	//! flips the visible ones back to true.
+	void BeginTargetScan()
+	{
+		int i;
+		for (i = 0; i < m_Targets.Count(); i++)
+		{
+			dmTarget t = m_Targets[i];
+			t.m_HasLOS = false;
+		}
+	}
+
+	//! Merge a freshly seen entity into the target memory (create or update).
+	void RememberTarget(EntityAI entity, float threat, float attractiveness, bool friendly, vector pos)
+	{
+		dmTarget t = FindTarget(entity);
+		if (!t)
+		{
+			t = new dmTarget();
+			t.m_Type = dmTargetType.DESTROY;
+			t.m_Entity = entity;
+			m_Targets.Insert(t);
+		}
+		t.m_Threat = threat;
+		t.m_Attractiveness = attractiveness;
+		t.m_Friendly = friendly;
+		t.m_LastPosition = pos;
+		t.m_HasLOS = true;
+		t.m_LastContact = GetGame().GetTickTime();
+	}
+
+	//! Drop targets with no contact for longer than the timeout (backward loop —
+	//! safe while removing items).
+	void ForgetStaleTargets(float timeout)
+	{
+		float now = GetGame().GetTickTime();
+		int i;
+		for (i = m_Targets.Count() - 1; i >= 0; i--)
+		{
+			dmTarget t = m_Targets[i];
+			if (now - t.m_LastContact > timeout)
+				m_Targets.RemoveItem(t);
+		}
+	}
+
+	//! Remove a specific target from the memory.
+	void RemoveTarget(dmTarget t)
+	{
+		m_Targets.RemoveItem(t);
+	}
+
 	//------------------------------------------------------------------
 	// Follow (escort)
 	//------------------------------------------------------------------

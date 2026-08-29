@@ -1,8 +1,9 @@
 # Research: зрение и слух ботов (perception)
 
-Статус: **реализовано (T3)**. Задача T3 плана (`docs/plans/ai-development-plan.md`) —
-детект игроков, заражённых и животных. Слух (звуки) и перцепция предметов (лут) —
-следующие вехи (T13). Ведёт субагент `dayz-research`.
+Статус: **реализовано (T3, T4 — память целей)**. Задача T3 плана
+(`docs/plans/ai-development-plan.md`) — детект игроков, заражённых и животных; T4 —
+память целей (`dmTarget` как память + оценка). Слух (звуки) и перцепция предметов
+(лут) — следующие вехи (T13). Ведёт субагент `dayz-research`.
 
 ## Цель
 
@@ -17,6 +18,18 @@
 (0.3 c). Пайплайн `Scan()`: box-запрос → классификация → дистанция/FOV → LOS →
 `dmTarget` (DESTROY). Переключение Scene/Physics — `ToggleQuery()` (команда
 `/bot vision switch`).
+
+## Реализация (T4) — память целей
+
+`dmTarget` — теперь память + оценка (не снимок видимости): память `m_LastPosition` /
+`m_HasLOS` / `m_LastContact` (время = `GetGame().GetTickTime()`, float секунды) +
+оценка `m_Threat` / `m_Attractiveness` (0..1) / `m_Friendly` (пока = только цель
+эскорта). `m_Priority` убран. `Scan()` больше не делает `ClearTargets()`: `BeginTargetScan()`
+сбрасывает `m_HasLOS`, на каждый LOS-успех — `RememberTarget(entity, threat, attract,
+friendly, pos)` (создать/обновить, `m_LastContact = now`), после цикла —
+`ForgetStaleTargets(DM_TARGET_FORGET_TIME = 300с)` выкидывает цели без контакта дольше
+таймаута. Скрывшаяся цель остаётся в списке с последней известной позицией до забывания.
+Константы оценки/таймаута — в `cons/4_World/constants.c`.
 
 ## Проверенные сигнатуры (ваниль, `DayZ Projects/scripts`)
 

@@ -2,12 +2,12 @@
 //!
 //! The brain ticks at a fixed rate (~30 Hz); a full spatial query + FOV/LOS scan is
 //! expensive, so dmVision throttles itself: it accumulates frame time and only runs
-//! a scan every DM_PERCEPTION_INTERVAL seconds. Each scan rebuilds the bot's target
-//! list (m_Targets) as a snapshot of what it currently sees; remembering/forgetting
-//! targets across scans is a separate concern (task T4).
+//! a scan every DM_PERCEPTION_INTERVAL seconds. Each scan merges its results into the
+//! bot's target memory (m_Targets): BeginTargetScan + RememberTarget per visible
+//! entity + ForgetStaleTargets(DM_TARGET_FORGET_TIME) for entities lost from sight.
 //!
 //! Pipeline: box query (Scene or Physics, switchable) -> classify (player/zombie/
-//! animal) -> distance/FOV -> line-of-sight -> dmTarget (DESTROY).
+//! animal) -> distance/FOV -> line-of-sight -> RememberTarget (DESTROY).
 
 class dmVision
 {
@@ -71,23 +71,34 @@ class dmVision
 		lookDir[1] = 0.0;
 		lookDir.Normalize();
 
-		bot.ClearTargets();
+		bot.BeginTargetScan();
 
 		int i;
-		float priority;
 		for (i = 0; i < candidates.Count(); i++)
 		{
 			EntityAI e = candidates[i];
 			if (e == pawn)
 				continue;
 
-			priority = 0.0;
+			float threat = 0.0;
+			float attract = 0.0;
+			bool friendly = false;
 			if (PlayerBase.Cast(e))
-				priority = 2.0;
+			{
+				threat = DM_TARGET_THREAT_PLAYER;
+				attract = DM_TARGET_ATTRACT_PLAYER;
+				friendly = (e == bot.GetFollowTarget());
+			}
 			else if (e.IsInherited(ZombieBase))
-				priority = 1.5;
+			{
+				threat = DM_TARGET_THREAT_ZOMBIE;
+				attract = DM_TARGET_ATTRACT_ZOMBIE;
+			}
 			else if (e.IsInherited(AnimalBase))
-				priority = 1.0;
+			{
+				threat = DM_TARGET_THREAT_ANIMAL;
+				attract = DM_TARGET_ATTRACT_ANIMAL;
+			}
 			else
 				continue;
 
@@ -109,17 +120,15 @@ class dmVision
 			if (!HasLOS(pawn, e, botPos, targetPos))
 				continue;
 
-			dmTarget t = new dmTarget();
-			t.m_Type = dmTargetType.DESTROY;
-			t.m_Entity = e;
-			t.m_LastPosition = targetPos;
-			t.m_Priority = priority;
-			bot.AddTarget(t);
+			bot.RememberTarget(e, threat, attract, friendly, targetPos);
 
 			#ifdef DM_BOT_DEBUG_VISION
-			dmBotLog.Debug("[Vision] hit: " + e + " dist=" + dist + " priority=" + priority);
+			dmBotLog.Debug("[Vision] hit: " + e + " dist=" + dist + " threat=" + threat);
+			dmBotLog.Debug("[Vision] hit: " + e + " attract=" + attract + " friendly=" + friendly);
 			#endif
 		}
+
+		bot.ForgetStaleTargets(DM_TARGET_FORGET_TIME);
 
 		#ifdef DM_BOT_DEBUG_VISION
 		dmBotLog.Debug("[Vision] scan: candidates=" + candidates.Count() + " targets=" + bot.GetTargets().Count() + " scene=" + m_UseScene);
