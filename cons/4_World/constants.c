@@ -117,6 +117,27 @@ static const float DM_FOLLOW_JOG_DISTANCE = 10.0;
 static const float DM_FOLLOW_EXIT_DISTANCE = 1.0;
 static const float DM_FOLLOW_EXIT_TIME = 3.0;
 
+//! Follow (FollowTo): extrapolation horizon (seconds) for the target velocity —
+//! both velocities are projected this far ahead to compute the catch-up gap.
+static const float DM_FOLLOW_SPEED_EXTRAPOLATE_TIME = 1.0;
+
+//! Follow (FollowTo): extrapolated gap (meters) beyond which the escort sprints.
+static const float DM_FOLLOW_SPRINT_GAP = 7.5;
+
+//! Follow (FollowTo): extrapolated gap (meters) beyond which the escort jogs
+//! (below it — walks).
+static const float DM_FOLLOW_JOG_GAP = 5.0;
+
+//! Follow (FollowTo): path re-computation interval (seconds), capped at 1 Hz.
+static const float DM_FOLLOW_PATH_INTERVAL = 1.0;
+
+//! Follow (FollowTo): extrapolation horizon (seconds) for the route target — the
+//! path is aimed at where the target will be this far ahead.
+static const float DM_FOLLOW_PATH_EXTRAPOLATE_TIME = 2.0;
+
+//! Follow (FollowTo): target-velocity smoothing factor (0..1; higher = snappier).
+static const float DM_FOLLOW_VEL_SMOOTH = 0.3;
+
 //! Scan: random interval (seconds) between idle direction changes.
 static const float DM_SCAN_INTERVAL_MIN = 10.0;
 static const float DM_SCAN_INTERVAL_MAX = 30.0;
