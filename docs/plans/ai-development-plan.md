@@ -9,9 +9,10 @@
 ## Порядок
 
 ### Группа 0 — фундамент (движение + состояние)
-1. `[ ]` **MoveTo: recovery при застревании** — шаг назад/вбок вместо мгновенного `Fail()`.
+1. `[x]` **MoveTo: recovery при застревании** — шаг назад/вбок вместо мгновенного `Fail()`.
    Deps: нет. Файлы: `Intent/dmBotIntent_MoveTo.c`, `cons/4_World/constants.c`. Критерий:
-   бот у стены не зависает, а отходит и перепрокладывает.
+   бот у стены не зависает, а отходит и перепрокладывает. — сделано: фаза recovery
+   (назад/вбок + пере-прокладка, до `DM_MOVE_MAX_RECOVER` попыток).
 2. `[ ]` **`HasNoAmmo()` настоящий** — инспекция магазина в руках/оружии. Deps: нет.
    Файлы: `dmAISurvivor.c`. Критерий: `/bot status`/условия различают «нет патронов».
 
@@ -38,10 +39,17 @@
    (голова 5–35°/корпус 15–120°); `DM_LOOK_TURN_SPEED=3` (плавнее).
 
 ### Группа 3 — продвинутый pathfinding
-7. `[ ]` **Vault/climb** — перепрыгивание забора / влезание на ящик. Deps: 1.
-   Research: `docs/research/navigation.md`.
-8. `[ ]` **Двери** — открыть и пройти. Deps: 1.
-9. `[ ]` **Лестницы** — подъём/спуск. Deps: 1. (самое сложное в навигации)
+7. `[x]` **Vault/climb** — перепрыгивание забора / влезание на ящик. Deps: 1.
+   Research: `docs/research/navigation.md`. — сделано: фильтр `JUMP|CLIMB`, примитив
+   `dmAISurvivorBase.TryVaultClimb()` (DoClimbTest → JumpOrClimb), в MoveTo при
+   застревании + фаза vaulting.
+8. `[x]` **Двери** — открыть и пройти. Deps: 1. — сделано: фильтр `DISABLED`+cost,
+   `dmAISurvivor.TryOpenDoorOnPath()` (рейкаст → Building.OpenDoor), проактивный
+   троттл-рейкаст в MoveTo.
+9. `[x]` **Лестницы** — подъём/спуск. Deps: 1. (самое сложное в навигации). —
+   сделано: фильтр `LADDER`+cost, `dmBotLadderCache` (парсинг memory LOD,
+   `Expansion_GetLaddersCount`-аналог), `dmBotIntent_UseLadder` (EXCLUSIVE:
+   подход→прицепка→подъём→отцепка), хук в MoveTo при застревании.
 
 ### Группа 4 — бой
 10. `[x]` **Мили против заражённых** — реальная атака. Deps: 3, 4. Research: `combat.md`.
