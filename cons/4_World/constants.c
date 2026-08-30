@@ -140,10 +140,6 @@ static const float DM_FOLLOW_JOG_GAP = 5.0;
 //! Follow (FollowTo): path re-computation interval (seconds), capped at 1 Hz.
 static const float DM_FOLLOW_PATH_INTERVAL = 1.0;
 
-//! Follow (FollowTo): extrapolation horizon (seconds) for the route target — the
-//! path is aimed at where the target will be this far ahead.
-static const float DM_FOLLOW_PATH_EXTRAPOLATE_TIME = 2.0;
-
 //! Follow (FollowTo): target-velocity smoothing factor (0..1; higher = snappier).
 static const float DM_FOLLOW_VEL_SMOOTH = 0.3;
 

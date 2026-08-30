@@ -8,10 +8,10 @@
 //! player/bot. Speed comes from the distance to the anchor (sprint >
 //! DM_FOLLOW_SPRINT_GAP, jog > DM_FOLLOW_JOG_GAP, walk otherwise), never slower
 //! than the target. The navmesh path is recomputed at most once per
-//! DM_FOLLOW_PATH_INTERVAL, aimed at the target's extrapolated position, and
-//! re-aimed sooner if the anchor drifts >1 m from where it was last aimed. It
-//! steers with SetMoveYaw (body faces the movement) + SetMove and leaves the look
-//! channel to a LookAround intent (no LookAtPoint here).
+//! DM_FOLLOW_PATH_INTERVAL, aimed at the anchor (no fallback chain — with no path
+//! the bot steers directly toward the anchor). It steers with SetMoveYaw (body
+//! faces the movement) + SetMove and leaves the look channel to a LookAround
+//! intent (no LookAtPoint here).
 class dmBotIntent_FollowTo : dmBotIntent
 {
 	EntityAI m_Target;
@@ -19,14 +19,12 @@ class dmBotIntent_FollowTo : dmBotIntent
 	float m_SideDistance = 2.0;
 
 	vector m_TargetVel;         // сглаженная скорость цели (горизонталь)
-	vector m_LastTargetPos;
 	bool m_TargetPosKnown = false;
 
 	ref array<vector> m_Path;
 	int m_PathIdx;
 	float m_PathTimer;
 	bool m_HasPath;
-	vector m_LastAimPos;        // для переприцеливания пути
 
 	//! Accumulator for the periodic movement debug log (DM_BOT_DEBUG_FSM).
 	float m_DebugAccum = 0.0;
@@ -45,7 +43,6 @@ class dmBotIntent_FollowTo : dmBotIntent
 		m_HasPath = false;
 		m_TargetPosKnown = false;
 		m_TargetVel = vector.Zero;
-		m_LastAimPos = vector.Zero;
 
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] FollowTo.start target=" + m_Target);
@@ -81,7 +78,6 @@ class dmBotIntent_FollowTo : dmBotIntent
 			m_TargetVel[0] = m_TargetVel[0] * (1.0 - DM_FOLLOW_VEL_SMOOTH) + tv[0] * DM_FOLLOW_VEL_SMOOTH;
 			m_TargetVel[2] = m_TargetVel[2] * (1.0 - DM_FOLLOW_VEL_SMOOTH) + tv[2] * DM_FOLLOW_VEL_SMOOTH;
 		}
-		m_LastTargetPos = targetPos;
 
 		//! Anchor: shoulder for a stationary player/bot, a point short of an item,
 		//! ahead of the target plus a randomized side offset for a moving player/bot.
@@ -92,7 +88,7 @@ class dmBotIntent_FollowTo : dmBotIntent
 		vector toItem = vector.Zero;
 		vector moveDir = vector.Zero;
 		vector side = vector.Zero;
-		if (targetSpeed < 0.5)
+		if (targetSpeed < 0.1)
 		{
 			if (pb)
 			{
@@ -144,18 +140,12 @@ class dmBotIntent_FollowTo : dmBotIntent
 		if (targetSpeedIdx > speedIdx)
 			speedIdx = targetSpeedIdx;
 
-		//! Path re-computation: at most 1 Hz, or forced when the anchor drifts >1 m
-		//! from where the path was last aimed.
+		//! Path re-computation: at most once per DM_FOLLOW_PATH_INTERVAL.
 		m_PathTimer += pDt;
-
-		vector aimDrift = anchor - m_LastAimPos;
-		aimDrift[1] = 0.0;
-		float aimDriftLen = aimDrift.Length();
-
-		if (m_PathTimer >= DM_FOLLOW_PATH_INTERVAL || aimDriftLen > 1.0)
+		if (m_PathTimer >= DM_FOLLOW_PATH_INTERVAL)
 		{
 			m_PathTimer = 0.0;
-			RePath(bot, targetPos, anchor);
+			RePath(bot, anchor);
 		}
 
 		//! Steering (body faces the movement; the head channel is left to LookAround).
@@ -219,28 +209,13 @@ class dmBotIntent_FollowTo : dmBotIntent
 		#endif
 	}
 
-	//! Re-aim the navmesh path at the target's extrapolated position (fallback:
-	//! the anchor). Keeps the old path when both attempts fail. m_LastAimPos is
-	//! updated on every attempt so a persistent failure doesn't re-path each tick.
-	void RePath(dmAISurvivor bot, vector targetPos, vector anchor)
+	//! Re-aim the navmesh path at the escort anchor. No fallback chain: if no path
+	//! is found, m_HasPath becomes false and the steering moves directly toward the
+	//! anchor.
+	void RePath(dmAISurvivor bot, vector anchor)
 	{
-		m_LastAimPos = anchor;
-
-		vector pathTarget = targetPos + m_TargetVel * DM_FOLLOW_PATH_EXTRAPOLATE_TIME;
-		pathTarget[1] = targetPos[1];
-
 		ref array<vector> newPath = new array<vector>();
-		bool ok = bot.FindPathTo(pathTarget, newPath);
-		if (!ok || newPath.Count() == 0)
-		{
-			newPath = new array<vector>();
-			ok = bot.FindPathTo(anchor, newPath);
-		}
-
-		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] FollowTo.RePath: ok=" + ok + " points=" + newPath.Count() + " pathTarget=" + pathTarget);
-		#endif
-
+		bool ok = bot.FindPathTo(anchor, newPath);
 		if (ok && newPath.Count() > 0)
 		{
 			m_Path = newPath;
@@ -248,9 +223,8 @@ class dmBotIntent_FollowTo : dmBotIntent
 			m_HasPath = true;
 			return;
 		}
-
-		if (!m_HasPath)
-			m_Path = null;
+		m_HasPath = false;
+		m_Path = null;
 	}
 
 	override void OnCancel(dmAISurvivor bot)
