@@ -39,6 +39,12 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! Accumulator for the proactive door check (throttled by DM_DOOR_CHECK_INTERVAL).
 	float m_DoorCheckAccum = 0.0;
 
+	//! Ladder climb/descend in progress: while the UseLadder intent (EXCLUSIVE)
+	//! owns the body, MoveTo is dormant; once it finishes MoveTo re-routes (see
+	//! OnUpdate).
+	bool m_Laddering = false;
+	ref dmBotIntent_UseLadder m_UseLadder;
+
 	override void OnStart(dmAISurvivor bot)
 	{
 		#ifdef DM_BOT_PROFILE
@@ -56,6 +62,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		m_Vaulting = false;
 		m_VaultGrace = 0.0;
+
+		m_Laddering = false;
+		m_UseLadder = null;
 
 		m_Path = new array<vector>();
 		bool hasPath = bot.FindPathTo(m_Target, m_Path);
@@ -115,6 +124,18 @@ class dmBotIntent_MoveTo : dmBotIntent
 					m_Vaulting = false;
 					m_NoProgressTime = 0.0;
 				}
+			}
+			return;
+		}
+
+		if (m_Laddering)
+		{
+			if (m_UseLadder && (m_UseLadder.IsFinished() || m_UseLadder.IsExpired()))
+			{
+				m_UseLadder = null;
+				m_Laddering = false;
+				m_NoProgressTime = 0.0;
+				Recalc(bot);   // пере-прокладка после смены этажа
 			}
 			return;
 		}
@@ -189,7 +210,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (m_NoProgressTime >= DM_MOVE_STUCK_TIME)
 		{
-			if (m_Recovering || m_Vaulting)
+			if (m_Recovering || m_Vaulting || m_Laddering)
 				return;
 
 			dmAISurvivorBase vaultPawn = dmAISurvivorBase.Cast(bot.GetPawn());
@@ -197,6 +218,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 			{
 				m_Vaulting = true;
 				m_VaultGrace = DM_VAULT_GRACE;
+				m_NoProgressTime = 0.0;
+				return;
+			}
+
+			dmAISurvivorBase ladderPawn = dmAISurvivorBase.Cast(bot.GetPawn());
+			if (ladderPawn && TryStartLadder(bot))
+			{
+				m_Laddering = true;
 				m_NoProgressTime = 0.0;
 				return;
 			}
@@ -238,6 +267,79 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_PathIdx = 0;
 		m_BestDist = -1.0;
 		m_NoProgressTime = 0.0;
+		return true;
+	}
+
+	//! Try to start a ladder climb/descend through the building directly ahead
+	//! (the stuck detector calls this when the path goes across floors). Raycasts
+	//! forward, resolves the building, picks the nearest ladder entry point on the
+	//! correct side (up = bottom entry, down = top entry) and spawns a
+	//! dmBotIntent_UseLadder (EXCLUSIVE) to own the climb. Returns true if started.
+	bool TryStartLadder(dmAISurvivor bot)
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+			return false;
+
+		vector pos = pawn.GetPosition();
+		vector dir = pawn.GetDirection();
+		dir[1] = 0.0;
+		dir.Normalize();
+		vector beg = pos + Vector(0.0, DM_EYE_HEIGHT, 0.0);
+		vector end = beg + dir * DM_DOOR_OPEN_DIST;
+
+		RaycastRVParams rp = new RaycastRVParams(beg, end, pawn);
+		rp.sorted = true;
+		rp.type = ObjIntersectView;
+		rp.flags = CollisionFlags.NEARESTCONTACT;
+		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
+		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
+			return false;
+
+		Building building = Building.Cast(hits[0].obj);
+		if (!building)
+			return false;
+
+		ref array<ref dmBotLadder> ladders = dmBotLadderCache.GetInstance().GetLadders(building);
+		if (!ladders || ladders.Count() == 0)
+			return false;
+
+		int dirSign = 1;
+		if (m_Target[1] < pos[1])
+			dirSign = -1;
+
+		dmBotLadder best = null;
+		float bestDist = 0.0;
+		int i;
+		for (i = 0; i < ladders.Count(); i++)
+		{
+			dmBotLadder ladder = ladders[i];
+			vector modelEntry = ladder.m_Bottom;
+			if (dirSign < 0)
+				modelEntry = ladder.m_Top;
+			vector entry = building.ModelToWorld(modelEntry);
+			vector delta = entry - pos;
+			delta[1] = 0.0;
+			float dist = delta.Length();
+			if (!best || dist < bestDist)
+			{
+				best = ladder;
+				bestDist = dist;
+			}
+		}
+
+		if (!best)
+			return false;
+
+		m_UseLadder = new dmBotIntent_UseLadder();
+		m_UseLadder.m_Building = building;
+		m_UseLadder.m_Ladder = best;
+		m_UseLadder.m_Direction = dirSign;
+		bot.AddFSMIntent(m_UseLadder);
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] MoveTo: ladder building=" + building + " dir=" + dirSign + " index=" + best.m_Index);
+		#endif
 		return true;
 	}
 

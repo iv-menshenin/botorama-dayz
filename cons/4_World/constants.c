@@ -64,6 +64,14 @@ static const float DM_DOOR_OPEN_DIST = 2.0;
 //! Throttle interval (seconds) for the proactive door check in MoveTo.
 static const float DM_DOOR_CHECK_INTERVAL = 0.5;
 
+//! Distance (meters) to the ladder entry point at which the bot attaches to the
+//! ladder (starts climbing).
+static const float DM_LADDER_ATTACH_DIST = 2.0;
+
+//! Grace period (seconds) after starting the ladder command before UseLadder
+//! trusts IsClimbingLadder() — gives the ladder command time to become active.
+static const float DM_LADDER_ATTACH_GRACE = 0.5;
+
 //! Grace period (seconds) after starting a vault/climb before MoveTo checks
 //! IsClimbing() — gives the climb command time to become active.
 static const float DM_VAULT_GRACE = 1.0;
