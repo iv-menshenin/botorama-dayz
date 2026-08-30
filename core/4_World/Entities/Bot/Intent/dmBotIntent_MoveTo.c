@@ -6,8 +6,8 @@
 //! movement command (forward/back/strafe), without snapping the body. It requests
 //! the body to face the waypoint (FULL); if a higher-priority look/turn intent owns
 //! the body, the movement direction becomes a strafe/backpedal. A per-waypoint
-//! progress monitor aborts (Fail) and logs when the bot stops getting closer; it
-//! re-routes once, then gives up.
+//! progress monitor detects a stuck bot; instead of failing right away it steps
+//! back/sideways and re-routes, up to DM_MOVE_MAX_RECOVER times, then gives up.
 class dmBotIntent_MoveTo : dmBotIntent
 {
 	vector m_Target;
@@ -16,10 +16,16 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 	ref array<vector> m_Path;
 	int m_PathIdx = 0;
-	int m_RecalcCount = 0;
 
 	float m_BestDist = -1.0;
 	float m_NoProgressTime = 0.0;
+
+	//! Stuck-recovery: step back/sideways for a short time before re-routing,
+	//! up to DM_MOVE_MAX_RECOVER attempts (see OnUpdate).
+	bool m_Recovering = false;
+	float m_RecoverTimer = 0.0;
+	int m_RecoverCount = 0;
+	float m_RecoverDir = 180.0;
 
 	//! Accumulator for the periodic movement debug log (DM_BOT_DEBUG_FSM).
 	float m_DebugAccum = 0.0;
@@ -32,8 +38,11 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		m_BestDist = -1.0;
 		m_NoProgressTime = 0.0;
-		m_RecalcCount = 0;
 		m_PathIdx = 0;
+
+		m_Recovering = false;
+		m_RecoverTimer = 0.0;
+		m_RecoverCount = 0;
 
 		m_Path = new array<vector>();
 		bool hasPath = bot.FindPathTo(m_Target, m_Path);
@@ -60,6 +69,27 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (IsFinished())
 			return;
+
+		if (m_Recovering)
+		{
+			m_RecoverTimer -= pDt;
+			bot.SetMove(m_RecoverDir, 1.0);
+
+			if (m_RecoverTimer > 0.0)
+				return;
+
+			m_Recovering = false;
+			if (!Recalc(bot))
+			{
+				dmBotLog.Error("MoveTo: восстановление не помогло, путь к " + m_Target + " недоступен, abort");
+				bot.SetMove(0.0, 0.0);
+				Fail();
+				return;
+			}
+
+			m_NoProgressTime = 0.0;
+			return;
+		}
 
 		vector subGoal = m_Path[m_PathIdx];
 		float reach = m_ReachDistance;
@@ -124,9 +154,29 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (m_NoProgressTime >= DM_MOVE_STUCK_TIME)
 		{
-			//! Stuck: re-route once, then give up.
-			if (Recalc(bot))
+			if (m_Recovering)
 				return;
+
+			if (m_RecoverCount < DM_MOVE_MAX_RECOVER)
+			{
+				m_RecoverCount++;
+				m_Recovering = true;
+				m_RecoverTimer = DM_MOVE_RECOVER_TIME;
+				m_NoProgressTime = 0.0;
+
+				m_RecoverDir = 180.0;
+				if (m_RecoverCount % 2 == 0)
+				{
+					m_RecoverDir = 90.0;
+					if (m_RecoverCount % 4 == 0)
+						m_RecoverDir = -90.0;
+				}
+
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug("[FSM] MoveTo: stuck, recover #" + m_RecoverCount + " dir=" + m_RecoverDir);
+				#endif
+				return;
+			}
 
 			dmBotLog.Error("MoveTo: застрял на пути к " + m_Target + " (подцель " + subGoal + "), abort");
 			bot.SetMove(0.0, 0.0);
@@ -136,10 +186,6 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 	bool Recalc(dmAISurvivor bot)
 	{
-		if (m_RecalcCount >= DM_MOVE_MAX_RECALC)
-			return false;
-		m_RecalcCount++;
-
 		ref array<vector> newPath = new array<vector>();
 		if (!bot.FindPathTo(m_Target, newPath) || newPath.Count() == 0)
 			return false;

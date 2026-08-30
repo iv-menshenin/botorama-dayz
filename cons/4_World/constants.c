@@ -58,8 +58,12 @@ static const float DM_PATH_SAMPLE_RADIUS = 2.0;
 //! Reach radius (meters) for an intermediate path waypoint.
 static const float DM_PATH_WAYPOINT_REACH = 0.5;
 
-//! Max path recalculations on stuck before MoveTo aborts.
-static const int DM_MOVE_MAX_RECALC = 1;
+//! Time (seconds) the bot steps back/sideways per stuck-recovery attempt before
+//! re-routing.
+static const float DM_MOVE_RECOVER_TIME = 1.0;
+
+//! Max stuck-recovery attempts (step back/sideways + re-route) before MoveTo aborts.
+static const int DM_MOVE_MAX_RECOVER = 2;
 
 //! Stance transition timeout (seconds) for erect<->crouch.
 static const float DM_STANCE_TIMEOUT_CROUCH = 0.3;
