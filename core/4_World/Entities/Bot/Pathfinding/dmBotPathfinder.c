@@ -2,12 +2,13 @@
 //!
 //! The heavy lifting is the native AIWorld.FindPath (A* over the navmesh); here we
 //! only hold the AIWorld reference and the two PGFilters used by the bot:
-//!   - m_Filter       — walkable ground (WALK/DOOR/INSIDE) + vault/climb (JUMP/CLIMB),
-//!     no swim/crawl/crouch/unreachable.
+//!   - m_Filter       — walkable ground (WALK/DOOR/INSIDE) + vault/climb (JUMP/CLIMB)
+//!     + ladders (LADDER, cheap — routes between navmesh floors), no swim/crawl/
+//!     crouch/unreachable.
 //!   - m_SampleFilter — snap a target onto the navmesh (everything except crawl/crouch).
 //!
-//! Deferred (see docs/plans/fsm-implementation-plan.md "Pathfinding"): ladders,
-//! swimming, attachment navmesh, string-pulling, path-cost tuning.
+//! Deferred (see docs/plans/fsm-implementation-plan.md "Pathfinding"): swimming,
+//! attachment navmesh, string-pulling, path-cost tuning.
 
 class dmBotPathfinder
 {
@@ -24,7 +25,9 @@ class dmBotPathfinder
 		//! (an open door is a physical obstacle to walk around, not through).
 		//! JUMP/CLIMB route through vault/climb obstacles (fences, low walls); they
 		//! exclude CRAWL/CROUCH so A* doesn't route through crawl-only polygons.
-		int include = PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.DISABLED | PGPolyFlags.JUMP | PGPolyFlags.CLIMB;
+		//! LADDER is included so A* can cross between navmesh floors via a ladder;
+		//! its cost is cheap (1.0) so the bot walks toward the ladder.
+		int include = PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.DISABLED | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.LADDER;
 		int exclude = PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.UNREACHABLE;
 
 		m_Filter = new PGFilter();
@@ -33,6 +36,7 @@ class dmBotPathfinder
 		m_Filter.SetCost(PGAreaType.DOOR_OPENED, 10000.0);
 		m_Filter.SetCost(PGAreaType.FENCE_WALL, 5.0);
 		m_Filter.SetCost(PGAreaType.JUMP, 10.0);
+		m_Filter.SetCost(PGAreaType.LADDER, 1.0);
 
 		m_SampleFilter = new PGFilter();
 		m_SampleFilter.SetFlags(PGPolyFlags.ALL & ~(PGPolyFlags.CRAWL | PGPolyFlags.CROUCH), PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
