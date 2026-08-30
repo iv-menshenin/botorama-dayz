@@ -272,6 +272,20 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
+	//! Taking damage: register the source as a maximum threat immediately, even if
+	//! it is outside the vision FOV (attacking from behind). This drives the bot's
+	//! reactive defence before perception would ever notice the attacker.
+	override void EEHitBy(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
+	{
+		super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+		if (source)
+		{
+			dmAISurvivor bot = dmAISurvivor.Find(this);
+			if (bot)
+				bot.RegisterDamageThreat(source);
+		}
+	}
+
 	//! Death — logging only: report whether the vanilla EEKilled registered the
 	//! corpse for decay (depends on the pawn having a CE profile from CreateObject).
 	override void EEKilled(Object killer)

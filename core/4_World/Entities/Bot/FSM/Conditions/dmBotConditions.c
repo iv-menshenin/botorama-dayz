@@ -29,4 +29,9 @@ class dmBotConditions
 	{
 		return new dmBotCondition_ThreatInRange();
 	}
+
+	static dmBotCondition DefendInRange()
+	{
+		return new dmBotCondition_DefendInRange();
+	}
 }

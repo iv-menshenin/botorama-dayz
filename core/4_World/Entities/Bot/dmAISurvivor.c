@@ -608,8 +608,34 @@ class dmAISurvivor
 		return null;
 	}
 
-	//! Highest-threat hostile target within attack range (or null).
-	dmTarget GetHostileTarget()
+	//! An enemy dealt damage — register it as a maximum threat immediately, even
+	//! if it is outside the vision FOV (e.g. attacking from behind).
+	void RegisterDamageThreat(EntityAI source)
+	{
+		if (!source)
+			return;
+		if (source == m_Pawn)
+			return;
+		if (source == m_FollowTarget)
+			return;
+
+		dmTarget t = FindTarget(source);
+		if (!t)
+		{
+			t = new dmTarget();
+			t.m_Type = dmTargetType.DESTROY;
+			t.m_Entity = source;
+			m_Targets.Insert(t);
+		}
+		t.m_Threat = DM_DAMAGE_THREAT;
+		t.m_Friendly = false;
+		t.m_LastPosition = source.GetPosition();
+		t.m_LastContact = GetGame().GetTickTime();
+	}
+
+	//! Hostile target (threat > DM_ATTACK_THREAT_THRESHOLD, not friendly) within
+	//! the given range; highest threat wins (tie -> nearest), or null.
+	dmTarget GetHostileTargetInRange(float range)
 	{
 		dmTarget best = null;
 		float bestThreat = 0.0;
@@ -623,19 +649,16 @@ class dmAISurvivor
 				continue;
 			if (t.m_Threat <= DM_ATTACK_THREAT_THRESHOLD)
 				continue;
-
 			vector tPos;
 			if (t.m_Entity)
 				tPos = t.m_Entity.GetPosition();
 			else
 				tPos = t.m_LastPosition;
-
 			vector d = tPos - myPos;
 			d[1] = 0.0;
 			float dist = d.Length();
-			if (dist >= DM_ATTACK_RANGE)
+			if (dist >= range)
 				continue;
-
 			if (!best || t.m_Threat > bestThreat || (t.m_Threat == bestThreat && dist < bestDist))
 			{
 				best = t;
@@ -644,6 +667,16 @@ class dmAISurvivor
 			}
 		}
 		return best;
+	}
+
+	dmTarget GetHostileTarget()
+	{
+		return GetHostileTargetInRange(DM_ATTACK_RANGE);
+	}
+
+	dmTarget GetDefendTarget()
+	{
+		return GetHostileTargetInRange(DM_DEFEND_RANGE);
 	}
 
 	//! Start a scan pass: mark every remembered target as not-seen; RememberTarget

@@ -157,11 +157,20 @@ static const float DM_TARGET_THREAT_PLAYER = 0.1;
 static const float DM_TARGET_THREAT_ZOMBIE = 0.9;
 static const float DM_TARGET_THREAT_ANIMAL = 0.2;
 
+//! Threat assigned after taking damage (0..1) — угроза после нанесённого урона.
+//! See dmAISurvivor.RegisterDamageThreat: an attacker is treated as maximum
+//! danger the instant it lands a hit, even outside the vision FOV.
+static const float DM_DAMAGE_THREAT = 0.9;
+
 //! Attack: m_Threat above this threshold marks a target as hostile.
 static const float DM_ATTACK_THREAT_THRESHOLD = 0.3;
 
 //! Attack: maximum distance (meters) to an enemy for the bot to attack it.
 static const float DM_ATTACK_RANGE = 15.0;
+
+//! Defend: distance (meters) at which an enemy counts as "right on the bot" —
+//! оборона — враг прямо на боте/игроке.
+static const float DM_DEFEND_RANGE = 4.0;
 
 //! Target evaluation: attractiveness (0..1) — how interesting a target is.
 static const float DM_TARGET_ATTRACT_PLAYER = 0.1;

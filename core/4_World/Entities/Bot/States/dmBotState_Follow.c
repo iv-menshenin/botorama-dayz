@@ -72,7 +72,7 @@ class dmBotState_Follow : dmBotState
 		if (player && !player.IsAlive())
 			return EXIT;
 
-		if (bot.GetHostileTarget() != null)
+		if (bot.GetDefendTarget() != null)
 			return EXIT;
 
 		//! Horizontal distance bot -> target, computed once and reused below.
