@@ -228,16 +228,25 @@ description: Живой справочник по серверным ИИ-бот
   циклом в `EvaluateHit`.
 - **Магия-цель** `dmBotMeleeCombat : DayZPlayerImplementMeleeCombat` — override `Update()`
   (на сервере всегда `Reset` → `TargetSelection` → `SetFinisherType(-1)`) и
-  `TargetSelection()` без райкаста: цель берётся из `bot.GetHostileTarget()`;
+  `TargetSelection()` без райкаста: цель берётся из **явного** `pawn.GetMeleeAttackTarget()`
+  (ставит `dmBotIntent_HitTo` через `RequestMeleeAttack`), НЕ из `GetHostileTarget()`;
   `GetReach()` — публичная обёртка protected `GetRange()`.
-- **Состояние `dmBotState_Fighting`** (PREEMPTIVE, без raised, бьём из ERECT): линейный
-  флоу в `OnUpdate` — подойти (`dmBotIntent_MoveTo`, пересоздание при дрейфе цели >1м) →
-  держать `dmBotIntent_HoldLook` (FULL — корпус к врагу) → удар по кулдауну
-  (`DM_MELEE_COOLDOWN`) при `dist <= GetMeleeReach()`, `|angle| <= DM_MELEE_FACE_ANGLE`
-  и `m_HasLOS`; `EXIT` когда цели нет или враг мёртв (`IsAlive()`).
-- **Пресеты**: `dmBotPreset_Combat` (Idle + Fighting, вход из Idle по `ThreatInRange`);
-  в `dmBotPreset_Escort` добавлен Fighting (реакция на угрозу срабатывает из Idle,
-  Follow остаётся PREEMPTIVE). `/bot combat` переключает бота на боевой пресет.
+- **Реактивная модель угрозы**: бот дерётся только с тем, кто его ударил. Обнаруженные
+  сущности низкоугрозны (`DM_TARGET_THREAT_PLAYER 0.1 / _ANIMAL 0.2 / _ZOMBIE 0.3`).
+  Враждебность (`threat >= DM_ATTACK_THREAT_THRESHOLD = 0.5`) ставит только
+  `RegisterDamageThreat(source, damage)` из `EEHitBy` (резолвит `GetHierarchyRootPlayer()`,
+  threat 0.8/0.9 по HP-урону). `GetHostileTarget()` = ближайшая **живая** цель
+  `threat >= 0.5`, без дистанции; мёртвые пропускаются.
+- **Состояние `dmBotState_Fighting`** (PREEMPTIVE, без raised, бьём из ERECT) — тонкий
+  координатор: `m_TargetEntity`/`m_Target` + 3 интента CRITICAL+PARALLEL (`Approach` —
+  подойти/пересоздать MoveTo при дрейфе; `HitTo` — удар по кулдауну `m_MeleeCooldown`
+  (на мозге) при `dist <= GetMeleeReach()` + `|angle| <= DM_MELEE_FACE_ANGLE` + `m_HasLOS`;
+  `Evasion` — стрейф ±90° пока кулдаун >0) + `HoldLook` (FULL). Кулдаун тикается в
+  `OnUpdate`. Пере-резолв цели на входе/при смерти/раз в `DM_FIGHT_RETARGET_INTERVAL`.
+  `EXIT` когда `GetHostileTarget()` пусто.
+- **Пресеты**: `dmBotPreset_Combat` (Idle + Fighting, вход по `HasHostile`);
+  `dmBotPreset_Escort` — Fighting входит по `HasHostile` из Idle/Follow (Follow выходит
+  в Fighting при `GetHostileTarget() != null`). `/bot combat` переключает боевой пресет.
 - Огнестрел (прицел/стрельба/перезарядка) — TODO, research `docs/research/combat.md`.
 - `HasNoAmmo()` — заглушка `false` (TODO: инспекция магазина). `HasPlayerSigns()` — заглушка `false`.
 
@@ -276,7 +285,8 @@ description: Живой справочник по серверным ИИ-бот
 - Цели (паттерн Expansion): `eAITargetInformation` + `eAITargetInformationState`
   (последняя известная позиция, поиск, LOS, threat). У нас упрощённый `dmTarget`
   (entity/class + память lastPosition/LOS/lastContact + оценка threat/attractiveness/
-  friendly) — к поведению (бой/лут) ещё не подключён.
+  friendly) — `threat`/`friendly` уже питают бой (`GetHostileTarget`); attractiveness — к
+  луту ещё не подключена.
 
 ## Памятки (когда пишешь код)
 
@@ -288,6 +298,12 @@ description: Живой справочник по серверным ИИ-бот
   и `CanEnter()` (условие входа); иначе зависнет или войдёт в нерелевантном контексте.
 - **Состояние, владеющее интентом** → держит `ref` и пересоздаёт его, если пул сожрал
   (автодедлайн `DM_INTENT_MAX_AGE`).
+- **Интенты кэшируют цель на момент создания** → когда состояние пере-резолвит НОВУЮ цель
+  (пере-таргетинг внутри одного стейта, напр. бот убил зомби №1 → `ResolveTarget` взял
+  №2), старые интенты продолжают бить/смотреть в СТАРУЮ цель (труп). Фикс: в `ResolveTarget`
+  при смене сущности цели (`newEntity != m_TargetEntity`) `Finish()`+`null` ВСЕ интенты —
+  тогда `Ensure*`/`CreateLook` пересоздадут их под новую цель. Симптом был «стоит спиной
+  к живому зомби после убийства первого».
 - **Триггер «идти/стоять» — по дистанции с мёртвой зоной**, а не по факту смещения игрока.
   Ошибка: follow определял «игрок двигается» по смещению позиции → поворот на месте
   триггерил подход. Правильно: фиксированная точка стояния + пере-выбор стороны только
