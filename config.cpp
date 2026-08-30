@@ -35,6 +35,7 @@ class CfgMods
 				value = "";
 				files[] = {
 					"botorama/cons/4_World",
+					"botorama/reg/4_World",
 					"botorama/core/4_World",
 					"botorama/loadout/4_World"
 				};

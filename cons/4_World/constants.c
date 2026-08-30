@@ -163,8 +163,11 @@ static const float DM_SCAN_HOLD_MAX = 15.0;
 static const float DM_SCAN_BODY_ANGLE_MIN = 15.0;
 static const float DM_SCAN_BODY_ANGLE_MAX = 120.0;
 
-//! Perception: scan radius (meters) around the bot for threats.
-static const float DM_PERCEPTION_RADIUS = 30.0;
+//! Perception: scan radius (meters) around the bot for zombies/animals.
+static const float DM_PERCEPTION_CREATURE_RADIUS = 50.0;
+
+//! Perception: scan radius (meters) around the bot for players/bots.
+static const float DM_PERCEPTION_PLAYER_RADIUS = 1000.0;
 
 //! Perception: horizontal field of view (degrees). A target within ±half this angle
 //! from the look direction counts as "in front".
@@ -175,11 +178,8 @@ static const float DM_PERCEPTION_FOV = 120.0;
 static const float DM_PERCEPTION_INTERVAL = 0.1;
 
 //! Perception: box-scan interval (seconds) — how often the bot runs the expensive
-//! spatial query (classify -> distance/FOV -> LOS -> remember).
+//! registry scan (classify -> distance/FOV -> LOS -> remember).
 static const float DM_PERCEPTION_BOX_INTERVAL = 1.0;
-
-//! Perception: half-height (meters) of the scan box around the bot.
-static const float DM_PERCEPTION_HEIGHT = 2.0;
 
 //! Target evaluation: threat (0..1) — how dangerous a sighted entity is.
 //! The player is scored low so bots don't auto-attack them by default.

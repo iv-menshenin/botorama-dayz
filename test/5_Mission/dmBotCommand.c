@@ -14,7 +14,7 @@
 //!   /bot speed walk|jog|sprint — задать предпочтительную скорость ходьбы.
 //!   /bot loadout {name}        — применить loadout к боту (или список без имени).
 //!   /bot follow [stop]         — сопровождать игрока (бок о бок); "stop" — сброс.
-//!   /bot vision [switch]       — показать видимые цели бота; "switch" — Scene/Physics.
+//!   /bot vision                — показать видимые цели бота.
 //!   /bot give {item}            — выдать предмет в руки бота.
 //!   /bot melee                  — ударить враждебную цель (мили-удар).
 //!   /bot combat                 — боевой режим (атакует угрозы в радиусе).
@@ -549,25 +549,13 @@ class dmBotCommand : dmCommandModule
 		return true;
 	}
 
-	//! "/bot vision [switch]" — print the bot's visible targets; "switch" toggles the
-	//! Scene/Physics spatial query.
+	//! "/bot vision" — print the bot's visible targets.
 	private bool HandleVision(PlayerBase player, array<string> parts)
 	{
 		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
 		if (!bot)
 		{
 			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
-			return true;
-		}
-
-		if (parts.Count() >= 3 && parts[2] == DM_CHAT_SWITCH)
-		{
-			dmVision vision = bot.GetVision();
-			vision.ToggleQuery();
-			string mode = "Physics";
-			if (vision.GetUseScene())
-				mode = "Scene";
-			dmCommandManager.ChatToPlayer(player, "Зрение: " + mode);
 			return true;
 		}
 

@@ -1,31 +1,29 @@
 //! dmVision — perception: server-side scan for visible threats around the bot.
 //!
-//! Two independent cadences: an expensive box scan (spatial query + classify +
-//! distance/FOV/LOS + RememberTarget) runs every DM_PERCEPTION_BOX_INTERVAL, while a
-//! cheap visibility re-check (LOS for every remembered target) runs every
-//! DM_PERCEPTION_INTERVAL. The box scan merges results into the bot's target memory
-//! (m_Targets) via BeginTargetScan + RememberTarget; the visibility pass updates
-//! m_HasLOS/m_LastPosition/m_LastContact and forgets stale targets.
+//! Two independent cadences: an expensive registry scan (classify + distance/FOV/
+//! LOS + RememberTarget) runs every DM_PERCEPTION_BOX_INTERVAL, while a cheap
+//! visibility re-check (LOS for every remembered target) runs every
+//! DM_PERCEPTION_INTERVAL. The registry scan merges results into the bot's target
+//! memory (m_Targets) via BeginTargetScan + RememberTarget; the visibility pass
+//! updates m_HasLOS/m_LastPosition/m_LastContact and forgets stale targets.
 //!
-//! Pipeline: box query (Scene or Physics, switchable) -> classify (player/zombie/
-//! animal) -> distance/FOV -> line-of-sight -> RememberTarget (DESTROY).
+//! Candidates come from the global dmEntityRegistry (zombies/animals/players that
+//! self-registered in their constructor), not from a spatial box query. The registry
+//! is cleaned of dead/null entities at the start of every scan.
 
 class dmVision
 {
-	//! Spatial query switch: true = SceneGetEntitiesInBox, false = PhysicsGetEntitiesInBox.
-	bool m_UseScene = true;
-
 	//! Accumulated time toward the next visibility re-check (LOS).
 	float m_Accum = 0.0;
 
-	//! Accumulated time toward the next box scan.
+	//! Accumulated time toward the next registry scan.
 	float m_BoxAccum = 0.0;
 
 	//! Cached head-bone index of the bot's pawn (-1 = not resolved yet).
 	int m_HeadBone = -1;
 
-	//! Accumulate frame time: box scan every DM_PERCEPTION_BOX_INTERVAL, visibility
-	//! re-check every DM_PERCEPTION_INTERVAL.
+	//! Accumulate frame time: registry scan every DM_PERCEPTION_BOX_INTERVAL,
+	//! visibility re-check every DM_PERCEPTION_INTERVAL.
 	void Update(dmAISurvivor bot, float pDt)
 	{
 		m_Accum += pDt;
@@ -34,24 +32,16 @@ class dmVision
 		if (m_Accum >= DM_PERCEPTION_INTERVAL) { m_Accum = 0.0; UpdateVisibility(bot); }
 	}
 
-	//! Snapshot the visible threats: box query -> classify -> distance/FOV/LOS -> targets.
+	//! Snapshot the visible threats: registry -> classify -> distance/FOV/LOS -> targets.
 	void ScanBox(dmAISurvivor bot)
 	{
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn)
 			return;
 
+		dmEntityRegistry.Cleanup();
+
 		vector botPos = pawn.GetPosition();
-
-		vector half = Vector(DM_PERCEPTION_RADIUS, DM_PERCEPTION_HEIGHT, DM_PERCEPTION_RADIUS);
-		vector min = botPos - half;
-		vector max = botPos + half;
-
-		array<EntityAI> candidates = new array<EntityAI>();
-		if (m_UseScene)
-			DayZPlayerUtils.SceneGetEntitiesInBox(min, max, candidates, QueryFlags.DYNAMIC);
-		else
-			DayZPlayerUtils.PhysicsGetEntitiesInBox(min, max, candidates);
 
 		//! Look direction (body + head). Prefer the head bone forward (includes the
 		//! head turn); fall back to the body direction when the bone can't resolve.
@@ -77,65 +67,92 @@ class dmVision
 
 		bot.BeginTargetScan();
 
-		int i;
-		for (i = 0; i < candidates.Count(); i++)
-		{
-			EntityAI e = candidates[i];
-			if (e == pawn)
-				continue;
-
-			float threat = 0.0;
-			float attract = 0.0;
-			bool friendly = false;
-			if (PlayerBase.Cast(e))
-			{
-				threat = DM_TARGET_THREAT_PLAYER;
-				attract = DM_TARGET_ATTRACT_PLAYER;
-				friendly = (e == bot.GetFollowTarget());
-			}
-			else if (e.IsInherited(ZombieBase))
-			{
-				threat = DM_TARGET_THREAT_ZOMBIE;
-				attract = DM_TARGET_ATTRACT_ZOMBIE;
-			}
-			else if (e.IsInherited(AnimalBase))
-			{
-				threat = DM_TARGET_THREAT_ANIMAL;
-				attract = DM_TARGET_ATTRACT_ANIMAL;
-			}
-			else
-				continue;
-
-			vector targetPos = e.GetPosition();
-			vector toTarget = targetPos - botPos;
-			toTarget[1] = 0.0;
-			float dist = toTarget.Length();
-			if (dist > DM_PERCEPTION_RADIUS)
-				continue;
-			if (dist < 0.01)
-				continue;
-
-			float targetYaw = toTarget.VectorToAngles()[0];
-			float lookYaw = lookDir.VectorToAngles()[0];
-			float ang = dmAISurvivor.AngleDiff(targetYaw, lookYaw);
-			if (Math.AbsFloat(ang) > DM_PERCEPTION_FOV * 0.5)
-				continue;
-
-			if (!HasLOS(pawn, e, botPos, targetPos))
-				continue;
-
-			bot.RememberTarget(e, threat, attract, friendly, targetPos);
-
-			#ifdef DM_BOT_DEBUG_VISION
-			dmBotLog.Debug("[Vision] hit: " + e + " dist=" + dist + " threat=" + threat);
-			dmBotLog.Debug("[Vision] hit: " + e + " attract=" + attract + " friendly=" + friendly);
-			#endif
-		}
+		ScanPlayers(bot, pawn, botPos, lookDir);
+		ScanZombies(bot, pawn, botPos, lookDir);
+		ScanAnimals(bot, pawn, botPos, lookDir);
 
 		bot.ForgetStaleTargets(DM_TARGET_FORGET_TIME);
 
 		#ifdef DM_BOT_DEBUG_VISION
-		dmBotLog.Debug("[Vision] scan: candidates=" + candidates.Count() + " targets=" + bot.GetTargets().Count() + " scene=" + m_UseScene);
+		dmBotLog.Debug("[Vision] scan: targets=" + bot.GetTargets().Count());
+		dmBotLog.Debug("[Vision] registry: zombies=" + dmEntityRegistry.GetZombies().Count());
+		dmBotLog.Debug("[Vision] registry: players=" + dmEntityRegistry.GetPlayers().Count() + " animals=" + dmEntityRegistry.GetAnimals().Count());
+		#endif
+	}
+
+	//! Consider every registered player (incl. other bots) within the player radius.
+	private void ScanPlayers(dmAISurvivor bot, PlayerBase pawn, vector botPos, vector lookDir)
+	{
+		array<PlayerBase> players = dmEntityRegistry.GetPlayers();
+		EntityAI follow = bot.GetFollowTarget();
+		int i;
+		for (i = 0; i < players.Count(); i++)
+		{
+			PlayerBase p = players[i];
+			if (!p)
+				continue;
+			bool friendly = (p == follow);
+			ConsiderEntity(bot, pawn, botPos, lookDir, p, DM_TARGET_THREAT_PLAYER, DM_TARGET_ATTRACT_PLAYER, friendly, DM_PERCEPTION_PLAYER_RADIUS);
+		}
+	}
+
+	//! Consider every registered zombie within the creature radius.
+	private void ScanZombies(dmAISurvivor bot, PlayerBase pawn, vector botPos, vector lookDir)
+	{
+		array<ZombieBase> zombies = dmEntityRegistry.GetZombies();
+		int i;
+		for (i = 0; i < zombies.Count(); i++)
+		{
+			ZombieBase z = zombies[i];
+			if (!z)
+				continue;
+			ConsiderEntity(bot, pawn, botPos, lookDir, z, DM_TARGET_THREAT_ZOMBIE, DM_TARGET_ATTRACT_ZOMBIE, false, DM_PERCEPTION_CREATURE_RADIUS);
+		}
+	}
+
+	//! Consider every registered animal within the creature radius.
+	private void ScanAnimals(dmAISurvivor bot, PlayerBase pawn, vector botPos, vector lookDir)
+	{
+		array<AnimalBase> animals = dmEntityRegistry.GetAnimals();
+		int i;
+		for (i = 0; i < animals.Count(); i++)
+		{
+			AnimalBase a = animals[i];
+			if (!a)
+				continue;
+			ConsiderEntity(bot, pawn, botPos, lookDir, a, DM_TARGET_THREAT_ANIMAL, DM_TARGET_ATTRACT_ANIMAL, false, DM_PERCEPTION_CREATURE_RADIUS);
+		}
+	}
+
+	//! Distance/FOV/LOS gate for a single candidate; merges it into target memory.
+	private void ConsiderEntity(dmAISurvivor bot, PlayerBase pawn, vector botPos, vector lookDir, EntityAI e, float threat, float attract, bool friendly, float radius)
+	{
+		if (e == pawn)
+			return;
+
+		vector targetPos = e.GetPosition();
+		vector toTarget = targetPos - botPos;
+		toTarget[1] = 0.0;
+		float dist = toTarget.Length();
+		if (dist > radius)
+			return;
+		if (dist < 0.01)
+			return;
+
+		float targetYaw = toTarget.VectorToAngles()[0];
+		float lookYaw = lookDir.VectorToAngles()[0];
+		float ang = dmAISurvivor.AngleDiff(targetYaw, lookYaw);
+		if (Math.AbsFloat(ang) > DM_PERCEPTION_FOV * 0.5)
+			return;
+
+		if (!HasLOS(pawn, e, botPos, targetPos))
+			return;
+
+		bot.RememberTarget(e, threat, attract, friendly, targetPos);
+
+		#ifdef DM_BOT_DEBUG_VISION
+		dmBotLog.Debug("[Vision] hit: " + e + " dist=" + dist + " threat=" + threat);
+		dmBotLog.Debug("[Vision] hit: " + e + " attract=" + attract + " friendly=" + friendly);
 		#endif
 	}
 
@@ -210,17 +227,5 @@ class dmVision
 		Object o = hits[0].obj;
 		Object p = hits[0].parent;
 		return (o == target) || (p == target);
-	}
-
-	//! Toggle between Scene and Physics spatial queries.
-	void ToggleQuery()
-	{
-		m_UseScene = !m_UseScene;
-	}
-
-	//! Which spatial query is active (true = Scene, false = Physics).
-	bool GetUseScene()
-	{
-		return m_UseScene;
 	}
 }
