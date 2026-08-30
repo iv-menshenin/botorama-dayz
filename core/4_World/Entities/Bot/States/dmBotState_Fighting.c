@@ -120,10 +120,27 @@ class dmBotState_Fighting : dmBotState
 	void ResolveTarget()
 	{
 		dmAISurvivor bot = GetOwner();
-		m_Target = bot.GetHostileTarget();
-		m_TargetEntity = null;
-		if (m_Target)
-			m_TargetEntity = m_Target.m_Entity;
+		dmTarget t = bot.GetHostileTarget();
+		EntityAI newEntity = null;
+		if (t)
+			newEntity = t.m_Entity;
+
+		if (newEntity != m_TargetEntity)
+		{
+			//! Цель сменилась (или исчезла) — сбросить интенты, чтобы они
+			//! пересоздались под новую цель (иначе бьют/смотрят в старую).
+			if (m_Approach) { m_Approach.Finish(); m_Approach = null; }
+			if (m_Evasion) { m_Evasion.Finish(); m_Evasion = null; }
+			if (m_HitTo) { m_HitTo.Finish(); m_HitTo = null; }
+			if (m_Look) { m_Look.Finish(); m_Look = null; }
+
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] Fighting: цель сменилась, интенты сброшены");
+			#endif
+		}
+
+		m_Target = t;
+		m_TargetEntity = newEntity;
 	}
 
 	void EnsureApproach(dmAISurvivor bot)
