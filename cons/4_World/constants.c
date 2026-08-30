@@ -108,7 +108,7 @@ static const float DM_FOLLOW_SIDE_DISTANCE = 1.0;
 
 //! Follow: velocity extrapolation multiplier (× target velocity) for the escort
 //! anchor of a moving player/bot — the anchor leads this far ahead of the target.
-static const float DM_FOLLOW_VEL_MULTIPLIER = 1.5;
+static const float DM_FOLLOW_VEL_MULTIPLIER = 0.75;
 
 //! Follow: randomized lateral offset (meters) of the escort anchor for a moving
 //! target, rolled once per Follow entry (m_SideDistance) between MIN and MAX.
