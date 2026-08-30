@@ -14,10 +14,11 @@ class dmBotPreset_Escort
 		fsm.AddState(idle, "Idle");
 		fsm.AddState(fight, "Fighting");
 
-		idle.AddTransition(follow, 1.0).Require(dmBotConditions.FollowFar()).BlockWhen(dmBotConditions.ThreatInRange());
-		idle.AddTransition(fight, 1.0).Require(dmBotConditions.ThreatInRange());
+		//! Priority weights: >1.0 wins deterministically over normal (<1.0) edges.
+		idle.AddTransition(follow, 0.5).Require(dmBotConditions.FollowFar()).BlockWhen(dmBotConditions.ThreatInRange());
+		idle.AddTransition(fight, 2.0).Require(dmBotConditions.ThreatInRange());
 		fight.AddTransition(idle, 1.0);
-		follow.AddTransition(fight, 1.0).Require(dmBotConditions.DefendInRange());
+		follow.AddTransition(fight, 2.0).Require(dmBotConditions.DefendInRange());
 		follow.AddTransition(idle, 1.0).BlockWhen(dmBotConditions.DefendInRange());
 
 		fsm.SetDefaultState("Follow");

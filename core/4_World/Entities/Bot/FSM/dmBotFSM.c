@@ -171,6 +171,32 @@ class dmBotFSM
 			total += t.GetWeight();
 		}
 
+		//! Priority: if any eligible transition has weight > 1.0, only those compete
+		//! (normal-weight transitions are excluded from the roll).
+		bool hasPriority = false;
+		for (i = 0; i < eligible.Count(); i++)
+		{
+			if (eligible[i].GetWeight() > 1.0)
+			{
+				hasPriority = true;
+				break;
+			}
+		}
+		if (hasPriority)
+		{
+			ref array<ref dmBotTransition> prio = new array<ref dmBotTransition>();
+			total = 0.0;
+			for (i = 0; i < eligible.Count(); i++)
+			{
+				if (eligible[i].GetWeight() > 1.0)
+				{
+					prio.Insert(eligible[i]);
+					total += eligible[i].GetWeight();
+				}
+			}
+			eligible = prio;
+		}
+
 		return RollWeighted(eligible, total, dst);
 	}
 
@@ -196,6 +222,32 @@ class dmBotFSM
 				continue;
 			eligible.Insert(t);
 			total += t.GetWeight();
+		}
+
+		//! Priority: if any eligible transition has weight > 1.0, only those compete
+		//! (normal-weight transitions are excluded from the roll).
+		bool hasPriority = false;
+		for (i = 0; i < eligible.Count(); i++)
+		{
+			if (eligible[i].GetWeight() > 1.0)
+			{
+				hasPriority = true;
+				break;
+			}
+		}
+		if (hasPriority)
+		{
+			ref array<ref dmBotTransition> prio = new array<ref dmBotTransition>();
+			total = 0.0;
+			for (i = 0; i < eligible.Count(); i++)
+			{
+				if (eligible[i].GetWeight() > 1.0)
+				{
+					prio.Insert(eligible[i]);
+					total += eligible[i].GetWeight();
+				}
+			}
+			eligible = prio;
 		}
 
 		#ifdef DM_BOT_DEBUG_FSM
