@@ -624,7 +624,7 @@ class dmAISurvivor
 		t.m_Friendly = friendly;
 		t.m_HasLOS = false;
 		t.m_LastPosition = vector.Zero;
-		t.m_LOSUpdateDtAccum = 0.0;
+		t.m_NextLOSUpdate = 0.0;
 		t.m_LastContact = GetGame().GetTickTime();
 		m_Targets.Insert(t);
 	}

@@ -25,7 +25,7 @@ class dmVision
 	{
 		m_BoxAccum += pDt;
 		if (m_BoxAccum >= DM_PERCEPTION_BOX_INTERVAL) { m_BoxAccum = 0.0; Scan(bot); }
-		UpdateLOS(bot, pDt);
+		UpdateLOS(bot);
 	}
 
 	//! 1 Hz discovery pass: registry -> radius -> DiscoverTarget (create new targets
@@ -117,7 +117,7 @@ class dmVision
 	//! Per-target LOS refresh (every tick, throttled by GetRefreshTime). The only
 	//! place that updates m_HasLOS/m_LastPosition/m_LastContact and forgets stale
 	//! targets.
-	void UpdateLOS(dmAISurvivor bot, float pDt)
+	void UpdateLOS(dmAISurvivor bot)
 	{
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Vision.LOS.Loop");
@@ -140,10 +140,9 @@ class dmVision
 			if (!e)
 				continue;
 
-			t.m_LOSUpdateDtAccum += pDt;
-			if (t.m_LOSUpdateDtAccum < GetRefreshTime(t))
+			if (now < t.m_NextLOSUpdate)
 				continue;
-			t.m_LOSUpdateDtAccum = 0.0;
+			t.m_NextLOSUpdate = now + GetRefreshTime(t);
 
 			vector targetPos = e.GetPosition();
 			vector toTarget = targetPos - botPos;
@@ -151,6 +150,14 @@ class dmVision
 			float dist = toTarget.Length();
 			if (dist < 0.01)
 				continue;
+
+			//! LOS-гейт: райкаст только в пределах радиуса релевантности типа цели
+			//! (тот же радиус, что и при открытии в Scan).
+			if (dist > GetLOSMaxDist(t))
+			{
+				t.m_HasLOS = false;
+				continue;
+			}
 
 			//! Конус: не смотрим в сторону цели → сразу НЕ видим, без райкаста.
 			float targetYaw = toTarget.VectorToAngles()[0];
@@ -211,6 +218,17 @@ class dmVision
 		if (t.m_Threat < 0.5)
 			return DM_PERCEPTION_REFRESH_LOW_THREAT;
 		return DM_PERCEPTION_REFRESH_HIGH_THREAT;
+	}
+
+	//! Максимальная дистанция, на которой этот тип цели ещё стоит проверять LOS.
+	//! Совпадает с радиусом открытия (Scan): дальше цель не релевантна для действий.
+	private float GetLOSMaxDist(dmTarget t)
+	{
+		if (ZombieBase.Cast(t.m_Entity))
+			return DM_PERCEPTION_ZOMBIE_RADIUS;
+		if (AnimalBase.Cast(t.m_Entity))
+			return DM_PERCEPTION_ANIMAL_RADIUS;
+		return DM_PERCEPTION_PLAYER_RADIUS;
 	}
 
 	//! Line-of-sight from the bot's eye to the target's head (fallback: feet + eye

@@ -24,8 +24,9 @@ class dmTarget
 	bool m_HasLOS = false;          // видна в последнем скане
 	float m_LastContact = 0.0;      // GetGame().GetTickTime() последнего контакта
 
-	//! Накопитель тиков для по-тикового троттлинга LOS-обновления этой цели.
-	float m_LOSUpdateDtAccum = 0.0;
+	//! Абсолютное время (GetGame().GetTickTime()) следующей LOS-проверки этой цели.
+	//! 0.0 = проверка нужна немедленно (сразу после открытия).
+	float m_NextLOSUpdate = 0.0;
 
 	float m_Threat = 0.0;           // опасность (0..1)
 	float m_Attractiveness = 0.0;   // привлекательность (0..1)
