@@ -15,6 +15,7 @@ class dmBotState_Follow : dmBotState
 	ref dmTarget m_Target;
 	ref dmBotIntent_FollowTo m_IntentFollow;
 	ref dmBotIntent_MoveTo m_IntentMove;
+	ref dmBotIntent_HoldLook m_IntentLookAtTarget;
 	ref dmBotIntent_LookAround m_Scan;
 	float m_SideSign = 1.0;
 	float m_SideDistance = 2.0;
@@ -78,6 +79,9 @@ class dmBotState_Follow : dmBotState
 		#endif
 	}
 
+	float m_LastDist = 0.0;
+	float m_LastLook = 0.0;
+
 	override int OnUpdate(float pDt)
 	{
 		dmAISurvivor bot = GetOwner();
@@ -122,6 +126,26 @@ class dmBotState_Follow : dmBotState
 		vector toT = targetPos - botPos;
 		toT[1] = 0.0;
 		float dist = toT.Length();
+
+		// keep eye on target
+		if ( m_LastLook > 0 )
+		{
+			m_LastLook -= pDt;
+			if ( m_LastLook < 0 ) m_LastLook = 0.0;
+		}
+		if ( player && Math.AbsFloat(m_LastDist - dist) > 0.3 )
+		{
+			if ( m_LastLook == 0.0 )
+			{
+				dmBotIntent_HoldLook look = new dmBotIntent_HoldLook();
+				look.m_Entity = player;
+				look.m_Priority = dmBotIntentPriority.CRITICAL;
+				look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+				look.m_Deadline = 5.0;
+				bot.AddPersonalityIntent( look );
+			}
+		}
+		m_LastDist = dist;
 
 		//! Выбор интента: цель видна ИЛИ близко (≤ порога) → FollowTo; иначе —
 		//! MoveTo к последней известной позиции (догоняем спринтом).
