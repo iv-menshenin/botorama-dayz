@@ -608,6 +608,27 @@ class dmAISurvivor
 		return null;
 	}
 
+	//! Add a newly discovered entity to the target memory in a "clean" state —
+	//! not yet seen (m_HasLOS=false, no known position). LOS is filled later by
+	//! the perception's per-target refresh loop.
+	void DiscoverTarget(EntityAI entity, float threat, float attractiveness, bool friendly)
+	{
+		dmTarget t = FindTarget(entity);
+		if (t)
+			return;
+		t = new dmTarget();
+		t.m_Type = dmTargetType.DESTROY;
+		t.m_Entity = entity;
+		t.m_Threat = threat;
+		t.m_Attractiveness = attractiveness;
+		t.m_Friendly = friendly;
+		t.m_HasLOS = false;
+		t.m_LastPosition = vector.Zero;
+		t.m_LOSUpdateDtAccum = 0.0;
+		t.m_LastContact = GetGame().GetTickTime();
+		m_Targets.Insert(t);
+	}
+
 	//! An enemy dealt damage — register it as a maximum threat immediately, even
 	//! if it is outside the vision FOV (e.g. attacking from behind).
 	void RegisterDamageThreat(EntityAI source)

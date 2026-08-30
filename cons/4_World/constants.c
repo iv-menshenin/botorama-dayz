@@ -159,8 +159,11 @@ static const float DM_SCAN_HOLD_MAX = 15.0;
 static const float DM_SCAN_BODY_ANGLE_MIN = 15.0;
 static const float DM_SCAN_BODY_ANGLE_MAX = 120.0;
 
-//! Perception: scan radius (meters) around the bot for zombies/animals.
-static const float DM_PERCEPTION_CREATURE_RADIUS = 50.0;
+//! Perception: scan radius (meters) around the bot for zombies.
+static const float DM_PERCEPTION_ZOMBIE_RADIUS = 75.0;
+
+//! Perception: scan radius (meters) around the bot for animals.
+static const float DM_PERCEPTION_ANIMAL_RADIUS = 200.0;
 
 //! Perception: scan radius (meters) around the bot for players/bots.
 static const float DM_PERCEPTION_PLAYER_RADIUS = 1000.0;
@@ -169,13 +172,17 @@ static const float DM_PERCEPTION_PLAYER_RADIUS = 1000.0;
 //! from the look direction counts as "in front".
 static const float DM_PERCEPTION_FOV = 120.0;
 
-//! Perception: visibility re-check interval (seconds) — how often the bot re-checks
-//! line of sight for every remembered target.
-static const float DM_PERCEPTION_INTERVAL = 0.1;
-
-//! Perception: box-scan interval (seconds) — how often the bot runs the expensive
-//! registry scan (classify -> distance/FOV -> LOS -> remember).
+//! Perception: discovery scan interval (seconds) — how often the bot opens new
+//! targets from the registry (radius check only; no FOV/LOS here).
 static const float DM_PERCEPTION_BOX_INTERVAL = 1.0;
+
+//! Perception: per-target LOS refresh intervals (seconds). The LOS pass runs every
+//! tick and re-checks each target at its own cadence: creatures and friendly targets
+//! are cheap to keep fresh, high-threat targets re-check fastest, low-threat slower.
+static const float DM_PERCEPTION_REFRESH_CREATURE = 0.25;
+static const float DM_PERCEPTION_REFRESH_FRIENDLY = 0.3;
+static const float DM_PERCEPTION_REFRESH_LOW_THREAT = 0.2;
+static const float DM_PERCEPTION_REFRESH_HIGH_THREAT = 0.1;
 
 //! Target evaluation: threat (0..1) — how dangerous a sighted entity is.
 //! The player is scored low so bots don't auto-attack them by default.
