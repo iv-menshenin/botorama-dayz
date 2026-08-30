@@ -18,11 +18,16 @@ class dmBotPathfinder
 	{
 		m_AIWorld = GetGame().GetWorld().GetAIWorld();
 
-		int include = PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE;
+		//! DISABLED (=closed door) is included so A* routes THROUGH closed doors;
+		//! DOOR_CLOSED is cheap (the bot opens it) while DOOR_OPENED is expensive
+		//! (an open door is a physical obstacle to walk around, not through).
+		int include = PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.DISABLED;
 		int exclude = PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.SPECIAL | PGPolyFlags.UNREACHABLE;
 
 		m_Filter = new PGFilter();
 		m_Filter.SetFlags(include, exclude, PGPolyFlags.NONE);
+		m_Filter.SetCost(PGAreaType.DOOR_CLOSED, 4.0);
+		m_Filter.SetCost(PGAreaType.DOOR_OPENED, 10000.0);
 
 		m_SampleFilter = new PGFilter();
 		m_SampleFilter.SetFlags(PGPolyFlags.ALL & ~(PGPolyFlags.CRAWL | PGPolyFlags.CROUCH), PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);

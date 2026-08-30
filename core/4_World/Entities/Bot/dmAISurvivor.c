@@ -457,6 +457,48 @@ class dmAISurvivor
 		return m_Pathfinder.FindPath(GetPosition(), sampled, path);
 	}
 
+	//! Открыть закрытую незапертую дверь прямо перед ботом. Рейкаст вперёд на
+	//! уровне глаз; если попадание — Building с закрытой дверью, открыть её
+	//! серверным нативом (ActionManager не нужен). Возвращает true, если открыл.
+	bool TryOpenDoorOnPath()
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Pawn);
+		if (!pawn)
+			return false;
+
+		vector pos = pawn.GetPosition();
+		vector dir = pawn.GetDirection();
+		dir[1] = 0.0;
+		dir.Normalize();
+		vector beg = pos + Vector(0.0, DM_EYE_HEIGHT, 0.0);
+		vector end = beg + dir * DM_DOOR_OPEN_DIST;
+
+		RaycastRVParams rp = new RaycastRVParams(beg, end, pawn);
+		rp.sorted = true;
+		rp.type = ObjIntersectView;
+		rp.flags = CollisionFlags.NEARESTCONTACT;
+		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
+		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
+			return false;
+
+		Building building = Building.Cast(hits[0].obj);
+		if (!building)
+			return false;
+		int doorIdx = building.GetDoorIndex(hits[0].component);
+		if (doorIdx < 0)
+			return false;
+		if (building.IsDoorOpen(doorIdx))
+			return false;
+		if (!building.CanDoorBeOpened(doorIdx, true))
+			return false;
+
+		building.OpenDoor(doorIdx);
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[Bot] TryOpenDoorOnPath: doorIdx=" + doorIdx + " building=" + building);
+		#endif
+		return true;
+	}
+
 	//! Set the desired stance (STANCEIDX_ERECT/CROUCH/PRONE). Called by stance
 	//! intents during arbitration; applied by the pawn's ApplyStance.
 	void SetStance(int stanceIdx)

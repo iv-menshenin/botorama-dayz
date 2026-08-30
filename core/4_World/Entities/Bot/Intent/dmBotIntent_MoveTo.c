@@ -30,6 +30,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! Accumulator for the periodic movement debug log (DM_BOT_DEBUG_FSM).
 	float m_DebugAccum = 0.0;
 
+	//! Accumulator for the proactive door check (throttled by DM_DOOR_CHECK_INTERVAL).
+	float m_DoorCheckAccum = 0.0;
+
 	override void OnStart(dmAISurvivor bot)
 	{
 		#ifdef DM_BOT_PROFILE
@@ -39,6 +42,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_BestDist = -1.0;
 		m_NoProgressTime = 0.0;
 		m_PathIdx = 0;
+		m_DoorCheckAccum = 0.0;
 
 		m_Recovering = false;
 		m_RecoverTimer = 0.0;
@@ -89,6 +93,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 			m_NoProgressTime = 0.0;
 			return;
+		}
+
+		m_DoorCheckAccum += pDt;
+		if (m_DoorCheckAccum >= DM_DOOR_CHECK_INTERVAL)
+		{
+			m_DoorCheckAccum = 0.0;
+			bot.TryOpenDoorOnPath();
 		}
 
 		vector subGoal = m_Path[m_PathIdx];
