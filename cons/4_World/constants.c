@@ -226,7 +226,7 @@ static const int DM_MELEE_DAMAGE_MULT_ZOMBIE = 2;
 static const float DM_MELEE_REACH = 1.5;
 
 //! Fighting: seconds between target re-resolution (re-pick the nearest hostile).
-static const float DM_FIGHT_RETARGET_INTERVAL = 5.0;
+static const float DM_FIGHT_RETARGET_INTERVAL = 2.0;
 
 //! Melee approach: distance (meters) below which the bot steers straight at the
 //! target (SetMoveYaw + SetMove) instead of running a navmesh MoveTo.

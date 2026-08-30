@@ -174,6 +174,7 @@ class dmVision
 			{
 				t.m_LastPosition = targetPos;
 				t.m_LastContact = now;
+				bot.RecalcTargetThreat(t);
 			}
 		}
 

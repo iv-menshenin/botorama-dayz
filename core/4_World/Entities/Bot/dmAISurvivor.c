@@ -628,6 +628,22 @@ class dmAISurvivor
 		return null;
 	}
 
+	void RecalcTargetThreat(dmTarget t)
+	{
+		if (t.m_Friendly) return;
+	
+		ZombieBase z = ZombieBase.Cast(t.m_Entity);
+		if ( z )
+		{
+			vector myPos = m_Pawn.GetPosition();
+			vector tPos = z.GetPosition();
+			vector d = tPos - myPos;
+			d[1] = 0.0;
+			if ( d.Length() < 5 ) t.m_Threat = 0.7;
+			else if ( d.Length() < 15 ) t.m_Threat = 0.5;
+		}
+	}
+
 	//! Add a newly discovered entity to the target memory in a "clean" state —
 	//! not yet seen (m_HasLOS=false, no known position). LOS is filled later by
 	//! the perception's per-target refresh loop.
