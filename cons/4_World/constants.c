@@ -106,6 +106,15 @@ static const float DM_FOLLOW_REACH = 1.0;
 //! along the approach.
 static const float DM_FOLLOW_SIDE_DISTANCE = 1.0;
 
+//! Follow: velocity extrapolation multiplier (× target velocity) for the escort
+//! anchor of a moving player/bot — the anchor leads this far ahead of the target.
+static const float DM_FOLLOW_VEL_MULTIPLIER = 1.5;
+
+//! Follow: randomized lateral offset (meters) of the escort anchor for a moving
+//! target, rolled once per Follow entry (m_SideDistance) between MIN and MAX.
+static const float DM_FOLLOW_SIDE_DISTANCE_MIN = 1.5;
+static const float DM_FOLLOW_SIDE_DISTANCE_MAX = 3.0;
+
 //! Follow: distance bands (meters) that scale the escort's preferred speed by
 //! distance to the target — sprint beyond SPRINT, jog beyond JOG, walk otherwise.
 static const float DM_FOLLOW_SPRINT_DISTANCE = 15.0;
@@ -121,14 +130,10 @@ static const float DM_FOLLOW_EXIT_TIME = 3.0;
 //! target's last known position ("magic" re-aim of the catch-up MoveTo).
 static const float DM_FOLLOW_LOST_SIGHT_TIME = 60.0;
 
-//! Follow (FollowTo): extrapolation horizon (seconds) for the target velocity —
-//! both velocities are projected this far ahead to compute the catch-up gap.
-static const float DM_FOLLOW_SPEED_EXTRAPOLATE_TIME = 1.0;
-
-//! Follow (FollowTo): extrapolated gap (meters) beyond which the escort sprints.
+//! Follow (FollowTo): distance to the anchor (meters) beyond which the escort sprints.
 static const float DM_FOLLOW_SPRINT_GAP = 7.5;
 
-//! Follow (FollowTo): extrapolated gap (meters) beyond which the escort jogs
+//! Follow (FollowTo): distance to the anchor (meters) beyond which the escort jogs
 //! (below it — walks).
 static const float DM_FOLLOW_JOG_GAP = 5.0;
 

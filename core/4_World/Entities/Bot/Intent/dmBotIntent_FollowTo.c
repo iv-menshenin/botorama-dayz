@@ -4,10 +4,10 @@
 //! owning Follow state removes it via Finish). Every tick it re-derives a dynamic
 //! escort anchor — the target's shoulder (±DM_FOLLOW_SIDE_DISTANCE) for a
 //! stationary player/bot, a point DM_FOLLOW_SIDE_DISTANCE short of an item, or a
-//! side-offset along the motion direction for a moving player/bot (straight onto
-//! the target when far / for items). Speed comes from a 1 s extrapolation of both
-//! velocities (sprint > DM_FOLLOW_SPRINT_GAP, jog > DM_FOLLOW_JOG_GAP, walk
-//! otherwise). The navmesh path is recomputed at most once per
+//! point DM_FOLLOW_VEL_MULTIPLIER ahead plus a randomized side offset for a moving
+//! player/bot. Speed comes from the distance to the anchor (sprint >
+//! DM_FOLLOW_SPRINT_GAP, jog > DM_FOLLOW_JOG_GAP, walk otherwise), never slower
+//! than the target. The navmesh path is recomputed at most once per
 //! DM_FOLLOW_PATH_INTERVAL, aimed at the target's extrapolated position, and
 //! re-aimed sooner if the anchor drifts >1 m from where it was last aimed. It
 //! steers with SetMoveYaw (body faces the movement) + SetMove and leaves the look
@@ -16,6 +16,7 @@ class dmBotIntent_FollowTo : dmBotIntent
 {
 	EntityAI m_Target;
 	float m_SideSign = 1.0;
+	float m_SideDistance = 2.0;
 
 	vector m_TargetVel;         // сглаженная скорость цели (горизонталь)
 	vector m_LastTargetPos;
@@ -83,11 +84,7 @@ class dmBotIntent_FollowTo : dmBotIntent
 		m_LastTargetPos = targetPos;
 
 		//! Anchor: shoulder for a stationary player/bot, a point short of an item,
-		//! a side-offset along the motion for a moving player/bot (or straight onto
-		//! the target when far / for items).
-		vector toTarget = targetPos - botPos;
-		toTarget[1] = 0.0;
-		float dist = toTarget.Length();
+		//! ahead of the target plus a randomized side offset for a moving player/bot.
 		float targetSpeed = m_TargetVel.Length();
 
 		vector anchor = vector.Zero;
@@ -115,45 +112,37 @@ class dmBotIntent_FollowTo : dmBotIntent
 		}
 		else
 		{
-			if (dist > DM_FOLLOW_THRESHOLD_PLAYER || !pb)
-			{
-				anchor = targetPos;
-			}
-			else
-			{
-				moveDir = m_TargetVel;
-				moveDir[1] = 0.0;
-				if (moveDir.Length() < 0.01)
-					moveDir = m_Target.GetDirection();
-				moveDir[1] = 0.0;
-				moveDir.Normalize();
-				side = Vector(-moveDir[2], 0.0, moveDir[0]);
-				side = side * m_SideSign;
-				anchor = targetPos + side * DM_FOLLOW_SIDE_DISTANCE + m_TargetVel;
-			}
+			moveDir = m_TargetVel;
+			moveDir[1] = 0.0;
+			if (moveDir.Length() < 0.01)
+				moveDir = m_Target.GetDirection();
+			moveDir[1] = 0.0;
+			moveDir.Normalize();
+			side = Vector(-moveDir[2], 0.0, moveDir[0]);
+			side = side * (m_SideDistance * m_SideSign);
+			anchor = targetPos + m_TargetVel * DM_FOLLOW_VEL_MULTIPLIER + side;
 		}
 		anchor[1] = targetPos[1];
 
-		//! Speed: 1 s extrapolation of both velocities -> gap -> speed index.
-		PlayerBase selfPawn = bot.GetPawn();
-		vector bv = vector.Zero;
-		if (selfPawn)
-		{
-			selfPawn.PhysicsGetVelocity(bv);
-			bv[1] = 0.0;
-		}
-
-		vector botFuture = botPos + bv * DM_FOLLOW_SPEED_EXTRAPOLATE_TIME;
-		vector targetFuture = targetPos + m_TargetVel * DM_FOLLOW_SPEED_EXTRAPOLATE_TIME;
-		vector gap = targetFuture - botFuture;
-		gap[1] = 0.0;
-		float gapLen = gap.Length();
+		//! Speed: distance to the anchor, never slower than the target.
+		vector toAnchor = anchor - botPos;
+		toAnchor[1] = 0.0;
+		float distToAnchor = toAnchor.Length();
 
 		float speedIdx = 1.0;
-		if (gapLen > DM_FOLLOW_SPRINT_GAP)
+		if (distToAnchor > DM_FOLLOW_SPRINT_GAP)
 			speedIdx = 3.0;
-		else if (gapLen > DM_FOLLOW_JOG_GAP)
+		else if (distToAnchor > DM_FOLLOW_JOG_GAP)
 			speedIdx = 2.0;
+
+		//! Не отставать: не медленнее скорости цели.
+		float targetSpeedIdx = 1.0;
+		if (targetSpeed > DM_SPEED_JOG)
+			targetSpeedIdx = 3.0;
+		else if (targetSpeed > DM_SPEED_WALK)
+			targetSpeedIdx = 2.0;
+		if (targetSpeedIdx > speedIdx)
+			speedIdx = targetSpeedIdx;
 
 		//! Path re-computation: at most 1 Hz, or forced when the anchor drifts >1 m
 		//! from where the path was last aimed.
@@ -224,7 +213,7 @@ class dmBotIntent_FollowTo : dmBotIntent
 		if (m_DebugAccum >= 1.0)
 		{
 			m_DebugAccum = 0.0;
-			dmBotLog.Debug("[FSM] FollowTo: anchor=" + anchor + " gapLen=" + gapLen + " speedIdx=" + speedIdx);
+			dmBotLog.Debug("[FSM] FollowTo: anchor=" + anchor + " distToAnchor=" + distToAnchor + " speedIdx=" + speedIdx);
 			dmBotLog.Debug("[FSM] FollowTo: hasPath=" + m_HasPath + " targetSpeed=" + targetSpeed + " moveAngle=" + moveAngle + " subDist=" + subDist);
 		}
 		#endif

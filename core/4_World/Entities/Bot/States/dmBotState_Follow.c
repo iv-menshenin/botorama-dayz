@@ -17,6 +17,7 @@ class dmBotState_Follow : dmBotState
 	ref dmBotIntent_MoveTo m_IntentMove;
 	ref dmBotIntent_LookAround m_Scan;
 	float m_SideSign = 1.0;
+	float m_SideDistance = 2.0;
 	float m_LostSightTimer;
 	float m_ExitTimer;
 	vector m_ExitRefPos;
@@ -69,6 +70,7 @@ class dmBotState_Follow : dmBotState
 		m_SideSign = 1.0;
 		if (Math.RandomFloat01() < 0.5)
 			m_SideSign = -1.0;
+		m_SideDistance = Math.RandomFloat(DM_FOLLOW_SIDE_DISTANCE_MIN, DM_FOLLOW_SIDE_DISTANCE_MAX);
 		CreateScan();
 
 		#ifdef DM_BOT_DEBUG_FSM
@@ -135,6 +137,7 @@ class dmBotState_Follow : dmBotState
 				m_IntentFollow = new dmBotIntent_FollowTo();
 				m_IntentFollow.m_Target = m_TargetEntity;
 				m_IntentFollow.m_SideSign = m_SideSign;
+				m_IntentFollow.m_SideDistance = m_SideDistance;
 				bot.AddFSMIntent(m_IntentFollow);
 			}
 		}
