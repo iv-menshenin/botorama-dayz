@@ -117,6 +117,10 @@ static const float DM_FOLLOW_JOG_DISTANCE = 10.0;
 static const float DM_FOLLOW_EXIT_DISTANCE = 1.0;
 static const float DM_FOLLOW_EXIT_TIME = 3.0;
 
+//! Follow: seconds the target may stay out of sight before the bot refreshes the
+//! target's last known position ("magic" re-aim of the catch-up MoveTo).
+static const float DM_FOLLOW_LOST_SIGHT_TIME = 60.0;
+
 //! Follow (FollowTo): extrapolation horizon (seconds) for the target velocity —
 //! both velocities are projected this far ahead to compute the catch-up gap.
 static const float DM_FOLLOW_SPEED_EXTRAPOLATE_TIME = 1.0;

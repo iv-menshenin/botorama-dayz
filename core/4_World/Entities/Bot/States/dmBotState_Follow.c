@@ -1,22 +1,25 @@
 //! dmBotState_Follow — escort the bound entity (player or other).
 //!
-//! The bot walks toward an anchor: the target's shoulder (±DM_FOLLOW_SIDE_DISTANCE
-//! to the side) for a player/bot, or a point DM_FOLLOW_SIDE_DISTANCE short of an
-//! item. It re-aims its MoveTo when the anchor drifts more than ~1 m, scales its
-//! preferred speed by distance (sprint > DM_FOLLOW_SPRINT_DISTANCE, jog >
-//! DM_FOLLOW_JOG_DISTANCE, walk otherwise), and exits once the target has stayed
-//! put for DM_FOLLOW_EXIT_TIME (within DM_FOLLOW_EXIT_DISTANCE) with the bot in
-//! place. A LookAround intent keeps the head scanning (NONE).
+//! Two-intent model: when the target is visible or within the follow threshold the
+//! bot runs a continuous dmBotIntent_FollowTo (which re-derives the escort anchor —
+//! shoulder/side offset — and its speed from a 1 s extrapolation, pathfinding at
+//! most 1 Hz). When the target is out of sight and farther than the threshold the
+//! bot falls back to a dmBotIntent_MoveTo toward the target's last known position
+//! (sprint via m_ReachDeadline) to catch up. If the target stays unseen for
+//! DM_FOLLOW_LOST_SIGHT_TIME the bot refreshes only the last known position. A
+//! LookAround intent keeps the head scanning (NONE). The state exits once the
+//! target has stayed put for DM_FOLLOW_EXIT_TIME with the bot in place.
 class dmBotState_Follow : dmBotState
 {
-	ref dmBotIntent_MoveTo m_Move;
+	EntityAI m_TargetEntity;
+	ref dmTarget m_Target;
+	ref dmBotIntent_FollowTo m_IntentFollow;
+	ref dmBotIntent_MoveTo m_IntentMove;
 	ref dmBotIntent_LookAround m_Scan;
-	float m_Threshold;
 	float m_SideSign = 1.0;
-	float m_SavedPreferredSpeed = 2.0;
+	float m_LostSightTimer;
 	float m_ExitTimer;
 	vector m_ExitRefPos;
-	vector m_LastAnchorPos;
 	float m_DebugAccum = 0.0;
 	float m_ExitDebugAccum = 0.0;
 
@@ -30,6 +33,15 @@ class dmBotState_Follow : dmBotState
 
 	override bool CanEnter()
 	{
+		dmAISurvivor bot = GetOwner();
+		EntityAI target = bot.GetFollowTarget();
+		if (!target)
+			return false;
+		dmTarget t = bot.FindTarget(target);
+		if (!t)
+			return false;
+		if (t.m_LastPosition == vector.Zero)
+			return false;
 		return true;
 	}
 
@@ -42,87 +54,59 @@ class dmBotState_Follow : dmBotState
 
 	override void OnEntry(dmBotState from)
 	{
-		EntityAI target = GetOwner().GetFollowTarget();
-		m_Threshold = GetThresholdDistance(target);
+		m_TargetEntity = GetOwner().GetFollowTarget();
+		m_Target = null;
+		if (m_TargetEntity)
+			m_Target = GetOwner().FindTarget(m_TargetEntity);
+		m_IntentFollow = null;
+		m_IntentMove = null;
+		m_Scan = null;
+		m_LostSightTimer = 0.0;
 		m_ExitTimer = 0.0;
 		m_ExitRefPos = vector.Zero;
-		if (target)
-			m_ExitRefPos = target.GetPosition();
-		m_Move = null;
-		m_LastAnchorPos = vector.Zero;
-		m_SavedPreferredSpeed = GetOwner().GetPreferredSpeed();
+		if (m_TargetEntity)
+			m_ExitRefPos = m_TargetEntity.GetPosition();
 		m_SideSign = 1.0;
 		if (Math.RandomFloat01() < 0.5)
 			m_SideSign = -1.0;
 		CreateScan();
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] Follow.entry threshold=" + m_Threshold + " target=" + target);
+		dmBotLog.Debug("[FSM] Follow.entry target=" + m_TargetEntity);
 		#endif
 	}
 
 	override int OnUpdate(float pDt)
 	{
 		dmAISurvivor bot = GetOwner();
-		EntityAI target = bot.GetFollowTarget();
-		if (!target)
+		m_TargetEntity = bot.GetFollowTarget();
+		if (!m_TargetEntity)
 			return EXIT;
-
-		PlayerBase player = PlayerBase.Cast(target);
+		PlayerBase player = PlayerBase.Cast(m_TargetEntity);
 		if (player && !player.IsAlive())
 			return EXIT;
-
 		if (bot.GetDefendTarget() != null)
 			return EXIT;
 
-		//! Horizontal distance bot -> target, computed once and reused below.
-		vector botPos = bot.GetPosition();
-		vector targetPos = target.GetPosition();
-		vector toT = targetPos - botPos;
-		toT[1] = 0.0;
-		float distToTarget = toT.Length();
+		m_Target = bot.FindTarget(m_TargetEntity);
+		if (!m_Target)
+			return EXIT;
 
-		//! Anchor: for a player/bot — the shoulder (±DM_FOLLOW_SIDE_DISTANCE to the
-		//! side); for an item — DM_FOLLOW_SIDE_DISTANCE short of it along the approach.
-		vector anchor = vector.Zero;
-		if (player)
+		//! «Магия»: цель не видна ≥ DM_FOLLOW_LOST_SIGHT_TIME → обновить последнюю
+		//! известную позицию (только позицию), чтобы бот догонял актуальную точку.
+		if (m_Target.m_HasLOS)
 		{
-			vector fwd = target.GetDirection();
-			fwd[1] = 0.0;
-			fwd.Normalize();
-			vector side = Vector(-fwd[2], 0.0, fwd[0]);
-			anchor = targetPos + side * (DM_FOLLOW_SIDE_DISTANCE * m_SideSign);
+			m_LostSightTimer = 0.0;
 		}
 		else
 		{
-			vector toItem = botPos - targetPos;
-			toItem[1] = 0.0;
-			toItem.Normalize();
-			anchor = targetPos + toItem * DM_FOLLOW_SIDE_DISTANCE;
+			m_LostSightTimer += pDt;
+			if (m_LostSightTimer >= DM_FOLLOW_LOST_SIGHT_TIME)
+			{
+				m_LostSightTimer = 0.0;
+				m_Target.m_LastPosition = m_TargetEntity.GetPosition();
+			}
 		}
-
-		//! Horizontal distance bot -> anchor (used for movement + exit window).
-		vector toA = anchor - botPos;
-		toA[1] = 0.0;
-		float distAnchor = toA.Length();
-
-		//! Speed by distance to the target: sprint far, jog mid, walk near.
-		if (distToTarget > DM_FOLLOW_SPRINT_DISTANCE)
-			GetOwner().SetPreferredSpeed(3.0);
-		else if (distToTarget > DM_FOLLOW_JOG_DISTANCE)
-			GetOwner().SetPreferredSpeed(2.0);
-		else
-			GetOwner().SetPreferredSpeed(1.0);
-
-		#ifdef DM_BOT_DEBUG_FSM
-		m_DebugAccum += pDt;
-		if (m_DebugAccum >= 1.0)
-		{
-			m_DebugAccum = 0.0;
-			dmBotLog.Debug("[FSM] Follow: dist=" + distToTarget + " anchor=" + distAnchor + " botPos=" + botPos);
-			dmBotLog.Debug("[FSM] Follow: targetPos=" + targetPos + " targetType=" + target.GetType());
-		}
-		#endif
 
 		//! Keep the head-scan intent alive (re-create if the pool dropped it).
 		if (m_Scan && (m_Scan.IsFinished() || m_Scan.IsExpired()))
@@ -130,14 +114,65 @@ class dmBotState_Follow : dmBotState
 		if (!m_Scan)
 			CreateScan();
 
+		vector botPos = bot.GetPosition();
+		vector targetPos = m_TargetEntity.GetPosition();
+		vector toT = targetPos - botPos;
+		toT[1] = 0.0;
+		float dist = toT.Length();
+
+		//! Выбор интента: цель видна ИЛИ близко (≤ порога) → FollowTo; иначе —
+		//! MoveTo к последней известной позиции (догоняем спринтом).
+		float threshold = GetThresholdDistance(m_TargetEntity);
+		bool useFollow = m_Target.m_HasLOS || dist <= threshold;
+
+		if (useFollow)
+		{
+			if (m_IntentMove) { m_IntentMove.Finish(); m_IntentMove = null; }
+			if (m_IntentFollow && (m_IntentFollow.IsFinished() || m_IntentFollow.IsExpired()))
+				m_IntentFollow = null;
+			if (!m_IntentFollow)
+			{
+				m_IntentFollow = new dmBotIntent_FollowTo();
+				m_IntentFollow.m_Target = m_TargetEntity;
+				m_IntentFollow.m_SideSign = m_SideSign;
+				bot.AddFSMIntent(m_IntentFollow);
+			}
+		}
+		else
+		{
+		if (m_IntentFollow) { m_IntentFollow.Finish(); m_IntentFollow = null; }
+		if (m_IntentMove && (m_IntentMove.IsFailed() || m_IntentMove.IsFinished()))
+			m_IntentMove = null;
+		if (m_IntentMove)
+		{
+			//! Re-aim if the last known position moved (the 1-min magic refreshed it).
+			vector aimDrift = m_Target.m_LastPosition - m_IntentMove.m_Target;
+			aimDrift[1] = 0.0;
+			if (aimDrift.Length() > 1.0)
+			{
+				m_IntentMove.Finish();
+				m_IntentMove = null;
+			}
+		}
+		if (!m_IntentMove)
+		{
+			m_IntentMove = new dmBotIntent_MoveTo();
+			m_IntentMove.m_Target = m_Target.m_LastPosition;
+			m_IntentMove.m_ReachDistance = DM_FOLLOW_REACH;
+			m_IntentMove.m_ReachDeadline = 1.0;
+			bot.AddFSMIntent(m_IntentMove);
+		}
+		}
+
 		//! Exit window: reset the "target stood still" timer when the target moves
 		//! farther than DM_FOLLOW_EXIT_DISTANCE from its reference point, or when
-		//! the bot is still outside DM_FOLLOW_REACH of the anchor (has to catch up).
+		//! the bot is still outside reach+side of the target (has to catch up).
 		//! EXIT only once the target is effectively motionless AND the bot is in
 		//! place for DM_FOLLOW_EXIT_TIME seconds.
 		vector d = targetPos - m_ExitRefPos;
 		d[1] = 0.0;
-		if (d.Length() > DM_FOLLOW_EXIT_DISTANCE || distAnchor > DM_FOLLOW_REACH)
+		float inPlace = DM_FOLLOW_REACH + DM_FOLLOW_SIDE_DISTANCE;
+		if (d.Length() > DM_FOLLOW_EXIT_DISTANCE || dist > inPlace)
 		{
 			m_ExitRefPos = targetPos;
 			m_ExitTimer = 0.0;
@@ -145,69 +180,26 @@ class dmBotState_Follow : dmBotState
 		else
 		{
 			m_ExitTimer += pDt;
-
-			#ifdef DM_BOT_DEBUG_FSM
-			m_ExitDebugAccum += pDt;
-			if (m_ExitDebugAccum >= 1.0)
-			{
-				m_ExitDebugAccum = 0.0;
-				dmBotLog.Debug("[FSM] Follow: exitWin dLen=" + d.Length() + " anchor=" + distAnchor + " exitTimer=" + m_ExitTimer);
-			}
-			#endif
-
 			if (m_ExitTimer >= DM_FOLLOW_EXIT_TIME)
-			{
-				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[FSM] Follow: цель стоит " + DM_FOLLOW_EXIT_TIME + "с, выход");
-				#endif
 				return EXIT;
-			}
 		}
 
-		//! Movement: walk toward the anchor until within DM_FOLLOW_REACH.
-		if (distAnchor > DM_FOLLOW_REACH)
+		#ifdef DM_BOT_DEBUG_FSM
+		m_DebugAccum += pDt;
+		if (m_DebugAccum >= 1.0)
 		{
-			vector drift = anchor - m_LastAnchorPos;
-			drift[1] = 0.0;
-			if (m_Move && drift.Length() > 1.0)
-			{
-				m_Move.Finish();
-				m_Move = null;
-			}
-
-			if (m_Move && (m_Move.IsFailed() || m_Move.IsFinished()))
-				m_Move = null;
-
-			if (!m_Move)
-			{
-				m_Move = new dmBotIntent_MoveTo();
-				m_Move.m_Target = anchor;
-				m_Move.m_ReachDistance = DM_FOLLOW_REACH;
-
-				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[FSM] Follow: MoveTo dist=" + distToTarget + " anchor=" + distAnchor + " target=" + m_Move.m_Target);
-				#endif
-
-				bot.AddFSMIntent(m_Move);
-			}
-			m_LastAnchorPos = anchor;
+			m_DebugAccum = 0.0;
+			dmBotLog.Debug("[FSM] Follow: dist=" + dist + " hasLOS=" + m_Target.m_HasLOS + " useFollow=" + useFollow);
 		}
-		else
-		{
-			if (m_Move)
-			{
-				m_Move.Finish();
-				m_Move = null;
-			}
-			m_LastAnchorPos = anchor;
-		}
+		#endif
 
 		return CONTINUE;
 	}
 
+	//! Speed is no longer set via SetPreferredSpeed (the intents own it), and the
+	//! intents are cleaned by ClearFSMIntents on transition — nothing to restore.
 	override void OnExit(dmBotState to)
 	{
-		GetOwner().SetPreferredSpeed(m_SavedPreferredSpeed);
 	}
 
 	void CreateScan()
