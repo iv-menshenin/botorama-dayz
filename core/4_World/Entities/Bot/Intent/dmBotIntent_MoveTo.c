@@ -27,6 +27,12 @@ class dmBotIntent_MoveTo : dmBotIntent
 	int m_RecoverCount = 0;
 	float m_RecoverDir = 180.0;
 
+	//! Vault/climb in progress: while the climb command is active MoveTo neither
+	//! steers nor monitors progress (see OnUpdate). Once IsClimbing() clears the
+	//! following resumes.
+	bool m_Vaulting = false;
+	float m_VaultGrace = 0.0;
+
 	//! Accumulator for the periodic movement debug log (DM_BOT_DEBUG_FSM).
 	float m_DebugAccum = 0.0;
 
@@ -47,6 +53,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_Recovering = false;
 		m_RecoverTimer = 0.0;
 		m_RecoverCount = 0;
+
+		m_Vaulting = false;
+		m_VaultGrace = 0.0;
 
 		m_Path = new array<vector>();
 		bool hasPath = bot.FindPathTo(m_Target, m_Path);
@@ -92,6 +101,21 @@ class dmBotIntent_MoveTo : dmBotIntent
 			}
 
 			m_NoProgressTime = 0.0;
+			return;
+		}
+
+		if (m_Vaulting)
+		{
+			m_VaultGrace -= pDt;
+			if (m_VaultGrace <= 0.0)
+			{
+				dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+				if (!pawn || !pawn.IsClimbing())
+				{
+					m_Vaulting = false;
+					m_NoProgressTime = 0.0;
+				}
+			}
 			return;
 		}
 
@@ -165,8 +189,17 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (m_NoProgressTime >= DM_MOVE_STUCK_TIME)
 		{
-			if (m_Recovering)
+			if (m_Recovering || m_Vaulting)
 				return;
+
+			dmAISurvivorBase vaultPawn = dmAISurvivorBase.Cast(bot.GetPawn());
+			if (vaultPawn && vaultPawn.TryVaultClimb())
+			{
+				m_Vaulting = true;
+				m_VaultGrace = DM_VAULT_GRACE;
+				m_NoProgressTime = 0.0;
+				return;
+			}
 
 			if (m_RecoverCount < DM_MOVE_MAX_RECOVER)
 			{

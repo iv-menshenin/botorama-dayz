@@ -64,6 +64,10 @@ static const float DM_DOOR_OPEN_DIST = 2.0;
 //! Throttle interval (seconds) for the proactive door check in MoveTo.
 static const float DM_DOOR_CHECK_INTERVAL = 0.5;
 
+//! Grace period (seconds) after starting a vault/climb before MoveTo checks
+//! IsClimbing() — gives the climb command time to become active.
+static const float DM_VAULT_GRACE = 1.0;
+
 //! Time (seconds) the bot steps back/sideways per stuck-recovery attempt before
 //! re-routing.
 static const float DM_MOVE_RECOVER_TIME = 1.0;

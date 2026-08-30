@@ -576,6 +576,26 @@ class dmAISurvivorBase : PlayerBase
 		m_MeleeAttackRequest = false;
 		m_MeleeTarget = null;
 	}
+
+	//! Try to vault/climb the obstacle in front of the bot. First a DoClimbTest:
+	//! if there is a vault/climb edge ahead, start m_JumpClimb.JumpOrClimb() (the
+	//! full cycle: test -> type -> CanClimb -> StartCommand_Climb). Returns true if
+	//! a climb was started.
+	bool TryVaultClimb()
+	{
+		SHumanCommandClimbResult res = new SHumanCommandClimbResult();
+		if (!HumanCommandClimb.DoClimbTest(this, res, 0))
+			return false;
+		if (!res.m_bIsClimb && !res.m_bIsClimbOver)
+			return false;
+
+		m_JumpClimb.JumpOrClimb();
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[Bot] TryVaultClimb: isClimb=" + res.m_bIsClimb + " isClimbOver=" + res.m_bIsClimbOver);
+		#endif
+		return true;
+	}
 }
 
 //! Model-specific classes. The config (CfgVehicles) inherits the vanilla
