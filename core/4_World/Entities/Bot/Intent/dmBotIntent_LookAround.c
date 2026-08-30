@@ -38,6 +38,10 @@ class dmBotIntent_LookAround : dmBotIntent
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Intent.LookAround");
+		#endif
+
 		if (m_Phase == 1)
 		{
 			m_HoldTimer -= pDt;

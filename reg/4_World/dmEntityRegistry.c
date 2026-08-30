@@ -30,6 +30,10 @@ class dmEntityRegistry
 	//! a removal; only null (deleted) players are dropped.
 	static void Cleanup()
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Registry.Cleanup");
+		#endif
+
 		int i;
 		for (i = s_Zombies.Count() - 1; i >= 0; i--)
 		{

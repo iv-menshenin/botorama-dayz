@@ -26,6 +26,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 	override void OnStart(dmAISurvivor bot)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Intent.MoveTo.Start");
+		#endif
+
 		m_BestDist = -1.0;
 		m_NoProgressTime = 0.0;
 		m_RecalcCount = 0;
@@ -50,6 +54,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Intent.MoveTo");
+		#endif
+
 		if (IsFinished())
 			return;
 

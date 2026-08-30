@@ -51,6 +51,10 @@ class dmBotIntent_FollowTo : dmBotIntent
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Intent.FollowTo");
+		#endif
+
 		if (!m_Target)
 			return;
 

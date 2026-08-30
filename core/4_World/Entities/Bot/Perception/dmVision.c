@@ -35,6 +35,10 @@ class dmVision
 	//! Snapshot the visible threats: registry -> classify -> distance/FOV/LOS -> targets.
 	void ScanBox(dmAISurvivor bot)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Vision.ScanBox");
+		#endif
+
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn)
 			return;
@@ -160,6 +164,10 @@ class dmVision
 	//! Updates m_HasLOS/m_LastPosition/m_LastContact and forgets stale targets.
 	void UpdateVisibility(dmAISurvivor bot)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Vision.Visibility");
+		#endif
+
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn)
 			return;
@@ -191,6 +199,10 @@ class dmVision
 	//! height). Visible when the closest raycast hit is the target itself.
 	bool HasLOS(PlayerBase pawn, EntityAI target, vector botPos, vector targetPos)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Vision.LOS");
+		#endif
+
 		vector eye = botPos + Vector(0, DM_EYE_HEIGHT, 0);
 
 		//! GetBoneIndexByName lives on Human (players) and DayZCreature (zombies/
