@@ -1,18 +1,24 @@
-//! dmBotState_Fighting — engage a hostile target in melee.
+//! dmBotState_Fighting — reactive melee engagement (thin coordinator).
 //!
 //! PREEMPTIVE "melee fight" state (no raised stance — strikes come from ERECT).
-//! A linear flow in OnUpdate (no explicit phases): approach the enemy, keep the
-//! body turned toward it (HoldLook FULL), and strike on cooldown while in reach,
-//! aligned to the target and with line of sight.
+//! Unlike the old linear flow, the state is now a thin coordinator that resolves a
+//! hostile target and keeps three CRITICAL intents alive depending on range and
+//! the strike cooldown:
+//!   - out of reach       -> Approach (move toward the target);
+//!   - in reach, cooldown -> Evasion (strafe while the strike recharges);
+//!   - in reach, ready    -> HitTo (face + request a melee strike).
+//! A HoldLook (FULL) intent keeps the body turned toward the target the whole time.
+//! Target resolution runs on entry and every DM_FIGHT_RETARGET_INTERVAL seconds,
+//! always taking the nearest hostile from dmAISurvivor.GetHostileTarget().
 class dmBotState_Fighting : dmBotState
 {
-	ref dmBotIntent_MoveTo m_Move;
+	EntityAI m_TargetEntity;
+	ref dmTarget m_Target;
+	ref dmBotIntent_Approach m_Approach;
+	ref dmBotIntent_Evasion m_Evasion;
+	ref dmBotIntent_HitTo m_HitTo;
 	ref dmBotIntent_HoldLook m_Look;
-	float m_Cooldown;
-	vector m_LastEnemyPos;
-	vector m_EnemyVel;
-	vector m_LastAimPos;
-	bool m_EnemyPosKnown = false;
+	float m_RetargetTimer;
 
 	override dmBotStateKind GetKind()
 	{
@@ -21,13 +27,19 @@ class dmBotState_Fighting : dmBotState
 
 	override void OnEntry(dmBotState from)
 	{
-		m_Move = null;
+		m_TargetEntity = null;
+		m_Target = null;
+		m_Approach = null;
+		m_Evasion = null;
+		m_HitTo = null;
 		m_Look = null;
-		m_Cooldown = 0.0;
-		m_LastEnemyPos = vector.Zero;
-		m_EnemyVel = vector.Zero;
-		m_LastAimPos = vector.Zero;
-		m_EnemyPosKnown = false;
+		m_RetargetTimer = 0.0;
+
+		dmAISurvivor bot = GetOwner();
+		bot.SetMeleeCooldown(0.0);
+
+		ResolveTarget();
+		CreateLook();
 
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Fighting.entry");
@@ -37,94 +49,119 @@ class dmBotState_Fighting : dmBotState
 	override int OnUpdate(float pDt)
 	{
 		dmAISurvivor bot = GetOwner();
-		dmTarget t = bot.GetHostileTarget();
-		if (!t || !t.m_Entity)
+		if (!m_TargetEntity || !m_TargetEntity.IsAlive())
+			ResolveTarget();
+		if (!m_TargetEntity)
 			return EXIT;
 
-		EntityAI enemy = t.m_Entity;
-		if (!enemy.IsAlive())
+		m_RetargetTimer += pDt;
+		if (m_RetargetTimer >= DM_FIGHT_RETARGET_INTERVAL)
+		{
+			m_RetargetTimer = 0.0;
+			ResolveTarget();
+		}
+		if (!m_TargetEntity)
 			return EXIT;
 
-		vector enemyPos = enemy.GetPosition();
-		vector botPos = bot.GetPosition();
-		vector toE = enemyPos - botPos;
-		toE[1] = 0.0;
-		float dist = toE.Length();
+		//! Tick the strike cooldown (bot-level, read by HitTo/Evasion).
+		float cd = bot.GetMeleeCooldown() - pDt;
+		if (cd < 0.0)
+			cd = 0.0;
+		bot.SetMeleeCooldown(cd);
 
-		//! Enemy velocity (smoothed per-axis) and the extrapolated aim point.
-		//! First frame m_LastEnemyPos is zero — skip velocity to avoid a huge spike.
-		vector aimPos = enemyPos;
-		if (m_EnemyPosKnown)
-		{
-			vector instVel = enemyPos - m_LastEnemyPos;
-			instVel[1] = 0.0;
-			if (pDt > 0.0)
-			{
-				instVel[0] = instVel[0] / pDt;
-				instVel[2] = instVel[2] / pDt;
-			}
-			m_EnemyVel[0] = m_EnemyVel[0] * 0.7 + instVel[0] * 0.3;
-			m_EnemyVel[2] = m_EnemyVel[2] * 0.7 + instVel[2] * 0.3;
-			aimPos = enemyPos + m_EnemyVel * DM_MELEE_EXTRAPOLATE_TIME;
-			aimPos[1] = enemyPos[1];
-		}
-		m_EnemyPosKnown = true;
-		m_LastEnemyPos = enemyPos;
-
-		float reach = GetMeleeReach(bot);
-
-		//! Movement: approach the extrapolated enemy position until within reach.
-		//! Re-aim MoveTo when the aim point drifts more than 0.5 m.
-		if (dist > reach)
-		{
-			vector aimDrift = aimPos - m_LastAimPos;
-			aimDrift[1] = 0.0;
-			if (m_Move && aimDrift.Length() > 0.5) { m_Move.Finish(); m_Move = null; }
-			if (m_Move && (m_Move.IsFailed() || m_Move.IsFinished())) m_Move = null;
-			if (!m_Move) { m_Move = new dmBotIntent_MoveTo(); m_Move.m_Target = aimPos; m_Move.m_ReachDistance = reach; bot.AddFSMIntent(m_Move); }
-			m_LastAimPos = aimPos;
-		}
-		else
-		{
-			if (m_Move) { m_Move.Finish(); m_Move = null; }
-		}
-
-		//! Face the enemy (FULL — body turned to the target) every tick.
+		//! Keep the look intent alive (re-create if the pool dropped it).
 		if (m_Look && (m_Look.IsFinished() || m_Look.IsExpired()))
 			m_Look = null;
 		if (!m_Look)
+			CreateLook();
+
+		vector botPos = bot.GetPosition();
+		vector tPos = m_TargetEntity.GetPosition();
+		vector d = tPos - botPos;
+		d[1] = 0.0;
+		float dist = d.Length();
+		float reach = GetMeleeReach(bot);
+
+		if (dist > reach)
 		{
-			m_Look = new dmBotIntent_HoldLook();
-			m_Look.m_Entity = enemy;
-			m_Look.m_Turn = dmBotLookTurn.FULL;
-			m_Look.m_Priority = dmBotIntentPriority.DESIRABLE;
-			bot.AddFSMIntent(m_Look);
+			EnsureApproach(bot);
+			if (m_Evasion) { m_Evasion.Finish(); m_Evasion = null; }
+			if (m_HitTo) { m_HitTo.Finish(); m_HitTo = null; }
 		}
-
-		//! Strike on cooldown: in reach, body aligned, line of sight.
-		m_Cooldown -= pDt;
-		if (dist <= reach && m_Cooldown <= 0.0)
+		else if (bot.GetMeleeCooldown() > 0.0)
 		{
-			float yawTo = toE.VectorToAngles()[0];
-			float bodyYaw = bot.GetOrientation()[0];
-			float ang = dmAISurvivor.AngleDiff(yawTo, bodyYaw);
-
-			if (Math.AbsFloat(ang) <= DM_MELEE_FACE_ANGLE && t.m_HasLOS)
-			{
-				dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
-				if (pawn)
-				{
-					pawn.RequestMeleeAttack(enemy);
-					m_Cooldown = DM_MELEE_COOLDOWN;
-
-					#ifdef DM_BOT_DEBUG_FSM
-					dmBotLog.Debug("[FSM] Fighting: удар по " + enemy.GetType());
-					#endif
-				}
-			}
+			EnsureEvasion(bot);
+			if (m_Approach) { m_Approach.Finish(); m_Approach = null; }
+			if (m_HitTo) { m_HitTo.Finish(); m_HitTo = null; }
 		}
-
+		else
+		{
+			EnsureHitTo(bot);
+			if (m_Approach) { m_Approach.Finish(); m_Approach = null; }
+			if (m_Evasion) { m_Evasion.Finish(); m_Evasion = null; }
+		}
 		return CONTINUE;
+	}
+
+	override void OnExit(dmBotState to)
+	{
+	}
+
+	void CreateLook()
+	{
+		m_Look = new dmBotIntent_HoldLook();
+		m_Look.m_Entity = m_TargetEntity;
+		m_Look.m_Turn = dmBotLookTurn.FULL;
+		m_Look.m_Priority = dmBotIntentPriority.CRITICAL;
+		m_Look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+		GetOwner().AddFSMIntent(m_Look);
+	}
+
+	void ResolveTarget()
+	{
+		dmAISurvivor bot = GetOwner();
+		m_Target = bot.GetHostileTarget();
+		m_TargetEntity = null;
+		if (m_Target)
+			m_TargetEntity = m_Target.m_Entity;
+	}
+
+	void EnsureApproach(dmAISurvivor bot)
+	{
+		if (m_Approach && (m_Approach.IsFinished() || m_Approach.IsExpired()))
+			m_Approach = null;
+		if (!m_Approach)
+		{
+			m_Approach = new dmBotIntent_Approach();
+			m_Approach.m_TargetEntity = m_TargetEntity;
+			m_Approach.m_ReachDistance = GetMeleeReach(bot);
+			bot.AddFSMIntent(m_Approach);
+		}
+	}
+
+	void EnsureEvasion(dmAISurvivor bot)
+	{
+		if (m_Evasion && (m_Evasion.IsFinished() || m_Evasion.IsExpired()))
+			m_Evasion = null;
+		if (!m_Evasion)
+		{
+			m_Evasion = new dmBotIntent_Evasion();
+			m_Evasion.m_TargetEntity = m_TargetEntity;
+			bot.AddFSMIntent(m_Evasion);
+		}
+	}
+
+	void EnsureHitTo(dmAISurvivor bot)
+	{
+		if (m_HitTo && (m_HitTo.IsFinished() || m_HitTo.IsExpired()))
+			m_HitTo = null;
+		if (!m_HitTo)
+		{
+			m_HitTo = new dmBotIntent_HitTo();
+			m_HitTo.m_TargetEntity = m_TargetEntity;
+			m_HitTo.m_ReachDistance = GetMeleeReach(bot);
+			bot.AddFSMIntent(m_HitTo);
+		}
 	}
 
 	//! Weapon reach (melee combat GetRange()) with a static fallback.

@@ -19,6 +19,7 @@
 //!   /test bot stamina  — тяжёлый рюкзак (NailBox) + бег 300 м: вес режет кап, стамина тратится.
 //!   /test bot brokenleg — перелом: бот хромает, не спринтует.
 //!   /test bot death    — Health=0: бот умирает и удаляется из мира.
+//!   /test bot target   — реактивная угроза: зомби → RegisterDamageThreat → hostile → null.
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -34,10 +35,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | death
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target");
 			return false;
 		}
 
@@ -58,6 +59,8 @@ class dmTestCommand : dmCommandModule
 			return HandleBodyTest(player, new dmBotTest_BrokenLeg());
 		if (parts[2] == DM_CHAT_TEST_DEATH)
 			return HandleBodyTest(player, new dmBotTest_Death());
+		if (parts[2] == DM_CHAT_TEST_TARGET)
+			return HandleBodyTest(player, new dmBotTest_Target());
 
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий: " + parts[2]);
 		return false;

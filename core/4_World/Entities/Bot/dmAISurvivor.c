@@ -74,6 +74,10 @@ class dmAISurvivor
 	//! Entity the bot escorts (follows alongside). null when not escorting.
 	private EntityAI m_FollowTarget;
 
+	//! Strike cooldown (seconds) — ticked by the Fighting state, read by the
+	//! HitTo/Evasion intents (see GetMeleeCooldown/SetMeleeCooldown).
+	private float m_MeleeCooldown = 0.0;
+
 	void dmAISurvivor()
 	{
 		m_FSMIntents = new dmBotIntentPool();
@@ -495,10 +499,26 @@ class dmAISurvivor
 				reqIdx = 3.0;
 			else if (required > DM_SPEED_WALK)
 				reqIdx = 2.0;
-			if (reqIdx > speed)
-				speed = reqIdx;
-		}
-		return speed;
+		if (reqIdx > speed)
+			speed = reqIdx;
+	}
+	return speed;
+}
+
+	//------------------------------------------------------------------
+	// Melee cooldown (brain level)
+	//------------------------------------------------------------------
+
+	//! Strike cooldown (seconds) remaining. Ticked by dmBotState_Fighting, read by
+	//! the HitTo/Evasion intents to pace strikes and time evasive strafes.
+	float GetMeleeCooldown()
+	{
+		return m_MeleeCooldown;
+	}
+
+	void SetMeleeCooldown(float seconds)
+	{
+		m_MeleeCooldown = seconds;
 	}
 
 	//------------------------------------------------------------------
@@ -629,38 +649,48 @@ class dmAISurvivor
 		m_Targets.Insert(t);
 	}
 
-	//! An enemy dealt damage — register it as a maximum threat immediately, even
-	//! if it is outside the vision FOV (e.g. attacking from behind).
-	void RegisterDamageThreat(EntityAI source)
+	//! An enemy dealt damage — register it as a threat immediately, even if it is
+	//! outside the vision FOV (e.g. attacking from behind). `source` may be an item
+	//! held by the player — the root player is resolved here.
+	void RegisterDamageThreat(EntityAI source, float damage)
 	{
 		if (!source)
 			return;
-		if (source == m_Pawn)
+		EntityAI attacker = source;
+		Man root = source.GetHierarchyRootPlayer();
+		if (root)
+			attacker = root;
+		if (attacker == m_Pawn)
 			return;
-		if (source == m_FollowTarget)
+		if (attacker == m_FollowTarget)
 			return;
 
-		dmTarget t = FindTarget(source);
+		float threat = DM_DAMAGE_THREAT_HIGH;
+		if (damage < DM_DAMAGE_THREAT_HP_THRESHOLD)
+			threat = DM_DAMAGE_THREAT_LOW;
+
+		dmTarget t = FindTarget(attacker);
 		if (!t)
 		{
 			t = new dmTarget();
 			t.m_Type = dmTargetType.DESTROY;
-			t.m_Entity = source;
+			t.m_Entity = attacker;
 			m_Targets.Insert(t);
 		}
-		t.m_Threat = DM_DAMAGE_THREAT;
+		if (threat > t.m_Threat)
+			t.m_Threat = threat;
 		t.m_Friendly = false;
-		t.m_LastPosition = source.GetPosition();
+		t.m_LastPosition = attacker.GetPosition();
 		t.m_LastContact = GetGame().GetTickTime();
 	}
 
-	//! Hostile target (threat > DM_ATTACK_THREAT_THRESHOLD, not friendly) within
-	//! the given range; highest threat wins (tie -> nearest), or null.
-	dmTarget GetHostileTargetInRange(float range)
+	//! Ближайшая враждебная цель (threat >= DM_ATTACK_THREAT_THRESHOLD, не friendly,
+	//! живая). Без ограничения дистанции; ближайшая побеждает (ничья — выше threat).
+	dmTarget GetHostileTarget()
 	{
 		dmTarget best = null;
-		float bestThreat = 0.0;
 		float bestDist = 0.0;
+		float bestThreat = 0.0;
 		vector myPos = GetPosition();
 		int i;
 		for (i = 0; i < m_Targets.Count(); i++)
@@ -668,36 +698,27 @@ class dmAISurvivor
 			dmTarget t = m_Targets[i];
 			if (t.m_Friendly)
 				continue;
-			if (t.m_Threat <= DM_ATTACK_THREAT_THRESHOLD)
+			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD)
+				continue;
+			EntityAI e = t.m_Entity;
+			if (e && !e.IsAlive())
 				continue;
 			vector tPos;
-			if (t.m_Entity)
-				tPos = t.m_Entity.GetPosition();
+			if (e)
+				tPos = e.GetPosition();
 			else
 				tPos = t.m_LastPosition;
 			vector d = tPos - myPos;
 			d[1] = 0.0;
 			float dist = d.Length();
-			if (dist >= range)
-				continue;
-			if (!best || t.m_Threat > bestThreat || (t.m_Threat == bestThreat && dist < bestDist))
+			if (!best || dist < bestDist || (dist == bestDist && t.m_Threat > bestThreat))
 			{
 				best = t;
-				bestThreat = t.m_Threat;
 				bestDist = dist;
+				bestThreat = t.m_Threat;
 			}
 		}
 		return best;
-	}
-
-	dmTarget GetHostileTarget()
-	{
-		return GetHostileTargetInRange(DM_ATTACK_RANGE);
-	}
-
-	dmTarget GetDefendTarget()
-	{
-		return GetHostileTargetInRange(DM_DEFEND_RANGE);
 	}
 
 	//! Start a scan pass: mark every remembered target as not-seen; RememberTarget

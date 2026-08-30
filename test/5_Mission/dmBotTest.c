@@ -437,3 +437,75 @@ class dmBotTest_Death : dmBotTestCase
 		return "";
 	}
 }
+
+//! Reactive threat: a zombie spawned next to the bot is injected as a damage
+//! threat, must be returned by GetHostileTarget() as the nearest hostile, and
+//! must drop out of the hostile set once it dies.
+class dmBotTest_Target : dmBotTestCase
+{
+	int m_Phase = 0;
+	EntityAI m_Zombie;
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		bot.SetFSM(dmBotPreset_Combat.Create(bot));
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Реактивная угроза». Спавн зомби рядом → впрыск угрозы (RegisterDamageThreat) → GetHostileTarget()==зомби → убить → null.";
+	}
+
+	override float GetInterval() { return 1.0; }
+
+	override float GetDuration() { return 20.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		dmTarget h;
+		dmTarget h2;
+		vector pos;
+
+		if (m_Phase == 0)
+		{
+			if (elapsed < 5.0)
+				return "";
+
+			pos = m_Bot.GetPosition();
+			pos[0] = pos[0] + 2.0;
+			m_Zombie = EntityAI.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", pos, false));
+			if (!m_Zombie)
+				return "FAIL: не удалось заспавнить зомби";
+
+			m_Bot.RegisterDamageThreat(m_Zombie, 100.0);
+			m_Phase = 1;
+			return "зомби заспавнен, угроза впрыснута";
+		}
+
+		if (m_Phase == 1)
+		{
+			if (elapsed < 6.0)
+				return "";
+
+			h = m_Bot.GetHostileTarget();
+			if (h && h.m_Entity == m_Zombie)
+			{
+				m_Zombie.SetHealth(0.0);
+				m_Phase = 2;
+				return "hostile=зомби OK, зомби убит";
+			}
+			return "FAIL: GetHostileTarget != зомби";
+		}
+
+		if (elapsed < 7.0)
+			return "";
+
+		h2 = m_Bot.GetHostileTarget();
+		if (!h2)
+			return "PASS";
+		return "FAIL: GetHostileTarget не пуст после смерти";
+	}
+}

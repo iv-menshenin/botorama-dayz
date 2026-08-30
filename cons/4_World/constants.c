@@ -187,23 +187,23 @@ static const float DM_PERCEPTION_REFRESH_HIGH_THREAT = 0.1;
 //! Target evaluation: threat (0..1) — how dangerous a sighted entity is.
 //! The player is scored low so bots don't auto-attack them by default.
 static const float DM_TARGET_THREAT_PLAYER = 0.1;
-static const float DM_TARGET_THREAT_ZOMBIE = 0.9;
+static const float DM_TARGET_THREAT_ZOMBIE = 0.3; // обнаруженный зомби не враждебен; враждебность только через урон
 static const float DM_TARGET_THREAT_ANIMAL = 0.2;
 
 //! Threat assigned after taking damage (0..1) — угроза после нанесённого урона.
-//! See dmAISurvivor.RegisterDamageThreat: an attacker is treated as maximum
-//! danger the instant it lands a hit, even outside the vision FOV.
-static const float DM_DAMAGE_THREAT = 0.9;
+//! See dmAISurvivor.RegisterDamageThreat: an attacker is treated as hostile the
+//! instant it lands a hit, even outside the vision FOV. High vs low is picked by
+//! the hit's health damage against DM_DAMAGE_THREAT_HP_THRESHOLD.
+static const float DM_DAMAGE_THREAT_HIGH = 0.9;
+static const float DM_DAMAGE_THREAT_LOW = 0.8;
 
-//! Attack: m_Threat above this threshold marks a target as hostile.
-static const float DM_ATTACK_THREAT_THRESHOLD = 0.3;
+//! Damage-threat threshold (HP damage) below which a hit registers low threat
+//! (DM_DAMAGE_THREAT_LOW) instead of high (DM_DAMAGE_THREAT_HIGH).
+static const float DM_DAMAGE_THREAT_HP_THRESHOLD = 30.0;
 
-//! Attack: maximum distance (meters) to an enemy for the bot to attack it.
-static const float DM_ATTACK_RANGE = 15.0;
-
-//! Defend: distance (meters) at which an enemy counts as "right on the bot" —
-//! оборона — враг прямо на боте/игроке.
-static const float DM_DEFEND_RANGE = 4.0;
+//! Attack: m_Threat above this threshold marks a target as hostile. Matches the
+//! boundary between the fast and slow LOS-refresh cadences in GetRefreshTime.
+static const float DM_ATTACK_THREAT_THRESHOLD = 0.5;
 
 //! Target evaluation: attractiveness (0..1) — how interesting a target is.
 static const float DM_TARGET_ATTRACT_PLAYER = 0.1;
@@ -225,5 +225,15 @@ static const int DM_MELEE_DAMAGE_MULT_ZOMBIE = 2;
 //! Melee: fallback strike reach (meters) when the weapon reach can't be read.
 static const float DM_MELEE_REACH = 1.5;
 
-//! Melee: seconds of enemy-position extrapolation ahead of the aim point.
-static const float DM_MELEE_EXTRAPOLATE_TIME = 0.3;
+//! Fighting: seconds between target re-resolution (re-pick the nearest hostile).
+static const float DM_FIGHT_RETARGET_INTERVAL = 5.0;
+
+//! Melee approach: distance (meters) below which the bot steers straight at the
+//! target (SetMoveYaw + SetMove) instead of running a navmesh MoveTo.
+static const float DM_MELEE_APPROACH_NO_PATH_DIST = 3.0;
+
+//! Melee evasion: strafe speed (0..3) while dodging between strikes.
+static const float DM_MELEE_EVADE_SPEED = 2.0;
+
+//! Melee evasion: seconds between strafe direction flips.
+static const float DM_MELEE_EVADE_SWITCH_TIME = 0.3;

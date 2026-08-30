@@ -25,13 +25,8 @@ class dmBotConditions
 		return new dmBotCondition_FollowFar();
 	}
 
-	static dmBotCondition ThreatInRange()
+	static dmBotCondition HasHostile()
 	{
-		return new dmBotCondition_ThreatInRange();
-	}
-
-	static dmBotCondition DefendInRange()
-	{
-		return new dmBotCondition_DefendInRange();
+		return new dmBotCondition_HasHostile();
 	}
 }

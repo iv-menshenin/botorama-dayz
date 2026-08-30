@@ -312,3 +312,182 @@ MOVE) или `!IsFighting()`. `WasHit()` — одноразовый флаг с�
 - Expansion: `AI/.../Classes/Melee/eAIMeleeCombat.c`, `AI/.../Classes/Melee/eaimeleefightlogic_lightheavy.c`,
   `AI/.../Entities/AI/eAIBase.c` (Notify_Melee L4406, eAI_SkipMelee L2120, RaiseWeapon L9728, IsRaised L9746, eAI_GetStance L5840),
   `AI/.../Classes/FSM/states/fighting/eaistate_fighting_melee.c`
+
+---
+
+# Дефект: «удар по поверхности» + урон в предмет (искры)
+
+## Симптомы
+
+1. Анимация удара всегда выглядит как «удар по твёрдой поверхности» — из-под ножа
+   вылетают искры (не «мясной» удар).
+2. Бот ударил игрока: игрок урона НЕ получил, но его винтовка стала сломанной — урон
+   ушёл в предмет, а не в цель.
+
+## Причина (корневая)
+
+Корневая причина одна: **`SetHitPos()` получает позицию кости `Spine3` (грудь), а не
+«чистую» точку тела, которую использует ваниль.**
+
+- `dmBotMeleeCombat.TargetSelection()` ставит `SetHitPos(hp)` где `hp = GetBonePositionWS("Spine3")`
+  (`dmBotMeleeCombat.c:37-56`). Spine3 — уровень груди; у игрока именно там в руках
+  перед корпусом висит винтовка.
+- `dmBotMeleeFightLogic_LightHeavy.EvaluateHit()` зовёт `m_Player.ProcessMeleeHitName(weapon,
+  weaponMode, target, compName, hitPos)` (`dmBotMeleeFightLogic_LightHeavy.c:80-98`),
+  передавая `hitPos = m_MeleeCombat.GetHitPos()` = Spine3.
+- Натив `ProcessMeleeHit`/`ProcessMeleeHitName` **делает внутренний hit-трейс от
+  атакующего к `pHitWorldPos`** и применяет урон к ПЕРВОМУ объекту, который встретит
+  (это не скриптовый райкаст — он внутри натива; в скриптах ванили его нет). Трейс к
+  Spine3 упирается в винтовку перед грудью → урон уходит в винтовку, а не в игрока.
+  Аналогично натив `HumanCommandMelee2` при anim-событии Hit своим хит-детектом тоже
+  попадает в винтовку (металл) → играется «поверхностный» удар с искрами, а не «мясной».
+
+Подтверждение, что ваниль именно поэтому не использует chest-позицию: `EvaluateHit_Common`
+перед `ProcessMeleeHit` **перетирает** hitPos на `targetEntity.ModelToWorld(targetEntity.GetDefaultHitPosition())`
+(`dayzplayermeleefightlogic_lightheavy.c:678`), а `GetDefaultHitPosition()` у игрока =
+позиция `Pelvis` (таз), у зомби = `Spine1`, у животных = `Pelvis` — т.е. «чистая» точка
+тела, не закрытая предметом в руках. В скриптах повторного райкаста по hitPos НЕТ — вся
+магия резолва «кого ударить» в момент Hit-события живёт в нативе `ProcessMeleeHit*`.
+
+Имя компонента при этом ВЕРНОЕ: `GetDefaultHitComponent()` у игрока возвращает
+`"dmgZone_torso"` (`dayzplayer.c:468/497`), у зомби `"Torso"`, у животного `"Zone_Chest"` —
+это имена **damage-zones** (не костей), которые `ProcessMeleeHitName`/`CloseCombatDamageName`
+и ждут (см. доку `ProcessDirectDamage`: «componentName = which DamageZone was hit (NOT a
+component name, actually!)», `object.c:1128`). Значит «зона» не является причиной бага —
+причина именно `hitPos`.
+
+`SetHitZoneIdx(-1)` само по себе НЕ ломает урон (мод переопределяет `EvaluateHit` и не
+ходит через `EvaluateHit_Common`/`GetTargetData`), но `GetTargetData` в ванили обнулил бы
+цель при `hitZoneIdx < 0` (`lightheavy.c:750-753`) — потому мод и вынужден переопределять
+`EvaluateHit`.
+
+## Правильный путь урона (точные сигнатуры)
+
+Все нативы — в `3_game/`:
+
+| Натив | Сигнатура | Резолв цели | Райкаст? |
+|---|---|---|---|
+| `DayZPlayer.ProcessMeleeHit` | `(InventoryItem pMeleeWeapon, int pMeleeModeIndex, Object pTarget, int pComponentIndex, vector pHitWorldPos)` (`dayzplayer.c:1273`) | по `pTarget` + hit-трейс к `pHitWorldPos` | **да, внутренний** (бьёт первый объект на пути) |
+| `DayZPlayer.ProcessMeleeHitName` | `(InventoryItem pMeleeWeapon, int pMeleeModeIndex, Object pTarget, string pComponentName, vector pHitWorldPos)` (`dayzplayer.c:1275`) | по `pTarget` + hit-трейс к `pHitWorldPos` | **да, внутренний** |
+| `DamageSystem.CloseCombatDamage` | `static (EntityAI source, Object targetObject, int targetComponentIndex, string ammoTypeName, vector worldPos, int directDamageFlags = ALL_TRANSFER)` (`damagesystem.c:22`) | прямо по `targetObject` + index | **нет** |
+| `DamageSystem.CloseCombatDamageName` | `static (EntityAI source, Object targetObject, string targetComponentName, string ammoTypeName, vector worldPos, int directDamageFlags = ALL_TRANSFER)` (`damagesystem.c:23`) | прямо по `targetObject` + имя damage-zone | **нет** |
+
+**Гарантированный урон КОНКРЕТНОЙ цели без райкаста и без component-index —
+`DamageSystem.CloseCombatDamageName(...)`** — ровно тот путь, которым бьёт зомби
+(`zombiebase.c:652/658/664`: `DamageSystem.CloseCombatDamageName(this, m_ActualTarget,
+m_ActualTarget.GetHitComponentForAI(), ammo, hitPosWS)`, где `hitPosWS =
+m_ActualTarget.ModelToWorld(m_ActualTarget.GetDefaultHitPosition())`). Зомби не делает
+никакого райкаста для урона — только проверку дистанции.
+
+Разница аммо:
+- `ProcessMeleeHit*` сам выводит тип боеприпаса из `pMeleeWeapon`+`pMeleeModeIndex`.
+- `CloseCombatDamage*` требует явное имя аммо: `weapon.GetMeleeCombatData().GetAmmoTypeName(weaponMode)`
+  (`gameplay.c:166`, `inventoryitem.c:24`) или, для голых рук, `m_Player.GetMeleeCombatData().GetAmmoTypeName(weaponMode)`
+  (`dayzplayer.c:1270`; bare-hand режимы 0/1/2 → `MeleeFist`/`MeleeFist_Heavy`/…).
+
+## Что должно быть в GetDefaultHitComponent vs GetDefaultHitPositionComponent vs GetDamageZoneNameByComponentIndex
+
+- `GetDefaultHitComponent()` → **имя damage-zone** (валидно для `ProcessMeleeHitName`/
+  `CloseCombatDamageName`): игрок `"dmgZone_torso"`, зомби `"Torso"`, животное `"Zone_Chest"`
+  (`dayzplayer.c:468/497`, `dayzinfectedtype.c:30/136`, `dayzanimal.c:961/981`,
+  `playerbase.c:1431` → `DayZPlayerType`). **НЕ возвращает «Weapon»** — гипотеза из задачи
+  не подтвердилась: зона корректная.
+- `GetDefaultHitPositionComponent()` → **имя кости/селекции** для расчёта дефолтной точки
+  удара: игрок `"Pelvis"`, зомби `"Spine1"`, животное `"Pelvis"` (`dayzplayer.c:470/502`,
+  `dayzinfectedtype.c:32/141`, `dayzanimal.c:963/986`). Используется только для
+  `SetDefaultHitPosition(...)`.
+- `GetDefaultHitPosition()` → **model-space вектор** дефолтной точки удара:
+  `m_DefaultHitPosition = SetDefaultHitPosition(GetDefaultHitPositionComponent())`
+  (`playerbase.c:591`, `zombiebase.c:60`, `dayzanimal.c:690`); `SetDefaultHitPosition` =
+  `GetSelectionPositionMS(selection)` (`playerbase.c:1447`, `dayzanimal.c:996`). Для вызова
+  в мировых координатах — `target.ModelToWorld(target.GetDefaultHitPosition())`
+  (`object.c:869`).
+- `GetDamageZoneNameByComponentIndex(int)` (`object.c:1160`) и `GetDamageZonePos(string)`
+  (`object.c:1155`) — служебные (маппинг index↔зона, центр зоны); для «магии» не нужны,
+  т.к. имя зоны берём напрямую из `GetDefaultHitComponent()`.
+
+Итог: `GetDefaultHitComponent()` возвращает валидную зону для `ProcessMeleeHitName` —
+проблема не в ней, а в `hitPos = Spine3`.
+
+## Как SetHitPos/SetHitZoneIdx/SetTargetObject взаимодействуют с анимацией и уроном
+
+Минимальный набор, при котором анимация играется как «удар по персонажу» И урон приходит
+в цель:
+
+1. `SetTargetObject(target)` — кого бьём (`dayzplayerimplementmeleecombat.c:156`); отдаётся
+   в `StartCommand_Melee2(pTarget, ...)` для ориентации анимации и хит-детекта.
+2. `SetHitPos(<worldPos на/внутри тела, НЕ за предметом>)` — точка, куда бьём
+   (`:172`). Использовать `target.ModelToWorld(target.GetDefaultHitPosition())`
+   (таз/Spine1), а НЕ кость груди Spine3. Она идёт и в `StartCommand_Melee2`, и в урон.
+3. `SetFinisherType(-1)` — отключить финишеры (`:182`).
+4. `SetHitZoneIdx(...)` — для урона через `ProcessMeleeHit*` **не обязателен**, если
+   переопределяем `EvaluateHit` и зовём `ProcessMeleeHitName`/`CloseCombatDamageName` по
+   имени; но если пользоваться ванильным `EvaluateHit_Common`, нужен `>= 0`.
+
+Порядок в ванили (клиент): `Update()` → `Reset()` → `TargetSelection()` (райкаст даёт
+target+hitPos+hitZone) → `SetFinisherType()`; при Hit-событии — `m_MeleeCombat.Update(..., true)`
+(ре-таргет) → `EvaluateHit` (`lightheavy.c:295-303`). На сервере ваниль `Update()` НЕ зовёт
+`TargetSelection` (`#ifndef SERVER`, `dayzplayerimplementmeleecombat.c:224-245`) — поэтому
+`dmBotMeleeCombat.Update()` override и существует. Сеттеры влияют на **скриптовый урон**
+(`EvaluateHit` читает `GetTargetEntity()`/`GetHitZoneIdx()`/`GetHitPos()`/`GetWeaponMode()`);
+**визуальный** исход (мясо/искры) решает натив `HumanCommandMelee2` своим хит-детектом,
+которому нужна корректная точка удара (не за предметом в руках) — поэтому `SetHitPos`
+влияет и на него через `hitPos` в `StartCommand_Melee2`.
+
+## Что менять в dmBotMeleeCombat/dmBotMeleeFightLogic (рекомендация)
+
+1. **`dmBotMeleeCombat.TargetSelection()`**: заменить `hp = GetBonePositionWS("Spine3")`
+   на `hp = t.m_Entity.ModelToWorld(t.m_Entity.GetDefaultHitPosition())` (таз у игрока/
+   животного, Spine1 у зомби). Это чинит и анимацию («мясной» удар), и урон (трейс не
+   упирается в винтовку).
+2. **`dmBotMeleeFightLogic_LightHeavy.EvaluateHit()`** (рекомендуемый, «гарантированный»
+   путь): вместо `ProcessMeleeHitName(...)` звать
+   `DamageSystem.CloseCombatDamageName(m_Player, target, target.GetDefaultHitComponent(),
+   ammoName, hitPosWS)` (путь зомби, без внутреннего райкаста), где:
+   - `ammoName = weapon ? weapon.GetMeleeCombatData().GetAmmoTypeName(weaponMode)
+     : m_Player.GetMeleeCombatData().GetAmmoTypeName(weaponMode)`;
+   - `hitPosWS = target.ModelToWorld(target.GetDefaultHitPosition())`.
+   Множитель ×2 против зомби (`DM_MELEE_DAMAGE_MULT_ZOMBIE`) остаётся циклом.
+   Альтернатива (минимальный фикс): оставить `ProcessMeleeHitName`, но с исправленным
+   `hitPosWS` (п.1). `CloseCombatDamageName` надёжнее: не зависит от предметов в руках цели
+   и от того, что натив встретит по пути к точке.
+3. `SetHitZoneIdx(-1)` оставить как есть (урон идёт по имени зоны, индекс не нужен).
+
+## Источники (файл:строка)
+
+- `DayZ Projects/scripts/4_world/entities/manbase/dayzplayer/dayzplayermeleefightlogic_lightheavy.c`:
+  `HandleHitEvent` L282-334 (WasHit→Update(...,true)→EvaluateHit), `EvaluateHit` L577-602,
+  `EvaluateHit_Common` L660-703 (L678 `hitPosWS = ModelToWorld(GetDefaultHitPosition())`,
+  L687 `ProcessMeleeHit`), `GetTargetData` L750-753 (обнуление цели при hitZoneIdx<0),
+  finisher `CloseCombatDamage` L652.
+- `DayZ Projects/scripts/4_world/entities/dayzplayerimplementmeleecombat.c`: сеттеры
+  `SetHitZoneIdx` L146 / `SetTargetObject` L156 / `SetHitPos` L172 / `SetFinisherType` L182 /
+  `GetTargetEntity` L151, `Update` L220-246 (`#ifndef SERVER` L224), `TargetSelection` L334-409,
+  `SetTarget` L519-528, `InternalResetTarget` L510-517.
+- `DayZ Projects/scripts/3_game/dayzplayer.c`: `ProcessMeleeHit` L1273 / `ProcessMeleeHitName` L1275,
+  `GetMeleeCombatData` L1270, `GetDefaultHitComponent` L497 / `GetDefaultHitPositionComponent` L502,
+  `m_DefaultHitComponent = "dmgZone_torso"` L468 / `m_DefaultHitPositionComponent = "Pelvis"` L470.
+- `DayZ Projects/scripts/3_game/damagesystem.c`: `CloseCombatDamage` L22 / `CloseCombatDamageName` L23.
+- `DayZ Projects/scripts/3_game/entities/object.c`: `ProcessDirectDamage` L1134 (док L1128 «NOT a
+  component name»), `GetDamageZonePos` L1155, `GetDamageZoneNameByComponentIndex` L1160,
+  `GetSelectionPositionMS` L860, `ModelToWorld` L869.
+- `DayZ Projects/scripts/3_game/entities/entityai.c`: `GetDefaultHitComponent` L3784 /
+  `GetDefaultHitPositionComponent` L3792 / `GetDefaultHitPosition` L3804.
+- `DayZ Projects/scripts/3_game/entities/dayzinfectedtype.c`: `GetDefaultHitComponent` L136 /
+  `GetDefaultHitPositionComponent` L141, дефолты `"Torso"` L30 / `"Spine1"` L32.
+- `DayZ Projects/scripts/3_game/entities/dayzanimal.c`: `GetDefaultHitPosition` L991,
+  `SetDefaultHitPosition` L996, дефолты `"Zone_Chest"` L961 / `"Pelvis"` L963.
+- `DayZ Projects/scripts/3_game/gameplay.c`: `MeleeCombatData.GetAmmoTypeName` L166.
+- `DayZ Projects/scripts/3_game/entities/inventoryitem.c`: `GetMeleeCombatData` L24.
+- `DayZ Projects/scripts/4_world/entities/manbase/playerbase.c`: `GetDefaultHitComponent` L1431 /
+  `GetDefaultHitPosition` L1436, `m_DefaultHitPosition` L591, `SetDefaultHitPosition` L1447.
+- `DayZ Projects/scripts/4_world/entities/creatures/infected/zombiebase.c`: `CloseCombatDamageName`
+  L652/658/664 (эталон «прямого» урона), `hitPosWS = ModelToWorld(GetDefaultHitPosition())` L663.
+- Expansion `eAIMeleeCombat.c`: `Update` L200-218 (всегда Reset→TargetSelection→SetFinisherType),
+  `TargetSelection` L24-97 (использует РЕАЛЬНЫЙ райкаст `HitZoneSelectionRaycast` L136),
+  `HitZoneSelectionRaycast` L136-198.
+- Expansion `eaimeleefightlogic_lightheavy.c`: `HandleFightLogic` L52-249, `EvaluateHit` L363-375
+  (зовёт `super.EvaluateHit` — ванильный путь с валидным hitZoneIdx из райкаста; потому у них
+  нет бага — у них НЕТ «магии без райкаста»).
+- botorama: `core/4_World/Entities/Bot/Melee/dmBotMeleeCombat.c:37-56` (SetHitPos=Spine3),
+  `core/4_World/Entities/Bot/Melee/dmBotMeleeFightLogic_LightHeavy.c:80-98` (ProcessMeleeHitName).

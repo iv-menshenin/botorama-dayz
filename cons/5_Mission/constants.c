@@ -113,6 +113,7 @@ static const string DM_CHAT_TEST_SHOCK = "shock";
 static const string DM_CHAT_TEST_STAMINA = "stamina";
 static const string DM_CHAT_TEST_BROKENLEG = "brokenleg";
 static const string DM_CHAT_TEST_DEATH = "death";
+static const string DM_CHAT_TEST_TARGET = "target";
 
 //! Test command "cancel" — aborts the running test and cleans it up.
 static const string DM_CHAT_TEST_CANCEL = "cancel";

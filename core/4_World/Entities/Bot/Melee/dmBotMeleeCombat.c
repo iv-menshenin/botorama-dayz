@@ -18,25 +18,25 @@ class dmBotMeleeCombat : DayZPlayerImplementMeleeCombat
 		SetFinisherType(-1);
 	}
 
-	//! Pick the brain's hostile target directly, without any raycast.
+	//! Pick the target explicitly chosen by the brain's RequestMeleeAttack (set by
+	//! dmBotIntent_HitTo), without any raycast.
 	override protected void TargetSelection()
 	{
 		InternalResetTarget();
 
-		PlayerBase pb = PlayerBase.Cast(m_DZPlayer);
-		dmAISurvivor bot = dmAISurvivor.Find(pb);
-		if (!bot)
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_DZPlayer);
+		if (!pawn)
 			return;
 
-		dmTarget t = bot.GetHostileTarget();
-		if (!t || !t.m_Entity)
+		EntityAI target = pawn.GetMeleeAttackTarget();
+		if (!target)
 			return;
 
-		SetTargetObject(t.m_Entity);
+		SetTargetObject(target);
 
-		vector hp = t.m_Entity.GetPosition();
+		vector hp = target.GetPosition();
 		int chestBone = -1;
-		Human human = Human.Cast(t.m_Entity);
+		Human human = Human.Cast(target);
 		if (human)
 		{
 			chestBone = human.GetBoneIndexByName("Spine3");
@@ -45,7 +45,7 @@ class dmBotMeleeCombat : DayZPlayerImplementMeleeCombat
 		}
 		else
 		{
-			DayZCreature creature = DayZCreature.Cast(t.m_Entity);
+			DayZCreature creature = DayZCreature.Cast(target);
 			if (creature)
 			{
 				chestBone = creature.GetBoneIndexByName("Spine3");

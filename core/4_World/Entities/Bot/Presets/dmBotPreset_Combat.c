@@ -10,7 +10,7 @@ class dmBotPreset_Combat
 		dmBotState fight = new dmBotState_Fighting();
 		fsm.AddState(idle, "Idle");
 		fsm.AddState(fight, "Fighting");
-		idle.AddTransition(fight, 1.0).Require(dmBotConditions.ThreatInRange());
+		idle.AddTransition(fight, 1.0).Require(dmBotConditions.HasHostile());
 		fight.AddTransition(idle, 1.0);
 		fsm.SetDefaultState("Idle");
 		fsm.Start();

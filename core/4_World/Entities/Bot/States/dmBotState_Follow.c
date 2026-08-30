@@ -87,7 +87,8 @@ class dmBotState_Follow : dmBotState
 		PlayerBase player = PlayerBase.Cast(m_TargetEntity);
 		if (player && !player.IsAlive())
 			return EXIT;
-		if (bot.GetDefendTarget() != null)
+		//! Атакован/есть враждебная цель — уходим в Fighting.
+		if (bot.GetHostileTarget() != null)
 			return EXIT;
 
 		m_Target = bot.FindTarget(m_TargetEntity);

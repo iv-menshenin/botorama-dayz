@@ -282,7 +282,7 @@ class dmAISurvivorBase : PlayerBase
 		{
 			dmAISurvivor bot = dmAISurvivor.Find(this);
 			if (bot)
-				bot.RegisterDamageThreat(source);
+				bot.RegisterDamageThreat(source, damageResult.GetHighestDamage("Health"));
 		}
 	}
 
