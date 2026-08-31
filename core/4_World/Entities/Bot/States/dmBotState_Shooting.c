@@ -67,7 +67,11 @@ class dmBotState_Shooting : dmBotState
 			return EXIT;
 
 		if (bot.HasNoAmmo())
-			return EXIT;
+		{
+			if (!pawn.ReloadWeaponAI())
+				return EXIT;
+			return CONTINUE;
+		}
 
 		pawn.SetAimMode(SelectAimMode());
 		pawn.RaiseWeapon(true);

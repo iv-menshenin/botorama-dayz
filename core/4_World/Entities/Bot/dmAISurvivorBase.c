@@ -974,15 +974,17 @@ class dmAISurvivorBase : PlayerBase
 	//! "Перезарядка"): unjam > eject a chambered-out bullet > attach/swap a
 	//! non-empty magazine from the inventory. Ammo-pile/bullet-per-bullet loading
 	//! is not handled yet (later pass).
-	void ReloadWeaponAI()
+	bool ReloadWeaponAI()
 	{
 		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
 		if (!weapon)
-			return;
+			return false;
 
 		WeaponManager wm = GetWeaponManager();
-		if (!wm || wm.IsRunning())
-			return;
+		if (!wm)
+			return false;
+		if (wm.IsRunning())
+			return true;
 
 		if (wm.CanUnjam(weapon))
 		{
@@ -991,7 +993,7 @@ class dmAISurvivorBase : PlayerBase
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[Bot] ReloadWeaponAI: unjam weapon=" + weapon);
 			#endif
-			return;
+			return true;
 		}
 
 		int mi = weapon.GetCurrentMuzzle();
@@ -1002,7 +1004,7 @@ class dmAISurvivorBase : PlayerBase
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[Bot] ReloadWeaponAI: eject bullet weapon=" + weapon);
 			#endif
-			return;
+			return true;
 		}
 
 		Magazine mag = FindReloadMagazine(weapon, wm);
@@ -1011,7 +1013,7 @@ class dmAISurvivorBase : PlayerBase
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[Bot] ReloadWeaponAI: no suitable magazine weapon=" + weapon);
 			#endif
-			return;
+			return false;
 		}
 
 		if (wm.CanAttachMagazine(weapon, mag))
@@ -1021,6 +1023,7 @@ class dmAISurvivorBase : PlayerBase
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[Bot] ReloadWeaponAI: attach mag=" + mag + " weapon=" + weapon);
 			#endif
+			return true;
 		}
 		else if (wm.CanSwapMagazine(weapon, mag))
 		{
@@ -1029,7 +1032,10 @@ class dmAISurvivorBase : PlayerBase
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[Bot] ReloadWeaponAI: swap mag=" + mag + " weapon=" + weapon);
 			#endif
+			return true;
 		}
+
+		return false;
 	}
 
 	//! Find a non-empty magazine in the inventory that fits the weapon (prefer an
