@@ -39,6 +39,7 @@ class dmAISurvivorBase : PlayerBase
 	//! than a raised stance. AimX/AimY are bound now but used by A3.
 	private bool m_WeaponRaised = false;
 	private float m_WeaponRaisedTimer = 0.0;
+	private float m_RaiseReadyDuration = 0.5;
 	private dmBotAimMode m_AimMode = dmBotAimMode.ADS;
 	private int m_VarRaised = -1;
 	private int m_VarAimX = -1;
@@ -58,6 +59,9 @@ class dmAISurvivorBase : PlayerBase
 
 	//! Last time (GetGame().GetTickTime()) the weapon-aim debug log was printed.
 	private float m_LastAimLogTime = 0.0;
+
+	//! Last time (GetGame().GetTickTime()) the raise-readiness debug log was printed.
+	private float m_LastReadyLogTime = 0.0;
 
 	//! Last time (GetGame().GetTickTime()) the ADS/aim-mode debug log was printed.
 	private float m_LastADSLogTime = 0.0;
@@ -192,6 +196,8 @@ class dmAISurvivorBase : PlayerBase
 	//! docs/research/combat.md. Called by the brain (A3 shooting state).
 	void RaiseWeapon(bool up = true)
 	{
+		if (up && !m_WeaponRaised)
+			m_RaiseReadyDuration = GetRaiseReadyDuration();
 		m_WeaponRaised = up;
 	}
 
@@ -200,6 +206,40 @@ class dmAISurvivorBase : PlayerBase
 	void SetAimMode(dmBotAimMode mode)
 	{
 		m_AimMode = mode;
+		if (m_WeaponRaised && m_WeaponRaisedTimer < m_RaiseReadyDuration)
+			m_RaiseReadyDuration = GetRaiseReadyDuration();
+	}
+
+	//! Full readiness duration (seconds) for the current aim mode: HIP is just the
+	//! raise, ADS adds bringing the sight onto the target, and a magnified optic
+	//! adds acquiring the target in the magnification.
+	float GetRaiseReadyDuration()
+	{
+		if (m_AimMode == dmBotAimMode.HIP)
+			return DM_AIM_RAISE_TIME;
+
+		float duration = DM_AIM_RAISE_TIME + DM_AIM_LOOK_TIME;
+		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+		if (weapon)
+		{
+			ItemOptics optics = weapon.GetAttachedOptics();
+			if (optics && optics.GetZoomMax() > 0.0)
+				duration += DM_AIM_ACQUIRE_TIME;
+		}
+		return duration;
+	}
+
+	//! Whether the weapon is still going through its readiness timings (raising,
+	//! bringing the sight up, acquiring the target in the optic).
+	bool IsRaising()
+	{
+		return m_WeaponRaised && m_WeaponRaisedTimer < m_RaiseReadyDuration;
+	}
+
+	//! Whether the weapon is fully ready to fire (all readiness timings elapsed).
+	bool IsReadyToShoot()
+	{
+		return m_WeaponRaised && m_WeaponRaisedTimer >= m_RaiseReadyDuration;
 	}
 
 	//! Whether the weapon is currently raised (override of the vanilla flag).
@@ -247,6 +287,15 @@ class dmAISurvivorBase : PlayerBase
 
 		if (m_VarRaised >= 0)
 			AnimSetBool(m_VarRaised, m_WeaponRaised);
+
+		#ifdef DM_BOT_DEBUG_FSM
+		if (GetGame().GetTickTime() - m_LastReadyLogTime >= 2.0)
+		{
+			m_LastReadyLogTime = GetGame().GetTickTime();
+			dmBotLog.Debug("[Aim] raised=" + m_WeaponRaised + " mode=" + m_AimMode + " readyDur=" + m_RaiseReadyDuration);
+			dmBotLog.Debug("[Aim] timer=" + m_WeaponRaisedTimer + " raising=" + IsRaising() + " ready=" + IsReadyToShoot());
+		}
+		#endif
 	}
 
 	//! Compute and store the relative aim angles (left/right, up/down) toward the

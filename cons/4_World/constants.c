@@ -293,3 +293,12 @@ static const float DM_AIM_MAX_TRACKING_TIME = 3.5;
 
 //! Aiming: target speed (m/s) below which a target counts as "standing" (headshot allowed).
 static const float DM_AIM_HEADSHOT_SPEED_EPS = 0.5;
+
+//! Aiming readiness: time (seconds) for the weapon raise animation.
+static const float DM_AIM_RAISE_TIME = 0.5;
+
+//! Aiming readiness: time (seconds) to bring the sight onto the target (ADS).
+static const float DM_AIM_LOOK_TIME = 0.3;
+
+//! Aiming readiness: extra time (seconds) to acquire the target in a magnified optic (ADS only).
+static const float DM_AIM_ACQUIRE_TIME = 0.5;
