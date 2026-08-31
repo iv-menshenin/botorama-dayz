@@ -137,9 +137,6 @@ static const float DM_AIM_TEST_PAUSE = 10.0;
 //! Aim-accuracy test: timeout (seconds) for a single pass to kill the target.
 static const float DM_AIM_TEST_PASS_TIMEOUT = 60.0;
 
-//! Aim-accuracy test: look raycast distance (meters) to find the player's LOS.
-static const float DM_AIM_TEST_LOOK_RAYCAST = 600.0;
-
 //! Aim-accuracy test: backpack magazines (count and rounds each).
 static const int DM_AIM_TEST_MAG_COUNT = 10;
 static const int DM_AIM_TEST_MAG_ROUNDS = 5;

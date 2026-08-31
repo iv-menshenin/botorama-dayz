@@ -689,16 +689,11 @@ class dmBotTest_Aim : dmBotTestCase
 
 	override void Setup(dmAISurvivor bot, PlayerBase player)
 	{
-		// 1) look direction + distance (head-bone forward, horizontal)
-		float lookDist = GetPlayerLookDist(player, m_LookDir);
+		// 1) horizontal look direction only (distance stays as the player set it)
+		GetPlayerLookDir(player, m_LookDir);
 		float maxDist = DM_AIM_TEST_MAX_DIST;
 		if (m_MaxDistMeters > 0)
 			maxDist = m_MaxDistMeters;
-		if (lookDist < maxDist)
-		{
-			maxDist = lookDist;
-			dmCommandManager.ChatToPlayer(player, "Мало прямой видимости — беру " + Fmt(maxDist) + " м");
-		}
 
 		// 2) place + face the bot along the look line
 		PlayerBase pawn = bot.GetPawn();
@@ -820,48 +815,23 @@ class dmBotTest_Aim : dmBotTestCase
 			m_Bot.RegisterHostile(m_TargetEntity, 1.0);
 	}
 
-	//! Player look direction (horizontal, normalized) + ground distance in meters.
-	float GetPlayerLookDist(PlayerBase player, out vector lookDir)
+	//! Player's horizontal look direction (head-bone forward with pitch zeroed,
+	//! as if looking at the horizon). Normalized.
+	void GetPlayerLookDir(PlayerBase player, out vector lookDir)
 	{
-		vector beg;
-		vector dir;
-		vector playerPos;
 		int headBone = player.GetBoneIndexByName("Head");
 		if (headBone != -1)
 		{
 			vector headTransform[4];
 			player.GetBoneTransformWS(headBone, headTransform);
-			beg = player.GetBonePositionWS(headBone);
-			dir = headTransform[1];
+			lookDir = headTransform[1];
 		}
 		else
 		{
-			playerPos = player.GetPosition();
-			beg = playerPos + Vector(0, DM_EYE_HEIGHT, 0);
-			dir = MiscGameplayFunctions.GetHeadingVector(player);
+			lookDir = MiscGameplayFunctions.GetHeadingVector(player);
 		}
-
-		vector end = beg + dir * DM_AIM_TEST_LOOK_RAYCAST;
-		vector contactPos;
-		vector contactDir;
-		int contactComponent;
-		if (DayZPhysics.RaycastRV(beg, end, contactPos, contactDir, contactComponent, null, null, player, false, false, ObjIntersectView))
-		{
-			playerPos = player.GetPosition();
-			lookDir = contactPos - playerPos;
-			lookDir[1] = 0.0;
-			float dist = lookDir.Length();
-			if (dist > 0.01)
-				lookDir.Normalize();
-			else
-				lookDir = player.GetDirection();
-			return dist;
-		}
-
-		lookDir = dir;
 		lookDir[1] = 0.0;
 		lookDir.Normalize();
-		return DM_AIM_TEST_LOOK_RAYCAST;
 	}
 
 	vector SnapToGround(vector pos)
