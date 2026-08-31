@@ -280,10 +280,10 @@ static const float DM_BOT_FIRE_COOLDOWN = 0.3;
 static const float DM_BOT_FIRE_INTERVAL = 0.5;
 
 //! Aiming: base hit probability at point-blank range (accuracyMax, close range).
-static const float DM_AIM_ACCURACY_MAX = 0.85;
+static const float DM_AIM_ACCURACY_MAX = 0.95;
 
 //! Aiming: base hit probability at DM_AIM_MAX_ACCURACY_DIST (accuracyMin, long range).
-static const float DM_AIM_ACCURACY_MIN = 0.35;
+static const float DM_AIM_ACCURACY_MIN = 0.75;
 
 //! Aiming: distance (meters) at which accuracy degrades to DM_AIM_ACCURACY_MIN.
 static const float DM_AIM_MAX_ACCURACY_DIST = 500.0;
