@@ -7,6 +7,13 @@
 //! The vanilla Look/LookDirX/LookDirY are kept so the engine's native "look at"
 //! still finds them by hash; the graph's look poses now read the custom variables.
 
+//! Aiming mode: how the weapon is brought to bear (hip-fire / ADS).
+enum dmBotAimMode
+{
+	HIP, // от бедра — raised, без ADS
+	ADS  // прицельно — смотрим в то, что есть у оружия (мушка или оптика)
+};
+
 class dmAISurvivorBase : PlayerBase
 {
 	//! Head look offset (degrees, relative to the body).
@@ -32,6 +39,7 @@ class dmAISurvivorBase : PlayerBase
 	//! than a raised stance. AimX/AimY are bound now but used by A3.
 	private bool m_WeaponRaised = false;
 	private float m_WeaponRaisedTimer = 0.0;
+	private dmBotAimMode m_AimMode = dmBotAimMode.ADS;
 	private int m_VarRaised = -1;
 	private int m_VarAimX = -1;
 	private int m_VarAimY = -1;
@@ -50,6 +58,9 @@ class dmAISurvivorBase : PlayerBase
 
 	//! Last time (GetGame().GetTickTime()) the weapon-aim debug log was printed.
 	private float m_LastAimLogTime = 0.0;
+
+	//! Last time (GetGame().GetTickTime()) the ADS/aim-mode debug log was printed.
+	private float m_LastADSLogTime = 0.0;
 
 	//! Desired body yaw (world, degrees), set by the controller each tick.
 	private float m_TargetBodyYaw = 0.0;
@@ -176,6 +187,13 @@ class dmAISurvivorBase : PlayerBase
 	void RaiseWeapon(bool up = true)
 	{
 		m_WeaponRaised = up;
+	}
+
+	//! Select the aiming mode (hip-fire / ironsights / optics), applied each frame
+	//! by ApplyWeaponADS.
+	void SetAimMode(dmBotAimMode mode)
+	{
+		m_AimMode = mode;
 	}
 
 	//! Whether the weapon is currently raised (override of the vanilla flag).
@@ -321,14 +339,38 @@ class dmAISurvivorBase : PlayerBase
 		#endif
 	}
 
-	//! Toggle the ironsights/optics pose (ADS). Runs AFTER super.CommandHandler so
-	//! the vanilla HandleWeapons/ExitSights (executed inside super) can't overwrite
-	//! it back to false every frame.
+	//! Apply the current aiming mode (hip-fire / ADS). Runs AFTER super.CommandHandler
+	//! so the vanilla HandleWeapons/ExitSights (executed inside super) can't overwrite
+	//! it back every frame. HIP and a lowered weapon both drop ADS and exit any active
+	//! optic; ADS enters ironsights — which picks up the iron sight or the attached
+	//! optic depending on the weapon.
 	void ApplyWeaponADS()
 	{
 		HumanCommandWeapons hcw = GetCommandModifier_Weapons();
-		if (hcw)
-			hcw.SetADS(m_WeaponRaised);
+		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+		ItemOptics optic = null;
+		if (weapon)
+			optic = weapon.GetAttachedOptics();
+
+		#ifdef DM_BOT_DEBUG_PAWN
+		if (GetGame().GetTickTime() - m_LastADSLogTime >= 2.0)
+		{
+			m_LastADSLogTime = GetGame().GetTickTime();
+			dmBotLog.Debug("[ADS] raised=" + m_WeaponRaised + " mode=" + m_AimMode + " hasOptic=" + (optic != null));
+		}
+		#endif
+
+		if (!m_WeaponRaised || m_AimMode == dmBotAimMode.HIP)
+		{
+			if (hcw)
+				hcw.SetADS(false);
+			if (optic && optic.IsInOptics())
+				SwitchOptics(optic, false);
+			return;
+		}
+
+		//! ADS: SetIronsights сам подхватит мушку или оптику в зависимости от оружия.
+		SetIronsights(true);
 	}
 
 //! Called on the client whenever the synced variables arrive from the server.

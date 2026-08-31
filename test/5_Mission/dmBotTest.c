@@ -665,20 +665,18 @@ class dmBotTest_Shoot : dmBotTestCase
 	}
 }
 
-//! Aim observation: raise the weapon, aim at a spawned zombie, fire three shots,
-//! lower the weapon. Drives the pawn primitives directly (no combat FSM), so the
+//! Aim observation: raise the weapon and fire two shots — hip-fire then ADS (a
+//! fresh zombie is spawned before the second shot, since the first is down after
+//! the first). Drives the pawn primitives directly (no combat FSM), so the
 //! auto-fire logic doesn't cover the raise/aim/fire animation being observed.
 class dmBotTest_Aim : dmBotTestCase
 {
 	int m_Phase = 0;
 	EntityAI m_Zombie;
-	float m_NextTime = 0.0;
-	int m_SpawnDistMeters;
 
 	//! Spawn distance from the player (meters); 0 = DM_SPAWN_DISTANCE default.
 	void SetSpawnDistance(int meters)
 	{
-		m_SpawnDistMeters = meters;
 		m_SpawnDistance = meters;
 	}
 
@@ -700,49 +698,113 @@ class dmBotTest_Aim : dmBotTestCase
 		if (mag)
 			mag.ServerSetAmmoCount(30);
 
-		//! Zombie target 15 m ahead of the bot (the bot just stands, no FSM).
-		vector pos = bot.GetPosition();
-		vector dir = pawn.GetDirection();
-		dir[1] = 0.0;
-		dir.Normalize();
-		pos = pos + dir * 15.0;
-		m_Zombie = EntityAI.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", pos, false));
+		//! Attach a magnified optic (PSO-1-1). It fits the AKM "weaponOpticsAK"
+		//! slot directly (no dovetail mount); with it attached the ADS mode looks
+		//! through the optic (the optic blocks the iron sight).
+		gun.GetInventory().CreateAttachment("PSO11Optic");
+
+		//! First zombie 15 m ahead of the bot.
+		RespawnZombie();
 	}
 
 	override string GetSummary()
 	{
-		return "Тест «Наблюдение прицела». Бот поднимает АКМ, целится в зомби (15 м), пауза 10 с, три выстрела с интервалом, пауза 10 с, опускает оружие. Боевой FSM не ставится — примитивы пешки зовутся напрямую.";
+		return "Тест «Наблюдение прицела (2 режима)». Бот с АКМ + ПСО-1-1 дважды стреляет по зомби: от бедра и прицельно (ADS); перед вторым выстрелом зомби респавнится, затем бот опускает оружие. Боевой FSM не ставится — примитивы пешки зовутся напрямую.";
 	}
 
 	override float GetInterval() { return 1.0; }
 
-	override float GetDuration() { return 30.0; }
+	override float GetDuration() { return 35.0; }
 
+	//! ADS на AKM+PSO11Optic = смотрит в оптику, т.к. оптика перекрывает мушку
+	//! (CanEnterIronsights()==false); отдельной «мушки» у скопного ствола нет.
 	override string OnCheck(float elapsed)
 	{
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Bot.GetPawn());
-		if (!pawn) return "FAIL: нет пешки";
-		if (!m_Zombie) return "FAIL: нет зомби";
+		if (!pawn)
+			return "FAIL: нет пешки";
+		if (!m_Zombie)
+			return "FAIL: нет зомби";
 
 		if (m_Phase == 0)
 		{
-			// поднять оружие + навестись
 			pawn.RaiseWeapon(true);
-			vector aimPos = m_Zombie.GetPosition();
-			aimPos = aimPos + Vector(0, DM_EYE_HEIGHT, 0);
-			m_Bot.LookAtPoint(aimPos, dmBotLookTurn.FULL);
-			pawn.SetAimTarget(m_Zombie);
+			pawn.SetAimMode(dmBotAimMode.HIP);
+			AimAtZombie(pawn);
 			m_Phase = 1;
-			m_NextTime = elapsed + DM_TEST_AIM_HOLD;
-			return "поднял оружие, навёлся (пауза 10с)";
+			return "поднял оружие, режим HIP, навёлся (пауза 10с)";
 		}
-		if (elapsed < m_NextTime) return "";
 
-		if (m_Phase == 1) { pawn.RequestFire(m_Zombie); m_Phase = 2; m_NextTime = elapsed + DM_TEST_AIM_SHOT_INTERVAL; return "выстрел 1"; }
-		if (m_Phase == 2) { pawn.RequestFire(m_Zombie); m_Phase = 3; m_NextTime = elapsed + DM_TEST_AIM_SHOT_INTERVAL; return "выстрел 2"; }
-		if (m_Phase == 3) { pawn.RequestFire(m_Zombie); m_Phase = 4; m_NextTime = elapsed + DM_TEST_AIM_HOLD; return "выстрел 3 (пауза 10с)"; }
-		if (m_Phase == 4) { pawn.RaiseWeapon(false); m_Phase = 5; m_NextTime = elapsed + 3.0; return "опустил оружие"; }
-		if (m_Phase == 5) return "PASS: наблюдение завершено";
-		return "";
+		if (m_Phase == 1)
+		{
+			if (elapsed < 10.0)
+				return "";
+			pawn.RequestFire(m_Zombie);
+			m_Phase = 2;
+			return "выстрел 1 (от бедра)";
+		}
+
+		if (m_Phase == 2)
+		{
+			if (elapsed < 12.0)
+				return "";
+			RespawnZombie();
+			pawn.SetAimMode(dmBotAimMode.ADS);
+			AimAtZombie(pawn);
+			m_Phase = 3;
+			return "зомби респавнен, режим ADS (пауза 3с)";
+		}
+
+		if (m_Phase == 3)
+		{
+			if (elapsed < 15.0)
+				return "";
+			pawn.RequestFire(m_Zombie);
+			m_Phase = 4;
+			return "выстрел 2 (прицельно, через PSO)";
+		}
+
+		if (m_Phase == 4)
+		{
+			if (elapsed < 25.0)
+				return "";
+			pawn.RaiseWeapon(false);
+			pawn.SetAimMode(dmBotAimMode.HIP);
+			m_Phase = 5;
+			return "опустил оружие, режим HIP (пауза 3с)";
+		}
+
+		if (elapsed < 28.0)
+			return "";
+
+		return "PASS: наблюдение завершено (2 выстрела: HIP → ADS)";
+	}
+
+	//! Point the bot's look + aim at the current zombie.
+	void AimAtZombie(dmAISurvivorBase pawn)
+	{
+		vector aimPos = m_Zombie.GetPosition();
+		aimPos = aimPos + Vector(0, DM_EYE_HEIGHT, 0);
+		m_Bot.LookAtPoint(aimPos, dmBotLookTurn.FULL);
+		pawn.SetAimTarget(m_Zombie);
+	}
+
+	//! Delete the previous zombie (if any) and spawn a fresh one 15 m ahead of the
+	//! bot, so each shot is observed against a standing target.
+	void RespawnZombie()
+	{
+		if (m_Zombie)
+		{
+			GetGame().ObjectDelete(m_Zombie);
+			m_Zombie = null;
+		}
+
+		vector pos = m_Bot.GetPosition();
+		vector dir = m_Bot.GetPawn().GetDirection();
+		dir[1] = 0.0;
+		dir.Normalize();
+		pos = pos + dir * 15.0;
+
+		m_Zombie = EntityAI.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", pos, false));
 	}
 }
