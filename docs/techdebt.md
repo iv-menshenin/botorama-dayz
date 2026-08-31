@@ -117,6 +117,29 @@
 
 ---
 
+## H. Прицеливание (огнестрел, dmAiming)
+
+- **высокий** — **Отдача на выстрел** (recoil) — TODO. Сейчас `modded WeaponFire` после
+  `dmBot_Fire` вызывает ванильный `GetAimingModel().SetRecoil(m_weapon)`, но `AimingModel`
+  у ИИ переопределён `return false` (мы отключили клиентскую модель прицела), поэтому
+  отдача не видна/не применяется. Проработать отдельно.
+- **средний** — **Strafe-factor пропущен**: `eAIAimingProfile` штрафует точность за
+  «хаотичный стрейф» цели через `DayZPlayerImplement.GetStrafeFactor()` — это кастомный
+  метод из dayz-devaliada, в ванили его нет. В `dmAiming` блок strafe НЕ перенесён
+  (`strafeFactor = 0`). Ввести свой аналог или отказаться.
+- **средний** — **Видимость — заглушка 100%**: `eAI_GetVisibility` в `dmAiming` заменена
+  константой `1.0` (ночь/туман/дым не снижают точность). Ввести свою модель видимости.
+- **низкий** — **Выстрел через round-trip**: `dmBot_Fire` берёт направление из
+  `GetWeaponAimDirection()` (пересборка из `m_AimRelAngleLR/UD`), а `dmBotIntent_Aim` пишет
+  эти углы из `m_Aiming.GetAimDirection()` через `SetAimDirection`. Между «выставил углы» и
+  «выстрелил» корпус может довернуться (`ApplyBodyTurn` в CommandHandler), давая малую
+  ошибку. Чище — стрелять сразу мировым `m_Aiming.GetAimDirection()` (минуя round-trip);
+  визуальный ствол оставить на сглаженных углах.
+- **низкий** — **Нет самопроверяемого теста нового пути**: `/test bot aim` до сих пор
+  использует старый «магический» путь (`SetAimTarget`+`RequestFire(target)`), а не
+  `dmBotIntent_Aim`/`dmAiming`. Завести тест, прогоняющий Shooting-стейт/интент с проверкой
+  падения `GetAmmoCount` (как `/test bot shoot`) + наблюдение разброса.
+
 ## Сводка по приоритету
 
 - **высокий**: Phase 5 pathfinding — доводка (recovery при зависании).
