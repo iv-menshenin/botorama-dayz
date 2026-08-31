@@ -278,3 +278,18 @@ static const float DM_BOT_FIRE_COOLDOWN = 0.3;
 
 //! Fire: interval (seconds) between fire requests in the Shooting state.
 static const float DM_BOT_FIRE_INTERVAL = 0.5;
+
+//! Aiming: base hit probability at point-blank range (accuracyMax, close range).
+static const float DM_AIM_ACCURACY_MAX = 0.85;
+
+//! Aiming: base hit probability at DM_AIM_MAX_ACCURACY_DIST (accuracyMin, long range).
+static const float DM_AIM_ACCURACY_MIN = 0.35;
+
+//! Aiming: distance (meters) at which accuracy degrades to DM_AIM_ACCURACY_MIN.
+static const float DM_AIM_MAX_ACCURACY_DIST = 500.0;
+
+//! Aiming: tracking time (seconds) to reach full tracking accuracy.
+static const float DM_AIM_MAX_TRACKING_TIME = 3.5;
+
+//! Aiming: target speed (m/s) below which a target counts as "standing" (headshot allowed).
+static const float DM_AIM_HEADSHOT_SPEED_EPS = 0.5;

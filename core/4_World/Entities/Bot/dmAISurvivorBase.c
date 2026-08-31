@@ -62,6 +62,10 @@ class dmAISurvivorBase : PlayerBase
 	//! Last time (GetGame().GetTickTime()) the ADS/aim-mode debug log was printed.
 	private float m_LastADSLogTime = 0.0;
 
+	//! Shooting accuracy model (dispersion). Created here, wired into the fire
+	//! path in Phase 3. dmAiming is a plain class -> ref.
+	private ref dmAiming m_Aiming;
+
 	//! Desired body yaw (world, degrees), set by the controller each tick.
 	private float m_TargetBodyYaw = 0.0;
 
@@ -131,6 +135,8 @@ class dmAISurvivorBase : PlayerBase
 		//! multiplayer server without a control_action) with our server-path
 		//! subclass so reload/unjam/eject run from the CommandHandler.
 		m_WeaponManager = new dmBotWeaponManager(this);
+
+		m_Aiming = new dmAiming(this);
 	}
 
 	//! Bind the custom head-look animation graph variables.
@@ -309,6 +315,12 @@ class dmAISurvivorBase : PlayerBase
 		float bodyYaw = GetOrientation()[0];
 		vector angles = Vector(bodyYaw + m_AimRelAngleLR, m_AimRelAngleUD, 0.0);
 		return angles.AnglesToVector();
+	}
+
+	//! The shooting accuracy model (used by the fire path in Phase 3).
+	dmAiming GetAiming()
+	{
+		return m_Aiming;
 	}
 
 	//! Push the aim angles into the graph. Runs before super. The values written
