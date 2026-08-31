@@ -378,11 +378,40 @@ class dmAISurvivor
 		return m_Pawn.GetHealth01() < 0.35;
 	}
 
-	//! (Phase 4) No ammo in the equipped weapon.
+	//! Firearm (Weapon_Base) currently in the bot's hands, or null.
+	Weapon_Base GetWeaponInHands()
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Pawn);
+		if (!pawn)
+			return null;
+		return Weapon_Base.Cast(pawn.GetHumanInventory().GetEntityInHands());
+	}
+
+	//! True when the equipped weapon has no live round in the chamber and no ammo
+	//! in its magazine (detachable or internal).
 	bool HasNoAmmo()
 	{
-		// TODO Phase 4: inspect the weapon's magazine.
-		return false;
+		Weapon_Base wpn = GetWeaponInHands();
+		if (!wpn)
+			return true;
+		int mi = wpn.GetCurrentMuzzle();
+		bool chamberLive = !wpn.IsChamberEmpty(mi) && !wpn.IsChamberFiredOut(mi);
+		bool magAmmo = false;
+		Magazine mag = wpn.GetMagazine(mi);
+		if (mag)
+			magAmmo = mag.GetAmmoCount() > 0;
+		else
+			magAmmo = wpn.GetInternalMagazineCartridgeCount(mi) > 0;
+		return !chamberLive && !magAmmo;
+	}
+
+	//! True when a firearm (non-melee Weapon_Base) is in the bot's hands.
+	bool HasFirearmInHands()
+	{
+		Weapon_Base wpn = GetWeaponInHands();
+		if (!wpn)
+			return false;
+		return !wpn.IsMeleeWeapon();
 	}
 
 	//! (Phase 4) Perceives player signs nearby (killed zombie, campfire, items).

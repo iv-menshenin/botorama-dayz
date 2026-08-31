@@ -9,16 +9,21 @@ class dmBotPreset_Escort
 		dmBotState follow = new dmBotState_Follow();
 		dmBotState idle   = new dmBotState_Idle();
 		dmBotState fight  = new dmBotState_Fighting();
+		dmBotState shoot  = new dmBotState_Shooting();
 
 		fsm.AddState(follow, "Follow");
 		fsm.AddState(idle, "Idle");
 		fsm.AddState(fight, "Fighting");
+		fsm.AddState(shoot, "Shooting");
 
 		//! Priority weights: >1.0 wins deterministically over normal (<1.0) edges.
 		idle.AddTransition(follow, 0.5).Require(dmBotConditions.FollowFar()).BlockWhen(dmBotConditions.HasHostile());
-		idle.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile());
+		idle.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
+		idle.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
+		shoot.AddTransition(idle, 1.0);
 		fight.AddTransition(idle, 1.0);
-		follow.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile());
+		follow.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
+		follow.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		follow.AddTransition(idle, 1.0).BlockWhen(dmBotConditions.HasHostile());
 
 		fsm.SetDefaultState("Follow");

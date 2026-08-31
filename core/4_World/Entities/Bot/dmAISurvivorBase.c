@@ -28,6 +28,19 @@ class dmAISurvivorBase : PlayerBase
 	private int m_CmdTurn = -1;
 	private int m_CmdStopTurn = -1;
 
+	//! Weapon raise (aiming) state: a flag + timer, like Expansion eAIBase, rather
+	//! than a raised stance. AimX/AimY are bound now but used by A3.
+	private bool m_WeaponRaised = false;
+	private float m_WeaponRaisedTimer = 0.0;
+	private int m_VarRaised = -1;
+	private int m_VarAimX = -1;
+	private int m_VarAimY = -1;
+
+	//! Weapon aim direction relative to the body: left/right (yaw) and up/down
+	//! (pitch), degrees. Computed by SetAimTarget, pushed to dmAI_AimX/dmAI_AimY.
+	private float m_AimRelAngleLR = 0.0;
+	private float m_AimRelAngleUD = 0.0;
+
 	//! Desired body yaw (world, degrees), set by the controller each tick.
 	private float m_TargetBodyYaw = 0.0;
 
@@ -73,6 +86,11 @@ class dmAISurvivorBase : PlayerBase
 	private bool m_MeleeAttackRequest = false;
 	private EntityAI m_MeleeTarget;
 
+	//! One-shot fire request from the brain (see RequestFire). Processed by
+	//! TryFireWeapon inside the CommandHandler; m_FireCooldown throttles cadence.
+	private bool m_FireRequest = false;
+	private float m_FireCooldown = 0.0;
+
 	void dmAISurvivorBase()
 	{
 		m_DesiredStance = DayZPlayerConstants.STANCEIDX_ERECT;
@@ -87,6 +105,11 @@ class dmAISurvivorBase : PlayerBase
 		//! must be created after the combat, so it picks up our dmBotMeleeCombat.
 		m_MeleeCombat = new dmBotMeleeCombat(this);
 		m_MeleeFightLogic = new dmBotMeleeFightLogic_LightHeavy(this);
+
+		//! Replace the vanilla WeaponManager (its StartAction returns false on a
+		//! multiplayer server without a control_action) with our server-path
+		//! subclass so reload/unjam/eject run from the CommandHandler.
+		m_WeaponManager = new dmBotWeaponManager(this);
 	}
 
 	//! Bind the custom head-look animation graph variables.
@@ -104,6 +127,9 @@ class dmAISurvivorBase : PlayerBase
 			m_VarTurnAmount = hai.BindVariableFloat("dmAI_TurnAmount");
 			m_CmdTurn = hai.BindCommand("dmAI_Turn");
 			m_CmdStopTurn = hai.BindCommand("dmAI_StopTurn");
+			m_VarRaised = hai.BindVariableBool("Raised");
+			m_VarAimX = hai.BindVariableFloat("AimX");
+			m_VarAimY = hai.BindVariableFloat("AimY");
 			m_VarsBound = true;
 
 			#ifdef DM_BOT_DEBUG_PAWN
@@ -131,6 +157,141 @@ class dmAISurvivorBase : PlayerBase
 			AnimSetFloat(m_VarLookDirX, m_LookYawDeg);
 		if (m_VarLookDirY >= 0)
 			AnimSetFloat(m_VarLookDirY, m_LookPitchDeg);
+	}
+
+	//! Raise/lower the weapon. This is a flag + timer (raised pose driven by the
+	//! dmAI_Raised graph variable), NOT ForceStance(RAISEDERECT) — see
+	//! docs/research/combat.md. Called by the brain (A3 shooting state).
+	void RaiseWeapon(bool up = true)
+	{
+		m_WeaponRaised = up;
+	}
+
+	//! Whether the weapon is currently raised (override of the vanilla flag).
+	override bool IsRaised()
+	{
+		return m_WeaponRaised;
+	}
+
+	//! Whether the raise animation has finished (raised for more than 0.5 s).
+	override bool IsWeaponRaiseCompleted()
+	{
+		return m_WeaponRaisedTimer > 0.5;
+	}
+
+	//! Gate for RaiseWeapon: blocked while climbing, falling, swimming or on a
+	//! ladder (those commands own the body and would override the raised pose).
+	bool CanRaiseWeapon()
+	{
+		if (IsClimbing() || IsFalling() || IsSwimming() || IsClimbingLadder())
+			return false;
+
+		return true;
+	}
+
+	//! Disable the vanilla client aiming model (mouse-driven) — an AI bot has no
+	//! aim input, so it would oscillate the weapon IK / recoil. Aim is driven by
+	//! SetAimTarget/GetWeaponAimDirection instead.
+	override bool AimingModel(float pDt, SDayZPlayerAimingModel pModel)
+	{
+		return false;
+	}
+
+	//! Tick the raise timer and push the raised flag into the animation graph.
+	//! Ticks the raise timer. The raise ANIMATION is driven by the raised STANCE
+	//! (ApplyStance adds STANCEIDX_RAISED when m_WeaponRaised) — the vanilla "Raised"
+	//! graph var is engine-driven from the stance, not settable via AnimSetBool.
+	void ApplyWeaponRaise(float pDt)
+	{
+		BindLookVars();
+
+		if (m_WeaponRaised)
+			m_WeaponRaisedTimer += pDt;
+		else
+			m_WeaponRaisedTimer = 0.0;
+	}
+
+	//! Compute and store the relative aim angles (left/right, up/down) toward the
+	//! target. The barrel direction is eyePos (neck) -> aimPos (target chest/head);
+	//! yaw/pitch come from VectorToAngles (same convention as LookAtPoint).
+	void SetAimTarget(EntityAI target)
+	{
+		if (!target)
+		{
+			m_AimRelAngleLR = 0.0;
+			m_AimRelAngleUD = 0.0;
+			return;
+		}
+
+		//! Aim point: center mass for humans (Spine3, like the melee code), head
+		//! for creatures (no Spine3); fallback to the feet + eye height. Bone
+		//! lookup lives on Human/DayZCreature, not EntityAI.
+		vector aimPos = target.GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
+		int bone = -1;
+		Human human = Human.Cast(target);
+		if (human)
+		{
+			bone = human.GetBoneIndexByName("Spine3");
+			if (bone < 0)
+				bone = human.GetBoneIndexByName("Head");
+		}
+		else
+		{
+			DayZCreature creature = DayZCreature.Cast(target);
+			if (creature)
+				bone = creature.GetBoneIndexByName("Head");
+		}
+		if (bone >= 0)
+			aimPos = target.GetBonePositionWS(bone);
+
+		//! Eye position: the neck bone (how the model holds the gun); fallback to
+		//! feet + eye height.
+		vector eyePos = GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
+		int neckBone = GetBoneIndexByName("neck");
+		if (neckBone >= 0)
+			eyePos = GetBonePositionWS(neckBone);
+
+		vector aimDir = aimPos - eyePos;
+		if (aimDir.Length() < 0.01)
+		{
+			m_AimRelAngleLR = 0.0;
+			m_AimRelAngleUD = 0.0;
+			return;
+		}
+
+		vector angles = aimDir.VectorToAngles();
+		float bodyYaw = GetOrientation()[0];
+		m_AimRelAngleLR = dmAISurvivor.AngleDiff(angles[0], bodyYaw);
+
+		float pitch = angles[1];
+		if (pitch > 180.0)
+			pitch -= 360.0;
+		m_AimRelAngleUD = pitch;
+	}
+
+	//! World-space barrel direction from the relative aim angles. Used by the
+	//! Fire() native (A4). Reconstructs the absolute yaw/pitch and converts back
+	//! with AnglesToVector (exact inverse of the VectorToAngles used in SetAimTarget).
+	vector GetWeaponAimDirection()
+	{
+		float bodyYaw = GetOrientation()[0];
+		vector angles = Vector(bodyYaw + m_AimRelAngleLR, m_AimRelAngleUD, 0.0);
+		return angles.AnglesToVector();
+	}
+
+	//! Push the aim angles into the graph and toggle ADS. Runs before super.
+	void ApplyWeaponAim()
+	{
+		BindLookVars();
+
+		if (m_VarAimX >= 0)
+			AnimSetFloat(m_VarAimX, m_AimRelAngleLR);
+		if (m_VarAimY >= 0)
+			AnimSetFloat(m_VarAimY, m_AimRelAngleUD);
+
+		HumanCommandWeapons hcw = GetCommandModifier_Weapons();
+		if (hcw)
+			hcw.SetADS(m_WeaponRaised);
 	}
 
 //! Called on the client whenever the synced variables arrive from the server.
@@ -169,7 +330,11 @@ class dmAISurvivorBase : PlayerBase
 		bool canAct = CanAct();
 
 		if (canAct)
+		{
 			ApplyLookVars();
+			ApplyWeaponRaise(pDt);
+			ApplyWeaponAim();
+		}
 
 		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);
 
@@ -188,6 +353,10 @@ class dmAISurvivorBase : PlayerBase
 		ApplyBodyTurn(pDt);
 		ApplyMovement(pDt);
 		ApplyStance(pDt);
+
+		if (m_FireCooldown > 0.0)
+			m_FireCooldown -= pDt;
+		TryFireWeapon();
 
 		if (Math.AbsFloat(m_LookYawDeg - m_LastLogLookYaw) > 0.5 || Math.AbsFloat(m_LookPitchDeg - m_LastLogLookPitch) > 0.5)
 		{
@@ -467,10 +636,19 @@ class dmAISurvivorBase : PlayerBase
 
 		GetMovementState(m_MovementState);
 		int current = m_MovementState.m_iStanceIdx;
-		if (current >= DayZPlayerConstants.STANCEIDX_RAISED)
-			current -= DayZPlayerConstants.STANCEIDX_RAISED;
+		int cur = current;
+		if (cur >= DayZPlayerConstants.STANCEIDX_RAISED)
+			cur -= DayZPlayerConstants.STANCEIDX_RAISED;
 
-		if (m_DesiredStance == current)
+		//! Raised stance while aiming: add the raised offset to the desired stance
+		//! so the move command projects Raised=true into the anim graph (the vanilla
+		//! "Raised" graph var is engine-driven from the stance).
+		int raisedOffset = 0;
+		if (m_WeaponRaised)
+			raisedOffset = DayZPlayerConstants.STANCEIDX_RAISED;
+
+		int desired = m_DesiredStance + raisedOffset;
+		if (desired == current)
 		{
 			m_StanceTimeout = 0.0;
 			return;
@@ -484,14 +662,14 @@ class dmAISurvivorBase : PlayerBase
 
 		//! erect<->prone can't be done directly; step through crouch.
 		int next = m_DesiredStance;
-		if (current == DayZPlayerConstants.STANCEIDX_ERECT && m_DesiredStance == DayZPlayerConstants.STANCEIDX_PRONE)
+		if (cur == DayZPlayerConstants.STANCEIDX_ERECT && m_DesiredStance == DayZPlayerConstants.STANCEIDX_PRONE)
 			next = DayZPlayerConstants.STANCEIDX_CROUCH;
-		else if (current == DayZPlayerConstants.STANCEIDX_PRONE && m_DesiredStance == DayZPlayerConstants.STANCEIDX_ERECT)
+		else if (cur == DayZPlayerConstants.STANCEIDX_PRONE && m_DesiredStance == DayZPlayerConstants.STANCEIDX_ERECT)
 			next = DayZPlayerConstants.STANCEIDX_CROUCH;
 
-		move.ForceStance(next);
+		move.ForceStance(next + raisedOffset);
 
-		if (next == DayZPlayerConstants.STANCEIDX_PRONE || current == DayZPlayerConstants.STANCEIDX_PRONE)
+		if (next == DayZPlayerConstants.STANCEIDX_PRONE || cur == DayZPlayerConstants.STANCEIDX_PRONE)
 			m_StanceTimeout = DM_STANCE_TIMEOUT_PRONE;
 		else
 			m_StanceTimeout = DM_STANCE_TIMEOUT_CROUCH;
@@ -575,6 +753,150 @@ class dmAISurvivorBase : PlayerBase
 	{
 		m_MeleeAttackRequest = false;
 		m_MeleeTarget = null;
+	}
+
+	//! Ask for a single shot at the given target. Aim is computed immediately
+	//! (SetAimTarget); the shot itself fires next CommandHandler in TryFireWeapon.
+	void RequestFire(EntityAI target)
+	{
+		SetAimTarget(target);
+		m_FireRequest = true;
+	}
+
+	bool HasFireRequest()
+	{
+		return m_FireRequest;
+	}
+
+	void ConsumeFireRequest()
+	{
+		m_FireRequest = false;
+	}
+
+	//! Fire the weapon if a request is pending and the body is ready. LOS/distance
+	//! are gated by the Shooting state (B1), not here; here we only check that the
+	//! weapon can physically fire and the vanilla weapon-FSM is idle. Runs after
+	//! super.CommandHandler so the weapon-FSM processed by super is settled.
+	void TryFireWeapon()
+	{
+		if (!m_FireRequest)
+			return;
+
+		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+		if (!weapon || !IsRaised() || !IsWeaponRaiseCompleted() || !weapon.CanFire())
+		{
+			ConsumeFireRequest();
+			return;
+		}
+
+		WeaponManager wm = GetWeaponManager();
+		if (!wm || wm.IsRunning())
+		{
+			ConsumeFireRequest();
+			return;
+		}
+
+		wm.Fire(weapon);
+		ConsumeFireRequest();
+		m_FireCooldown = DM_BOT_FIRE_COOLDOWN;
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[Bot] TryFireWeapon: fired weapon=" + weapon);
+		#endif
+	}
+
+	//! Simplified server reload of the weapon in hands (see docs/research/combat.md
+	//! "Перезарядка"): unjam > eject a chambered-out bullet > attach/swap a
+	//! non-empty magazine from the inventory. Ammo-pile/bullet-per-bullet loading
+	//! is not handled yet (later pass).
+	void ReloadWeaponAI()
+	{
+		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+		if (!weapon)
+			return;
+
+		WeaponManager wm = GetWeaponManager();
+		if (!wm || wm.IsRunning())
+			return;
+
+		if (wm.CanUnjam(weapon))
+		{
+			wm.Unjam();
+
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Bot] ReloadWeaponAI: unjam weapon=" + weapon);
+			#endif
+			return;
+		}
+
+		int mi = weapon.GetCurrentMuzzle();
+		if (weapon.IsChamberFiredOut(mi) && weapon.GetInternalMagazineCartridgeCount(mi) > 0 && wm.CanEjectBullet(weapon))
+		{
+			wm.EjectBullet();
+
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Bot] ReloadWeaponAI: eject bullet weapon=" + weapon);
+			#endif
+			return;
+		}
+
+		Magazine mag = FindReloadMagazine(weapon, wm);
+		if (!mag)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Bot] ReloadWeaponAI: no suitable magazine weapon=" + weapon);
+			#endif
+			return;
+		}
+
+		if (wm.CanAttachMagazine(weapon, mag))
+		{
+			wm.AttachMagazine(mag);
+
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Bot] ReloadWeaponAI: attach mag=" + mag + " weapon=" + weapon);
+			#endif
+		}
+		else if (wm.CanSwapMagazine(weapon, mag))
+		{
+			wm.SwapMagazine(mag);
+
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Bot] ReloadWeaponAI: swap mag=" + mag + " weapon=" + weapon);
+			#endif
+		}
+	}
+
+	//! Find a non-empty magazine in the inventory that fits the weapon (prefer an
+	//! attachable one, else a swappable one). Returns null if there is none.
+	Magazine FindReloadMagazine(Weapon_Base weapon, WeaponManager wm)
+	{
+		array<EntityAI> items = new array<EntityAI>();
+		GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+
+		int i;
+		Magazine mag;
+		for (i = 0; i < items.Count(); i++)
+		{
+			mag = Magazine.Cast(items[i]);
+			if (!mag || mag.IsAmmoPile() || mag.GetAmmoCount() <= 0)
+				continue;
+
+			if (wm.CanAttachMagazine(weapon, mag))
+				return mag;
+		}
+
+		for (i = 0; i < items.Count(); i++)
+		{
+			mag = Magazine.Cast(items[i]);
+			if (!mag || mag.IsAmmoPile() || mag.GetAmmoCount() <= 0)
+				continue;
+
+			if (wm.CanSwapMagazine(weapon, mag))
+				return mag;
+		}
+
+		return null;
 	}
 
 	//! Try to vault/climb the obstacle in front of the bot. First a DoClimbTest:

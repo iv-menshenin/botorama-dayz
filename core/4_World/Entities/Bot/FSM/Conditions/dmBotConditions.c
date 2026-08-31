@@ -29,4 +29,9 @@ class dmBotConditions
 	{
 		return new dmBotCondition_HasHostile();
 	}
+
+	static dmBotCondition CanShoot()
+	{
+		return new dmBotCondition_CanShoot();
+	}
 }

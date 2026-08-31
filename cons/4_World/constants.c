@@ -272,3 +272,9 @@ static const float DM_MELEE_EVADE_SPEED = 2.0;
 
 //! Melee evasion: seconds between strafe direction flips.
 static const float DM_MELEE_EVADE_SWITCH_TIME = 0.3;
+
+//! Firearm: cooldown (seconds) between the bot's shots (throttles cadence).
+static const float DM_BOT_FIRE_COOLDOWN = 0.3;
+
+//! Fire: interval (seconds) between fire requests in the Shooting state.
+static const float DM_BOT_FIRE_INTERVAL = 0.5;

@@ -20,6 +20,8 @@
 //!   /test bot brokenleg — перелом: бот хромает, не спринтует.
 //!   /test bot death    — Health=0: бот умирает и удаляется из мира.
 //!   /test bot target   — реактивная угроза: зомби → RegisterDamageThreat → hostile → null.
+//!   /test bot shoot {N} — стрельба: заряженный АКМ + угроза → Shooting → патроны
+//!                                убывают; {N} — дистанция спавна бота от игрока в метрах.
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -35,10 +37,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N}");
 			return false;
 		}
 
@@ -61,6 +63,8 @@ class dmTestCommand : dmCommandModule
 			return HandleBodyTest(player, new dmBotTest_Death());
 		if (parts[2] == DM_CHAT_TEST_TARGET)
 			return HandleBodyTest(player, new dmBotTest_Target());
+		if (parts[2] == DM_CHAT_TEST_SHOOT)
+			return HandleShootTest(player, parts);
 
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий: " + parts[2]);
 		return false;
@@ -71,6 +75,20 @@ class dmTestCommand : dmCommandModule
 	{
 		dmBotTestRunner.GetInstance().Start(test, player);
 		return true;
+	}
+
+	//! /test bot shoot {N} — firing test; N (meters) is the optional spawn distance
+	//! from the player (0/default = DM_SPAWN_DISTANCE).
+	private bool HandleShootTest(PlayerBase player, array<string> parts)
+	{
+		dmBotTest_Shoot test = new dmBotTest_Shoot();
+		if (parts.Count() >= 4)
+		{
+			int dist = parts[3].ToInt();
+			if (dist > 0)
+				test.SetSpawnDistance(dist);
+		}
+		return HandleBodyTest(player, test);
 	}
 
 	//! /test cancel — abort the running test and clean up after it.
