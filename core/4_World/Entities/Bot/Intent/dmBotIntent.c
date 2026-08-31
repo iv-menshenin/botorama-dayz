@@ -59,12 +59,19 @@ class dmBotIntent
 		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".OnStart");
 		#endif
 	}
+
 	void OnUpdate(dmAISurvivor bot, float pDt)
 	{
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".OnUpdate");
 		#endif
 	}
+	
+	void OnSkip(dmAISurvivor bot, float pDt)
+	{
+		// lost the arbitration
+	}
+
 	void OnCancel(dmAISurvivor bot)
 	{
 		#ifdef DM_BOT_DEBUG_FSM

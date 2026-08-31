@@ -866,45 +866,36 @@ class dmAISurvivor
 		m_Winner.Set(dmBotIntentsChannel.EMOTION, null);
 		m_Winner.Set(dmBotIntentsChannel.ATTACK, null);
 
-		IntentsArbitrationPool(m_PersonalityIntents);
-		IntentsArbitrationPool(m_CommandIntents);
-		IntentsArbitrationPool(m_FSMIntents);
-
-		foreach(dmBotIntentsChannel channel, dmBotIntent intent: m_Winner)
-		{
-			if ( !intent ) continue;
-			intent.OnUpdate(this, pDt);
-		}
+		IntentsArbitrationPool(m_PersonalityIntents, pDt);
+		IntentsArbitrationPool(m_CommandIntents, pDt);
+		IntentsArbitrationPool(m_FSMIntents, pDt);
 
 		//! Default rest: channels nobody won fall back to "at ease".
-		if (!m_Winner.Get(dmBotIntentsChannel.LOOK))
-			LookForward();
-		if (!m_Winner.Get(dmBotIntentsChannel.MOVE))
-			SetWalk(false);
-		if (!m_Winner.Get(dmBotIntentsChannel.STANCE))
-			SetStance(DayZPlayerConstants.STANCEIDX_ERECT);
+		if (!m_Winner.Get(dmBotIntentsChannel.LOOK)) LookForward();
+		if (!m_Winner.Get(dmBotIntentsChannel.MOVE)) SetWalk(false);
+		if (!m_Winner.Get(dmBotIntentsChannel.STANCE)) SetStance(DayZPlayerConstants.STANCEIDX_ERECT);
 
 		IntentsTickAges(m_PersonalityIntents, pDt);
 		IntentsTickAges(m_CommandIntents, pDt);
 		IntentsTickAges(m_FSMIntents, pDt);
 	}
 
-	private void IntentsArbitrationPool(dmBotIntentPool pool)
+	private void IntentsArbitrationPool(dmBotIntentPool pool, float pDt)
 	{
 		ref array<ref dmBotIntent> intents = pool.GetIntents();
-		if (IntentsArbitration(intents, dmBotIntentPriority.CRITICAL)) return;
-		if (IntentsArbitration(intents, dmBotIntentPriority.DESIRABLE)) return;
-		if (IntentsArbitration(intents, dmBotIntentPriority.IDLE)) return;
+		if (IntentsArbitration(intents, dmBotIntentPriority.CRITICAL, pDt)) return;
+		if (IntentsArbitration(intents, dmBotIntentPriority.DESIRABLE, pDt)) return;
+		if (IntentsArbitration(intents, dmBotIntentPriority.IDLE, pDt)) return;
 	}
 
-	private bool IntentsArbitration(array<ref dmBotIntent> intents, dmBotIntentPriority priority)
+	private bool IntentsArbitration(array<ref dmBotIntent> intents, dmBotIntentPriority priority, float pDt)
 	{
-		if (IntentsArbitrationConcurrency(intents, priority, dmBotIntentConcurrency.EXCLUSIVE)) return true;
-		IntentsArbitrationConcurrency(intents, priority, dmBotIntentConcurrency.PARALLEL);
+		if (IntentsArbitrationConcurrency(intents, priority, dmBotIntentConcurrency.EXCLUSIVE, pDt)) return true;
+		IntentsArbitrationConcurrency(intents, priority, dmBotIntentConcurrency.PARALLEL, pDt);
 		return false;
 	}
 
-	private bool IntentsArbitrationConcurrency(array<ref dmBotIntent> intents, dmBotIntentPriority priority, dmBotIntentConcurrency concurrency)
+	private bool IntentsArbitrationConcurrency(array<ref dmBotIntent> intents, dmBotIntentPriority priority, dmBotIntentConcurrency concurrency, float pDt)
 	{
 		for (int i = 0; i < intents.Count(); i++)
 		{
@@ -915,16 +906,18 @@ class dmAISurvivor
 			if (intent.IsFailed()) continue;
 			if (intent.IsExpired()) continue;
 			if (!intent.IsActive()) continue;
-
-			if (intent.m_Concurrency == concurrency)
+			if (intent.m_Concurrency != concurrency) continue;
+			
+			dmBotIntent winner = m_Winner.Get(intent.m_Manage);
+			if ( winner && winner != intent )
 			{
-				if ( !m_Winner.Get(intent.m_Manage) )
-				{
-					m_Winner.Set(intent.m_Manage, intent);
-					if (concurrency == dmBotIntentConcurrency.EXCLUSIVE)
-						return true;
-				}
+				intent.OnSkip(this, pDt);
+				continue;
 			}
+
+			m_Winner.Set(intent.m_Manage, intent);
+			intent.OnUpdate(this, pDt);
+			if (concurrency == dmBotIntentConcurrency.EXCLUSIVE) return true;
 		}
 		return false;
 	}
