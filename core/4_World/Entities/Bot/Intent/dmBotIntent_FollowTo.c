@@ -29,6 +29,9 @@ class dmBotIntent_FollowTo : dmBotIntent
 	//! Accumulator for the periodic movement debug log (DM_BOT_DEBUG_FSM).
 	float m_DebugAccum = 0.0;
 
+	//! Accumulator for the proactive door check (throttled by DM_DOOR_CHECK_INTERVAL).
+	float m_DoorCheckAccum = 0.0;
+
 	void dmBotIntent_FollowTo()
 	{
 		m_Concurrency = dmBotIntentConcurrency.PARALLEL;
@@ -51,6 +54,7 @@ class dmBotIntent_FollowTo : dmBotIntent
 		m_HasPath = false;
 		m_TargetPosKnown = false;
 		m_TargetVel = vector.Zero;
+		m_DoorCheckAccum = 0.0;
 
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] FollowTo.start target=" + m_Target);
@@ -67,6 +71,14 @@ class dmBotIntent_FollowTo : dmBotIntent
 
 		if (!m_Target)
 			return;
+
+		//! Proactive door-open: if a closed door blocks the way, open it (throttled).
+		m_DoorCheckAccum += pDt;
+		if (m_DoorCheckAccum >= DM_DOOR_CHECK_INTERVAL)
+		{
+			m_DoorCheckAccum = 0.0;
+			bot.TryOpenDoorOnPath();
+		}
 
 		//! Positions (locals first — vector arithmetic must not call methods inline).
 		vector targetPos = m_Target.GetPosition();
