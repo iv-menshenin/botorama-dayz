@@ -35,11 +35,21 @@ class dmAISurvivorBase : PlayerBase
 	private int m_VarRaised = -1;
 	private int m_VarAimX = -1;
 	private int m_VarAimY = -1;
+	private int m_VarAimIKX = -1;
 
 	//! Weapon aim direction relative to the body: left/right (yaw) and up/down
 	//! (pitch), degrees. Computed by SetAimTarget, pushed to dmAI_AimX/dmAI_AimY.
 	private float m_AimRelAngleLR = 0.0;
 	private float m_AimRelAngleUD = 0.0;
+
+	//! Smoothed copy of m_AimRelAngleLR/UD, pushed to the animation graph so the
+	//! barrel rotates smoothly. The raw angles stay authoritative for
+	//! GetWeaponAimDirection() (the actual shot direction).
+	private float m_AimSmoothedLR = 0.0;
+	private float m_AimSmoothedUD = 0.0;
+
+	//! Last time (GetGame().GetTickTime()) the weapon-aim debug log was printed.
+	private float m_LastAimLogTime = 0.0;
 
 	//! Desired body yaw (world, degrees), set by the controller each tick.
 	private float m_TargetBodyYaw = 0.0;
@@ -127,9 +137,10 @@ class dmAISurvivorBase : PlayerBase
 			m_VarTurnAmount = hai.BindVariableFloat("dmAI_TurnAmount");
 			m_CmdTurn = hai.BindCommand("dmAI_Turn");
 			m_CmdStopTurn = hai.BindCommand("dmAI_StopTurn");
-			m_VarRaised = hai.BindVariableBool("Raised");
-			m_VarAimX = hai.BindVariableFloat("AimX");
-			m_VarAimY = hai.BindVariableFloat("AimY");
+			m_VarRaised = hai.BindVariableBool("dmAI_Raised");
+			m_VarAimX = hai.BindVariableFloat("dmAI_AimX");
+			m_VarAimY = hai.BindVariableFloat("dmAI_AimY");
+			m_VarAimIKX = hai.BindVariableFloat("dmAI_AimIKX");
 			m_VarsBound = true;
 
 			#ifdef DM_BOT_DEBUG_PAWN
@@ -198,9 +209,9 @@ class dmAISurvivorBase : PlayerBase
 	}
 
 	//! Tick the raise timer and push the raised flag into the animation graph.
-	//! Ticks the raise timer. The raise ANIMATION is driven by the raised STANCE
-	//! (ApplyStance adds STANCEIDX_RAISED when m_WeaponRaised) — the vanilla "Raised"
-	//! graph var is engine-driven from the stance, not settable via AnimSetBool.
+	//! The raise ANIMATION is driven by the custom dmAI_Raised graph variable (bound
+	//! in BindLookVars), NOT by a raised stance — the vanilla "Raised" var is
+	//! engine-driven from the stance and not settable via AnimSetBool.
 	void ApplyWeaponRaise(float pDt)
 	{
 		BindLookVars();
@@ -209,6 +220,9 @@ class dmAISurvivorBase : PlayerBase
 			m_WeaponRaisedTimer += pDt;
 		else
 			m_WeaponRaisedTimer = 0.0;
+
+		if (m_VarRaised >= 0)
+			AnimSetBool(m_VarRaised, m_WeaponRaised);
 	}
 
 	//! Compute and store the relative aim angles (left/right, up/down) toward the
@@ -279,16 +293,39 @@ class dmAISurvivorBase : PlayerBase
 		return angles.AnglesToVector();
 	}
 
-	//! Push the aim angles into the graph and toggle ADS. Runs before super.
+	//! Push the aim angles into the graph. Runs before super. The values written
+	//! here are smoothed toward m_AimRelAngleLR/UD so the barrel doesn't jitter;
+	//! the raw m_AimRelAngleLR/UD stay authoritative for GetWeaponAimDirection()
+	//! (the actual shot direction). ADS is toggled separately after super.
 	void ApplyWeaponAim()
 	{
 		BindLookVars();
 
-		if (m_VarAimX >= 0)
-			AnimSetFloat(m_VarAimX, m_AimRelAngleLR);
-		if (m_VarAimY >= 0)
-			AnimSetFloat(m_VarAimY, m_AimRelAngleUD);
+		m_AimSmoothedLR = m_AimSmoothedLR * 0.7 + m_AimRelAngleLR * 0.3;
+		m_AimSmoothedUD = m_AimSmoothedUD * 0.7 + m_AimRelAngleUD * 0.3;
 
+		if (m_VarAimX >= 0)
+			AnimSetFloat(m_VarAimX, m_AimSmoothedLR);
+		if (m_VarAimY >= 0)
+			AnimSetFloat(m_VarAimY, m_AimSmoothedUD);
+		if (m_VarAimIKX >= 0)
+			AnimSetFloat(m_VarAimIKX, m_AimSmoothedLR);
+
+		#ifdef DM_BOT_DEBUG_PAWN
+		if (GetGame().GetTickTime() - m_LastAimLogTime >= 2.0)
+		{
+			m_LastAimLogTime = GetGame().GetTickTime();
+			dmBotLog.Debug("[Aim] relLR=" + m_AimRelAngleLR + " relUD=" + m_AimRelAngleUD + " raised=" + m_WeaponRaised);
+			dmBotLog.Debug("[Aim] smoothLR=" + m_AimSmoothedLR + " smoothUD=" + m_AimSmoothedUD);
+		}
+		#endif
+	}
+
+	//! Toggle the ironsights/optics pose (ADS). Runs AFTER super.CommandHandler so
+	//! the vanilla HandleWeapons/ExitSights (executed inside super) can't overwrite
+	//! it back to false every frame.
+	void ApplyWeaponADS()
+	{
 		HumanCommandWeapons hcw = GetCommandModifier_Weapons();
 		if (hcw)
 			hcw.SetADS(m_WeaponRaised);
@@ -311,6 +348,27 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 #endif
+
+	//! Replace the vanilla weapon handling (sights/fire/optics driven by player
+	//! input) — an AI bot drives raise/aim/ADS/fire itself (ApplyWeaponRaise/
+	//! ApplyWeaponAim/ApplyWeaponADS/TryFireWeapon). We only forward the weapon
+	//! events (reload/jam/…) so they still process inside the CommandHandler.
+	override void HandleWeapons(float pDt, Entity pInHands, HumanInputController pInputs, out bool pExitIronSights)
+	{
+		GetDayZPlayerInventory().HandleWeaponEvents(pDt, pExitIronSights);
+	}
+
+	//! The AI drives ADS itself (ApplyWeaponADS) — skip the vanilla input-driven
+	//! ADS handling, which would call ExitSights()->SetADS(false) and fight ours.
+	override void HandleADS()
+	{
+	}
+
+	//! The AI doesn't use standalone handheld optics — skip the vanilla optic
+	//! handling (mirrors Expansion eAIBase.HandleOptic).
+	override void HandleOptic(notnull ItemOptics optic, bool inHands, HumanInputController pInputs, out bool pExitOptics)
+	{
+	}
 
 	//! Called every tick during the deterministic simulation (the CommandHandler).
 	//! Look vars are set before super; the turn commands are set AFTER super
@@ -350,6 +408,7 @@ class dmAISurvivorBase : PlayerBase
 			return;
 		}
 
+		ApplyWeaponADS();
 		ApplyBodyTurn(pDt);
 		ApplyMovement(pDt);
 		ApplyStance(pDt);
@@ -636,19 +695,10 @@ class dmAISurvivorBase : PlayerBase
 
 		GetMovementState(m_MovementState);
 		int current = m_MovementState.m_iStanceIdx;
-		int cur = current;
-		if (cur >= DayZPlayerConstants.STANCEIDX_RAISED)
-			cur -= DayZPlayerConstants.STANCEIDX_RAISED;
+		if (current >= DayZPlayerConstants.STANCEIDX_RAISED)
+			current -= DayZPlayerConstants.STANCEIDX_RAISED;
 
-		//! Raised stance while aiming: add the raised offset to the desired stance
-		//! so the move command projects Raised=true into the anim graph (the vanilla
-		//! "Raised" graph var is engine-driven from the stance).
-		int raisedOffset = 0;
-		if (m_WeaponRaised)
-			raisedOffset = DayZPlayerConstants.STANCEIDX_RAISED;
-
-		int desired = m_DesiredStance + raisedOffset;
-		if (desired == current)
+		if (m_DesiredStance == current)
 		{
 			m_StanceTimeout = 0.0;
 			return;
@@ -662,14 +712,14 @@ class dmAISurvivorBase : PlayerBase
 
 		//! erect<->prone can't be done directly; step through crouch.
 		int next = m_DesiredStance;
-		if (cur == DayZPlayerConstants.STANCEIDX_ERECT && m_DesiredStance == DayZPlayerConstants.STANCEIDX_PRONE)
+		if (current == DayZPlayerConstants.STANCEIDX_ERECT && m_DesiredStance == DayZPlayerConstants.STANCEIDX_PRONE)
 			next = DayZPlayerConstants.STANCEIDX_CROUCH;
-		else if (cur == DayZPlayerConstants.STANCEIDX_PRONE && m_DesiredStance == DayZPlayerConstants.STANCEIDX_ERECT)
+		else if (current == DayZPlayerConstants.STANCEIDX_PRONE && m_DesiredStance == DayZPlayerConstants.STANCEIDX_ERECT)
 			next = DayZPlayerConstants.STANCEIDX_CROUCH;
 
-		move.ForceStance(next + raisedOffset);
+		move.ForceStance(next);
 
-		if (next == DayZPlayerConstants.STANCEIDX_PRONE || cur == DayZPlayerConstants.STANCEIDX_PRONE)
+		if (next == DayZPlayerConstants.STANCEIDX_PRONE || current == DayZPlayerConstants.STANCEIDX_PRONE)
 			m_StanceTimeout = DM_STANCE_TIMEOUT_PRONE;
 		else
 			m_StanceTimeout = DM_STANCE_TIMEOUT_CROUCH;

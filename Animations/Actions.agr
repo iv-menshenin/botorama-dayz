@@ -6584,7 +6584,7 @@ Y(90): 	X(-180) = 6, X(0) = 7, X(160) = 8"
 					 "In" "Loop" "RemainingTimeLess(0.2)" "0.2" "" 1 "S"
 				}
 				$Transition {
-					 "In" "Out" "GetCommandI(CMD_InternalAction) == 0 || Raised" "0.3" "GetRemainingTime()" 1 "S"
+					 "In" "Out" "GetCommandI(CMD_InternalAction) == 0 || dmAI_Raised" "0.3" "GetRemainingTime()" 1 "S"
 				}
 				$Transition {
 					 "" "Out" "GetCommandI(CMD_InternalAction) == 0" "0.3" "" 1 "S"
@@ -6645,10 +6645,10 @@ Y(90): 	X(-180) = 6, X(0) = 7, X(160) = 8"
 					 "In" "Loop" "RemainingTimeLess(0.75)" "0.75" "" 1 "S"
 				}
 				$Transition {
-					 "In" "Primary Out" "GetCommandI(CMD_InternalAction) == 0 || Raised" "0.3" "GetRemainingTime()" 1 "S"
+					 "In" "Primary Out" "GetCommandI(CMD_InternalAction) == 0 || dmAI_Raised" "0.3" "GetRemainingTime()" 1 "S"
 				}
 				$Transition {
-					 "In" "Alternative Out" "GetCommandI(CMD_InternalAction) == -1 || Raised" "0.3" "GetRemainingTime()" 1 "S"
+					 "In" "Alternative Out" "GetCommandI(CMD_InternalAction) == -1 || dmAI_Raised" "0.3" "GetRemainingTime()" 1 "S"
 				}
 				$Transition {
 					 "" "Alternative Out" "GetCommandI(CMD_InternalAction) == -1" "0.3" "" 0 "S"
@@ -6736,10 +6736,10 @@ Y(90): 	X(-180) = 6, X(0) = 7, X(160) = 8"
 					 "Loop" "ActionLoop" "GetCommandI(CMD_InternalAction) == 2" "0.2" "" 0 "S"
 				}
 				$Transition {
-					 "In" "Primary Out" "GetCommandI(CMD_InternalAction) == 0 || Raised" "0.6" "GetRemainingTime()" 1 "S"
+					 "In" "Primary Out" "GetCommandI(CMD_InternalAction) == 0 || dmAI_Raised" "0.6" "GetRemainingTime()" 1 "S"
 				}
 				$Transition {
-					 "In" "Alternative Out" "GetCommandI(CMD_InternalAction) == -1 || Raised" "0.6" "GetRemainingTime()" 1 "S"
+					 "In" "Alternative Out" "GetCommandI(CMD_InternalAction) == -1 || dmAI_Raised" "0.6" "GetRemainingTime()" 1 "S"
 				}
 				$Transition {
 					 "" "Alternative Out" "GetCommandI(CMD_InternalAction) == -1" "0.3" "" 1 "S"
@@ -6788,7 +6788,7 @@ Y(90): 	X(-180) = 6, X(0) = 7, X(160) = 8"
 			}
 			$Transitions 1 {
 				$Transition {
-					 "InLoopOut" "Cancelled" "GetCommandI(CMD_InternalAction) == -1 || Raised" "0.4" "" 0 "S"
+					 "InLoopOut" "Cancelled" "GetCommandI(CMD_InternalAction) == -1 || dmAI_Raised" "0.4" "" 0 "S"
 				}
 			}
 			$EditorData {
@@ -6941,10 +6941,10 @@ ikpose_secchainmiddlediro = LeftHandOrigin,LeftForeArmDirectionOrigin	// origina
 					 "In" "LoopPose" "RemainingTimeLess(0.3)" "0.3" "" 1 "S"
 				}
 				$Transition {
-					 "In" "Primary Out" "GetCommandI(CMD_InternalAction) == 0 || Raised" "0.2" "" 1 "S"
+					 "In" "Primary Out" "GetCommandI(CMD_InternalAction) == 0 || dmAI_Raised" "0.2" "" 1 "S"
 				}
 				$Transition {
-					 "In" "Secondary Out" "GetCommandI(CMD_InternalAction) == -1 || Raised" "0.2" "" 1 "S"
+					 "In" "Secondary Out" "GetCommandI(CMD_InternalAction) == -1 || dmAI_Raised" "0.2" "" 1 "S"
 				}
 				$Transition {
 					 "LoopPose" "Primary Out" "GetCommandI(CMD_InternalAction) == 0" "0.15" "" 1 "S"
@@ -6987,7 +6987,7 @@ ikpose_secchainmiddlediro = LeftHandOrigin,LeftForeArmDirectionOrigin	// origina
 					 "Loop" "Out" "GetCommandI(CMD_InternalAction) == 0" "0.3" "" 0 "S"
 				}
 				$Transition {
-					 "In" "Out" "GetCommandI(CMD_InternalAction) == 0 || Raised" "0.4" "GetRemainingTime()" 1 "S"
+					 "In" "Out" "GetCommandI(CMD_InternalAction) == 0 || dmAI_Raised" "0.4" "GetRemainingTime()" 1 "S"
 				}
 			}
 			$EditorData {
@@ -7030,7 +7030,7 @@ ikpose_secchainmiddlediro = LeftHandOrigin,LeftForeArmDirectionOrigin	// origina
 			}
 			$Transitions 3 {
 				$Transition {
-					 "LowIn" "LowOut" "GetCommandI(CMD_InternalAction) == 0 || Raised" "0.6" "GetRemainingTime()" 1 "S"
+					 "LowIn" "LowOut" "GetCommandI(CMD_InternalAction) == 0 || dmAI_Raised" "0.6" "GetRemainingTime()" 1 "S"
 				}
 				$Transition {
 					 "LowIn" "LowLoop" "RemainingTimeLess(0.01)" "0.0" "" 1 "S"
@@ -7523,7 +7523,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 					 "Loop" "Out" "GetCommandI(CMD_InternalAction) == 0" "0.3" "" 0 "S"
 				}
 				$Transition {
-					 "In" "Out" "GetCommandI(CMD_InternalAction) == 0 || MovementSpeed > 0 || Raised" "0.3" "GetRemainingTime()" 1 "S"
+					 "In" "Out" "GetCommandI(CMD_InternalAction) == 0 || MovementSpeed > 0 || dmAI_Raised" "0.3" "GetRemainingTime()" 1 "S"
 				}
 			}
 			$EditorData {

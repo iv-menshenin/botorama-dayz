@@ -115,6 +115,11 @@ static const string DM_CHAT_TEST_BROKENLEG = "brokenleg";
 static const string DM_CHAT_TEST_DEATH = "death";
 static const string DM_CHAT_TEST_TARGET = "target";
 static const string DM_CHAT_TEST_SHOOT = "shoot";
+static const string DM_CHAT_TEST_AIM = "aim";
+
+//! Aim-observation test: pause (seconds) before/after the shots and shot interval.
+static const float DM_TEST_AIM_HOLD = 10.0;
+static const float DM_TEST_AIM_SHOT_INTERVAL = 2.0;
 
 //! Test command "cancel" — aborts the running test and cleans it up.
 static const string DM_CHAT_TEST_CANCEL = "cancel";

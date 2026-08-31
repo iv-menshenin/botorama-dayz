@@ -309,7 +309,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "CroToErcT" "" "CroToErcLowG" "CroToErcRasG" "" "" "Raised" 0.4 "S" 7
+			 "CroToErcT" "" "CroToErcLowG" "CroToErcRasG" "" "" "dmAI_Raised" 0.4 "S" 7
 			$EditorData {
 				#EditorPos 13.5 -50.9000015
 			}
@@ -365,7 +365,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "CroToPneMoveT" "" "CroToPneMoveLowG" "CroToPneMoveRasG" "" "" "Raised && False" 0.3 "S" 7
+			 "CroToPneMoveT" "" "CroToPneMoveLowG" "CroToPneMoveRasG" "" "" "dmAI_Raised && False" 0.3 "S" 7
 			$EditorData {
 				#EditorPos -0.8 -56.5
 			}
@@ -407,7 +407,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "CroToPneT" "" "CroToPneLowG" "CroToPneRasG" "" "" "Raised" 0.4 "S" 7
+			 "CroToPneT" "" "CroToPneLowG" "CroToPneRasG" "" "" "dmAI_Raised" 0.4 "S" 7
 			$EditorData {
 				#EditorPos 1.4 -50.5
 			}
@@ -639,7 +639,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "ErcToCroT" "" "ErcToCroLowG" "ErcToCroRasG" "" "" "Raised" 0.4 "S" 7
+			 "ErcToCroT" "" "ErcToCroLowG" "ErcToCroRasG" "" "" "dmAI_Raised" 0.4 "S" 7
 			$EditorData {
 				#EditorPos -5.5 -51.0
 			}
@@ -695,7 +695,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "ErcToPneMoveT" "" "ErcToPneMoveLowG" "ErcToPneMoveRasG" "" "" "Raised && False" 0.3 "S" 7
+			 "ErcToPneMoveT" "" "ErcToPneMoveLowG" "ErcToPneMoveRasG" "" "" "dmAI_Raised && False" 0.3 "S" 7
 			$EditorData {
 				#EditorPos 8.5 -56.5
 			}
@@ -737,7 +737,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "ErcToPneT" "" "ErcToPneLowG" "ErcToPneRasG" "" "" "Raised" 0.4 "S" 7
+			 "ErcToPneT" "" "ErcToPneLowG" "ErcToPneRasG" "" "" "dmAI_Raised" 0.4 "S" 7
 			$EditorData {
 				#EditorPos 6.0999999 -50.5
 			}
@@ -958,7 +958,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeWeaponIK {
-			 "FallMasterIK" "" "FallMaster" "false" "isbitset(ArmIK, 1)" "isbitset(ArmIK, 2)" 0.3 0.2 "AimIKX" "AimY" "WeaponIKTest" "// ik pose anim
+			 "FallMasterIK" "" "FallMaster" "false" "isbitset(ArmIK, 1)" "isbitset(ArmIK, 2)" 0.3 0.2 "dmAI_AimIKX" "dmAI_AimY" "WeaponIKTest" "// ik pose anim
 // (root - means RightHand - but right hand is not exported)
 //   |- RightHand_Dummy (where Weapon is)
 //   |                |-  LeftHandIKTarget  (where left hand is on weapon)
@@ -2396,7 +2396,7 @@ chainAxis = -x"
 					 "WeaponChangeStanceSTM" "IsCommand(CMD_Weapon_Hide) || IsCommand(CMD_Weapon_Show)" "" "" 0.1 0.35 1 0
 				}
 				$item {
-					 "ActionMaster" "IsCommand(CMD_Action) || IsCommand(CMD_TRAILER_WALK_AWAY) " "GetCommandI(CMD_InternalAction) == -2 || Raised" "" 0.2 0.4 1 1
+					 "ActionMaster" "IsCommand(CMD_Action) || IsCommand(CMD_TRAILER_WALK_AWAY) " "GetCommandI(CMD_InternalAction) == -2 || dmAI_Raised" "" 0.2 0.4 1 1
 				}
 				$item {
 					 "ReloadStanceChange" "IsCommand(CMD_Reload_Magazine) || IsCommand(CMD_Reload_BoltAction) || IsCommand(CMD_Reload_Chambering) || IsCommand(CMD_Reload_ChamberingFast) || IsCommand(CMD_Weapon_Jam) || IsCommand(CMD_Reload_Clip)" "IsCommand(CMD_Weapon_Interrupt)
@@ -2563,7 +2563,7 @@ chainAxis = -x"
 			}
 		}
 		$Node AnimNodeWeaponIK {
-			 "NormalWeaponIK" "" "AimObstructionT" "isbitset(ArmIK, 0)" "isbitset(ArmIK, 1)" "isbitset(ArmIK, 2)" 0.36 0.15 "AimIKX" "AimY" "WeaponIKTest" "// ik pose anim
+			 "NormalWeaponIK" "" "AimObstructionT" "isbitset(ArmIK, 0)" "isbitset(ArmIK, 1)" "isbitset(ArmIK, 2)" 0.36 0.15 "dmAI_AimIKX" "dmAI_AimY" "WeaponIKTest" "// ik pose anim
 // (root - means RightHand - but right hand is not exported)
 //   |- RightHand_Dummy (where Weapon is)
 //   |                |-  LeftHandIKTarget  (where left hand is on weapon)
@@ -2651,7 +2651,7 @@ outputweaponoffsettobuffer = true
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "POBToCroRaisedT" "" "POBToCroLowG" "POBToCroRasAimG" "" "" "Raised" 0.4 "S" 7
+			 "POBToCroRaisedT" "" "POBToCroLowG" "POBToCroRasAimG" "" "" "dmAI_Raised" 0.4 "S" 7
 			$EditorData {
 				#EditorPos 33.7999992 -15.3000002
 			}
@@ -2707,7 +2707,7 @@ outputweaponoffsettobuffer = true
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "POBToErcRaisedT" "" "POBToErcLowG" "POBToErcRasAimG" "" "" "Raised" 0.4 "S" 7
+			 "POBToErcRaisedT" "" "POBToErcLowG" "POBToErcRasAimG" "" "" "dmAI_Raised" 0.4 "S" 7
 			$EditorData {
 				#EditorPos 38.6000023 -15.3000002
 			}
@@ -3013,7 +3013,7 @@ Injured < 0.5" "0.5" "GetLowerTime()" 1 "S"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "PneOnBackRaisedT" "" "PneBackRollLowG" "PneBackRollRasG" "" "" "Raised" 0.3 "S" 7
+			 "PneOnBackRaisedT" "" "PneBackRollLowG" "PneBackRollRasG" "" "" "dmAI_Raised" 0.3 "S" 7
 			$EditorData {
 				#EditorPos 2.9000001 -18.8999996
 			}
@@ -3061,7 +3061,7 @@ Y(90): X(-180) = 82, X(-90) = 92, X(0) = 102, X(90) = 112, X(180) = 122"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "PneRollRaisedT" "" "PneRollLowG" "PneRollRasG" "" "" "Raised" 0.3 "S" 7
+			 "PneRollRaisedT" "" "PneRollLowG" "PneRollRasG" "" "" "dmAI_Raised" 0.3 "S" 7
 			$EditorData {
 				#EditorPos 7.2000003 -18.8999996
 			}
@@ -3323,7 +3323,7 @@ Y(90): X(-180) = 82, X(-90) = 92, X(0) = 102, X(90) = 112, X(180) = 122"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "PneToCroMoveRasAimT" "" "GoCroMoveHeadLookT" "AimPose" "" "" "Raised" 0.3 "S" 1
+			 "PneToCroMoveRasAimT" "" "GoCroMoveHeadLookT" "AimPose" "" "" "dmAI_Raised" 0.3 "S" 1
 			$EditorData {
 				#EditorPos -2.1000001 -61.4000015
 			}
@@ -3335,7 +3335,7 @@ Y(90): X(-180) = 82, X(-90) = 92, X(0) = 102, X(90) = 112, X(180) = 122"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "PneToCroMoveT" "" "PneToCroMoveLowG" "PneToCroMoveRasG" "" "" "Raised && False" 0.3 "S" 7
+			 "PneToCroMoveT" "" "PneToCroMoveLowG" "PneToCroMoveRasG" "" "" "dmAI_Raised && False" 0.3 "S" 7
 			$EditorData {
 				#EditorPos -3.2 -59.7000008
 			}
@@ -3383,7 +3383,7 @@ Y(90): X(-180) = 82, X(-90) = 92, X(0) = 102, X(90) = 112, X(180) = 122"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "PneToCroT" "" "PneToCroLowG" "PneToCroRasG" "" "" "Raised" 0.4 "S" 7
+			 "PneToCroT" "" "PneToCroLowG" "PneToCroRasG" "" "" "dmAI_Raised" 0.4 "S" 7
 			$EditorData {
 				#EditorPos -10.1000004 -51.0
 			}
@@ -3427,7 +3427,7 @@ Y(90): X(-180) = 82, X(-90) = 92, X(0) = 102, X(90) = 112, X(180) = 122"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "PneToErcMoveRasAimT" "" "GoErcMoveHeadLookT" "AimPose" "" "" "Raised && GetLowerTime() > 0.5" 0.3 "S" 1
+			 "PneToErcMoveRasAimT" "" "GoErcMoveHeadLookT" "AimPose" "" "" "dmAI_Raised && GetLowerTime() > 0.5" 0.3 "S" 1
 			$EditorData {
 				#EditorPos 12.0 -61.7999992
 			}
@@ -3439,7 +3439,7 @@ Y(90): X(-180) = 82, X(-90) = 92, X(0) = 102, X(90) = 112, X(180) = 122"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "PneToErcMoveT" "" "PneToErcMoveLowG" "PneToErcMoveRasG" "" "" "Raised && False" 0.3 "S" 7
+			 "PneToErcMoveT" "" "PneToErcMoveLowG" "PneToErcMoveRasG" "" "" "dmAI_Raised && False" 0.3 "S" 7
 			$EditorData {
 				#EditorPos 10.9000006 -60.1000023
 			}
@@ -3487,7 +3487,7 @@ Y(90): X(-180) = 82, X(-90) = 92, X(0) = 102, X(90) = 112, X(180) = 122"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "PneToErcT" "" "PneToErcLowG" "PneToErcRasG" "" "" "Raised" 0.4 "S" 7
+			 "PneToErcT" "" "PneToErcLowG" "PneToErcRasG" "" "" "dmAI_Raised" 0.4 "S" 7
 			$EditorData {
 				#EditorPos 18.1000004 -50.9000015
 			}
@@ -3610,25 +3610,25 @@ Y(45):     X(-45) = 7, X(0) = 7, X(45) = 7"
 			 "ProneRollSTM" ""
 			$States 4 {
 				$State {
-					 "RollLeftLow" "" "RollLeftLowG" "GetCommandI(CMD_Roll) == 0 && !Raised" "realtime" 1
+					 "RollLeftLow" "" "RollLeftLowG" "GetCommandI(CMD_Roll) == 0 && !dmAI_Raised" "realtime" 1
 					$EditorData {
 						#EditorPos -3.3 -25.7000008
 					}
 				}
 				$State {
-					 "RollLeftRas" "" "RollLeftRasG" "GetCommandI(CMD_Roll) == 0 && Raised" "realtime" 1
+					 "RollLeftRas" "" "RollLeftRasG" "GetCommandI(CMD_Roll) == 0 && dmAI_Raised" "realtime" 1
 					$EditorData {
 						#EditorPos -3.3 -26.8000011
 					}
 				}
 				$State {
-					 "RollRightLow" "" "RollRightLowG" "GetCommandI(CMD_Roll) == 1 && !Raised" "realtime" 1
+					 "RollRightLow" "" "RollRightLowG" "GetCommandI(CMD_Roll) == 1 && !dmAI_Raised" "realtime" 1
 					$EditorData {
 						#EditorPos 3.0 -25.6000004
 					}
 				}
 				$State {
-					 "RollRightRas" "" "RollRightRasG" "GetCommandI(CMD_Roll) == 1 && Raised" "realtime" 1
+					 "RollRightRas" "" "RollRightRasG" "GetCommandI(CMD_Roll) == 1 && dmAI_Raised" "realtime" 1
 					$EditorData {
 						#EditorPos 3.0 -26.7000008
 					}
@@ -3636,16 +3636,16 @@ Y(45):     X(-45) = 7, X(0) = 7, X(45) = 7"
 			}
 			$Transitions 4 {
 				$Transition {
-					 "RollLeftLow" "RollLeftRas" "HasVariableChanged(Raised, false)" "0.2" "GetLowerTime()" 1 "S"
+					 "RollLeftLow" "RollLeftRas" "HasVariableChanged(dmAI_Raised, false)" "0.2" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
-					 "RollLeftRas" "RollLeftLow" "HasVariableChanged(Raised, true)" "0.2" "GetLowerTime()" 1 "S"
+					 "RollLeftRas" "RollLeftLow" "HasVariableChanged(dmAI_Raised, true)" "0.2" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
-					 "RollRightLow" "RollRightRas" "HasVariableChanged(Raised, false)" "0.2" "GetLowerTime()" 1 "S"
+					 "RollRightLow" "RollRightRas" "HasVariableChanged(dmAI_Raised, false)" "0.2" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
-					 "RollRightRas" "RollRightLow" "HasVariableChanged(Raised, true)" "0.2" "GetLowerTime()" 1 "S"
+					 "RollRightRas" "RollRightLow" "HasVariableChanged(dmAI_Raised, true)" "0.2" "GetLowerTime()" 1 "S"
 				}
 			}
 			$EditorData {
@@ -3936,10 +3936,10 @@ Y(45):     X(-45) = 7, X(0) = 7, X(45) = 7"
 			 "SickAddQ" "" "SickIKT"
 			$items 2 {
 				$item {
-					 "SickSneezeStanceSTM" "IsCommand(CMD_Modifier_Additive) && GetCommandI(CMD_Modifier_Additive) == 0" "Raised || GetCommandI(CMD_Modifier_Additive) == -1" "" 0.2 0.5 1 0
+					 "SickSneezeStanceSTM" "IsCommand(CMD_Modifier_Additive) && GetCommandI(CMD_Modifier_Additive) == 0" "dmAI_Raised || GetCommandI(CMD_Modifier_Additive) == -1" "" 0.2 0.5 1 0
 				}
 				$item {
-					 "SickCoughStanceSTM" "IsCommand(CMD_Modifier_Additive) && GetCommandI(CMD_Modifier_Additive) == 1" "Raised || GetCommandI(CMD_Modifier_Additive) == -1" "" 0.2 0.5 1 0
+					 "SickCoughStanceSTM" "IsCommand(CMD_Modifier_Additive) && GetCommandI(CMD_Modifier_Additive) == 1" "dmAI_Raised || GetCommandI(CMD_Modifier_Additive) == -1" "" 0.2 0.5 1 0
 				}
 			}
 			$EditorData {
@@ -3950,10 +3950,10 @@ Y(45):     X(-45) = 7, X(0) = 7, X(45) = 7"
 			 "SickHotColdQ" "" "LocomotionQBufferSave"
 			$items 2 {
 				$item {
-					 "SickColdStanceSTM" "IsCommand(CMD_Modifier_Additive) && GetCommandI(CMD_Modifier_Additive) == 2" "Raised || GetCommandI(CMD_Modifier_Additive) == -1" "" 0.2 0.5 1 0
+					 "SickColdStanceSTM" "IsCommand(CMD_Modifier_Additive) && GetCommandI(CMD_Modifier_Additive) == 2" "dmAI_Raised || GetCommandI(CMD_Modifier_Additive) == -1" "" 0.2 0.5 1 0
 				}
 				$item {
-					 "SickHotStanceSTM" "IsCommand(CMD_Modifier_Additive) && GetCommandI(CMD_Modifier_Additive) == 3" "Raised || GetCommandI(CMD_Modifier_Additive) == -1" "" 0.2 0.5 1 0
+					 "SickHotStanceSTM" "IsCommand(CMD_Modifier_Additive) && GetCommandI(CMD_Modifier_Additive) == 3" "dmAI_Raised || GetCommandI(CMD_Modifier_Additive) == -1" "" 0.2 0.5 1 0
 				}
 			}
 			$EditorData {
@@ -4166,7 +4166,7 @@ chainAxis = -x"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "SlidePoseCroRasT" "" "SlidePoseCroRasG" "SlidePoseCroLowG" "" "" "!Raised" 0.4 "S" 7
+			 "SlidePoseCroRasT" "" "SlidePoseCroRasG" "SlidePoseCroLowG" "" "" "!dmAI_Raised" 0.4 "S" 7
 			$EditorData {
 				#EditorPos 12.5 -28.5
 			}
@@ -4211,7 +4211,7 @@ chainAxis = -x"
 			}
 		}
 		$Node AnimNodeBlendT {
-			 "SlidePoseLowT" "" "SlidePoseErcLowG" "SlidePoseErcRasG" "" "" "Raised" 0.4 "S" 7
+			 "SlidePoseLowT" "" "SlidePoseErcLowG" "SlidePoseErcRasG" "" "" "dmAI_Raised" 0.4 "S" 7
 			$EditorData {
 				#EditorPos 8.3000002 -28.5
 			}
@@ -4328,42 +4328,42 @@ chainAxis = -x"
 			$States 10 {
 				$State {
 					 "ErcToPne" "TagErcToPne" "ErcToPneT" "Stance == 2 && HasVariableChanged(Stance, 0) && (MovementSpeed == 0 ||
-(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && Raised))" "normtime" 1
+(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && dmAI_Raised))" "normtime" 1
 					$EditorData {
 						#EditorPos 6.0 -44.2000008
 					}
 				}
 				$State {
 					 "ErcToCro" "TagErcToCro" "ErcToCroT" "Stance == 1 && HasVariableChanged(Stance, 0) && (MovementSpeed == 0 ||
-(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && Raised))" "normtime" 1
+(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && dmAI_Raised))" "normtime" 1
 					$EditorData {
 						#EditorPos 0.2 -48.4000015
 					}
 				}
 				$State {
 					 "CroToErc" "TagCroToErc" "CroToErcT" "Stance == 0 && HasVariableChanged(Stance, 1) && (MovementSpeed == 0 ||
-(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && Raised))" "normtime" 1
+(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && dmAI_Raised))" "normtime" 1
 					$EditorData {
 						#EditorPos 7.2000003 -48.4000015
 					}
 				}
 				$State {
 					 "CroToPne" "TagCroToPne" "CroToPneT" "Stance == 2 && HasVariableChanged(Stance, 1) && (MovementSpeed == 0 ||
-(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && Raised))" "normtime" 1
+(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && dmAI_Raised))" "normtime" 1
 					$EditorData {
 						#EditorPos 1.4 -44.2000008
 					}
 				}
 				$State {
 					 "PneToErc" "TagPneToErc" "PneToErcT" "Stance == 0 && HasVariableChanged(Stance, 2) && (MovementSpeed == 0 ||
-(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && Raised))" "normtime" 1
+(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && dmAI_Raised))" "normtime" 1
 					$EditorData {
 						#EditorPos 8.4000006 -46.7999992
 					}
 				}
 				$State {
 					 "PneToCro" "TagPneToCro" "PneToCroT" "Stance == 1 && HasVariableChanged(Stance, 2) && (MovementSpeed == 0 ||
-(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && Raised))" "normtime" 1
+(MovementDirection <= -50 || MovementDirection >= 50) || (MovementSpeed > 0 && dmAI_Raised))" "normtime" 1
 					$EditorData {
 						#EditorPos -0.9 -46.7999992
 					}
@@ -4373,7 +4373,7 @@ chainAxis = -x"
 &&
 MovementDirection >= -50 && MovementDirection <= 50
 &&
-!Raised" "normtime" 1
+!dmAI_Raised" "normtime" 1
 					$EditorData {
 						#EditorPos 8.4000006 -45.0
 					}
@@ -4383,7 +4383,7 @@ MovementDirection >= -50 && MovementDirection <= 50
 &&
 MovementDirection >= -50 && MovementDirection <= 50
 &&
-!Raised" "normtime" 1
+!dmAI_Raised" "normtime" 1
 					$EditorData {
 						#EditorPos 10.8000002 -45.9000015
 					}
@@ -4393,7 +4393,7 @@ MovementDirection >= -50 && MovementDirection <= 50
 &&
 MovementDirection >= -50 && MovementDirection <= 50
 &&
-!Raised" "normtime" 1
+!dmAI_Raised" "normtime" 1
 					$EditorData {
 						#EditorPos -0.9 -45.0
 					}
@@ -4407,7 +4407,7 @@ MovementSpeed > 0
 &&
 MovementDirection >= -50 && MovementDirection <= 50
 &&
-!Raised" "normtime" 1
+!dmAI_Raised" "normtime" 1
 					$EditorData {
 						#EditorPos -3.2 -45.9000015
 					}
@@ -4473,23 +4473,23 @@ MovementDirection >= -50 && MovementDirection <= 50
 &&
 MovementDirection >= -50 && MovementDirection <= 50
 &&
-!Raised" "0.3" "GetLowerTime()" 1 "S"
+!dmAI_Raised" "0.3" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
-					 "CroToPneMove" "CroToPne" "MovementSpeed == 0 || Raised" "0.3" "GetLowerTime()" 1 "S"
+					 "CroToPneMove" "CroToPne" "MovementSpeed == 0 || dmAI_Raised" "0.3" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
 					 "CroToPneMove" "PneToCroMove" "Stance == 1" "0.3" "1.0-GetLowerTime()" 1 "S"
 				}
 				$Transition {
-					 "PneToCroMove" "PneToCro" "MovementSpeed == 0 || Raised" "0.3" "GetLowerTime()" 1 "S"
+					 "PneToCroMove" "PneToCro" "MovementSpeed == 0 || dmAI_Raised" "0.3" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
 					 "PneToCro" "PneToCroMove" "MovementSpeed > 0 
 &&
 MovementDirection >= -50 && MovementDirection <= 50
 &&
-!Raised" "0.3" "GetLowerTime()" 1 "S"
+!dmAI_Raised" "0.3" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
 					 "PneToCroMove" "CroToPneMove" "Stance == 2" "0.3" "1.0-GetLowerTime()" 1 "S"
@@ -4499,10 +4499,10 @@ MovementDirection >= -50 && MovementDirection <= 50
 &&
 MovementDirection >= -50 && MovementDirection <= 50
 &&
-!Raised" "0.3" "GetLowerTime()" 1 "S"
+!dmAI_Raised" "0.3" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
-					 "ErcToPneMove" "ErcToPne" "MovementSpeed == 0 || Raised" "0.3" "GetLowerTime()" 1 "S"
+					 "ErcToPneMove" "ErcToPne" "MovementSpeed == 0 || dmAI_Raised" "0.3" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
 					 "ErcToPneMove" "PneToErcMove" "Stance == 0" "0.3" "1.0-GetLowerTime()" 1 "S"
@@ -4511,14 +4511,14 @@ MovementDirection >= -50 && MovementDirection <= 50
 					 "PneToErcMove" "ErcToPneMove" "Stance == 2" "0.3" "1.0-GetLowerTime()" 1 "S"
 				}
 				$Transition {
-					 "PneToErcMove" "PneToErc" "MovementSpeed == 0 || Raised" "0.3" "GetLowerTime()" 1 "S"
+					 "PneToErcMove" "PneToErc" "MovementSpeed == 0 || dmAI_Raised" "0.3" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
 					 "PneToErc" "PneToErcMove" "MovementSpeed > 0 
 &&
 MovementDirection >= -50 && MovementDirection <= 50
 &&
-!Raised" "0.3" "GetLowerTime()" 1 "S"
+!dmAI_Raised" "0.3" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
 					 "PneToCroMove" "PneToErcMove" "Stance == 0" "0.3" "GetLowerTime()" 1 "S"
@@ -4541,25 +4541,25 @@ MovementDirection >= -50 && MovementDirection <= 50
 			 "StanceMaster" ""
 			$States 13 {
 				$State {
-					 "IdleRas" "" "IdleRasIK" "Raised && MovementSpeed == 0" "notime" 0
+					 "IdleRas" "" "IdleRasIK" "dmAI_Raised && MovementSpeed == 0" "notime" 0
 					$EditorData {
 						#EditorPos 8.9000006 -11.5
 					}
 				}
 				$State {
-					 "MovementRas" "TagMoveDir" "MovementRasVar" "Raised && MovementSpeed > 0" "notime" 0
+					 "MovementRas" "TagMoveDir" "MovementRasVar" "dmAI_Raised && MovementSpeed > 0" "notime" 0
 					$EditorData {
 						#EditorPos 8.9000006 -13.6999998
 					}
 				}
 				$State {
-					 "IdleLow" "" "IdleLowIK" "!Raised && MovementSpeed == 0" "notime" 0
+					 "IdleLow" "" "IdleLowIK" "!dmAI_Raised && MovementSpeed == 0" "notime" 0
 					$EditorData {
 						#EditorPos 3.1000001 -11.5
 					}
 				}
 				$State {
-					 "MovementLow" "TagMoveDir" "MovementLowVar" "!Raised && MovementSpeed > 0" "notime" 0
+					 "MovementLow" "TagMoveDir" "MovementLowVar" "!dmAI_Raised && MovementSpeed > 0" "notime" 0
 					$EditorData {
 						#EditorPos 3.0 -13.6999998
 					}
@@ -4624,19 +4624,19 @@ MovementDirection >= -50 && MovementDirection <= 50
 					 "" "SlidingPose" "IsCommand(CMD_SlidingPose) && Stance != 2 && !IsTag(\"TagThrowing\") && !IsTag(\"TagStanceChange\")" "0.2" "" 1 "S"
 				}
 				$Transition {
-					 "IdleRas" "PneOnBack" "Stance == 2 && (AimX < -90 || AimX > 90) && !Raised" "LowerTime" "" 0 "S"
+					 "IdleRas" "PneOnBack" "Stance == 2 && (AimX < -90 || AimX > 90) && !dmAI_Raised" "LowerTime" "" 0 "S"
 				}
 				$Transition {
-					 "IdleRas" "IdleLow" "!Raised && !(HasVariableChanged(Stance))" "LowerTime" "" 0 "S"
+					 "IdleRas" "IdleLow" "!dmAI_Raised && !(HasVariableChanged(Stance))" "LowerTime" "" 0 "S"
 				}
 				$Transition {
-					 "IdleLow" "IdleRas" "Raised && !(HasVariableChanged(Stance))" "RaiseTime" "" 1 "S"
+					 "IdleLow" "IdleRas" "dmAI_Raised && !(HasVariableChanged(Stance))" "RaiseTime" "" 1 "S"
 				}
 				$Transition {
-					 "MovementRas" "MovementLow" "!Raised && !(HasVariableChanged(Stance))" "LowerTime" "GetLowerTime()" 1 "S"
+					 "MovementRas" "MovementLow" "!dmAI_Raised && !(HasVariableChanged(Stance))" "LowerTime" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
-					 "MovementLow" "MovementRas" "Raised && !(HasVariableChanged(Stance))" "RaiseTime" "GetLowerTime()" 1 "S"
+					 "MovementLow" "MovementRas" "dmAI_Raised && !(HasVariableChanged(Stance))" "RaiseTime" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
 					 "IdleLow" "MovementLow" "MovementSpeed > 0 && Stance != 2" "0.3" "1-(MovementDirection+180)/(360)" 0 "S"
@@ -4661,29 +4661,29 @@ MovementDirection >= -50 && MovementDirection <= 50
 					 "IdleRas" "MovementRas" "MovementSpeed > 0 && Stance != 2" "0.3" "1-(MovementDirection+180)/(360)" 1 "S"
 				}
 				$Transition {
-					 "StanceChange" "MovementLow" "MovementSpeed > 0 && !Raised && RemainingTimeLess(0.15)" "0.3" "0.3" 1 "S"
+					 "StanceChange" "MovementLow" "MovementSpeed > 0 && !dmAI_Raised && RemainingTimeLess(0.15)" "0.3" "0.3" 1 "S"
 				}
 				$Transition {
 					 "IdleLow" "StanceChange" "HasVariableChanged(Stance)" "0.2" "" 1 "S"
 				}
 				$Transition {
-					 "StanceChange" "IdleLow" "MovementSpeed == 0 && !Raised && RemainingTimeLess(0.01)" "0.3" "" 1 "S"
+					 "StanceChange" "IdleLow" "MovementSpeed == 0 && !dmAI_Raised && RemainingTimeLess(0.01)" "0.3" "" 1 "S"
 				}
 				$Transition {
-					 "StanceChange" "IdleRas" "(MovementSpeed == 0 || Stance == 2) && Raised && RemainingTimeLess(0.15)" "0.3" "" 1 "S"
+					 "StanceChange" "IdleRas" "(MovementSpeed == 0 || Stance == 2) && dmAI_Raised && RemainingTimeLess(0.15)" "0.3" "" 1 "S"
 				}
 				$Transition {
-					 "StanceChange" "MovementRas" "MovementSpeed > 0 && Raised && RemainingTimeLess(0.2) && Stance != 2" "0.3" "" 1 "S"
+					 "StanceChange" "MovementRas" "MovementSpeed > 0 && dmAI_Raised && RemainingTimeLess(0.2) && Stance != 2" "0.3" "" 1 "S"
 				}
 				$Transition {
 					 "MovementRas" "StanceChange" "(HasVariableChanged(Stance, 0) && Stance == 2) || (HasVariableChanged(Stance, 1) && Stance == 2) || (HasVariableChanged(Stance, 2) && Stance == 0) || (HasVariableChanged(Stance, 2) && Stance == 1)
 " "0.2" "" 1 "S"
 				}
 				$Transition {
-					 "SlidingPose" "IdleLow" "GetLowerTime() > 0.18 && !Raised && MovementSpeed == 0" "0.3" "" 1 "S"
+					 "SlidingPose" "IdleLow" "GetLowerTime() > 0.18 && !dmAI_Raised && MovementSpeed == 0" "0.3" "" 1 "S"
 				}
 				$Transition {
-					 "SlidingPose" "IdleRas" "GetLowerTime() > 0.18 && Raised && MovementSpeed == 0" "0.3" "" 1 "S"
+					 "SlidingPose" "IdleRas" "GetLowerTime() > 0.18 && dmAI_Raised && MovementSpeed == 0" "0.3" "" 1 "S"
 				}
 				$Transition {
 					 "PneOnBack" "PneOnBackMovement" "MovementSpeed > 0" "0.3" "" 0 "S"
@@ -4695,22 +4695,22 @@ MovementDirection >= -50 && MovementDirection <= 50
 					 "PneOnBackMovement" "POBStanceChange" "HasVariableChanged(Stance)" "0.2" "" 1 "S"
 				}
 				$Transition {
-					 "PneOnBack" "IdleRas" "Raised" "RaiseTime" "" 0 "S"
+					 "PneOnBack" "IdleRas" "dmAI_Raised" "RaiseTime" "" 0 "S"
 				}
 				$Transition {
-					 "PneOnBack" "PneOnBackRoll" "IsCommand(CMD_Roll) && (!Raised || (Raised && (AimX <= -145 || AimX >= 145)))" "0.2" "" 0 "S"
+					 "PneOnBack" "PneOnBackRoll" "IsCommand(CMD_Roll) && (!dmAI_Raised || (dmAI_Raised && (AimX <= -145 || AimX >= 145)))" "0.2" "" 0 "S"
 				}
 				$Transition {
-					 "" "ProneRoll" "IsCommand(CMD_Roll) && (!Raised || (Raised && AimX >= -50 && AimX <= 50))" "0.2" "" 1 "S"
+					 "" "ProneRoll" "IsCommand(CMD_Roll) && (!dmAI_Raised || (dmAI_Raised && AimX >= -50 && AimX <= 50))" "0.2" "" 1 "S"
 				}
 				$Transition {
-					 "ProneRoll" "IdleRas" "RemainingTimeLess(0.1) && Raised" "0.3" "" 1 "S"
+					 "ProneRoll" "IdleRas" "RemainingTimeLess(0.1) && dmAI_Raised" "0.3" "" 1 "S"
 				}
 				$Transition {
-					 "ProneRoll" "MovementLow" "RemainingTimeLess(0.3) && MovementSpeed > 0 && !Raised" "0.3" "0.5" 1 "S"
+					 "ProneRoll" "MovementLow" "RemainingTimeLess(0.3) && MovementSpeed > 0 && !dmAI_Raised" "0.3" "0.5" 1 "S"
 				}
 				$Transition {
-					 "ProneRoll" "IdleLow" "RemainingTimeLess(0.1) && MovementSpeed ==  0 && !Raised" "0.35" "" 1 "S"
+					 "ProneRoll" "IdleLow" "RemainingTimeLess(0.1) && MovementSpeed ==  0 && !dmAI_Raised" "0.35" "" 1 "S"
 				}
 				$Transition {
 					 "PneOnBackRoll" "PneOnBack" "RemainingTimeLess(0.1) && MovementSpeed == 0" "0.2" "" 1 "S"
@@ -4718,7 +4718,7 @@ MovementDirection >= -50 && MovementDirection <= 50
 				$Transition {
 					 "StanceChange" "MovementLow" "MovementSpeed > 0
 &&
-!Raised
+!dmAI_Raised
 &&
 (
 (
@@ -4739,7 +4739,7 @@ GetRemainingTime() > 0.5
 				$Transition {
 					 "StanceChange" "MovementRas" "MovementSpeed > 0
 &&
-!Raised
+!dmAI_Raised
 &&
 (
 (
@@ -4758,10 +4758,10 @@ GetRemainingTime() > 0.5
 )" "0.3" "" 1 "S"
 				}
 				$Transition {
-					 "POBStanceChange" "IdleLow" "!Raised && RemainingTimeLess(0.1) && MovementSpeed == 0" "0.2" "" 1 "S"
+					 "POBStanceChange" "IdleLow" "!dmAI_Raised && RemainingTimeLess(0.1) && MovementSpeed == 0" "0.2" "" 1 "S"
 				}
 				$Transition {
-					 "POBStanceChange" "IdleRas" "Raised && RemainingTimeLess(0.1) && MovementSpeed == 0" "0.2" "" 1 "S"
+					 "POBStanceChange" "IdleRas" "dmAI_Raised && RemainingTimeLess(0.1) && MovementSpeed == 0" "0.2" "" 1 "S"
 				}
 				$Transition {
 					 "PneOnBack" "POBStanceChange" "HasVariableChanged(Stance)" "0.2" "" 1 "S"
@@ -4779,34 +4779,34 @@ GetRemainingTime() > 0.5
 					 "" "Evade" "IsCommand(CMD_Melee_Evade)" "0.15" "" 6 "S"
 				}
 				$Transition {
-					 "SlidingPose" "MovementRas" "GetLowerTime() > 0.18 && Raised && MovementSpeed > 0 && inRange(MovementDirection, -45.0, 45.0)" "0.3" "0.0" 1 "S"
+					 "SlidingPose" "MovementRas" "GetLowerTime() > 0.18 && dmAI_Raised && MovementSpeed > 0 && inRange(MovementDirection, -45.0, 45.0)" "0.3" "0.0" 1 "S"
 				}
 				$Transition {
-					 "SlidingPose" "MovementRas" "GetLowerTime() > 0.18 && Raised && MovementSpeed > 0 && inRange(MovementDirection, -135.0, -45.0)" "0.3" "0.5" 1 "S"
+					 "SlidingPose" "MovementRas" "GetLowerTime() > 0.18 && dmAI_Raised && MovementSpeed > 0 && inRange(MovementDirection, -135.0, -45.0)" "0.3" "0.5" 1 "S"
 				}
 				$Transition {
-					 "SlidingPose" "MovementRas" "GetLowerTime() > 0.18 && Raised && MovementSpeed > 0 && inRange(MovementDirection, 45.0, 135.0)" "0.3" "0.0" 1 "S"
+					 "SlidingPose" "MovementRas" "GetLowerTime() > 0.18 && dmAI_Raised && MovementSpeed > 0 && inRange(MovementDirection, 45.0, 135.0)" "0.3" "0.0" 1 "S"
 				}
 				$Transition {
-					 "SlidingPose" "MovementRas" "GetLowerTime() > 0.18 && Raised && MovementSpeed > 0 && inRange(MovementDirection, 135.0, 180.0)" "0.3" "0.5" 1 "S"
+					 "SlidingPose" "MovementRas" "GetLowerTime() > 0.18 && dmAI_Raised && MovementSpeed > 0 && inRange(MovementDirection, 135.0, 180.0)" "0.3" "0.5" 1 "S"
 				}
 				$Transition {
-					 "SlidingPose" "MovementRas" "GetLowerTime() > 0.18 && Raised && MovementSpeed > 0 && inRange(MovementDirection, -180.0, -135.0)" "0.3" "0.0" 1 "S"
+					 "SlidingPose" "MovementRas" "GetLowerTime() > 0.18 && dmAI_Raised && MovementSpeed > 0 && inRange(MovementDirection, -180.0, -135.0)" "0.3" "0.0" 1 "S"
 				}
 				$Transition {
-					 "SlidingPose" "MovementLow" "GetLowerTime() > 0.18 && !Raised && MovementSpeed > 0 && inRange(MovementDirection, -25.0, 25.0)" "0.3" "0.5" 1 "S"
+					 "SlidingPose" "MovementLow" "GetLowerTime() > 0.18 && !dmAI_Raised && MovementSpeed > 0 && inRange(MovementDirection, -25.0, 25.0)" "0.3" "0.5" 1 "S"
 				}
 				$Transition {
-					 "SlidingPose" "MovementLow" "GetLowerTime() > 0.18 && !Raised && MovementSpeed > 0 && inRange(MovementDirection, -135.0, -25.0)" "0.3" "0.5" 1 "S"
+					 "SlidingPose" "MovementLow" "GetLowerTime() > 0.18 && !dmAI_Raised && MovementSpeed > 0 && inRange(MovementDirection, -135.0, -25.0)" "0.3" "0.5" 1 "S"
 				}
 				$Transition {
-					 "SlidingPose" "MovementLow" "GetLowerTime() > 0.18 && !Raised && MovementSpeed > 0 && inRange(MovementDirection, 25.0, 135.0)" "0.3" "0.0" 1 "S"
+					 "SlidingPose" "MovementLow" "GetLowerTime() > 0.18 && !dmAI_Raised && MovementSpeed > 0 && inRange(MovementDirection, 25.0, 135.0)" "0.3" "0.0" 1 "S"
 				}
 				$Transition {
-					 "SlidingPose" "MovementLow" "GetLowerTime() > 0.18 && !Raised && MovementSpeed > 0 && inRange(MovementDirection, -180.0, -135.0)" "0.3" "0.5" 1 "S"
+					 "SlidingPose" "MovementLow" "GetLowerTime() > 0.18 && !dmAI_Raised && MovementSpeed > 0 && inRange(MovementDirection, -180.0, -135.0)" "0.3" "0.5" 1 "S"
 				}
 				$Transition {
-					 "SlidingPose" "MovementLow" "GetLowerTime() > 0.18 && !Raised && MovementSpeed > 0 && inRange(MovementDirection, 135.0, 180.0)" "0.3" "0.0" 1 "S"
+					 "SlidingPose" "MovementLow" "GetLowerTime() > 0.18 && !dmAI_Raised && MovementSpeed > 0 && inRange(MovementDirection, 135.0, 180.0)" "0.3" "0.0" 1 "S"
 				}
 				$Transition {
 					 "IdleLow" "MovementLow" "MovementSpeed > 0 && Stance == 2" "0.3" "0.25" 1 "S"
@@ -4818,10 +4818,10 @@ GetRemainingTime() > 0.5
 					 "PneOnBackRoll" "PneOnBackMovement" "RemainingTimeLess(0.3) && MovementSpeed > 0" "0.3" "" 1 "S"
 				}
 				$Transition {
-					 "POBStanceChange" "MovementLow" "!Raised && RemainingTimeLess(0.1) && MovementSpeed > 0" "0.2" "" 1 "S"
+					 "POBStanceChange" "MovementLow" "!dmAI_Raised && RemainingTimeLess(0.1) && MovementSpeed > 0" "0.2" "" 1 "S"
 				}
 				$Transition {
-					 "POBStanceChange" "MovementRas" "Raised && RemainingTimeLess(0.1) && MovementSpeed > 0" "0.2" "" 1 "S"
+					 "POBStanceChange" "MovementRas" "dmAI_Raised && RemainingTimeLess(0.1) && MovementSpeed > 0" "0.2" "" 1 "S"
 				}
 				$Transition {
 					 "POBStanceChange" "PneOnBack" "Stance == 2 && GetLowerTime() < 0.4 && MovementSpeed == 0" "0.4" "" 1 "S"
@@ -4830,10 +4830,10 @@ GetRemainingTime() > 0.5
 					 "POBStanceChange" "PneOnBackMovement" "Stance == 2 && GetLowerTime() < 0.4 && MovementSpeed > 0" "0.3" "" 1 "S"
 				}
 				$Transition {
-					 "Throwing" "IdleLow" "!IsTag(\"TagProneBackExit\") && !IsTag(\"TagThrowingPneTransition\") && (RemainingTimeLess(0.02) || (IsCommand(CMD_Throwing) && GetCommandI(CMD_Throwing) == -1)) && !IsTag(\"TagProneBack\") && MovementSpeed == 0 && !Raised" "0.3" "" 1 "S"
+					 "Throwing" "IdleLow" "!IsTag(\"TagProneBackExit\") && !IsTag(\"TagThrowingPneTransition\") && (RemainingTimeLess(0.02) || (IsCommand(CMD_Throwing) && GetCommandI(CMD_Throwing) == -1)) && !IsTag(\"TagProneBack\") && MovementSpeed == 0 && !dmAI_Raised" "0.3" "" 1 "S"
 				}
 				$Transition {
-					 "Throwing" "MovementLow" "!IsTag(\"TagProneBackExit\") && !IsTag(\"TagThrowingPneTransition\") && (RemainingTimeLess(0.01) || (IsCommand(CMD_Throwing) && GetCommandI(CMD_Throwing) == -1)) && MovementSpeed > 0 && !Raised" "0.6" "GetLowerTime()" 1 "S"
+					 "Throwing" "MovementLow" "!IsTag(\"TagProneBackExit\") && !IsTag(\"TagThrowingPneTransition\") && (RemainingTimeLess(0.01) || (IsCommand(CMD_Throwing) && GetCommandI(CMD_Throwing) == -1)) && MovementSpeed > 0 && !dmAI_Raised" "0.6" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
 					 "IdleLow" "Throwing" "IsCommand(CMD_Throwing) && GetCommandI(CMD_Throwing) == 0" "0.3" "" 0 "S"
@@ -4848,10 +4848,10 @@ GetRemainingTime() > 0.5
 					 "MovementRas" "Throwing" "IsCommand(CMD_Throwing) && GetCommandI(CMD_Throwing) == 0" "0.6" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
-					 "Throwing" "MovementRas" "!IsTag(\"TagProneBackExit\") && !IsTag(\"TagThrowingPneTransition\") && (RemainingTimeLess(0.01) || (IsCommand(CMD_Throwing) && GetCommandI(CMD_Throwing) == -1)) && (AimX >= -90 && AimX <= 90) && MovementSpeed > 0 && Raised" "0.6" "GetLowerTime()" 1 "S"
+					 "Throwing" "MovementRas" "!IsTag(\"TagProneBackExit\") && !IsTag(\"TagThrowingPneTransition\") && (RemainingTimeLess(0.01) || (IsCommand(CMD_Throwing) && GetCommandI(CMD_Throwing) == -1)) && (AimX >= -90 && AimX <= 90) && MovementSpeed > 0 && dmAI_Raised" "0.6" "GetLowerTime()" 1 "S"
 				}
 				$Transition {
-					 "Throwing" "IdleRas" "!IsTag(\"TagProneBackExit\") && !IsTag(\"TagThrowingPneTransition\") && RemainingTimeLess(0.01) || MovementSpeed == 0 && Raised && Stance == 0 && !IsTag(\"TagThrowingPneTransition\") " "0.3" "" 1 "S"
+					 "Throwing" "IdleRas" "!IsTag(\"TagProneBackExit\") && !IsTag(\"TagThrowingPneTransition\") && RemainingTimeLess(0.01) || MovementSpeed == 0 && dmAI_Raised && Stance == 0 && !IsTag(\"TagThrowingPneTransition\") " "0.3" "" 1 "S"
 				}
 				$Transition {
 					 "PneOnBack" "Throwing" "IsCommand(CMD_Throwing) && GetCommandI(CMD_Throwing) == 0" "" "" 1 "S"
@@ -4860,14 +4860,14 @@ GetRemainingTime() > 0.5
 					 "" "Throwing" "false" "0.3" "" 0 "S"
 				}
 				$Transition {
-					 "Throwing" "PneOnBack" "!IsTag(\"TagProneBackExit\") && !IsTag(\"TagThrowingPneTransition\") && (RemainingTimeLess(0.01) || (IsCommand(CMD_Throwing) && GetCommandI(CMD_Throwing) == -1)) && IsTag(\"TagProneBack\") && Stance == 2 && !Raised" "0.3" "" 1 "S"
+					 "Throwing" "PneOnBack" "!IsTag(\"TagProneBackExit\") && !IsTag(\"TagThrowingPneTransition\") && (RemainingTimeLess(0.01) || (IsCommand(CMD_Throwing) && GetCommandI(CMD_Throwing) == -1)) && IsTag(\"TagProneBack\") && Stance == 2 && !dmAI_Raised" "0.3" "" 1 "S"
 				}
 				$Transition {
 					 "SlidingPose" "StanceChange" "(HasVariableChanged(Stance, 0) && Stance == 2) || (HasVariableChanged(Stance, 1) && Stance == 2) || (HasVariableChanged(Stance, 2) && Stance == 0) || (HasVariableChanged(Stance, 2) && Stance == 1)
 " "0.2" "" 0 "S"
 				}
 				$Transition {
-					 "Throwing" "StanceChange" "Raised && IsTag(\"TagThrowingPneTransition\") && Stance == 2" "0.3" "GetLowerTime()" 1 "S"
+					 "Throwing" "StanceChange" "dmAI_Raised && IsTag(\"TagThrowingPneTransition\") && Stance == 2" "0.3" "GetLowerTime()" 1 "S"
 				}
 			}
 			$EditorData {
@@ -7495,7 +7495,7 @@ Y(90): X(-180) = 10, X(-90) = 11, X(0) = 12, X(90) = 13, X(180) = 14"
 			}
 		}
 		$Node AnimNodeBlendTAdd {
-			 "CroTurnHeadLookT" "" "CroTurnIKTarget" "MoveHeadLookPose" "" "" "dmAI_Look && Raised" 0.3 "S" 0
+			 "CroTurnHeadLookT" "" "CroTurnIKTarget" "MoveHeadLookPose" "" "" "dmAI_Look && dmAI_Raised" 0.3 "S" 0
 			$EditorData {
 				#EditorPos 7.5 2.0
 			}
@@ -7616,7 +7616,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendTAdd {
-			 "CroTurnLookBlendT" "" "CroTurnHeadLookT" "LookInjBlend" "" "" "dmAI_Look && !Raised" 0.3 "S" 0
+			 "CroTurnLookBlendT" "" "CroTurnHeadLookT" "LookInjBlend" "" "" "dmAI_Look && !dmAI_Raised" 0.3 "S" 0
 			$EditorData {
 				#EditorPos 7.5 3.0
 			}
@@ -7658,7 +7658,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendTAdd {
-			 "ErcTurnHeadLookT" "" "ErcTurnIKTarget" "MoveHeadLookPose" "" "" "dmAI_Look && Raised" 0.3 "S" 0
+			 "ErcTurnHeadLookT" "" "ErcTurnIKTarget" "MoveHeadLookPose" "" "" "dmAI_Look && dmAI_Raised" 0.3 "S" 0
 			$EditorData {
 				#EditorPos 11.0 2.0
 			}
@@ -7779,7 +7779,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendTAdd {
-			 "ErcTurnLookBlendT" "" "ErcTurnHeadLookT" "LookInjBlend" "" "" "dmAI_Look && !Raised" 0.3 "S" 0
+			 "ErcTurnLookBlendT" "" "ErcTurnHeadLookT" "LookInjBlend" "" "" "dmAI_Look && !dmAI_Raised" 0.3 "S" 0
 			$EditorData {
 				#EditorPos 11.0 3.0
 			}
@@ -7996,13 +7996,13 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendTAdd {
-			 "IdleLookLowBlendT" "" "IdleLookRasBlend" "LookInjBlend" "" "" "dmAI_Look && !Raised" 0.3 "S" 0
+			 "IdleLookLowBlendT" "" "IdleLookRasBlend" "LookInjBlend" "" "" "dmAI_Look && !dmAI_Raised" 0.3 "S" 0
 			$EditorData {
 				#EditorPos -1.4 9.1999998
 			}
 		}
 		$Node AnimNodeBlendTAdd {
-			 "IdleLookRasBlend" "" "IdleIKTarget" "MoveLookPose" "" "" "dmAI_Look && Raised" 0.3 "S" 0
+			 "IdleLookRasBlend" "" "IdleIKTarget" "MoveLookPose" "" "" "dmAI_Look && dmAI_Raised" 0.3 "S" 0
 			$EditorData {
 				#EditorPos -1.4 8.1999998
 			}
@@ -8173,7 +8173,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodeBlendTAdd {
-			 "PneTurnLookBlendT" "" "PneTurnIKTarget" "MoveLookPose" "" "" "dmAI_Look && !Raised" 0.3 "S" 0
+			 "PneTurnLookBlendT" "" "PneTurnIKTarget" "MoveLookPose" "" "" "dmAI_Look && !dmAI_Raised" 0.3 "S" 0
 			$EditorData {
 				#EditorPos 14.8000002 3.0
 			}
@@ -8745,7 +8745,7 @@ RFootIKTarget = RightUpLeg, RightUpLegRoll, RightLeg, RightLegRoll, RightFoot"
 			}
 		}
 		$Node AnimNodePose2 {
-			 "AimInjPose" "" "LocomotionInjured.Aim" "AimY" "AimX" "Y(-90): X(-180)= 0, X(-90) = 1, X(0) = 2, X(90) = 3, X(180) = 4
+			 "AimInjPose" "" "LocomotionInjured.Aim" "dmAI_AimY" "dmAI_AimX" "Y(-90): X(-180)= 0, X(-90) = 1, X(0) = 2, X(90) = 3, X(180) = 4
 Y(0): X(-180) = 5, X(-90) = 6, X(0) = 7, X(90) = 8, X(180) = 9
 Y(90): X(-180) = 10, X(-90) = 11, X(0) = 12, X(90) = 13, X(180) = 14"
 			$EditorData {
@@ -8753,7 +8753,7 @@ Y(90): X(-180) = 10, X(-90) = 11, X(0) = 12, X(90) = 13, X(180) = 14"
 			}
 		}
 		$Node AnimNodePose2 {
-			 "AimInjWalkPose" "" "LocomotionInjured.AimWalk" "AimY" "AimX" "Y(-90): X(-180)= 0, X(-90) = 1, X(0) = 2, X(90) = 3, X(180) = 4
+			 "AimInjWalkPose" "" "LocomotionInjured.AimWalk" "dmAI_AimY" "dmAI_AimX" "Y(-90): X(-180)= 0, X(-90) = 1, X(0) = 2, X(90) = 3, X(180) = 4
 Y(0): X(-180) = 5, X(-90) = 6, X(0) = 7, X(90) = 8, X(180) = 9
 Y(90): X(-180) = 10, X(-90) = 11, X(0) = 12, X(90) = 13, X(180) = 14"
 			$EditorData {
@@ -8767,7 +8767,7 @@ Y(90): X(-180) = 10, X(-90) = 11, X(0) = 12, X(90) = 13, X(180) = 14"
 			}
 		}
 		$Node AnimNodePose2 {
-			 "AimObstPose" "" "Locomotion.AimObst" "AimY" "AimX" "Y(-90): X(-180)= 0, X(-90) = 3, X(0) = 6, X(90) = 9, X(180) = 12
+			 "AimObstPose" "" "Locomotion.AimObst" "dmAI_AimY" "dmAI_AimX" "Y(-90): X(-180)= 0, X(-90) = 3, X(0) = 6, X(90) = 9, X(180) = 12
 Y(0): X(-180) = 13, X(-90) = 16, X(0) = 19, X(90) = 22, X(180) = 25
 Y(90): X(-180) = 26, X(-90) = 29, X(0) = 32, X(90) = 35, X(180) = 38"
 			$EditorData {
@@ -8775,7 +8775,7 @@ Y(90): X(-180) = 26, X(-90) = 29, X(0) = 32, X(90) = 35, X(180) = 38"
 			}
 		}
 		$Node AnimNodePose2 {
-			 "AimPose" "" "Locomotion.Aim" "AimY" "AimX" "Y(-90): X(-180)= 0, X(-90) = 3, X(0) = 6, X(90) = 9, X(180) = 12
+			 "AimPose" "" "Locomotion.Aim" "dmAI_AimY" "dmAI_AimX" "Y(-90): X(-180)= 0, X(-90) = 3, X(0) = 6, X(90) = 9, X(180) = 12
 Y(0): X(-180) = 13, X(-90) = 16, X(0) = 19, X(90) = 22, X(180) = 25
 Y(90): X(-180) = 26, X(-90) = 29, X(0) = 32, X(90) = 35, X(180) = 38"
 			$EditorData {
@@ -8789,7 +8789,7 @@ Y(90): X(-180) = 26, X(-90) = 29, X(0) = 32, X(90) = 35, X(180) = 38"
 			}
 		}
 		$Node AnimNodePose2 {
-			 "AimRunPose" "" "Locomotion.AimRun" "AimY" "AimX" "Y(-90): X(-180)= 0, X(-90) = 1, X(0) = 2, X(90) = 3, X(180) = 4
+			 "AimRunPose" "" "Locomotion.AimRun" "dmAI_AimY" "dmAI_AimX" "Y(-90): X(-180)= 0, X(-90) = 1, X(0) = 2, X(90) = 3, X(180) = 4
 Y(0): X(-180) = 5, X(-90) = 6, X(0) = 7, X(90) = 8, X(180) = 9
 Y(90): X(-180) = 10, X(-90) = 11, X(0) = 12, X(90) = 13, X(180) = 14"
 			$EditorData {
@@ -8797,7 +8797,7 @@ Y(90): X(-180) = 10, X(-90) = 11, X(0) = 12, X(90) = 13, X(180) = 14"
 			}
 		}
 		$Node AnimNodePose2 {
-			 "AimRunPoseObst" "" "Locomotion.AimRunObst" "AimY" "AimX" "Y(-90): X(-180)= 0, X(-90) = 1, X(0) = 2, X(90) = 3, X(180) = 4
+			 "AimRunPoseObst" "" "Locomotion.AimRunObst" "dmAI_AimY" "dmAI_AimX" "Y(-90): X(-180)= 0, X(-90) = 1, X(0) = 2, X(90) = 3, X(180) = 4
 Y(0): X(-180) = 5, X(-90) = 6, X(0) = 7, X(90) = 8, X(180) = 9
 Y(90): X(-180) = 10, X(-90) = 11, X(0) = 12, X(90) = 13, X(180) = 14"
 			$EditorData {
@@ -8805,7 +8805,7 @@ Y(90): X(-180) = 10, X(-90) = 11, X(0) = 12, X(90) = 13, X(180) = 14"
 			}
 		}
 		$Node AnimNodePose2 {
-			 "AimWalkPose" "" "Locomotion.AimWalk" "AimY" "AimX" "Y(-90): X(-180)= 0, X(-90) = 1, X(0) = 2, X(90) = 3, X(180) = 4
+			 "AimWalkPose" "" "Locomotion.AimWalk" "dmAI_AimY" "dmAI_AimX" "Y(-90): X(-180)= 0, X(-90) = 1, X(0) = 2, X(90) = 3, X(180) = 4
 Y(0): X(-180) = 5, X(-90) = 6, X(0) = 7, X(90) = 8, X(180) = 9
 Y(90): X(-180) = 10, X(-90) = 11, X(0) = 12, X(90) = 13, X(180) = 14"
 			$EditorData {

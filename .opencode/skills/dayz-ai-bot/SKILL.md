@@ -247,8 +247,14 @@ description: Живой справочник по серверным ИИ-бот
 - **Пресеты**: `dmBotPreset_Combat` (Idle + Fighting, вход по `HasHostile`);
   `dmBotPreset_Escort` — Fighting входит по `HasHostile` из Idle/Follow (Follow выходит
   в Fighting при `GetHostileTarget() != null`). `/bot combat` переключает боевой пресет.
-- Огнестрел (прицел/стрельба/перезарядка) — TODO, research `docs/research/combat.md`.
-- `HasNoAmmo()` — заглушка `false` (TODO: инспекция магазина). `HasPlayerSigns()` — заглушка `false`.
+- **Огнестрел (T11)** — `dmBotState_Shooting` (PREEMPTIVE: Raise→aim→fire по кулдауну→EXIT при пустом магазине) + примитивы пешки:
+  - **подъём** — кастомная граф-переменная `dmAI_Raised` + `AnimSetBool` (вшита в граф), НЕ raised-стойка;
+  - **прицел** — `SetAimTarget(EntityAI)` (кость `neck`→цель → `m_AimRelAngleLR/UD`) + кастомные `dmAI_AimX/AimY` + `SetADS`;
+  - **выстрел** — `dmBot_Fire(mi)` → `Fire(mi, pos, dir, dir)` с явным `dir` (`GetWeaponAimDirection()`), через `modded WeaponFire` (ванильный `TryFireWeapon` берёт `GetCameraPoint` — внутренний прицел, у ИИ не задан);
+  - **перезарядка** — `dmBotWeaponManager : WeaponManager` (серверный `StartAction`/`OnWeaponActionEnd`) + `ReloadWeaponAI()`;
+  - **звук** — `modded Weapon_Base.SyncEventToRemote` (шлёт `INPUT_UDT_WEAPON_REMOTE_EVENT` для `INSTANCETYPE_AI_SERVER`);
+  - **`HasNoAmmo()`** — реальная инспекция магазина (`IsChamberEmpty/FiredOut` + `Magazine.GetAmmoCount()`).
+- **Ванильные «конкуренты» прицела**: `HandleWeapons`/`HandleADS`/`HandleOptic` (все зовутся из `CommandHandler`, каждый может `ExitSights()→SetADS(false)`) + `AimingModel` — переопределить no-op'ом/false, иначе наш `SetADS` топчется и ствол трясётся/не поднимается. `HasPlayerSigns()` — заглушка `false`.
 
 ## Лут
 
@@ -287,6 +293,18 @@ description: Живой справочник по серверным ИИ-бот
   (entity/class + память lastPosition/LOS/lastContact + оценка threat/attractiveness/
   friendly) — `threat`/`friendly` уже питают бой (`GetHostileTarget`); attractiveness — к
   луту ещё не подключена.
+- **Engine-driven граф-переменные**: `Raised`/`AimX`/`AimY`/`AimIKX` — проекция
+  стойки/прицела, движок перезаписывает их каждый кадр → `AnimSetBool/Float` на них —
+  no-op. Для ИИ нужны **свои** переменные (`dmAI_Raised`/`dmAI_AimX/AimY`) + вшивка в граф
+  (добавить `#Var` в `player_main.agr`, заменить токен в `.agr`).
+- **`STANCEIDX_RAISED` — НЕ маска/смещение**: enum последовательный (`ERECT=0, CROUCH=1,
+  PRONE=2, RAISEDERECT=3, RAISEDCROUCH=4, RAISEDPRONE=5, RAISED=6`). Смещение «raised» = 3,
+  а `STANCEIDX_RAISED` (=6) — sentinel. Поднимать оружие через стойку — только
+  `STANCEIDX_RAISEDERECT` явно; комментарий ванили «ERECT+RAISED=RAISEDERECT» — устаревший.
+- **Ванильные «конкуренты» прицела**: `DayZPlayerImplement.CommandHandler` зовёт ТРИ
+  метода оружия подряд — `HandleADS()`, `HandleWeapons()`, `HandleOptic()` — и каждый может
+  `ExitSights()→hcw.SetADS(false)`. Чтобы гнать `SetADS` самому, переопределить ВСЕ ТРИ
+  no-op'ом + `AimingModel(...)→false`. (Мы гоняли ADS в `ApplyWeaponADS` после super.)
 
 ## Памятки (когда пишешь код)
 
@@ -308,6 +326,10 @@ description: Живой справочник по серверным ИИ-бот
   Ошибка: follow определял «игрок двигается» по смещению позиции → поворот на месте
   триггерил подход. Правильно: фиксированная точка стояния + пере-выбор стороны только
   при `distToPlayer > мёртвая_зона` (или nudge по таймеру).
+- **Подъём/прицел оружия у ИИ** → кастомные граф-переменные (`dmAI_Raised`/`dmAI_AimX/Y`),
+  НЕ raised-стойка и НЕ ванильные `Raised`/`AimX/Y` (engine-driven, см. DayZ-готчи).
+  Граф: добавить `#Var` в `player_main.agr` + заменить токен в `Locomotion.agr`/`Actions.agr`.
+  Выстрел — явный `dir` в `Fire(mi,pos,dir,dir)`, не ванильный `TryFireWeapon` (`GetCameraPoint`).
 
 ## Ключевые файлы
 

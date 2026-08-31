@@ -469,6 +469,134 @@ Expansion НЕ использует ванильный `Raised` (по той ж�
 аним-переменные `AimX/AimY` + `Raised` + `HumanCommandWeapons.SetADS`. `ForceStance(RAISEDERECT)`
 для этого НЕ нужен.
 
+### Визуальный прицел: наклон ствола + IK рук + ADS
+
+**Задача**: ствол визуально указывает на цель, руки не трясутся, есть поза «прижал щеку»
+(ironsights/optics). Всё подтверждено чтением графов (`botorama/Animations/*.agr` — копия
+ванили `DZ/anims/workspaces/player/player_main/`) и ванильных скриптов.
+
+#### Кто гонит наклон ствола и IK (AimX/AimY/AimIKX vs engine)
+
+**`AimX`/`AimY`/`AimIKX` — engine-driven, скриптом НЕ пишутся.** Цепочка:
+
+1. Мышь → `HumanInputController.OverrideAimChangeX/Y(...)` (`3_game/human.c:240/243`) → базовый
+   угол прицела `m_fCurrentAimX/Y` (`SDayZPlayerAimingModel`, `3_game/dayzplayer.c:1104-1105`).
+2. Движок вызывает `DayZPlayerImplement.AimingModel()` (`dayzplayerimplement.c:1707`) только при
+   `m_MovementState.IsRaised()` (`:1726`); скрипт-класс `DayZPlayerImplementAiming.ProcessAimFilters`
+   (`dayzplayerimplementaiming.c:162`) вычисляет **оффсеты** (дыхание/шум/отдача/kuru) и пишет их в
+   `m_fAimXHandsOffset/Y` (`:236-237`), `m_fAimXCamOffset/Y` (`:248-249`), `m_fAimXMouseShift/Y`
+   (`:271-272`). Абсолютные `AimX/AimY` скрипт НЕ пишет — их пишет движок как `base aim + offset`.
+3. Движок проецирует результат в граф: `AimX`/`AimY`/`AimIKX`. `GetBaseAimingAngleUD/LR()` —
+   нативы (`human.c:1095/1098`) = base aim «без sway/offsets».
+
+Что эти переменные двигают в графе:
+
+- **`AimX`+`AimY` → `AnimNodePose2`** (2D blend space, 13×3 поз): `AimPose` (`Locomotion.agr:8778`),
+  `AimObstPose` `:8770`, `AimInjPose` `:8748`, `AimInjWalkPose` `:8756`, `AimRunPose` `:8792`,
+  `AimRunPoseObst` `:8800`, `AimWalkPose` `:8808` — все читают `"AimY" "AimX"` (вертикаль первой,
+  горизонталь второй), позы из сетов `Locomotion.Aim/AimObst/AimRun/AimWalk/...`. **Это и есть
+  «наклон ствола»** — поворот корпуса+рук+ствола в нужную сторону.
+- **`AimIKX`+`AimY` → `AnimNodeWeaponIK`** (hand IK): `NormalWeaponIK` (`Locomotion.agr:2566`),
+  `AnimNodeWeaponIK` в `Actions.agr:1627/1995/2035/4575/5155/6816` (и `master.agr:23` — там
+  `"AimIKX" "AimX"`). Включается битами `ArmIK` (`isbitset(ArmIK, 0/1/2)`). **Переменной `AimIKY`
+  НЕТ** — вертикальный IK берёт `AimY` (горизонтальный — `AimIKX`); в `master.agr` вертикаль
+  берёт `AimX`. Это «прижим рук к цевью/рукояти».
+- **`ArmIK`** (int 0..7, `player_main.agr:115`) — маска включения IK, ставится движком из
+  item-behavior конфига: `SetIKStance(STANCEIDX_RAISEDERECT, true, true, true)` для FIREARMS
+  (`dayzplayercfgbase.c:191`), т.е. в raised-стойке hand-IK **полностью включён**.
+
+Вывод: `AnimSetFloat("AimX"/"AimY")` (наш текущий код `dmAISurvivorBase.c:288-290`) — **no-op**,
+движок каждый кадр перезаписывает эти переменные из своей aim-модели.
+
+#### Как Expansion вшивает кастомные aim-переменные в граф
+
+- Бинд: `m_VAR_AimX = hai.BindVariableFloat("eAI_AimX")`, `m_VAR_AimY = BindVariableFloat("eAI_AimY")`,
+  `m_VAR_Raised = BindVariableBool("eAI_Raised")`, `m_VAR_ADS = BindVariableBool("ADS")` (ванильный!)
+  (`Core/Scripts/.../Classes/Commands/ExpansionHumanST.c:139-145`, под `#ifdef EXPANSIONMODAI`).
+- Запись: `AnimSetFloat(m_VAR_AimX/AimY, aimX/aimY)` в `eAI_HandleWeapons` (`eAIBase.c:9587-9588`);
+  raise — `AnimSetBool(m_VAR_Raised, m_WeaponRaised)` (`:9536`); ADS — натив `hcw.SetADS(ads)`
+  (`:9608`), `AnimSetBool(m_VAR_ADS, ads)` **закомментирован** (`:9606`).
+- `override AimingModel(...) → false` (`eAIBase.c:9993`).
+- Их граф в репо НЕ лежит (только `graphName="DayZExpansion\Animations\AI\player_main.agr"`,
+  `Animations/AI/config.cpp:55`). Паттерн (восстановлен по биндам/вызовам, посимвольно **не
+  подтверждено**): их кастомный `player_main.agr` — копия ванильного, где `AnimNodePose2`-ноды и
+  `AnimNodeWeaponIK`-ноды переписаны читать `eAI_AimX/eAI_AimY` вместо `AimX/AimY/AimIKX`, а
+  raise-машина — на `eAI_Raised` вместо `Raised`. Т.е. прицел целиком выведен из-под движка и
+  гонится скриптом через кастомные переменные.
+
+#### Причина тряски рук и как её убрать
+
+**Тряска — от `AnimNodeWeaponIK` (hand IK).** В raised-стойке `ArmIK` включён (см. выше),
+IK-нода активна и читает engine-driven `AimIKX`/`AimY`. У ИИ они не задаются скриптом (no-op) и
+не приходят от мыши → движок гоняет их сам (нативная проекция/реконсиляция прицела при
+«raised»-команде) → IK-таргет дёргается → руки визуально трясутся.
+
+- `override AimingModel(...) → false` отключает ТОЛЬКО скриптовые оффсеты (`m_fAimXHandsOffset`,
+  recoil, kuru — `ProcessAimFilters`). Нативную проекцию IK это НЕ трогает → поэтому «AimingModel
+  = false НЕ помогло» (ожидаемо).
+- Второй источник: в raised-стойке тикает ванильная ADS-машина `HandleWeapons`
+  (`dayzplayerimplement.c:1894-1999`, см. ниже), которая сама зовёт `ExitSights()` → `SetADS(false)`
+  и `ResetADS`.
+
+**Как убрать (Expansion-подход)**: НЕ входить в raised-стойку (не форсить `STANCEIDX_RAISED`),
+тогда `ArmIK` не включён и IK-нода неактивна, а raise/aim гнать целиком кастомными переменными
+(вариант (а) из раздела raise). Если raised-стойка нужна — переписать `AnimNodeWeaponIK` читать
+кастомные `dmAI_AimIKX`/`dmAI_AimY` и писать туда **сглаженные** значения (а не скачущие углы
+цели), чтобы руки не дёргались. (Нативный механизм дёрганья `AimIKX/AimY` — гипотеза, на живом
+сервере проверить через `DM_BOT_DEBUG_FSM`/`PAWN`-лог значений.)
+
+#### ADS / ironsights / optics поза (SetADS)
+
+- `HumanCommandWeapons.SetADS(bool)` — натив (`3_game/human.c:1029`) = «sets head tilt to optics»,
+  пишет engine-var `ADS` → граф выбирает ADS-позы `Locomotion.*.AimingDownSight`:
+  `IdleRasADSPose` (`Locomotion.agr:8011`), `ErcADSPose` `:8858`, `CroADSPose` `:8816`,
+  `PneADSPose` `:8974`; переходы — по условию `ADS` (`IdleRasADST :8017`, `ErcADST :436`,
+  `CroADST`/`PneADST` и т.д.). Это и есть «щека прижата к прикладу».
+- `IsInIronsights()`/`IsInOptics()` (`dayzplayerimplement.c:289/294`) — **камерные** флаги
+  (`m_CameraIronsight`/`m_CameraOptics`), НЕ поза. Позу даёт только `SetADS`.
+- Ванильная ADS-машина (`dayzplayerimplement.c:1894-1999`): `m_bADS = hic.WeaponADS()` (инпут);
+  `hcw.SetADS(true)` зовётся **только** в ветке `switchToADS` при `m_bADS == true` (`:1983-1986`);
+  иначе `exitSights = true` → `ExitSights()` → `hcw.SetADS(false)` (`:421`).
+- **Корень «бот стреляет не прицеливаясь»**: наш `ApplyWeaponAim()` зовёт `hcw.SetADS(m_WeaponRaised)`
+  ДО `super.CommandHandler()` (`dmAISurvivorBase.c:336` → `:294`). Затем `super.CommandHandler()`
+  → `HandleWeapons` (работает, т.к. `m_MovementState.IsRaised()`) → `hic.WeaponADS() == false` →
+  `exitSights` → `ExitSights()` → `SetADS(false)` **перетирает наш true каждый кадр**.
+
+#### Минимальный рецепт для botorama (точные переходы/переменные)
+
+1. **`player_main.agr` `$Vars`** — добавить (ванильные `AimX/AimY/AimIKX` ОСТАВИТЬ — натив
+   обращается к ним по хешу имени):
+   ```
+   #Var dmAI_AimX float 0.0 -180.0 180.0 ""
+   #Var dmAI_AimY float 0.0 -85.0 85.0 ""
+   #Var dmAI_AimIKX float 0.0 -180.0 180.0 ""
+   ```
+2. **`Locomotion.agr` — переписать `AnimNodePose2`** (заменить `"AimY" "AimX"` на
+   `"dmAI_AimY" "dmAI_AimX"`) в: `AimPose :8778`, `AimObstPose :8770`, `AimInjPose :8748`,
+   `AimInjWalkPose :8756`, `AimRunPose :8792`, `AimRunPoseObst :8800`, `AimWalkPose :8808`.
+3. **`Locomotion.agr` — `AnimNodeWeaponIK` `NormalWeaponIK :2566`** (и, при желании, IK-ноды в
+   `Actions.agr`/`master.agr`): заменить `"AimIKX" "AimY"` на `"dmAI_AimIKX" "dmAI_AimY"` и писать
+   туда стабильные значения. **Проще/надёжнее** (Expansion-путь): не входить в raised-стойку
+   (`ArmIK` выключен → IK неактивен → тряски нет), а raise-позу вести кастомной `dmAI_Raised`
+   (вариант (а) раздела raise).
+4. **Скрипт `dmAISurvivorBase`**:
+   - `BindLookVars()` (`:131-132`): биндить `"dmAI_AimX"/"dmAI_AimY"` вместо `"AimX"/"AimY"`.
+   - `ApplyWeaponAim()` (`:283-295`): `AnimSetFloat(m_VarAimX, m_AimRelAngleLR)` /
+     `AnimSetFloat(m_VarAimY, m_AimRelAngleUD)` — оставить (теперь пишут кастомные vars);
+     **`hcw.SetADS(m_WeaponRaised)` перенести ПОСЛЕ `super.CommandHandler()`** (рядом с
+     `ApplyBodyTurn`/`ApplyMovement`), иначе ваниль `ExitSights()` перетрёт.
+   - Сгладить `m_AimRelAngleLR/UD` (например `Math.SmoothCD`) перед записью в граф — ствол не
+     дёргается.
+5. **ADS-поза** = `hcw.SetADS(m_WeaponRaised)` после `super` → граф сам переключит на
+   `AimingDownSight`. Режимы: «от бедра» = raised без `SetADS`; «с мушки» = `SetADS(true)` без
+   оптики; «в оптику» = `SetADS(true)` + `SwitchOptics(optic, true)` (TODO, позже).
+
+Открытые вопросы: точный текст `.agr` Expansion недоступен (PBO) — паттерн восстановлен по
+биндам/вызовам, посимвольно «не подтверждено». Нативный механизм тряски (переписывание
+`AimIKX/AimY` движком в raised-стойке) — гипотеза, проверять на живом сервере; если тряска
+останется после рецепта — выключить `ArmIK` (не входить в raised-стойку) или писать 0 в
+`dmAI_AimIKX/dmAI_AimY`.
+
 ### Выстрел (fire) — API + эталон
 
 **Ваниль (сигнатуры)**:

@@ -664,3 +664,85 @@ class dmBotTest_Shoot : dmBotTestCase
 		return msg;
 	}
 }
+
+//! Aim observation: raise the weapon, aim at a spawned zombie, fire three shots,
+//! lower the weapon. Drives the pawn primitives directly (no combat FSM), so the
+//! auto-fire logic doesn't cover the raise/aim/fire animation being observed.
+class dmBotTest_Aim : dmBotTestCase
+{
+	int m_Phase = 0;
+	EntityAI m_Zombie;
+	float m_NextTime = 0.0;
+	int m_SpawnDistMeters;
+
+	//! Spawn distance from the player (meters); 0 = DM_SPAWN_DISTANCE default.
+	void SetSpawnDistance(int meters)
+	{
+		m_SpawnDistMeters = meters;
+		m_SpawnDistance = meters;
+	}
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return;
+
+		//! CreateInHands places the weapon directly in the bot's hands; SpawnAmmo
+		//! attaches a magazine AND chambers a round, so the weapon is ready to fire.
+		Weapon_Base gun = Weapon_Base.Cast(pawn.GetHumanInventory().CreateInHands("AKM"));
+		if (!gun)
+			return;
+
+		gun.SpawnAmmo("Mag_AKM_30Rnd");
+
+		Magazine mag = gun.GetMagazine(gun.GetCurrentMuzzle());
+		if (mag)
+			mag.ServerSetAmmoCount(30);
+
+		//! Zombie target 15 m ahead of the bot (the bot just stands, no FSM).
+		vector pos = bot.GetPosition();
+		vector dir = pawn.GetDirection();
+		dir[1] = 0.0;
+		dir.Normalize();
+		pos = pos + dir * 15.0;
+		m_Zombie = EntityAI.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", pos, false));
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Наблюдение прицела». Бот поднимает АКМ, целится в зомби (15 м), пауза 10 с, три выстрела с интервалом, пауза 10 с, опускает оружие. Боевой FSM не ставится — примитивы пешки зовутся напрямую.";
+	}
+
+	override float GetInterval() { return 1.0; }
+
+	override float GetDuration() { return 30.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Bot.GetPawn());
+		if (!pawn) return "FAIL: нет пешки";
+		if (!m_Zombie) return "FAIL: нет зомби";
+
+		if (m_Phase == 0)
+		{
+			// поднять оружие + навестись
+			pawn.RaiseWeapon(true);
+			vector aimPos = m_Zombie.GetPosition();
+			aimPos = aimPos + Vector(0, DM_EYE_HEIGHT, 0);
+			m_Bot.LookAtPoint(aimPos, dmBotLookTurn.FULL);
+			pawn.SetAimTarget(m_Zombie);
+			m_Phase = 1;
+			m_NextTime = elapsed + DM_TEST_AIM_HOLD;
+			return "поднял оружие, навёлся (пауза 10с)";
+		}
+		if (elapsed < m_NextTime) return "";
+
+		if (m_Phase == 1) { pawn.RequestFire(m_Zombie); m_Phase = 2; m_NextTime = elapsed + DM_TEST_AIM_SHOT_INTERVAL; return "выстрел 1"; }
+		if (m_Phase == 2) { pawn.RequestFire(m_Zombie); m_Phase = 3; m_NextTime = elapsed + DM_TEST_AIM_SHOT_INTERVAL; return "выстрел 2"; }
+		if (m_Phase == 3) { pawn.RequestFire(m_Zombie); m_Phase = 4; m_NextTime = elapsed + DM_TEST_AIM_HOLD; return "выстрел 3 (пауза 10с)"; }
+		if (m_Phase == 4) { pawn.RaiseWeapon(false); m_Phase = 5; m_NextTime = elapsed + 3.0; return "опустил оружие"; }
+		if (m_Phase == 5) return "PASS: наблюдение завершено";
+		return "";
+	}
+}

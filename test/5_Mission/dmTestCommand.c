@@ -22,6 +22,9 @@
 //!   /test bot target   — реактивная угроза: зомби → RegisterDamageThreat → hostile → null.
 //!   /test bot shoot {N} — стрельба: заряженный АКМ + угроза → Shooting → патроны
 //!                                убывают; {N} — дистанция спавна бота от игрока в метрах.
+//!   /test bot aim {N}   — наблюдение прицела: поднять АКМ, навестись, пауза 10 с,
+//!                                три выстрела, пауза 10 с, опустить оружие (примитивы
+//!                                пешки напрямую, без боевого FSM); {N} — дистанция спавна.
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -37,10 +40,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N}");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N}");
 			return false;
 		}
 
@@ -65,6 +68,8 @@ class dmTestCommand : dmCommandModule
 			return HandleBodyTest(player, new dmBotTest_Target());
 		if (parts[2] == DM_CHAT_TEST_SHOOT)
 			return HandleShootTest(player, parts);
+		if (parts[2] == DM_CHAT_TEST_AIM)
+			return HandleAimTest(player, parts);
 
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий: " + parts[2]);
 		return false;
@@ -82,6 +87,20 @@ class dmTestCommand : dmCommandModule
 	private bool HandleShootTest(PlayerBase player, array<string> parts)
 	{
 		dmBotTest_Shoot test = new dmBotTest_Shoot();
+		if (parts.Count() >= 4)
+		{
+			int dist = parts[3].ToInt();
+			if (dist > 0)
+				test.SetSpawnDistance(dist);
+		}
+		return HandleBodyTest(player, test);
+	}
+
+	//! /test bot aim {N} — aim-observation test; N (meters) is the optional spawn
+	//! distance from the player (0/default = DM_SPAWN_DISTANCE).
+	private bool HandleAimTest(PlayerBase player, array<string> parts)
+	{
+		dmBotTest_Aim test = new dmBotTest_Aim();
 		if (parts.Count() >= 4)
 		{
 			int dist = parts[3].ToInt();
