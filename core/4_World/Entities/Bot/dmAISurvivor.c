@@ -457,9 +457,9 @@ class dmAISurvivor
 		return m_Pathfinder.FindPath(GetPosition(), sampled, path);
 	}
 
-	//! Открыть закрытую незапертую дверь прямо перед ботом. Рейкаст вперёд на
-	//! уровне глаз; если попадание — Building с закрытой дверью, открыть её
-	//! серверным нативом (ActionManager не нужен). Возвращает true, если открыл.
+	//! Обнаружить закрытую незапертую дверь прямо перед ботом и запустить
+	//! EXCLUSIVE-интент dmBotIntent_OpenDoor (отойти → открыть → дождаться).
+	//! Рейкаст вперёд на уровне глаз; возвращает true, если интент запущен.
 	bool TryOpenDoorOnPath()
 	{
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Pawn);
@@ -492,7 +492,11 @@ class dmAISurvivor
 		if (!building.CanDoorBeOpened(doorIdx, true))
 			return false;
 
-		building.OpenDoor(doorIdx);
+		dmBotIntent_OpenDoor intent = new dmBotIntent_OpenDoor();
+		intent.m_Building = building;
+		intent.m_DoorIdx = doorIdx;
+		AddPersonalityIntent(intent);
+
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[Bot] TryOpenDoorOnPath: doorIdx=" + doorIdx + " building=" + building);
 		#endif

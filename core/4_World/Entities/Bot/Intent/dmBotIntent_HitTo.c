@@ -29,10 +29,8 @@ class dmBotIntent_HitTo : dmBotIntent
 
 		super.OnUpdate(bot, pDt);
 
-		if (bot.GetMeleeCooldown() > 0.0)
-			return;
-		if (!m_TargetEntity)
-			return;
+		if (bot.GetMeleeCooldown() > 0.0) return;
+		if (!m_TargetEntity) return;
 
 		vector targetPos = m_TargetEntity.GetPosition();
 		vector botPos = bot.GetPosition();

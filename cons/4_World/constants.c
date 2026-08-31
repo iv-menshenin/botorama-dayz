@@ -64,6 +64,19 @@ static const float DM_DOOR_OPEN_DIST = 2.0;
 //! Throttle interval (seconds) for the proactive door check in MoveTo.
 static const float DM_DOOR_CHECK_INTERVAL = 0.5;
 
+//! Distance (meters) from the door the bot backs up to before opening it, so the
+//! swinging door doesn't push it (see dmBotIntent_OpenDoor).
+static const float DM_DOOR_STEP_BACK_DIST = 0.75;
+
+//! Max time (seconds) the bot backs away before opening the door anyway.
+static const float DM_DOOR_STEP_BACK_TIMEOUT = 3.0;
+
+//! Max time (seconds) to wait for the door to fully open before giving up.
+static const float DM_DOOR_OPEN_TIMEOUT = 3.0;
+
+//! Stepback (before door opening) speed.
+static const float DM_DOOR_OPEN_STEPBACK_SPEED = 2.0;
+
 //! Distance (meters) to the ladder entry point at which the bot attaches to the
 //! ladder (starts climbing).
 static const float DM_LADDER_ATTACH_DIST = 2.0;

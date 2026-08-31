@@ -97,6 +97,11 @@
   (доворот/позиционирование при подходе).
 - **средний** — Мили: звук/искры удара «по твёрдому» — `hitZoneIdx = -1` (нет component
   index без райкаста); фикс — получить index через коллизию/melee-targeting или кастомный звук.
+- **низкий** — Двери: hand-анимация открывания добавлена (`dmBotIntent_OpenDoor` →
+  `AddCommandModifier_Action(CMD_ACTIONMOD_OPENDOORFW)`, research в `navigation.md`).
+  Проверить визуально, что жест реально играется (граф уже содержит `OpenDoorErc/Cro`);
+  при предмете в руках возможен ре-синк рук → `RequestHandAnimationStateRefresh()`.
+  Гейт против full-body команд и таймаут+`DeleteCommandModifier_Action` — уже в коде.
 
 ## G. Интенты: жизненный цикл (гигиена пула)
 

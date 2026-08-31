@@ -80,7 +80,209 @@ interact/actionopendoors.c`): `ActionOpenDoors.OnStartServer` → `building.Open
 `building.OpenDoor(doorIndex)` + «подождать анимацию открытия» (`eAI_GetDoorAnimationTime`
 или просто `IsDoorOpened`) + `ForceRecalculate`/продолжить путь. ActionManager/действия
 НЕ нужны — `OpenDoor` это серверный натив здания. `StartActionObject(...Dummy...)` в
-Expansion — только ради hand-анимации (у нас её можно пропустить).
+Expansion — только ради hand-анимации; как её вернуть серверному ИИ без ActionManager —
+см. подраздел «Hand-анимация открывания двери» ниже.
+
+### Hand-анимация открывания двери
+
+#### API (StartActionObject / action-класс / анимация)
+
+**Корневой механизм**: hand-жест «взяться за ручку/толкнуть» играется НЕ через
+`Building.OpenDoor` (это анимация створки, серверный натив здания), а через нативную
+анимационную команду `Human`:
+
+- `Human.StartCommand_Action(int pActionID, typename pCallbackClass, int pStanceMask)` —
+  полнокадровая команда действия (`human.c:1533`).
+- `Human.AddCommandModifier_Action(int pActionID, typename pCallbackClass)` —
+  **аддитивный** (upper-body/hand) модификатор поверх `COMMANDID_MOVE` (`human.c:1563`,
+  комментарий «modifier/additive actions - played on COMMANDID_MOVE command»).
+- Контроль: `GetCommand_Action()` (`human.c:1536`), `GetCommandModifier_Action()`
+  (`human.c:1569`), принудительное удаление `DeleteCommandModifier_Action(cb)`
+  (`human.c:1566`).
+- `pActionID` для открывания двери = `DayZPlayerConstants.CMD_ACTIONMOD_OPENDOORFW = 506`
+  (`3_game/dayzplayer.c:774`, секция «onetime», метка `// erc,cro`).
+
+`pActionID` попадает в граф анимаций как значение команды `CMD_Action`: переход
+`GetCommandI(CMD_Action) == 506` → состояние `OpenDoorErc` (стойка) / `OpenDoorCro`
+(присед). Жест — **одноразовый** (ActionOnceSTM, noloop), завершается сам, модификатор
+автоматически удаляется (для one-shot `DeleteCommandModifier_Action` обычно не нужен).
+
+**`StartActionObject` — это НЕ ванильный API**, а helper на `eAIBase` (не на
+`Human`/`DayZPlayerImplement`):
+
+- `ActionBase StartActionObject(typename actionType, Object target, ItemBase mainItem = null)`
+  (`eAIBase.c:9812`) → строит `ActionTarget(target, null, -1, vector.Zero, -1.0)` →
+  `StartAction(actionType, actionTgt, mainItem)` (`eAIBase.c:9798`) →
+  `m_eActionManager.PerformActionStart(action, target, mainItem)` (`eAIBase.c:9805`).
+- Опирается на СОБСТВЕННЫЙ менеджер действий `eAIActionManager : ActionManagerBase`
+  (`eAIActionManager.c:15`), которым eAIBase подменяет ванильный `m_ActionManager`
+  (`eAIBase.c:735-736`: `m_eActionManager = new eAIActionManager(this); m_ActionManager = m_eActionManager;`).
+- `PerformActionStart` (`eAIActionManager.c:252`) кладёт action в `m_PendingActionData`,
+  а `Update()` (`eAIActionManager.c:82-98`) в следующем тике делает
+  `m_CurrentActionData.m_Action.Start(...)`.
+- **Слот/команду движения `StartActionObject` сам не занимает** — её занимает уже
+  `AnimatedActionBase.Start()` → `CreateAndSetupActionCallback`, который зовёт
+  `AddCommandModifier_Action` (аддитив) либо `StartCommand_Action` (полнокадр).
+- Отменяется как обычное действие: `m_CurrentActionData.m_Action.Interrupt(...)` →
+  `callback.Cancel()` (натив `HumanCommandActionCallback.Cancel`, `human.c:318`).
+
+**Ванильная цепочка действия** (`actionopendoors.c` + `actionbase.c` + `animatedactionbase.c`):
+
+- `ActionOpenDoors : ActionInteractBase` (`actionopendoors.c:1`);
+  `ActionInteractBase : AnimatedActionBase` (`actioninteractbase.c:38`).
+- В конструкторе `m_CommandUID = CMD_ACTIONMOD_OPENDOORFW` и
+  `m_StanceMask = CROUCH|ERECT` (`actionopendoors.c:7-8`).
+- `m_FullBody` остаётся `false` (дефолт из `ActionBase()`, `actionbase.c:92`) → в
+  `AnimatedActionBase.CreateAndSetupActionCallback` (`animatedactionbase.c:324-342`)
+  выбирается **аддитивная** ветка:
+  `player.AddCommandModifier_Action(GetActionCommandEx(action_data), GetCallbackClassTypename())`
+  (`animatedactionbase.c:335`), где `GetActionCommandEx` = `m_CommandUID` = 506.
+- `OnStartServer` → `building.OpenDoor(doorIndex)` (`actionopendoors.c:53-69`) — это и есть
+  функциональное открытие створки; hand-жест к нему отношения не имеет.
+- Callback `ActionInteractBaseCB.EndActionComponent` шлёт `SetCommand(CMD_ACTIONINT_END)`
+  (`actioninteractbase.c:31`) — завершение (для one-shot не критично).
+
+**Разделение анимаций (сервер-авторитет vs клиент)**:
+
+- створка = `Building.OpenDoor(int)` — натив здания, крутится на сервере, синхронизируется.
+- жест = `AddCommandModifier_Action(506, cb)` — анимационная команда `Human`; граф
+  (`CMD_Action == 506`) играет `OpenDoorErc/OpenDoorCro` на сервере, состояние синхронизируется
+  клиентам (как и `AnimSetFloat`/`AnimCallCommand`, уже используемые ботом).
+- Ни то, ни другое НЕ требует `ActionManager`/`EMoteManager`: команда — нативный примитив
+  `DayZPlayerImplement`.
+
+#### Как это делает Expansion (eAIActionOpenDoorsDummy + HandleBuildingDoors)
+
+**Класс-заглушка** (`AI/.../Actions/UserActionsComponent/Actions/Interact/eaiactiondoorsdummy.c`):
+
+```c
+//! Only needed for hand animation
+class eAIActionOpenDoorsDummy: ActionOpenDoors
+{
+    override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
+    {
+        return false;   // только ради hand-анимации: НЕ показывать в UI игрока
+    }
+
+    override void OnStartServer(ActionData action_data)
+    {
+        // пусто: дверь открывается отдельно вызовом building.OpenDoor()
+    }
+}
+```
+
+- База = `ActionOpenDoors`, поэтому `m_CommandUID = 506` и вся анимационная машинерия
+  (`AddCommandModifier_Action(506, ActionInteractBaseCB)`) наследуются.
+- `ActionCondition() → false` нужно только чтобы клиентское action-меню игрока не видело
+  этот action; для серверного ИИ это НЕ проверяется (action стартуется напрямую через
+  `PerformActionStart` → `Start()`, минуя `Can()`/`StartDeliveredAction`).
+- `OnStartServer` пуст: само действие НЕ вызывает `OpenDoor`, иначе был бы двойной вызов
+  (дверь открывает `HandleBuildingDoors` отдельно). `OnFinishServer` не переопределён.
+
+**Порядок в `HandleBuildingDoors`** (`eAIBase.c:11497-11742`), ветка «закрыта и можно открыть»:
+
+1. (`eAIBase.c:11688-11693`) `if (!isDoorOpen && !m_eAI_Halt) { eAI_SetHalt(true); CallLater(eAI_SetHalt, timeTresh*0.65, false, false); }`
+   — кратковременная остановка, чтобы створка не толкнула ИИ.
+2. (`eAIBase.c:11717-11724`) `StartActionObject(eAIActionOpenDoorsDummy, building);` **потом**
+   `if (canInteract || building.IsDoorLocked(doorIndex)) building.OpenDoor(doorIndex);`
+   — жест стартует, затем натив открывает створку (в одном тике).
+3. (`eAIBase.c:11726-11729`) `CallLater(m_PathFinding.ForceRecalculate, 34, false, true)` —
+   пересчёт пути через 34 мс.
+4. Кулдауны (`eAIBase.c:11736-11737`): `building.m_eAI_LastDoorInteractionTime[doorIndex]`
+   (per-дверь, `timeTresh + 500` мс) и `m_eAI_LastDoorInteractionTime` (этот ИИ, 1000 мс),
+   где `timeTresh = building.eAI_GetDoorAnimationTime(doorIndex) * 1000`
+   (`BuildingBase.c:206` — читает `CfgVehicles ... Doors ... animPeriod`).
+
+#### Минимальный путь для botorama (что добавить, порядок вызовов, риски)
+
+**Вывод**: полноценный dummy-action + свой ActionManager НЕ нужны. У бота
+`dmAISurvivorBase : PlayerBase` (`INSTANCETYPE_AI_SERVER`) `m_ActionManager == NULL`
+(`playerbase.c:460` выставляет NULL, а `ActionManagerServer` создаётся только для
+`INSTANCETYPE_SERVER`/`AI_SINGLEPLAYER`, `playerbase.c:6081-6098` — `AI_SERVER` туда НЕ
+входит). Воспроизводить `eAIActionManager` (наследование от `ActionManagerBase` + подмена
+`m_ActionManager`) — избыточно ради одного жеста.
+
+Вместо этого — дёрнуть нативный примитив напрямую. Что добавить:
+
+1. Тривиальный callback-класс (натив требует typename `HumanCommandActionCallback`):
+   ```c
+   class dmBotActionAnimCB : HumanCommandActionCallback {}
+   ```
+   (пустой достаточно; при желании в деструкторе — `GetHuman()` →
+   `PlayerBase.Cast(...).RequestHandAnimationStateRefresh()` для ре-синка рук, как это
+   делает `EmoteCB` в `emotemanager.c:8-17`).
+
+2. В пешке примитив (аналог эффекта `eAIActionOpenDoorsDummy` без action-менеджера):
+   ```c
+   void PlayDoorOpenGesture()
+   {
+       if (GetCommandModifier_Action() || GetCommand_Action())
+           return;   // уже играется какое-то действие — не наслаивать
+       AddCommandModifier_Action(DayZPlayerConstants.CMD_ACTIONMOD_OPENDOORFW, dmBotActionAnimCB);
+   }
+   ```
+
+**Порядок вызовов в `dmBotIntent_OpenDoor`** (текущий код `dmBotIntent_OpenDoor.c:56` зовёт
+только `m_Building.OpenDoor(m_DoorIdx)`):
+
+```
+m_Building.OpenDoor(m_DoorIdx);   // функциональное открытие (как сейчас)
+bot.PlayDoorOpenGesture();        // hand-жест, в том же тике (или сразу после)
+// ... существующее ожидание IsDoorOpened()/таймаут → Finish()
+```
+
+Жест — аддитивный (`CMD_Action == 506` → `OpenDoorErc/Cro`), **не блокирует движение**;
+бот и так отходит назад (phase 0) и стоит в ожидании открытия (EXCLUSIVE MOVE), поэтому
+дополнительный halt не обязателен. Одноразовая анимация завершается сама; `Finish()` по
+`IsDoorOpened` уже дожидается створку, а не жест.
+
+**Нужны ли `EMoteManager`/`ActionManager`/`AnimationState`?** Нет.
+- `EMoteManager` у бота уже есть (`playerbase.c:434` создаётся безусловно), но для жеста
+  не нужен — `AddCommandModifier_Action` самодостаточен.
+- `ActionManager` не нужен и отсутствует (NULL на `AI_SERVER`).
+- Явная инициализация `AnimationState` не нужна — команда `Human` сама ведёт граф.
+
+**Риски**:
+
+- **Граф**: подтверждено, что кастомный `botorama/Animations/Actions.agr` уже содержит
+  состояния/переходы/источники `OpenDoorErc`/`OpenDoorCro` (ключ `GetCommandI(CMD_Action) == 506`,
+  `Actions.agr:295/301/1167/1170/4968/4974`), а `player_main.agr:2` ссылается на ВАНИЛЬНЫЙ
+  `.ast`-шаблон (`player_main.ast`), т.е. маппинг 506→анимация ванильный. Риск «анимации нет
+  в графе» минимален, но требует визуальной проверки на тесте.
+- **Руки/предмет в руках**: если в руках оружие/предмет, жест может выглядеть криво;
+  `RequestHandAnimationStateRefresh()` в деструкторе callback (или `RefreshHandAnimationState()`)
+  вернёт руки после жеста. Синк на клиент — через `SetSynchDirty()` (как `AnimSetFloat`).
+- **Конфликт с другими командами**: аддитив подавится при full-body команде (raise оружия,
+  melee, climb, ladder, unconscious). Гейт `if (GetCommandModifier_Action() || GetCommand_Action())`
+  + «не играть при raised/climbing/melee» (аналог
+  `ActionManagerBase.ActionPossibilityCheck`, `actionmanagerbase.c:244-253`) защищает от наслоения.
+- **Не завершился**: one-shot анимация обычно завершается сама; на всякий случай — таймаут +
+  `DeleteCommandModifier_Action(cb)` (force remove), если `GetCommandModifier_Action()` всё ещё
+  жив спустя N секунд. Это дешевле, чем тащить весь action-жизненный цикл.
+
+#### Сигнатуры (шпаргалка)
+
+- `DayZPlayerConstants.CMD_ACTIONMOD_OPENDOORFW` = `506` (`dayzplayer.c:774`) — pActionID жеста.
+- `Human.AddCommandModifier_Action(int pActionID, typename pCallbackClass)` → `HumanCommandActionCallback`
+  (`human.c:1563`) — аддитивный жест поверх MOVE.
+- `Human.StartCommand_Action(int pActionID, typename pCallbackClass, int pStanceMask)` (`human.c:1533`)
+  — полнокадровый вариант (для `ActionOpenDoors` НЕ используется: `m_FullBody=false`).
+- `Human.GetCommandModifier_Action()` (`human.c:1569`), `GetCommand_Action()` (`human.c:1536`),
+  `DeleteCommandModifier_Action(cb)` (`human.c:1566`).
+- `HumanCommandActionCallback.Cancel()` (`human.c:318`), `InternalCommand(int)` (`human.c:322`).
+- `ActionOpenDoors.m_CommandUID = CMD_ACTIONMOD_OPENDOORFW` (`actionopendoors.c:7`);
+  `OnStartServer → building.OpenDoor(doorIndex)` (`actionopendoors.c:53-69`).
+- eAIBase: `StartActionObject(typename, Object, ItemBase)` (`eAIBase.c:9812`),
+  `StartAction(typename, ActionTarget, ItemBase)` (`eAIBase.c:9798`),
+  `m_eActionManager = new eAIActionManager(this)` (`eAIBase.c:735-736`).
+- eAIActionManager: `PerformActionStart(ActionBase, ActionTarget, ItemBase, Param)`
+  (`eAIActionManager.c:252`).
+- `eAIActionOpenDoorsDummy : ActionOpenDoors` (`eaiactiondoorsdummy.c:2`) — `ActionCondition=false`,
+  пустой `OnStartServer`.
+- HandleBuildingDoors: `StartActionObject(...)` → `OpenDoor(...)` → `ForceRecalculate` через 34 мс
+  (`eAIBase.c:11717-11729`); кулдауны `eAIBase.c:11736-11737`.
+- botorama граф: `Actions.agr:295/301` (`GetCommandI(CMD_Action) == 506` → `OpenDoorErc/Cro`),
+  `player_main.agr:2` (ванильный `player_main.ast`).
 
 ### Фильтр/стоимость
 
