@@ -302,3 +302,9 @@ static const float DM_AIM_LOOK_TIME = 0.3;
 
 //! Aiming readiness: extra time (seconds) to acquire the target in a magnified optic (ADS only).
 static const float DM_AIM_ACQUIRE_TIME = 0.5;
+
+//! Aiming: distance (meters) beyond which the bot always uses ADS (else HIP first).
+static const float DM_AIM_ADS_DISTANCE = 100.0;
+
+//! Aiming: seconds the bot stays in HIP before switching to ADS within DM_AIM_ADS_DISTANCE.
+static const float DM_AIM_HIP_GRACE = 10.0;

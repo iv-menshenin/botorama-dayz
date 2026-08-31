@@ -298,6 +298,29 @@ class dmAISurvivorBase : PlayerBase
 		#endif
 	}
 
+	//! Convert a world-space direction into the relative aim angles (left/right,
+	//! up/down), the exact inverse of GetWeaponAimDirection(). Used by SetAimTarget
+	//! and by dmBotIntent_Aim to push dmAiming's dispersed shot direction into the
+	//! fire path.
+	void SetAimDirection(vector worldDir)
+	{
+		if (worldDir.Length() < 0.01)
+		{
+			m_AimRelAngleLR = 0.0;
+			m_AimRelAngleUD = 0.0;
+			return;
+		}
+
+		vector angles = worldDir.VectorToAngles();
+		float bodyYaw = GetOrientation()[0];
+		m_AimRelAngleLR = dmAISurvivor.AngleDiff(angles[0], bodyYaw);
+
+		float pitch = angles[1];
+		if (pitch > 180.0)
+			pitch -= 360.0;
+		m_AimRelAngleUD = pitch;
+	}
+
 	//! Compute and store the relative aim angles (left/right, up/down) toward the
 	//! target. The barrel direction is eyePos (neck) -> aimPos (target chest/head);
 	//! yaw/pitch come from VectorToAngles (same convention as LookAtPoint).
@@ -339,21 +362,7 @@ class dmAISurvivorBase : PlayerBase
 			eyePos = GetBonePositionWS(neckBone);
 
 		vector aimDir = aimPos - eyePos;
-		if (aimDir.Length() < 0.01)
-		{
-			m_AimRelAngleLR = 0.0;
-			m_AimRelAngleUD = 0.0;
-			return;
-		}
-
-		vector angles = aimDir.VectorToAngles();
-		float bodyYaw = GetOrientation()[0];
-		m_AimRelAngleLR = dmAISurvivor.AngleDiff(angles[0], bodyYaw);
-
-		float pitch = angles[1];
-		if (pitch > 180.0)
-			pitch -= 360.0;
-		m_AimRelAngleUD = pitch;
+		SetAimDirection(aimDir);
 	}
 
 	//! World-space barrel direction from the relative aim angles. Used by the
@@ -908,11 +917,14 @@ class dmAISurvivorBase : PlayerBase
 		m_MeleeTarget = null;
 	}
 
-	//! Ask for a single shot at the given target. Aim is computed immediately
-	//! (SetAimTarget); the shot itself fires next CommandHandler in TryFireWeapon.
-	void RequestFire(EntityAI target)
+	//! Ask for a single shot. With a target, aim is computed immediately
+	//! (SetAimTarget); with null, fire along the direction already set via
+	//! SetAimDirection (used by dmBotIntent_Aim). The shot itself fires next
+	//! CommandHandler in TryFireWeapon.
+	void RequestFire(EntityAI target = null)
 	{
-		SetAimTarget(target);
+		if (target)
+			SetAimTarget(target);
 		m_FireRequest = true;
 	}
 
