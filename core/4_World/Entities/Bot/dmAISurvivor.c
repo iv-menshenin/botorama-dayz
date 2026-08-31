@@ -775,6 +775,24 @@ class dmAISurvivor
 		t.m_LastContact = GetGame().GetTickTime();
 	}
 
+	//! Force-add an entity to the target memory as hostile (used by tests/orders).
+	//! Unlike RegisterDamageThreat this is unconditional and takes an explicit threat.
+	void RegisterHostile(EntityAI entity, float threat = 1.0)
+	{
+		if (!entity)
+			return;
+		dmTarget t = FindTarget(entity);
+		if (!t)
+		{
+			t = new dmTarget();
+			t.m_Type = dmTargetType.DESTROY;
+			t.m_Entity = entity;
+			m_Targets.Insert(t);
+		}
+		t.m_Threat = threat;
+		t.m_Friendly = false;
+	}
+
 	//! Ближайшая враждебная цель (threat >= DM_ATTACK_THREAT_THRESHOLD, не friendly,
 	//! живая). Без ограничения дистанции; ближайшая побеждает (ничья — выше threat).
 	dmTarget GetHostileTarget()

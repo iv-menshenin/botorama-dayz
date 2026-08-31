@@ -126,3 +126,20 @@ static const string DM_CHAT_TEST_CANCEL = "cancel";
 
 //! Quiet delay (seconds) after showing a test summary before the test actually runs.
 static const float DM_TEST_QUIET_SECONDS = 5.0;
+
+//! Aim-accuracy test: default max distance (meters) and per-pass step.
+static const float DM_AIM_TEST_MAX_DIST = 500.0;
+static const float DM_AIM_TEST_STEP = 50.0;
+
+//! Aim-accuracy test: pause (seconds) between passes.
+static const float DM_AIM_TEST_PAUSE = 10.0;
+
+//! Aim-accuracy test: timeout (seconds) for a single pass to kill the target.
+static const float DM_AIM_TEST_PASS_TIMEOUT = 60.0;
+
+//! Aim-accuracy test: look raycast distance (meters) to find the player's LOS.
+static const float DM_AIM_TEST_LOOK_RAYCAST = 600.0;
+
+//! Aim-accuracy test: backpack magazines (count and rounds each).
+static const int DM_AIM_TEST_MAG_COUNT = 10;
+static const int DM_AIM_TEST_MAG_ROUNDS = 5;

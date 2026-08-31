@@ -22,9 +22,11 @@
 //!   /test bot target   — реактивная угроза: зомби → RegisterDamageThreat → hostile → null.
 //!   /test bot shoot {N} — стрельба: заряженный АКМ + угроза → Shooting → патроны
 //!                                убывают; {N} — дистанция спавна бота от игрока в метрах.
-//!   /test bot aim {N}   — наблюдение прицела: поднять АКМ, навестись, пауза 10 с,
-//!                                три выстрела, пауза 10 с, опустить оружие (примитивы
-//!                                пешки напрямую, без боевого FSM); {N} — дистанция спавна.
+//!   /test bot aim {N}   — лестница точности: бот с пустым АКМ + 10 магазинов по
+//!                                5 патронов стреляет одиночными по мишени-болванке на
+//!                                50,100,... до N (или дистанции взгляда) метров; метрика —
+//!                                выстрелов до убийства; проверяются переходы Idle<->Shooting
+//!                                и перезарядка. {N} — максимальная дистанция в метрах.
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -96,8 +98,8 @@ class dmTestCommand : dmCommandModule
 		return HandleBodyTest(player, test);
 	}
 
-	//! /test bot aim {N} — aim-observation test; N (meters) is the optional spawn
-	//! distance from the player (0/default = DM_SPAWN_DISTANCE).
+	//! /test bot aim {N} — aim-accuracy ladder; N (meters) is the optional maximum
+	//! target distance (0/default = DM_AIM_TEST_MAX_DIST).
 	private bool HandleAimTest(PlayerBase player, array<string> parts)
 	{
 		dmBotTest_Aim test = new dmBotTest_Aim();
@@ -105,7 +107,7 @@ class dmTestCommand : dmCommandModule
 		{
 			int dist = parts[3].ToInt();
 			if (dist > 0)
-				test.SetSpawnDistance(dist);
+				test.SetMaxDistance(dist);
 		}
 		return HandleBodyTest(player, test);
 	}

@@ -665,146 +665,265 @@ class dmBotTest_Shoot : dmBotTestCase
 	}
 }
 
-//! Aim observation: raise the weapon and fire two shots — hip-fire then ADS (a
-//! fresh zombie is spawned before the second shot, since the first is down after
-//! the first). Drives the pawn primitives directly (no combat FSM), so the
-//! auto-fire logic doesn't cover the raise/aim/fire animation being observed.
+//! Aim-accuracy ladder: Idle<->Shooting + reload. A bot with an EMPTY AKM (no
+//! magazine) + a backpack of 10x 5-round mags spawns in front of the player and
+//! fires single shots at a humanoid dummy target placed along the player's line
+//! of sight at 50,100,... up to min(N, look distance) meters, until it kills it.
 class dmBotTest_Aim : dmBotTestCase
 {
-	int m_Phase = 0;
-	EntityAI m_Zombie;
+	ref array<float> m_Distances;
+	ref array<int> m_Results;
+	EntityAI m_TargetEntity;
+	int m_Pass;
+	int m_PassPhase;      // 0=spawn, 1=shooting, 2=pause
+	float m_PassTimer;
+	int m_StartAmmo;
+	int m_MaxDistMeters;
+	vector m_LookDir;
 
-	//! Spawn distance from the player (meters); 0 = DM_SPAWN_DISTANCE default.
-	void SetSpawnDistance(int meters)
+	//! Max target distance (meters); 0 = DM_AIM_TEST_MAX_DIST default.
+	void SetMaxDistance(int meters)
 	{
-		m_SpawnDistance = meters;
+		m_MaxDistMeters = meters;
 	}
 
 	override void Setup(dmAISurvivor bot, PlayerBase player)
 	{
+		// 1) look direction + distance (head-bone forward, horizontal)
+		float lookDist = GetPlayerLookDist(player, m_LookDir);
+		float maxDist = DM_AIM_TEST_MAX_DIST;
+		if (m_MaxDistMeters > 0)
+			maxDist = m_MaxDistMeters;
+		if (lookDist < maxDist)
+		{
+			maxDist = lookDist;
+			dmCommandManager.ChatToPlayer(player, "Мало прямой видимости — беру " + Fmt(maxDist) + " м");
+		}
+
+		// 2) place + face the bot along the look line
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn)
 			return;
+		vector spawnPos = player.GetPosition() + m_LookDir * 0.5;
+		pawn.SetPosition(spawnPos);
+		bot.SetDirection(m_LookDir);
 
-		//! CreateInHands places the weapon directly in the bot's hands; SpawnAmmo
-		//! attaches a magazine AND chambers a round, so the weapon is ready to fire.
-		Weapon_Base gun = Weapon_Base.Cast(pawn.GetHumanInventory().CreateInHands("AKM"));
-		if (!gun)
-			return;
+		// 3) empty AKM + optic + backpack of mags
+		GiveEmptyAKMWithMags(pawn);
 
-		gun.SpawnAmmo("Mag_AKM_30Rnd");
+		// 4) minimal FSM: Idle + Shooting (test the transitions + reload)
+		dmBotFSM fsm = new dmBotFSM(bot);
+		dmBotState idle = new dmBotState_Idle();
+		dmBotState shoot = new dmBotState_Shooting();
+		fsm.AddState(idle, "Idle");
+		fsm.AddState(shoot, "Shooting");
+		idle.AddTransition(shoot, 1.0).Require(dmBotConditions.HasHostile());
+		shoot.AddTransition(idle, 1.0);
+		fsm.SetDefaultState("Idle");
+		fsm.Start();
+		bot.SetFSM(fsm);
 
-		Magazine mag = gun.GetMagazine(gun.GetCurrentMuzzle());
-		if (mag)
-			mag.ServerSetAmmoCount(30);
+		// 5) distances 50..maxDist step 50
+		m_Distances = new array<float>();
+		float d;
+		for (d = DM_AIM_TEST_STEP; d <= maxDist + 0.001; d = d + DM_AIM_TEST_STEP)
+			m_Distances.Insert(d);
 
-		//! Attach a magnified optic (PSO-1-1). It fits the AKM "weaponOpticsAK"
-		//! slot directly (no dovetail mount); with it attached the ADS mode looks
-		//! through the optic (the optic blocks the iron sight).
-		gun.GetInventory().CreateAttachment("PSO11Optic");
-
-		//! First zombie 15 m ahead of the bot.
-		RespawnZombie();
+		m_Results = new array<int>();
+		m_Pass = 0;
+		m_PassPhase = 0;
+		m_PassTimer = 0.0;
+		m_TargetEntity = null;
 	}
 
 	override string GetSummary()
 	{
-		return "Тест «Наблюдение прицела (2 режима)». Бот с АКМ + ПСО-1-1 дважды стреляет по зомби: от бедра и прицельно (ADS); перед вторым выстрелом зомби респавнится, затем бот опускает оружие. Боевой FSM не ставится — примитивы пешки зовутся напрямую.";
+		return "Тест «Лестница точности». Бот с пустым АКМ + 10 магазинов по 5 патронов стреляет по мишени-болванке на 50..N м; метрика — выстрелов до убийства (проверяются переходы Idle<->Shooting и перезарядка).";
 	}
 
 	override float GetInterval() { return 1.0; }
 
-	override float GetDuration() { return 35.0; }
+	override float GetDuration() { return 600.0; }
 
-	//! ADS на AKM+PSO11Optic = смотрит в оптику, т.к. оптика перекрывает мушку
-	//! (CanEnterIronsights()==false); отдельной «мушки» у скопного ствола нет.
 	override string OnCheck(float elapsed)
 	{
-		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Bot.GetPawn());
-		if (!pawn)
-			return "FAIL: нет пешки";
-		if (!m_Zombie)
-			return "FAIL: нет зомби";
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
 
-		if (m_Phase == 0)
+		m_PassTimer += GetInterval();
+
+		if (m_Pass >= m_Distances.Count())
+			return BuildSummary();
+
+		float dist = m_Distances[m_Pass];
+
+		if (m_PassPhase == 0)
 		{
-			pawn.RaiseWeapon(true);
-			pawn.SetAimMode(dmBotAimMode.HIP);
-			AimAtZombie(pawn);
-			m_Phase = 1;
-			return "поднял оружие, режим HIP, навёлся (пауза 10с)";
+			SpawnTarget(dist);
+			m_StartAmmo = TotalAmmo(m_Bot.GetPawn());
+			m_PassPhase = 1;
+			m_PassTimer = 0.0;
+			return "проход " + (m_Pass + 1) + ": мишень на " + Fmt(dist) + " м";
 		}
 
-		if (m_Phase == 1)
+		if (m_PassPhase == 1)
 		{
-			if (elapsed < 10.0)
-				return "";
-			pawn.RequestFire(m_Zombie);
-			m_Phase = 2;
-			return "выстрел 1 (от бедра)";
-		}
-
-		if (m_Phase == 2)
-		{
-			if (elapsed < 12.0)
-				return "";
-			RespawnZombie();
-			pawn.SetAimMode(dmBotAimMode.ADS);
-			AimAtZombie(pawn);
-			m_Phase = 3;
-			return "зомби респавнен, режим ADS (пауза 3с)";
-		}
-
-		if (m_Phase == 3)
-		{
-			if (elapsed < 15.0)
-				return "";
-			pawn.RequestFire(m_Zombie);
-			m_Phase = 4;
-			return "выстрел 2 (прицельно, через PSO)";
-		}
-
-		if (m_Phase == 4)
-		{
-			if (elapsed < 25.0)
-				return "";
-			pawn.RaiseWeapon(false);
-			pawn.SetAimMode(dmBotAimMode.HIP);
-			m_Phase = 5;
-			return "опустил оружие, режим HIP (пауза 3с)";
-		}
-
-		if (elapsed < 28.0)
+			if (!m_TargetEntity || !m_TargetEntity.IsAlive())
+			{
+				int shots = m_StartAmmo - TotalAmmo(m_Bot.GetPawn());
+				m_Results.Insert(shots);
+				m_PassPhase = 2;
+				m_PassTimer = 0.0;
+				return "  -> " + Fmt(dist) + " м: " + shots + " выстрелов";
+			}
+			if (CurrentStateName() != "Shooting" && m_PassTimer > 5.0)
+				return "FAIL: бот вышел из Shooting, цель жива (не убил за 50 патронов, " + Fmt(dist) + " м)";
+			if (m_PassTimer >= DM_AIM_TEST_PASS_TIMEOUT)
+				return "FAIL: цель не убита за таймаут (" + Fmt(dist) + " м)";
 			return "";
-
-		return "PASS: наблюдение завершено (2 выстрела: HIP → ADS)";
-	}
-
-	//! Point the bot's look + aim at the current zombie.
-	void AimAtZombie(dmAISurvivorBase pawn)
-	{
-		vector aimPos = m_Zombie.GetPosition();
-		aimPos = aimPos + Vector(0, DM_EYE_HEIGHT, 0);
-		m_Bot.LookAtPoint(aimPos, dmBotLookTurn.FULL);
-		pawn.SetAimTarget(m_Zombie);
-	}
-
-	//! Delete the previous zombie (if any) and spawn a fresh one 15 m ahead of the
-	//! bot, so each shot is observed against a standing target.
-	void RespawnZombie()
-	{
-		if (m_Zombie)
-		{
-			GetGame().ObjectDelete(m_Zombie);
-			m_Zombie = null;
 		}
 
-		vector pos = m_Bot.GetPosition();
-		vector dir = m_Bot.GetPawn().GetDirection();
-		dir[1] = 0.0;
-		dir.Normalize();
-		pos = pos + dir * 15.0;
+		// phase 2: pause
+		if (m_PassTimer >= DM_AIM_TEST_PAUSE)
+		{
+			m_Pass++;
+			m_PassPhase = 0;
+			m_PassTimer = 0.0;
+		}
+		return "";
+	}
 
-		m_Zombie = EntityAI.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", pos, false));
+	//! One-line result table + PASS.
+	string BuildSummary()
+	{
+		string s = "ГОТОВО: ";
+		int i;
+		for (i = 0; i < m_Distances.Count(); i++)
+		{
+			if (i > 0)
+				s = s + ", ";
+			s = s + Fmt(m_Distances[i]) + "м=" + m_Results[i];
+		}
+		return "PASS: " + s;
+	}
+
+	//! Spawn the humanoid dummy target at `distance` meters along the look line,
+	//! on the ground (SurfaceY), then force it hostile (threat 1.0).
+	void SpawnTarget(float distance)
+	{
+		vector botPos = m_Bot.GetPosition();
+		vector pos = botPos + m_LookDir * distance;
+		pos[1] = GroundYAt(pos);
+
+		m_TargetEntity = EntityAI.Cast(GetGame().CreateObject("dmAI_SurvivorM_Denis", pos, false));
+		if (m_TargetEntity)
+			m_Bot.RegisterHostile(m_TargetEntity, 1.0);
+	}
+
+	//! Player look direction (horizontal, normalized) + ground distance in meters.
+	float GetPlayerLookDist(PlayerBase player, out vector lookDir)
+	{
+		vector beg;
+		vector dir;
+		vector playerPos;
+		int headBone = player.GetBoneIndexByName("Head");
+		if (headBone != -1)
+		{
+			vector headTransform[4];
+			player.GetBoneTransformWS(headBone, headTransform);
+			beg = player.GetBonePositionWS(headBone);
+			dir = headTransform[1];
+		}
+		else
+		{
+			playerPos = player.GetPosition();
+			beg = playerPos + Vector(0, DM_EYE_HEIGHT, 0);
+			dir = MiscGameplayFunctions.GetHeadingVector(player);
+		}
+
+		vector end = beg + dir * DM_AIM_TEST_LOOK_RAYCAST;
+		vector contactPos;
+		vector contactDir;
+		int contactComponent;
+		if (DayZPhysics.RaycastRV(beg, end, contactPos, contactDir, contactComponent, null, null, player, false, false, ObjIntersectView))
+		{
+			playerPos = player.GetPosition();
+			lookDir = contactPos - playerPos;
+			lookDir[1] = 0.0;
+			float dist = lookDir.Length();
+			if (dist > 0.01)
+				lookDir.Normalize();
+			else
+				lookDir = player.GetDirection();
+			return dist;
+		}
+
+		lookDir = dir;
+		lookDir[1] = 0.0;
+		lookDir.Normalize();
+		return DM_AIM_TEST_LOOK_RAYCAST;
+	}
+
+	//! Terrain height at (x,z) — g_Game.SurfaceY returns the surface Y directly,
+	//! no downward raycast needed.
+	float GroundYAt(vector pos)
+	{
+		return GetGame().SurfaceY(pos[0], pos[2]);
+	}
+
+	//! Equip an EMPTY AKM (no magazine) + PSO11Optic + a backpack with
+	//! DM_AIM_TEST_MAG_COUNT magazines of DM_AIM_TEST_MAG_ROUNDS rounds each.
+	void GiveEmptyAKMWithMags(PlayerBase pawn)
+	{
+		Weapon_Base gun = Weapon_Base.Cast(pawn.GetHumanInventory().CreateInHands("AKM"));
+		if (gun)
+			gun.GetInventory().CreateAttachment("PSO11Optic");
+
+		EntityAI bag = pawn.GetInventory().CreateInInventory("TortillaBag");
+		if (!bag)
+			return;
+
+		int i;
+		for (i = 0; i < DM_AIM_TEST_MAG_COUNT; i++)
+		{
+			Magazine mag = Magazine.Cast(bag.GetInventory().CreateInInventory("Mag_AKM_30Rnd"));
+			if (mag)
+				mag.ServerSetAmmoCount(DM_AIM_TEST_MAG_ROUNDS);
+		}
+	}
+
+	//! Total live rounds across ALL magazines (hands + backpack) plus the chambered
+	//! round (1 if a live round is chambered). Shots fired = start - current.
+	int TotalAmmo(PlayerBase pawn)
+	{
+		int total = 0;
+		Weapon_Base wpn = Weapon_Base.Cast(pawn.GetHumanInventory().GetEntityInHands());
+		if (wpn)
+		{
+			int mi = wpn.GetCurrentMuzzle();
+			if (!wpn.IsChamberEmpty(mi) && !wpn.IsChamberFiredOut(mi))
+				total = 1;
+		}
+
+		array<EntityAI> items = new array<EntityAI>();
+		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			Magazine mag = Magazine.Cast(items[i]);
+			if (mag)
+				total = total + mag.GetAmmoCount();
+		}
+		return total;
+	}
+
+	//! Name of the current FSM state ("none" when unavailable).
+	string CurrentStateName()
+	{
+		string state = "none";
+		dmBotFSM fsm = m_Bot.GetFSM();
+		if (fsm && fsm.GetCurrentState())
+			state = fsm.GetCurrentState().GetName();
+		return state;
 	}
 }
