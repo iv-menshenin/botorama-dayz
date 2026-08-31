@@ -439,8 +439,14 @@ class dmAISurvivorBase : PlayerBase
 			return;
 		}
 
-		//! ADS: SetIronsights сам подхватит мушку или оптику в зависимости от оружия.
-		SetIronsights(true);
+		//! ADS: enter ironsights/optic. Replicate SetIronsights(true) but WITHOUT
+		//! hic.ResetFreeLookToggle() — the AI input controller prints "not
+		//! implemented" on every call (console spam).
+		if (weapon)
+			weapon.SetWasIronSight(m_CameraIronsight);
+		m_CameraIronsight = true;
+		if (hcw)
+			hcw.SetADS(true);
 	}
 
 //! Called on the client whenever the synced variables arrive from the server.
