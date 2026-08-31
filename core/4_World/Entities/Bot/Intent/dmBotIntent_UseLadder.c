@@ -23,10 +23,18 @@ class dmBotIntent_UseLadder : dmBotIntent
 	{
 		m_Concurrency = dmBotIntentConcurrency.EXCLUSIVE;
 		m_Priority = dmBotIntentPriority.CRITICAL;
+		m_Manage = dmBotIntentsChannel.MOVE;
+	}
+
+	override string GetIntentName()
+	{
+		return "UseLadder";
 	}
 
 	override void OnStart(dmAISurvivor bot)
 	{
+		super.OnStart(bot);
+
 		m_Phase = 0;
 		m_AttachGrace = 0.0;
 
@@ -48,6 +56,8 @@ class dmBotIntent_UseLadder : dmBotIntent
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
+		super.OnUpdate(bot, pDt);
+
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 
 		if (m_Phase == 0)
@@ -109,6 +119,8 @@ class dmBotIntent_UseLadder : dmBotIntent
 
 	override void OnCancel(dmAISurvivor bot)
 	{
+		super.OnCancel(bot);
+
 		bot.SetMove(0.0, 0.0);
 	}
 }

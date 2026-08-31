@@ -5,8 +5,20 @@ class dmBotIntent_HoldLook : dmBotIntent
 	EntityAI m_Entity;           // опционально: следим за сущностью каждый тик
 	dmBotLookTurn m_Turn = dmBotLookTurn.AUTO;
 
+	void dmBotIntent_HoldLook()
+	{
+		m_Manage = dmBotIntentsChannel.LOOK;
+	}
+
+	override string GetIntentName()
+	{
+		return "HoldLook";
+	}
+
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
+		super.OnUpdate(bot, pDt);
+
 		if (m_Entity)
 		{
 			vector pos = m_Entity.GetPosition();

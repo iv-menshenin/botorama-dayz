@@ -13,10 +13,18 @@ class dmBotIntent_Evasion : dmBotIntent
 	{
 		m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		m_Priority = dmBotIntentPriority.CRITICAL;
+		m_Manage = dmBotIntentsChannel.MOVE;
+	}
+
+	override string GetIntentName()
+	{
+		return "Evasion";
 	}
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
+		super.OnUpdate(bot, pDt);
+
 		if (bot.GetMeleeCooldown() <= 0.0)
 			return;
 

@@ -25,20 +25,52 @@ enum dmBotLookTurn
 	FULL    // полностью развернуться к цели
 };
 
+enum dmBotIntentsChannel
+{
+	NONE,   // не влияет
+	LOOK,   // взгляд
+	MOVE,   // движение
+	STANCE, // стойка
+	EMOTION,// эмоция
+	ATTACK  // удар
+};
+
 class dmBotIntent
 {
 	dmBotIntentPriority m_Priority = dmBotIntentPriority.IDLE;
 	dmBotIntentConcurrency m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+	dmBotIntentsChannel m_Manage = dmBotIntentsChannel.NONE;
 	float m_Deadline = -1.0;   // секунды; -1 = без дедлайна
 
 	float m_Age = 0.0;         // runtime, тикает пул
 	bool m_Finished = false;
 	bool m_Cancelled = false;
 	bool m_Failed = false;
+	bool m_Active = true;
 
-	void OnStart(dmAISurvivor bot) {}
-	void OnUpdate(dmAISurvivor bot, float pDt) {}
-	void OnCancel(dmAISurvivor bot) {}
+	string GetIntentName()
+	{
+		return "";
+	}
+
+	void OnStart(dmAISurvivor bot)
+	{
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".OnStart");
+		#endif
+	}
+	void OnUpdate(dmAISurvivor bot, float pDt)
+	{
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".OnUpdate");
+		#endif
+	}
+	void OnCancel(dmAISurvivor bot)
+	{
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".OnCancel");
+		#endif
+	}
 
 	//! Вызвать из OnUpdate, когда условие выполнения достигнуто.
 	void Finish()
@@ -74,6 +106,11 @@ class dmBotIntent
 		if (m_Deadline >= 0.0)
 			return m_Age > m_Deadline;
 		return m_Age > DM_INTENT_MAX_AGE; // нет дедлайна -> автодедлайн (безопасность)
+	}
+
+	bool IsActive()
+	{
+		return m_Active;
 	}
 
 	dmBotIntentPriority GetPriority()

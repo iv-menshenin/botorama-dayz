@@ -6,14 +6,28 @@ class dmBotIntent_Turn : dmBotIntent
 	float m_ReachAngle = 2.0;  // допуск доворота (градусы)
 	float m_TargetYaw = 0.0;   // абсолютный целевой yaw (вычисляется в OnStart)
 
+	void dmBotIntent_Turn()
+	{
+		m_Manage = dmBotIntentsChannel.LOOK;
+	}
+
+	override string GetIntentName()
+	{
+		return "Turn";
+	}
+
 	override void OnStart(dmAISurvivor bot)
 	{
+		super.OnStart(bot);
+
 		m_TargetYaw = bot.GetOrientation()[0] + m_Angle;
 		bot.LookAtYaw(m_TargetYaw, dmBotLookTurn.FULL);
 	}
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
+		super.OnUpdate(bot, pDt);
+
 		bot.LookAtYaw(m_TargetYaw, dmBotLookTurn.FULL);
 		float dYaw = bot.GetYawTo(m_TargetYaw);
 		if (Math.AbsFloat(dYaw) <= m_ReachAngle)

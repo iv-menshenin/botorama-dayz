@@ -845,6 +845,12 @@ class dmAISurvivor
 		return m_FollowTarget;
 	}
 
+	//------------------------------------------------------------------
+	// Intents arbitration
+	//------------------------------------------------------------------
+
+	ref map<dmBotIntentsChannel, dmBotIntent> m_Winner = new map<dmBotIntentsChannel, dmBotIntent>();
+
 	//! Resolve and execute intents each tick (arbitration, recomputed every tick).
 	void UpdateIntents(float pDt)
 	{
@@ -852,100 +858,92 @@ class dmAISurvivor
 		dmBotSpan _span = dmBotProfiler.Start("Intents");
 		#endif
 
-		LookForward();   // взгляд — канал: сброс вперёд; победитель переустанавливает
-		SetWalk(false);  // движение — канал: сброс; победитель переустанавливает
-		SetStance(DayZPlayerConstants.STANCEIDX_ERECT); // стойка — фоновое «стоять»
+		// Clear before fair arbitration
+		m_Winner.Set(dmBotIntentsChannel.NONE, null);
+		m_Winner.Set(dmBotIntentsChannel.LOOK, null);
+		m_Winner.Set(dmBotIntentsChannel.MOVE, null);
+		m_Winner.Set(dmBotIntentsChannel.STANCE, null);
+		m_Winner.Set(dmBotIntentsChannel.EMOTION, null);
+		m_Winner.Set(dmBotIntentsChannel.ATTACK, null);
 
-		m_FSMIntents.Tick(this, pDt);
-		m_CommandIntents.Tick(this, pDt);
-		m_PersonalityIntents.Tick(this, pDt);
+		IntentsArbitrationPool(m_PersonalityIntents);
+		IntentsArbitrationPool(m_CommandIntents);
+		IntentsArbitrationPool(m_FSMIntents);
 
-		//! Без активных намерений арбитровать нечего: сбросы выше уже задали
-		//! «покой» (смотреть вперёд, стоять, не двигаться).
-		if (m_FSMIntents.Count() == 0 && m_CommandIntents.Count() == 0 && m_PersonalityIntents.Count() == 0)
-			return;
-
-		dmBotIntent exclusive = HighestExclusive();
-		if (exclusive)
+		foreach(dmBotIntentsChannel channel, dmBotIntent intent: m_Winner)
 		{
-			exclusive.OnUpdate(this, pDt);
-			return;
-		}
-
-		ExecuteParallel(m_FSMIntents, dmBotIntentPriority.IDLE, pDt);
-		ExecuteParallel(m_CommandIntents, dmBotIntentPriority.IDLE, pDt);
-		ExecuteParallel(m_PersonalityIntents, dmBotIntentPriority.IDLE, pDt);
-		ExecuteParallel(m_FSMIntents, dmBotIntentPriority.DESIRABLE, pDt);
-		ExecuteParallel(m_CommandIntents, dmBotIntentPriority.DESIRABLE, pDt);
-		ExecuteParallel(m_PersonalityIntents, dmBotIntentPriority.DESIRABLE, pDt);
-		ExecuteParallel(m_FSMIntents, dmBotIntentPriority.CRITICAL, pDt);
-		ExecuteParallel(m_CommandIntents, dmBotIntentPriority.CRITICAL, pDt);
-		ExecuteParallel(m_PersonalityIntents, dmBotIntentPriority.CRITICAL, pDt);
-	}
-
-	private void ExecuteParallel(dmBotIntentPool pool, dmBotIntentPriority priority, float pDt)
-	{
-		ref array<ref dmBotIntent> intents = pool.GetIntents();
-		int i;
-		for (i = 0; i < intents.Count(); i++)
-		{
-			dmBotIntent intent = intents[i];
-			if (intent.m_Concurrency != dmBotIntentConcurrency.PARALLEL)
-				continue;
-			if (intent.m_Priority != priority)
-				continue;
+			if ( !intent ) continue;
 			intent.OnUpdate(this, pDt);
 		}
+
+		//! Default rest: channels nobody won fall back to "at ease".
+		if (!m_Winner.Get(dmBotIntentsChannel.LOOK))
+			LookForward();
+		if (!m_Winner.Get(dmBotIntentsChannel.MOVE))
+			SetWalk(false);
+		if (!m_Winner.Get(dmBotIntentsChannel.STANCE))
+			SetStance(DayZPlayerConstants.STANCEIDX_ERECT);
+
+		IntentsTickAges(m_PersonalityIntents, pDt);
+		IntentsTickAges(m_CommandIntents, pDt);
+		IntentsTickAges(m_FSMIntents, pDt);
 	}
 
-	private dmBotIntent HighestExclusive()
+	private void IntentsArbitrationPool(dmBotIntentPool pool)
 	{
-		dmBotIntent best = null;
-		dmBotIntent intent = null;
-		int bestOrder = -1;
-		int i;
-
-		ref array<ref dmBotIntent> intents = m_FSMIntents.GetIntents();
-		for (i = 0; i < intents.Count(); i++)
-		{
-			intent = intents[i];
-			if (intent.m_Concurrency == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 0, best, bestOrder))
-			{
-				best = intent;
-				bestOrder = 0;
-			}
-		}
-		intents = m_CommandIntents.GetIntents();
-		for (i = 0; i < intents.Count(); i++)
-		{
-			intent = intents[i];
-			if (intent.m_Concurrency == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 1, best, bestOrder))
-			{
-				best = intent;
-				bestOrder = 1;
-			}
-		}
-		intents = m_PersonalityIntents.GetIntents();
-		for (i = 0; i < intents.Count(); i++)
-		{
-			intent = intents[i];
-			if (intent.m_Concurrency == dmBotIntentConcurrency.EXCLUSIVE && IntentHigher(intent, 2, best, bestOrder))
-			{
-				best = intent;
-				bestOrder = 2;
-			}
-		}
-
-		return best;
+		ref array<ref dmBotIntent> intents = pool.GetIntents();
+		if (IntentsArbitration(intents, dmBotIntentPriority.CRITICAL)) return;
+		if (IntentsArbitration(intents, dmBotIntentPriority.DESIRABLE)) return;
+		if (IntentsArbitration(intents, dmBotIntentPriority.IDLE)) return;
 	}
 
-	private bool IntentHigher(dmBotIntent a, int aPoolOrder, dmBotIntent b, int bPoolOrder)
+	private bool IntentsArbitration(array<ref dmBotIntent> intents, dmBotIntentPriority priority)
 	{
-		if (!b)
-			return true;
-		if (a.m_Priority != b.m_Priority)
-			return a.m_Priority > b.m_Priority;
-		return aPoolOrder > bPoolOrder;
+		if (IntentsArbitrationConcurrency(intents, priority, dmBotIntentConcurrency.EXCLUSIVE)) return true;
+		IntentsArbitrationConcurrency(intents, priority, dmBotIntentConcurrency.PARALLEL);
+		return false;
+	}
+
+	private bool IntentsArbitrationConcurrency(array<ref dmBotIntent> intents, dmBotIntentPriority priority, dmBotIntentConcurrency concurrency)
+	{
+		for (int i = 0; i < intents.Count(); i++)
+		{
+			dmBotIntent intent = intents[i];
+			if (intent.m_Priority != priority) continue;
+
+			if (intent.IsFinished()) continue;
+			if (intent.IsFailed()) continue;
+			if (intent.IsExpired()) continue;
+			if (!intent.IsActive()) continue;
+
+			if (intent.m_Concurrency == concurrency)
+			{
+				if ( !m_Winner.Get(intent.m_Manage) )
+				{
+					m_Winner.Set(intent.m_Manage, intent);
+					if (concurrency == dmBotIntentConcurrency.EXCLUSIVE)
+						return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private void IntentsTickAges(dmBotIntentPool pool, float pDt)
+	{
+		ref array<ref dmBotIntent> intents = pool.GetIntents();
+		
+		for (int i = 0; i < intents.Count(); i++)
+		{
+			dmBotIntent intent = intents[i];
+			intent.TickAge(pDt);
+			if (intent.IsFinished() || intent.IsExpired())
+			{
+				intent.OnCancel(this);
+				pool.Remove(intent);
+				i--;
+			}
+		}
 	}
 
 	//! Smoothly steer the head toward the desired look target. If the target is

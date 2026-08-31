@@ -21,8 +21,20 @@ class dmBotIntent_LookAround : dmBotIntent
 	float m_BodyTarget = 0.0;
 	int m_Phase = 0;   // 0 = forward, 1 = head hold, 2 = body turn
 
+	void dmBotIntent_LookAround()
+	{
+		m_Manage = dmBotIntentsChannel.LOOK;
+	}
+
+	override string GetIntentName()
+	{
+		return "LookAround";
+	}
+
 	override void OnStart(dmAISurvivor bot)
 	{
+		super.OnStart(bot);
+
 		m_Timer = 0.0;
 		m_Interval = RandomInterval();
 		m_CurYaw = 0.0;
@@ -41,6 +53,8 @@ class dmBotIntent_LookAround : dmBotIntent
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Intent.LookAround");
 		#endif
+
+		super.OnUpdate(bot, pDt);
 
 		if (m_Phase == 1)
 		{

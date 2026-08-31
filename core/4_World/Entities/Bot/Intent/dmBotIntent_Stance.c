@@ -8,13 +8,21 @@ class dmBotIntent_Stance : dmBotIntent
 {
 	int m_Stance;
 
+	override string GetIntentName()
+	{
+		return "Stance";
+	}
+
 	void dmBotIntent_Stance()
 	{
 		m_Stance = DayZPlayerConstants.STANCEIDX_CROUCH;
+		m_Manage = dmBotIntentsChannel.STANCE;
 	}
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
+		super.OnUpdate(bot, pDt);
+
 		bot.SetStance(m_Stance);
 	}
 }

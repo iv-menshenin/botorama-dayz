@@ -39,7 +39,6 @@ class dmBotState_Fighting : dmBotState
 		bot.SetMeleeCooldown(0.0);
 
 		ResolveTarget();
-		CreateLook();
 
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Fighting.entry");
@@ -69,52 +68,36 @@ class dmBotState_Fighting : dmBotState
 			cd = 0.0;
 		bot.SetMeleeCooldown(cd);
 
-		//! Keep the look intent alive (re-create if the pool dropped it).
-		if (m_Look && (m_Look.IsFinished() || m_Look.IsExpired()))
-			m_Look = null;
-		if (!m_Look)
-			CreateLook();
-
 		vector botPos = bot.GetPosition();
 		vector tPos = m_TargetEntity.GetPosition();
 		vector d = tPos - botPos;
 		d[1] = 0.0;
-		float dist = d.Length();
+		float distSq = d.LengthSq();
 		float reach = GetMeleeReach(bot);
+		float reachSq = reach * reach;
 
-		if (dist > reach)
-		{
-			EnsureApproach(bot);
-			if (m_Evasion) { m_Evasion.Finish(); m_Evasion = null; }
-			if (m_HitTo) { m_HitTo.Finish(); m_HitTo = null; }
-		}
-		else if (bot.GetMeleeCooldown() > 0.0)
-		{
-			EnsureEvasion(bot);
-			if (m_Approach) { m_Approach.Finish(); m_Approach = null; }
-			if (m_HitTo) { m_HitTo.Finish(); m_HitTo = null; }
-		}
-		else
-		{
-			EnsureHitTo(bot);
-			if (m_Approach) { m_Approach.Finish(); m_Approach = null; }
-			if (m_Evasion) { m_Evasion.Finish(); m_Evasion = null; }
-		}
+		EnsureLook();
+		EnsureApproach(bot);
+		EnsureEvasion(bot);
+		EnsureHitTo(bot);
+
+		m_HitTo.m_Active = (distSq <= reachSq && bot.GetMeleeCooldown() == 0.0);
+		m_Approach.m_Active = bot.GetMeleeCooldown() == 0.0 && (distSq > (reachSq * 0.9)); // a small gap
+		m_Evasion.m_Active = (bot.GetMeleeCooldown() > 0.0);
+
 		return CONTINUE;
 	}
 
 	override void OnExit(dmBotState to)
 	{
-	}
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] Fighting.exit");
+		#endif
 
-	void CreateLook()
-	{
-		m_Look = new dmBotIntent_HoldLook();
-		m_Look.m_Entity = m_TargetEntity;
-		m_Look.m_Turn = dmBotLookTurn.FULL;
-		m_Look.m_Priority = dmBotIntentPriority.CRITICAL;
-		m_Look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
-		GetOwner().AddFSMIntent(m_Look);
+		if ( m_Approach ) m_Approach.Finish();
+		if ( m_HitTo ) m_HitTo.Finish();
+		if ( m_Evasion ) m_Evasion.Finish();
+		if ( m_Look ) m_Look.Finish();
 	}
 
 	void ResolveTarget()
@@ -143,6 +126,21 @@ class dmBotState_Fighting : dmBotState
 		m_TargetEntity = newEntity;
 	}
 
+	void EnsureLook()
+	{
+		if (m_Look && (m_Look.IsFinished() || m_Look.IsExpired()))
+			m_Look = null;
+		if (!m_Look)
+		{
+			m_Look = new dmBotIntent_HoldLook();
+			m_Look.m_Entity = m_TargetEntity;
+			m_Look.m_Turn = dmBotLookTurn.FULL;
+			m_Look.m_Priority = dmBotIntentPriority.CRITICAL;
+			m_Look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+			GetOwner().AddFSMIntent(m_Look);
+		}
+	}
+
 	void EnsureApproach(dmAISurvivor bot)
 	{
 		if (m_Approach && (m_Approach.IsFinished() || m_Approach.IsExpired()))
@@ -152,6 +150,8 @@ class dmBotState_Fighting : dmBotState
 			m_Approach = new dmBotIntent_Approach();
 			m_Approach.m_TargetEntity = m_TargetEntity;
 			m_Approach.m_ReachDistance = GetMeleeReach(bot);
+			m_Approach.m_Priority = dmBotIntentPriority.CRITICAL;
+			m_Approach.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 			bot.AddFSMIntent(m_Approach);
 		}
 	}
@@ -164,6 +164,8 @@ class dmBotState_Fighting : dmBotState
 		{
 			m_Evasion = new dmBotIntent_Evasion();
 			m_Evasion.m_TargetEntity = m_TargetEntity;
+			m_Evasion.m_Priority = dmBotIntentPriority.CRITICAL;
+			m_Evasion.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 			bot.AddFSMIntent(m_Evasion);
 		}
 	}
@@ -177,6 +179,8 @@ class dmBotState_Fighting : dmBotState
 			m_HitTo = new dmBotIntent_HitTo();
 			m_HitTo.m_TargetEntity = m_TargetEntity;
 			m_HitTo.m_ReachDistance = GetMeleeReach(bot);
+			m_HitTo.m_Priority = dmBotIntentPriority.CRITICAL;
+			m_HitTo.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 			bot.AddFSMIntent(m_HitTo);
 		}
 	}
@@ -191,6 +195,10 @@ class dmBotState_Fighting : dmBotState
 			if (mc)
 				return mc.GetReach();
 		}
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] Fighting: нет dmBotMeleeCombat - fallback");
+		#endif
 		return DM_MELEE_REACH;
 	}
 }

@@ -45,11 +45,23 @@ class dmBotIntent_MoveTo : dmBotIntent
 	bool m_Laddering = false;
 	ref dmBotIntent_UseLadder m_UseLadder;
 
+	void dmBotIntent_MoveTo()
+	{
+		m_Manage = dmBotIntentsChannel.MOVE;
+	}
+
+	override string GetIntentName()
+	{
+		return "MoveTo";
+	}
+
 	override void OnStart(dmAISurvivor bot)
 	{
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Intent.MoveTo.Start");
 		#endif
+
+		super.OnStart(bot);
 
 		m_BestDist = -1.0;
 		m_NoProgressTime = 0.0;
@@ -88,6 +100,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Intent.MoveTo");
 		#endif
+
+		super.OnUpdate(bot, pDt);
 
 		if (IsFinished())
 			return;
@@ -345,6 +359,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 	override void OnCancel(dmAISurvivor bot)
 	{
+		super.OnCancel(bot);
+
 		bot.SetMove(0.0, 0.0);
 	}
 }

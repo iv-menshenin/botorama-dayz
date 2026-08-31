@@ -33,10 +33,18 @@ class dmBotIntent_FollowTo : dmBotIntent
 	{
 		m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		m_Priority = dmBotIntentPriority.CRITICAL;
+		m_Manage = dmBotIntentsChannel.MOVE;
+	}
+
+	override string GetIntentName()
+	{
+		return "FollowTo";
 	}
 
 	override void OnStart(dmAISurvivor bot)
 	{
+		super.OnStart(bot);
+
 		m_Path = null;
 		m_PathIdx = 0;
 		m_PathTimer = DM_FOLLOW_PATH_INTERVAL;
@@ -54,6 +62,8 @@ class dmBotIntent_FollowTo : dmBotIntent
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Intent.FollowTo");
 		#endif
+
+		super.OnUpdate(bot, pDt);
 
 		if (!m_Target)
 			return;
@@ -233,6 +243,8 @@ class dmBotIntent_FollowTo : dmBotIntent
 
 	override void OnCancel(dmAISurvivor bot)
 	{
+		super.OnCancel(bot);
+
 		bot.SetMove(0.0, 0.0);
 	}
 }

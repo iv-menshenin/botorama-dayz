@@ -13,10 +13,22 @@ class dmBotIntent_HitTo : dmBotIntent
 	{
 		m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		m_Priority = dmBotIntentPriority.CRITICAL;
+		m_Manage = dmBotIntentsChannel.ATTACK;
+	}
+
+	override string GetIntentName()
+	{
+		return "HitTo";
 	}
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Intent.HitTo");
+		#endif
+
+		super.OnUpdate(bot, pDt);
+
 		if (bot.GetMeleeCooldown() > 0.0)
 			return;
 		if (!m_TargetEntity)

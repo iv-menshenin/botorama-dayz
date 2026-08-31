@@ -16,10 +16,22 @@ class dmBotIntent_Approach : dmBotIntent
 	{
 		m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		m_Priority = dmBotIntentPriority.CRITICAL;
+		m_Manage = dmBotIntentsChannel.MOVE;
+	}
+
+	override string GetIntentName()
+	{
+		return "Approach";
 	}
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Intent.Approach");
+		#endif
+
+		super.OnUpdate(bot, pDt);
+
 		if (!m_TargetEntity)
 		{
 			Finish();
@@ -74,6 +86,8 @@ class dmBotIntent_Approach : dmBotIntent
 
 	override void OnCancel(dmAISurvivor bot)
 	{
+		super.OnCancel(bot);
+
 		StopMove();
 		bot.SetMove(0.0, 0.0);
 	}
