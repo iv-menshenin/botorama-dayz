@@ -813,9 +813,9 @@ class dmBotTest_Aim : dmBotTestCase
 	{
 		vector botPos = m_Bot.GetPosition();
 		vector pos = botPos + m_LookDir * distance;
-		pos[1] = GroundYAt(pos);
+		pos[1] = 0.1;
 
-		m_TargetEntity = EntityAI.Cast(GetGame().CreateObject("dmAI_SurvivorM_Denis", pos, false));
+		m_TargetEntity = EntityAI.Cast(GetGame().CreateObject("dmAI_SurvivorM_Denis", SnapToGround(pos), false));
 		if (m_TargetEntity)
 			m_Bot.RegisterHostile(m_TargetEntity, 1.0);
 	}
@@ -864,12 +864,17 @@ class dmBotTest_Aim : dmBotTestCase
 		return DM_AIM_TEST_LOOK_RAYCAST;
 	}
 
-	//! Terrain height at (x,z) — g_Game.SurfaceY returns the surface Y directly,
-	//! no downward raycast needed.
-	float GroundYAt(vector pos)
+	vector SnapToGround(vector pos)
 	{
-		return GetGame().SurfaceY(pos[0], pos[2]);
+		float pos_x = pos[0];
+		float pos_z = pos[2];
+		float pos_y = g_Game.SurfaceY(pos_x, pos_z);
+		vector tmp_pos = Vector(pos_x, pos_y, pos_z);
+		tmp_pos[1] = tmp_pos[1] + pos[1];
+
+		return tmp_pos;
 	}
+
 
 	//! Equip an EMPTY AKM (no magazine) + PSO11Optic + a backpack with
 	//! DM_AIM_TEST_MAG_COUNT magazines of DM_AIM_TEST_MAG_ROUNDS rounds each.
