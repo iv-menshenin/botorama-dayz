@@ -65,10 +65,15 @@
     угроза (`GetHostileTarget`/`RegisterDamageThreat`, порог `DM_ATTACK_THREAT_THRESHOLD`).
 
 ### Группа 5 — лут
-13. `[ ]` **Перцепция предметов**. Deps: 3. Research: `loot.md` + `perception.md`.
-14. `[ ]` **Оценка полезности** (score). Deps: нет.
-15. `[ ]` **Pickup/drop примитивы**. Deps: нет (инвентарь освоен).
-16. `[ ]` **Состояние `Looting`**. Deps: 13, 14, 15, 1.
+13. `[x]` **Перцепция предметов**. Deps: 3. Research: `loot.md` + `perception.md`.
+    — сделано: `dmLoot.ScanNearbyItems` (SceneGetEntitiesInBox + ItemBase-фильтр).
+14. `[x]` **Оценка полезности** (score). Deps: нет.
+    — сделано: `dmLoot.GetCategory` + `dmWishlist.CalcDesired` + `dmRequirements` (индексы) + `dmNeeds`.
+15. `[x]` **Pickup/drop примитивы**. Deps: нет (инвентарь освоен).
+    — сделано: `dmBotIntent_PickUp` (наследник MoveTo) + `dmAISurvivorBase.DropItem`.
+16. `[x]` **Состояние `Looting`** (у нас — `Exploration`). Deps: 13, 14, 15, 1.
+    — сделано: `dmBotState_Exploration` (блуждание + оппортунистический подбор + выброс при переполнении)
+    + `dmExplorer` (здания visited/забывание). См. `docs/plans/looting-and-exploration.md`.
 
 ### Группа 6 — интеграция
 17. `[ ]` **Реактивный эскорт** — эскорт → угроза → бой → возврат. Deps: 6, 12.
