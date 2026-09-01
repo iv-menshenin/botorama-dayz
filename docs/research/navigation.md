@@ -401,6 +401,21 @@ bot.PlayDoorOpenGesture();        // hand-жест, в том же тике (и�
   `m_JumpClimb.JumpOrClimb()` (или напрямую `StartCommand_Climb(res, GetClimbType(res.m_fClimbHeight))`
   после `CanClimb`). `GetClimbType` приватный в `DayZPlayerImplementJumpClimb` — проще звать
   `m_JumpClimb.JumpOrClimb()`, он сам всё делает (и `CanClimb`, и стамину).
+
+**Готча (обожглись): `JumpOrClimb()` НЕНАДЁЖЕН для серверного ИИ — звать напрямую
+`StartCommand_Climb(res, climbType)`.** `DayZPlayerImplementJumpClimb.JumpOrClimb()`
+(`dayzplayerimplementjumpclimb.c:20`) внутри делает СВОЙ тест `DoPerformClimbTest` (другой
+натив, не `DoClimbTest` — результат может разойтись с нашим), затем гейт
+`m_Player.CanClimb(climbType, res)` (стамина/переломы/`hibcfg.m_bJumpAllowed`/холограммы),
+а при неудаче **фолбэчится в `Jump()`** (бесполезный подскок `StartCommand_Fall`, не
+перелезает). Симптомы: `DoClimbTest` вернул `isClimbOver=true`, но бот НЕ лезет и ретраит
+каждые `DM_VAULT_GRACE`+`DM_MOVE_STUCK_TIME` (~4с) — потому что клаймб так и не стартовал,
+`IsClimbing()` всё время false. Правильный путь (как `Expansion_Climb` в Expansion
+`DayZPlayerImplementJumpClimb.c:15`): `DoClimbTest` → свой `GetClimbType(m_fClimbHeight)`
+(`<1.1`→0, `1.1..1.7`→1, `1.7..2.75`→2, иначе -1) → `StartCommand_Climb(res, climbType)`
+напрямую (натив `Human`), БЕЗ `Jump()`-фолбэка. Для ИИ гейт `CanClimb` (особенно
+`CanConsumeStamina`) можно смягчить/переопределить — ИИ-стамина не регенерит как у игрока,
+поэтому ванильный `CanClimb` срезает повторные vault'ы.
 - **Детект ребра**: в `dmBotIntent_MoveTo` при `m_NoProgressTime` / физической блокировке
   (`DayZPhysics.RaycastRV` вперёд) → звать `TryVaultClimb()`; «влез» = `GetCommand_Climb()`
   достиг `STATE_ONTOP` (или `!IsClimbing()` после старта) → продолжить следование.
