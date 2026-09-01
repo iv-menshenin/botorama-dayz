@@ -42,10 +42,19 @@ class dmNeeds
 		//! все ножи наследуют ToolBase напрямую).
 		bool hasKnife = false;
 		if (req)
-			hasKnife = req.HasItemInherited(ToolBase);
+			hasKnife = req.HasKnife();
 		if (hasKnife)
 			wish.RemoveDesired(ToolBase);
 		else
 			wish.SetDesired(ToolBase, 1.0);
+
+		//! Повреждённое оружие + нет чистящего набора → желать WeaponCleaningKit.
+		bool needClean = false;
+		if (req)
+			needClean = req.HasDamagedWeapon() && !req.HasItemInherited(WeaponCleaningKit);
+		if (needClean)
+			wish.SetDesired(WeaponCleaningKit, 1.0);
+		else
+			wish.RemoveDesired(WeaponCleaningKit);
 	}
 };
