@@ -1101,10 +1101,12 @@ class dmAISurvivorBase : PlayerBase
 		return null;
 	}
 
-	//! Try to vault/climb the obstacle in front of the bot. First a DoClimbTest:
-	//! if there is a vault/climb edge ahead, start m_JumpClimb.JumpOrClimb() (the
-	//! full cycle: test -> type -> CanClimb -> StartCommand_Climb). Returns true if
-	//! a climb was started.
+	//! Try to vault/climb the obstacle in front of the bot. We deliberately avoid
+	//! m_JumpClimb.JumpOrClimb(): it re-runs its own DoPerformClimbTest (a different
+	//! native than DoClimbTest, so the result can disagree with ours) and falls back
+	//! to Jump() on failure — a useless hop that never starts the climb. Instead we
+	//! start the climb directly from OUR DoClimbTest result, like Expansion's
+	//! Expansion_Climb. Returns true if a climb was started.
 	bool TryVaultClimb()
 	{
 		SHumanCommandClimbResult res = new SHumanCommandClimbResult();
@@ -1113,12 +1115,35 @@ class dmAISurvivorBase : PlayerBase
 		if (!res.m_bIsClimb && !res.m_bIsClimbOver)
 			return false;
 
-		m_JumpClimb.JumpOrClimb();
+		int climbType = GetClimbTypeLocal(res.m_fClimbHeight);
+		if (climbType == -1)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Bot] TryVaultClimb: height=" + res.m_fClimbHeight + " out of range, abort");
+			#endif
+			return false;
+		}
 
 		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[Bot] TryVaultClimb: height=" + res.m_fClimbHeight + " type=" + climbType);
 		dmBotLog.Debug("[Bot] TryVaultClimb: isClimb=" + res.m_bIsClimb + " isClimbOver=" + res.m_bIsClimbOver);
 		#endif
+
+		StartCommand_Climb(res, climbType);
 		return true;
+	}
+
+	//! Local copy of the vanilla GetClimbType() thresholds: map the tested climb
+	//! height to the climb command type (0/1 = vault, 2 = climb, -1 = out of range).
+	private int GetClimbTypeLocal(float pHeight)
+	{
+		if (pHeight < 1.1)
+			return 0;
+		if (pHeight < 1.7)
+			return 1;
+		if (pHeight < 2.75)
+			return 2;
+		return -1;
 	}
 }
 
