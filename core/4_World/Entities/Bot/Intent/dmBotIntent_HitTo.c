@@ -62,7 +62,7 @@ class dmBotIntent_HitTo : dmBotIntent
 		vector botPos = bot.GetPosition();
 		vector d = targetPos - botPos;
 		d[1] = 0.0;
-		float dist = d.Length();
+		float dist = d.Length() - 0.65; // 0.65 - это две толщины тела. между ботом и чеолвекоподобным существом будет ровно 0
 		if (dist > m_ReachDistance)
 		{
 			m_LastFail = dmHitToFail.TOOFAR;
