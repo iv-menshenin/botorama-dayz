@@ -1059,6 +1059,16 @@ class dmAISurvivorBase : PlayerBase
 		return false;
 	}
 
+	//! Drop an item from the bot's inventory onto the ground (server-side).
+	//! Returns true on success. The caller decides which item (GetDiscardOrder)
+	//! and marks it Ignore so it isn't re-picked up.
+	bool DropItem(EntityAI item)
+	{
+		if (!item)
+			return false;
+		return GetInventory().DropEntity(InventoryMode.SERVER, this, item);
+	}
+
 	//! Find a non-empty magazine in the inventory that fits the weapon (prefer an
 	//! attachable one, else a swappable one). Returns null if there is none.
 	Magazine FindReloadMagazine(Weapon_Base weapon, WeaponManager wm)

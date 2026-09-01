@@ -5,12 +5,9 @@
 //! the target's live position, re-created when the target drifts more than 0.5 m
 //! from the current path goal. Close enough (<= DM_MELEE_APPROACH_NO_PATH_DIST)
 //! it steers straight at the target without a navmesh path.
-class dmBotIntent_Approach : dmBotIntent
+class dmBotIntent_Approach: dmBotIntent_MoveTo
 {
 	EntityAI m_TargetEntity;
-	float m_ReachDistance = 1.5;
-
-	ref dmBotIntent_MoveTo m_Move;
 
 	void dmBotIntent_Approach()
 	{
@@ -24,80 +21,30 @@ class dmBotIntent_Approach : dmBotIntent
 		return "Approach";
 	}
 
-	override void OnUpdate(dmAISurvivor bot, float pDt)
+	override bool IsContinuous()
 	{
-		#ifdef DM_BOT_PROFILE
-		dmBotSpan _span = dmBotProfiler.Start("Intent.Approach");
-		#endif
-
-		super.OnUpdate(bot, pDt);
-
-		if (!m_TargetEntity)
-		{
-			Finish();
-			return;
-		}
-
-		vector targetPos = m_TargetEntity.GetPosition();
-		vector botPos = bot.GetPosition();
-		vector d = targetPos - botPos;
-		d[1] = 0.0;
-		float dist = d.Length();
-
-		if (dist <= m_ReachDistance)
-		{
-			Finish();
-			return;
-		}
-
-		//! Close enough — steer straight at the target (no pathfinding).
-		if (dist <= DM_MELEE_APPROACH_NO_PATH_DIST)
-		{
-			StopMove();
-			float yaw = d.VectorToAngles()[0];
-			bot.SetMoveYaw(yaw);
-			bot.SetMove(0.0, 2.0);
-			return;
-		}
-
-		if (m_Move && (m_Move.IsFailed() || m_Move.IsFinished()))
-			m_Move = null;
-
-		if (m_Move)
-		{
-			vector drift = targetPos - m_Move.m_Goal;
-			drift[1] = 0.0;
-			if (drift.Length() > 0.5)
-			{
-				m_Move.Finish();
-				m_Move = null;
-			}
-		}
-
-		if (!m_Move)
-		{
-			m_Move = new dmBotIntent_MoveTo();
-			m_Move.m_Goal = targetPos;
-			m_Move.m_ReachDistance = m_ReachDistance;
-			m_Move.m_Priority = dmBotIntentPriority.DESIRABLE;
-			bot.AddFSMIntent(m_Move);
-		}
+		return true;
 	}
 
-	override void OnCancel(dmAISurvivor bot)
+	override bool KeepLookAtGoal()
 	{
-		super.OnCancel(bot);
-
-		StopMove();
-		bot.SetMove(0.0, 0.0);
+		return true;
 	}
 
-	void StopMove()
+	override void OnStart(dmAISurvivor bot)
 	{
-		if (m_Move)
-		{
-			m_Move.Finish();
-			m_Move = null;
-		}
+		if ( m_TargetEntity ) m_Goal = m_TargetEntity.GetPosition();
+
+		super.OnStart(bot);
+	}
+
+	override void UpdateGoal(dmAISurvivor bot, float pDt)
+	{
+		if ( m_TargetEntity ) m_Goal = m_TargetEntity.GetPosition();
+	}
+	
+	override float GetMoveSpeed(dmAISurvivor bot)
+	{
+		return 3.0;
 	}
 }

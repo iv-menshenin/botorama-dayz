@@ -839,18 +839,19 @@ class dmAISurvivor
 		for (i = 0; i < m_Targets.Count(); i++)
 		{
 			dmTarget t = m_Targets[i];
-			if (t.m_Friendly)
-				continue;
-			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD)
-				continue;
+			if (t.m_Friendly) continue;
+
+			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
+
 			EntityAI e = t.m_Entity;
-			if (e && !e.IsAlive())
-				continue;
+			if (e && !e.IsAlive()) continue;
+
 			vector tPos;
 			if (e)
 				tPos = e.GetPosition();
 			else
 				tPos = t.m_LastPosition;
+				
 			vector d = tPos - myPos;
 			d[1] = 0.0;
 			float dist = d.Length();
