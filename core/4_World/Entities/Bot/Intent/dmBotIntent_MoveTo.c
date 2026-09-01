@@ -86,6 +86,15 @@ class dmBotIntent_MoveTo : dmBotIntent
 	{
 	}
 
+	//! Called when the final goal is reached. Default: stop and (unless continuous)
+	//! finish. Subclasses (e.g. dmBotIntent_PickUp) override to act on the goal.
+	void OnReachedGoal(dmAISurvivor bot)
+	{
+		bot.SetMove(0.0, 0.0);
+		if (!IsContinuous())
+			Finish();
+	}
+
 	override void OnStart(dmAISurvivor bot)
 	{
 		super.OnStart(bot);
@@ -233,9 +242,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 				return;
 			}
 
-			bot.SetMove(0.0, 0.0);
-			if (!IsContinuous())
-				Finish();
+			OnReachedGoal(bot);
 			return;
 		}
 

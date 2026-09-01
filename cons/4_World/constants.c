@@ -331,3 +331,6 @@ static const float DM_LOOT_FULL_THRESHOLD = 0.75;
 
 //! Loot: needs-coordinator tick interval (seconds) — how often inventory -> desires.
 static const float DM_NEEDS_TICK_INTERVAL = 5.0;
+
+//! Loot: distance (meters) to an item at which the bot picks it up.
+static const float DM_PICKUP_REACH = 1.5;
