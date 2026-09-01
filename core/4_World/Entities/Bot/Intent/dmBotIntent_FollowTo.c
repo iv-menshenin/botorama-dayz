@@ -146,6 +146,9 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 		m_PathTimer += pDt;
 		if (m_PathTimer >= DM_FOLLOW_PATH_INTERVAL)
 		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] RePath #004");
+			#endif
 			m_PathTimer = 0.0;
 			RePath(bot);
 		}

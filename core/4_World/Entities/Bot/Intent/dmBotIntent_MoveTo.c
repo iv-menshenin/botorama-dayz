@@ -110,6 +110,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (!IsContinuous())
 		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] RePath #005");
+			#endif
 			RePath(bot);
 			if (!m_HasPath)
 			{
@@ -144,6 +147,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 				return;
 
 			m_Recovering = false;
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] RePath #003");
+			#endif
 			RePath(bot);
 			if (!m_HasPath && !IsContinuous())
 			{
@@ -176,6 +182,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 		{
 			if (m_UseLadder && (m_UseLadder.IsFinished() || m_UseLadder.IsExpired()))
 			{
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] RePath #002");
+				#endif
 				m_UseLadder = null;
 				m_Laddering = false;
 				m_NoProgressTime = 0.0;
@@ -330,6 +339,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 			if (IsContinuous())
 			{
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] RePath #001");
+				#endif
 				m_NoProgressTime = 0.0;
 				RePath(bot);
 				return;
