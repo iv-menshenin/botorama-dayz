@@ -92,6 +92,10 @@
 - `static const int/float/bool` — константы компиляции, доступны как `Class.NAME`
   и без квалификатора в наследниках.
 - Каст: `Base.Cast(instance)` → `Base` или `null` (`PlayerBase pawn = PlayerBase.Cast(entity);`).
+- **`modded class X` — файл должен лежать в том же модуле, что и `X`.** `X` из
+  3_Game (напр. `DayZGame`) → `core/3_Game`; `X` из 4_World (`Weapon_Base`/`ZombieBase`/
+  `DayZPlayerImplement`) → `reg/4_World`/`core/4_World`. Иначе `Unknown type 'X'`
+  (модуль не видит класс из соседнего модуля). Модули: `3_Game` → `4_World` → `5_Mission`.
 
 ## Генерики
 
