@@ -56,9 +56,10 @@ class dmAiming
 	}
 
 	//! Kick the barrel up after a shot (modifier scales DM_AIM_RECOIL_DEGREE).
-	void AddRecoil(float modifier)
+	float AddRecoil(float modifier)
 	{
 		m_RecoilPitch = m_RecoilPitch + modifier * DM_AIM_RECOIL_DEGREE;
+		return m_RecoilPitch;
 	}
 
 	void Update(float pDt)

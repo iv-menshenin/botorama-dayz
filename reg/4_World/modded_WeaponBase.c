@@ -44,7 +44,10 @@ modded class Weapon_Base
 		pos = pos + dir * 0.2;
 		bool fired = Fire(muzzleIndex, pos, dir, dir);
 		if (fired)
-			pawn.GetAiming().AddRecoil(DM_AIM_RECOIL_MODIFIER);
+		{
+			float recoilPitch = pawn.GetAiming().AddRecoil(DM_AIM_RECOIL_MODIFIER);
+			pawn.KickRecoilVisual(recoilPitch);
+		}
 		return fired;
 		#else
 		return TryFireWeapon(this, muzzleIndex);

@@ -902,6 +902,13 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
+	//! Instantly kick the smoothed barrel aim up (visual recoil), bypassing the
+	//! per-tick blend so the recoil is a sharp kick, not a slow sway.
+	void KickRecoilVisual(float pitchDeg)
+	{
+		m_AimSmoothedUD = m_AimSmoothedUD + pitchDeg;
+	}
+
 	float GetLookPitch()
 	{
 		return m_LookPitchDeg;
