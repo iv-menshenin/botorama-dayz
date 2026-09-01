@@ -853,7 +853,7 @@ class dmAISurvivor
 			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
 
 			EntityAI e = t.m_Entity;
-			if (e && !e.IsAlive()) continue;
+			if (!e || !e.IsAlive()) continue;
 
 			vector tPos;
 			if (e)

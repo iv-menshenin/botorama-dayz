@@ -343,3 +343,14 @@ static const float DM_EXPLORE_TICK_INTERVAL = 60.0;
 static const float DM_EXPLORE_FORGET_ANY = 500.0;
 //! Loot exploration: forget an unvisited building farther than this (meters).
 static const float DM_EXPLORE_FORGET_UNVISITED = 200.0;
+
+//! Loot exploration: radius (meters) to scan for items to pick up.
+static const float DM_EXPLORE_PICKUP_RADIUS = 3.0;
+//! Loot exploration: min CalcDesired to pick up an item.
+static const float DM_EXPLORE_PICKUP_THRESHOLD = 0.5;
+//! Loot exploration: radius (meters) to search for an unvisited building.
+static const float DM_EXPLORE_EXPLORE_RADIUS = 100.0;
+//! Loot exploration: reach (meters) to a building before marking it visited.
+static const float DM_EXPLORE_BUILDING_REACH = 2.0;
+//! Loot exploration: cooldown (seconds) between drops when the inventory is full.
+static const float DM_EXPLORE_DROP_COOLDOWN = 1.0;
