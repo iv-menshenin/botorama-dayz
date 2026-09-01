@@ -328,3 +328,6 @@ static const float DM_LOOT_IGNORE_TIMEOUT = 300.0;
 //! Loot: used-capacity fraction (0..1) above which the inventory counts as full
 //! (less than 25% free space). See dmRequirements.IsFull.
 static const float DM_LOOT_FULL_THRESHOLD = 0.75;
+
+//! Loot: needs-coordinator tick interval (seconds) — how often inventory -> desires.
+static const float DM_NEEDS_TICK_INTERVAL = 5.0;

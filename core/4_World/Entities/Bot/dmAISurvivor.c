@@ -43,6 +43,12 @@ class dmAISurvivor
 	//! Perception (vision): scans for visible threats on a throttled cadence.
 	private ref dmVision m_Vision;
 
+	//! Loot: wishlist (desires), inventory analysis, and the needs coordinator
+	//! (inventory -> desires; ticked from OnUpdate on a ~5s throttle).
+	private ref dmWishlist m_Wishlist;
+	private ref dmRequirements m_Requirements;
+	private ref dmNeeds m_Needs;
+
 	//! Pathfinder (navmesh wrapper), lazily created on first use.
 	private ref dmBotPathfinder m_Pathfinder;
 
@@ -85,6 +91,9 @@ class dmAISurvivor
 		m_CommandIntents = new dmBotIntentPool();
 		m_PatrolPoints = new array<vector>();
 		m_Targets = new array<ref dmTarget>();
+		m_Wishlist = new dmWishlist();
+		m_Requirements = new dmRequirements();
+		m_Needs = new dmNeeds();
 	}
 
 	//! Model class to use. Must be set before Spawn().
@@ -339,6 +348,8 @@ class dmAISurvivor
 			m_Vision = new dmVision();
 		m_Vision.Update(this, pDt);
 
+		m_Needs.Update(this, pDt);
+
 		if (m_FSM)
 			m_FSM.Update(pDt);
 
@@ -364,6 +375,21 @@ class dmAISurvivor
 	dmVision GetVision()
 	{
 		return m_Vision;
+	}
+
+	dmWishlist GetWishlist()
+	{
+		return m_Wishlist;
+	}
+
+	dmRequirements GetRequirements()
+	{
+		return m_Requirements;
+	}
+
+	dmNeeds GetNeeds()
+	{
+		return m_Needs;
 	}
 
 	//------------------------------------------------------------------

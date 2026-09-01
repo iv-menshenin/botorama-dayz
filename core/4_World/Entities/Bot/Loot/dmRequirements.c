@@ -176,6 +176,18 @@ class dmRequirements
 		return m_Ruined;
 	}
 
+	//! Есть ли в инвентаре (не разрушенный) предмет заданного класса (наследование).
+	bool HasItemInherited(typename itemClass)
+	{
+		int i;
+		for (i = 0; i < m_Items.Count(); i++)
+		{
+			if (m_Items[i].m_Item.IsInherited(itemClass))
+				return true;
+		}
+		return false;
+	}
+
 	//! Инвентарь почти полон (занято больше DM_LOOT_FULL_THRESHOLD = 0.75 ёмкости,
 	//! т.е. свободно < 25%). Опирается на занятую долю, посчитанную в Update.
 	bool IsFull()
