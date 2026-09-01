@@ -1,3 +1,14 @@
+
+enum dmHitToFail
+{
+	NONE,
+	COOLDOWN,
+	NOTARGET,
+	TOOFAR,
+	ANGLE,
+	HASNTLOS
+};
+
 //! dmBotIntent_HitTo — strike a melee target when aligned and in reach.
 //!
 //! CRITICAL + PARALLEL. Only fires while the strike cooldown is zero. It bails out
@@ -8,6 +19,7 @@ class dmBotIntent_HitTo : dmBotIntent
 {
 	EntityAI m_TargetEntity;
 	float m_ReachDistance = 1.5;
+	dmHitToFail m_LastFail;
 
 	void dmBotIntent_HitTo()
 	{
@@ -27,15 +39,19 @@ class dmBotIntent_HitTo : dmBotIntent
 		dmBotSpan _span = dmBotProfiler.Start("Intent.HitTo");
 		#endif
 
+		m_LastFail = dmHitToFail.NONE;
 		super.OnUpdate(bot, pDt);
+		
 		float mCd = bot.GetMeleeCooldown();
 		if ( mCd > 0.0 || !m_TargetEntity)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
 			if ( m_TargetEntity )
 			{
+				m_LastFail = dmHitToFail.COOLDOWN;
 				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА MeleeCooldown=" + mCd);
 			} else {
+				m_LastFail = dmHitToFail.NOTARGET;
 				dmBotLog.Debug("[FSM] Fighting: удар по `пустому месту` НЕУДАЧА MeleeCooldown=" + mCd);
 			}
 			#endif
@@ -49,6 +65,7 @@ class dmBotIntent_HitTo : dmBotIntent
 		float dist = d.Length();
 		if (dist > m_ReachDistance)
 		{
+			m_LastFail = dmHitToFail.TOOFAR;
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА дистанция: " + dist + " > " + m_ReachDistance);
 			#endif
@@ -60,6 +77,7 @@ class dmBotIntent_HitTo : dmBotIntent
 		float ang = dmAISurvivor.AngleDiff(yawTo, bodyYaw);
 		if (Math.AbsFloat(ang) > DM_MELEE_FACE_ANGLE)
 		{
+			m_LastFail = dmHitToFail.ANGLE;
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА угол: " + Math.AbsFloat(ang) + " > " + DM_MELEE_FACE_ANGLE);
 			#endif
@@ -69,6 +87,7 @@ class dmBotIntent_HitTo : dmBotIntent
 		dmTarget t = bot.FindTarget(m_TargetEntity);
 		if (!t || !t.m_HasLOS)
 		{
+			m_LastFail = dmHitToFail.HASNTLOS;
 			#ifdef DM_BOT_DEBUG_FSM
 			if ( t )
 			{
@@ -77,7 +96,8 @@ class dmBotIntent_HitTo : dmBotIntent
 				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА нет цели [FindTarget]");
 			}
 			#endif
-			return;
+			// бей вслепую!ы
+			// return;
 		}
 
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
