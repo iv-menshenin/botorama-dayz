@@ -42,7 +42,10 @@ modded class Weapon_Base
 		vector pos = pawn.GetBonePositionWS(neck);
 		vector dir = pawn.GetWeaponAimDirection();
 		pos = pos + dir * 0.2;
-		return Fire(muzzleIndex, pos, dir, dir);
+		bool fired = Fire(muzzleIndex, pos, dir, dir);
+		if (fired)
+			pawn.GetAiming().AddRecoil(DM_AIM_RECOIL_MODIFIER);
+		return fired;
 		#else
 		return TryFireWeapon(this, muzzleIndex);
 		#endif

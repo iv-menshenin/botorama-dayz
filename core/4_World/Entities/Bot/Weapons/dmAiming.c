@@ -25,6 +25,9 @@ class dmAiming
 	//! Last time the debug log was printed (throttle).
 	private float m_LastLogTime;
 
+	//! Recoil pitch offset (degrees, positive = up). Kicks on shot, decays in Update.
+	private float m_RecoilPitch = 0.0;
+
 	void dmAiming(dmAISurvivorBase unit)
 	{
 		m_Unit = unit;
@@ -50,6 +53,12 @@ class dmAiming
 	vector GetAimPosition()
 	{
 		return m_AimPosition;
+	}
+
+	//! Kick the barrel up after a shot (modifier scales DM_AIM_RECOIL_DEGREE).
+	void AddRecoil(float modifier)
+	{
+		m_RecoilPitch = m_RecoilPitch + modifier * DM_AIM_RECOIL_DEGREE;
 	}
 
 	void Update(float pDt)
@@ -92,6 +101,11 @@ class dmAiming
 		float deviationLR;
 		float deviationUD;
 		vector aimOrientation;
+
+		//! Recoil recovery: the barrel lowers back over time.
+		m_RecoilPitch = m_RecoilPitch - DM_AIM_RECOIL_RECOVERY * pDt;
+		if (m_RecoilPitch < 0.0)
+			m_RecoilPitch = 0.0;
 
 		//! No valid target: reset and face forward.
 		if (!m_Target || !m_Target.m_Entity || !m_Target.m_Entity.IsAlive())
@@ -145,9 +159,15 @@ class dmAiming
 		position = m_Unit.GetBonePositionWS(m_Unit.GetBoneIndexByName("neck"));
 		direction = vector.Direction(position, m_AimPosition);
 
-		//! Zombies/animals: 100% guarantee to hit.
+		//! Model-space aim angles + recoil (pitch up). Applied to both creature
+		//! and player paths so the barrel kicks regardless of the target type.
+		aimOrientation = direction.InvMultiply3(transform).VectorToAngles();
+		aimOrientation[1] = aimOrientation[1] + m_RecoilPitch;
+
+		//! Zombies/animals: 100% hit (only the recoil offsets the barrel).
 		if (ZombieBase.Cast(targetEntity) || AnimalBase.Cast(targetEntity))
 		{
+			direction = aimOrientation.AnglesToVector().Multiply3(transform);
 			direction.Normalize();
 			m_AimDirection = direction;
 			return;
@@ -243,7 +263,6 @@ class dmAiming
 			deviationUD = -deviationUD;
 
 		//! Accuracy influenced by target movement speed and angle.
-		aimOrientation = direction.InvMultiply3(transform).VectorToAngles();
 		aimOrientation[0] = aimOrientation[0] + (deviationLR / dist) * Math.RAD2DEG * (1.0 + targetSpeedMult);
 		aimOrientation[1] = aimOrientation[1] + (deviationUD / dist) * Math.RAD2DEG * (0.5 + targetSpeedMult);
 

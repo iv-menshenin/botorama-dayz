@@ -308,3 +308,12 @@ static const float DM_AIM_ADS_DISTANCE = 100.0;
 
 //! Aiming: seconds the bot stays in HIP before switching to ADS within DM_AIM_ADS_DISTANCE.
 static const float DM_AIM_HIP_GRACE = 10.0;
+
+//! Aiming recoil: base barrel kick (degrees up) per shot.
+static const float DM_AIM_RECOIL_DEGREE = 2.0;
+
+//! Aiming recoil: per-weapon multiplier (placeholder, later computed from weapon).
+static const float DM_AIM_RECOIL_MODIFIER = 1.0;
+
+//! Aiming recoil: recovery rate (degrees per second) — how fast the barrel lowers.
+static const float DM_AIM_RECOIL_RECOVERY = 5.0;
