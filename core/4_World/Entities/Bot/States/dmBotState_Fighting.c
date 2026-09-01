@@ -82,7 +82,7 @@ class dmBotState_Fighting : dmBotState
 		EnsureHitTo(bot);
 
 		m_HitTo.m_Active = (distSq <= reachSq && bot.GetMeleeCooldown() == 0.0);
-		m_Approach.m_Active = bot.GetMeleeCooldown() == 0.0 && (distSq > (reachSq * 0.9)); // a small gap
+		m_Approach.m_Active = (distSq > reachSq) || (bot.GetMeleeCooldown() == 0.0 && distSq > (reachSq * 0.9)); // a small gap
 		m_Evasion.m_Active = (bot.GetMeleeCooldown() > 0.0);
 
 		return CONTINUE;
