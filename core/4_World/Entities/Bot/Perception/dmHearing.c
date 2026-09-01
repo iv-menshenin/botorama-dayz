@@ -26,6 +26,10 @@ class dmHearing
 		if (!root)
 			root = source;
 
+		//! Ignore the bot's own noise (footsteps/shot) — don't target itself.
+		if (root == m_Bot.GetPawn())
+			return;
+
 		m_Bot.HearNoise(root, position);
 	}
 };

@@ -47,10 +47,30 @@ modded class Weapon_Base
 		{
 			float recoilPitch = pawn.GetAiming().AddRecoil(DM_AIM_RECOIL_MODIFIER);
 			pawn.KickRecoilVisual(recoilPitch);
+			vector ownerPos = pawn.GetPosition();
+			dmNoiseSystem.AddNoise(pawn, ownerPos, DM_NOISE_GUNSHOT_STRENGTH);
 		}
 		return fired;
 		#else
 		return TryFireWeapon(this, muzzleIndex);
+		#endif
+	}
+
+	//! Publish a gunshot noise after a successful shot for the VANILLA shooter path.
+	//! The AI bot's own shot already emits noise inside dmBot_Fire (server branch),
+	//! so this override skips AI owners to avoid a double noise (dmBot_Fire + the
+	//! vanilla TryFireWeapon that WeaponFire.OnEntry also runs via super.OnEntry).
+	override void OnFire(int muzzle_index)
+	{
+		super.OnFire(muzzle_index);
+		#ifdef SERVER
+		Man owner = GetHierarchyRootPlayer();
+		if (!owner)
+			return;
+		if (dmAISurvivorBase.Cast(owner))
+			return;
+		vector ownerPos = owner.GetPosition();
+		dmNoiseSystem.AddNoise(owner, ownerPos, DM_NOISE_GUNSHOT_STRENGTH);
 		#endif
 	}
 }
