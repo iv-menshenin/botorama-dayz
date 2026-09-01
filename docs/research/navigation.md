@@ -518,3 +518,321 @@ expansionpathfilters.c:51-176):
   `SetClimbingLadderType(string)`, `IsClimbingLadder()`, `Building.Expansion_GetLaddersCount()`
   (Expansion; ванильный `GetLaddersCount` не работает).
 - Path: `AIWorld.FindPath/RaycastNavMesh/SampleNavmeshPosition`, `PGFilter.SetFlags/SetCost`.
+
+---
+
+## Вертикальная навигация (лестницы/крыши/прыжки)
+
+### Резюме (как это работает в Expansion)
+
+Expansion решает проблему «нативный `FindPath` рутит 2D и не учитывает высоту» двумя
+независимыми механизмами, плюс третий как страховку:
+
+1. **Лестницы** — НЕ через navmesh, а **логикой поверх пути**. Когда бот уже в здании с
+   лестницей или цель в здании с лестницей, `OverrideTargetPosition` подменяет цель пути
+   на **entry-point лестницы** (низ для подъёма, верх для спуска), а прицепка к лестнице
+   делается в `CommandHandler` (`StartCommand_Ladder`) после проверки
+   `eAI_IsInLadderRadius` + `eAI_IsCloseToLadderEntryPoint` + `eAI_CanReachLadderEntryPoint`.
+   Лестница выбирается «process of elimination» (пул лестниц здания), взвешиванием
+   `2D-дистанция × разница Y`.
+2. **«Leap of faith» (прыжок вниз с крыши/объекта)** — когда нативный `FindPath` не нашёл
+   пути (бот на объекте/крыше без navmesh-связи с землёй), `ExpansionPathPoint.FindPathFrom`
+   строит **обратный путь** (`FindPath(target → bot)`) и проверяет, безопасно ли спрыгнуть:
+   `climbHeight < 2.5` && `fallHeight < HEALTH_HEIGHT_LOW` + физический raycast. Если да —
+   разворачивает обратный путь в прямой и «сходит с края».
+3. **Защита от смертельного падения** — `CheckFallHeight` + `eAI_IsDangerousAltitude` +
+   `eAI_IsFallSafe` не дают боту шагнуть с опасной высоты (отодвигают точку пути от края
+   на 0.55 м либо помечают цель недостижимой).
+
+Плюс детект «сегмент требует vault/climb» (`UpdatePathSegmentState`) через block-filter
+raycast + `IsVaultClimb`/`IsElevated` → флаг `m_IsJumpClimb`.
+
+**Ключевое отличие от botorama**: у нас `dmBotPathfinder.FindPath` — это голая обёртка
+над `AIWorld.FindPath` без `ExpansionPathHandler` и без «leap of faith»; наш
+`MoveTo.TryStartLadder` выбирает лестницу по чистой 2D-дистанции (без взвешивания по Y),
+а прыжка вниз и fall-защиты нет вообще. Значит, всё это надо добавить самим (см. таблицу
+маппинга в конце).
+
+---
+
+### 1. Лестничная маршрутизация
+
+**Точка входа** — `eAIBase.OverrideTargetPosition` (`Entities/AI/eAIBase.c:4742`):
+
+```c
+void OverrideTargetPosition(vector pPosition, bool isFinal = true, float maxDistance = 1.0, bool allowJumpClimb = true)
+```
+
+- `eAIBase.c:4752` — если `m_eAI_Ladder && eAI_CheckShouldUseBuildingWithLadder(pPosition)`,
+  то `pPosition = m_eAI_LadderEntryPoint` (`eAIBase.c:4780`) — **цель пути подменяется на
+  точку входа лестницы** (низ для подъёма, верх для спуска), пока бот не на лестнице.
+  На лестнице (`m_eAI_IsOnLadder`) — return без изменения (`eAIBase.c:4754-4777`).
+- `eAIBase.c:4785` — `else if (eAI_CheckShouldClimbLadderToReachPosition(pPosition))` →
+  выбор лестницы (см. ниже).
+
+**Гейт «нужна ли лестница»** — `eAI_CheckShouldClimbLadderToReachPosition(vector targetPos)`
+(`eAIBase.c:4995-5047`):
+
+- `m_eAI_IsOnLadder` → true (`:4997`).
+- FSM-бой + острая угроза → false (`:5000-5001`).
+- Нет `m_eAI_BuildingWithLadder`: если `|targetPos[1] - position[1]| <= 1.5` → false
+  (цель на том же этаже — лестница не нужна) (`:5005-5008`).
+- Есть `m_eAI_BuildingWithLadder`, но путь ещё не упёрся в него
+  (`!m_PathFinding.m_IsUnreachable && !IsPointInCircle(GetEnd(), 0.55, position)`) → false
+  (`:5010-5013`) — ждём, пока бот реально дойдёт до здания.
+- **Детект здания под ногами**: `IEntity floor = PhysicsGetFloorEntity();` каст в
+  `BuildingBase` с `Expansion_GetLaddersCount() > 0` → `m_eAI_BuildingWithLadder = building`,
+  `m_eAI_LadderLoops = 0` (`:5015-5029`); `m_eAI_FloorIsBuildingWithLadder` = стоит ли на
+  полу этого здания (`:5035-5038`).
+- `eAI_CheckShouldUseBuildingWithLadder(targetPos)` (`:5040`), при
+  `m_PathFinding.m_IsTargetUnreachable` → `m_eAI_PreferLadder = true` (`:5043-5044`).
+- Возврат `m_eAI_PreferLadder` (`:5046`).
+
+**Радиусная проверка** — `eAI_CheckShouldUseBuildingWithLadder(vector targetPos)`
+(`eAIBase.c:5111-5163`):
+
+- `center = building.GetPosition()`, `radius = ExpansionStatic.GetBoundingRadius(building)`
+  (`:5116-5117`).
+- `m_eAI_TargetIsInBuildingWithLadderRadius = IsPointInCircle(center, radius, targetPos)`
+  (`:5124-5127`).
+- Если ни цель, ни бот НЕ в радиусе здания → сброс всего ladder-состояния
+  (`m_eAI_BuildingWithLadder/m_eAI_Ladder/m_eAI_PreferLadder/m_eAI_LadderLoops = 0`) и
+  return false (`:5130-5143`).
+- `m_eAI_LadderLoops == 10` → сдаёмся (сброс, return false) (`:5145-5160`) — защита от
+  бесконечного цикла.
+
+**Выбор ближайшей лестницы + entry-point/направление** (`eAIBase.c:4792-4896`):
+
+- **Пул («process of elimination»)** — `map<int, ref ExpansionLadder> ladders` на здание
+  (кэш в `m_eAI_Ladders`), `eAIBase.c:4792-4808`. Если пул пуст — копируем все
+  `m_Expansion_Ladders` здания в пул и `m_eAI_LadderLoops++` (`:4799-4808`). Это НЕ
+  оптимальный путь, но исключает вечное застревание: использованные/недостижимые лестницы
+  удаляются из пула (см. прицепку ниже), при опустошении — добавляются обратно.
+- **Взвешивание**: `distSqBtm = Distance2DSq(modelPos, btm) * AbsFloat(modelPos[1] - btm[1])`,
+  `distSqTop = Distance2DSq(modelPos, top) * AbsFloat(modelPos[1] - top[1])` (`:4830-4831`)
+  — 2D-дистанция × разница Y (учёт высоты).
+- `distancesSqBtm.Sort()` / `distancesSqTop.Sort()` (`:4850-4851`); ближайший низ vs верх
+  (`:4853-4854`): `closestBtm < closestTop` → entry = `m_Con[0]` (низ), `dirPoint = m_ConDir[0]`,
+  `climbDir = 1` (вверх) (`:4861-4868`); иначе entry = `m_Con[1]` (верх), `climbDir = -1`
+  (вниз) (`:4869-4876`).
+- `m_eAI_PreferLadder = false`, если цель ниже самой нижней лестницы или не в радиусе
+  здания (`:4842-4846`).
+- Гейт воды: `if (GetWaterDepth(m_eAI_LadderEntryPoint) < 1.0 || eAI_IsInLadderRadius(entryPoint))`
+  (`:4878`) — лестницу не берём, если entry под водой и мы не в радиусе.
+- Запись: `m_eAI_Ladder / m_eAI_LadderEntryPoint / m_eAI_LadderDirPoint /
+  m_eAI_LadderClimbDirection` (`:4882-4885`), `pPosition = m_eAI_LadderEntryPoint` (`:4887`).
+
+**Прицепка** — `CommandHandler` (`eAIBase.c:7413-7443`):
+
+- Условие: `m_eAI_Ladder && m_eAI_BuildingWithLadder && m_eAI_CommandTime > 1.0` (`:7413`).
+- `eAI_IsInLadderRadius(m_eAI_LadderEntryPoint) && IsPointInCircle(GetEnd(), 0.55, playerPosition)
+  && !eAI_IsChangingStance()` (`:7415`).
+- `eAI_IsCloseToLadderEntryPoint() && eAI_CanReachLadderEntryPoint()` (`:7419`) →
+  `m_eAI_IsOnLadder = true; m_eAI_LadderTime = 0; SetClimbingLadderType(m_eAI_Ladder.m_Type);
+  eAI_ResetRaised(); StartCommand_Ladder(m_eAI_BuildingWithLadder, m_eAI_Ladder.m_Index);`
+  (`:7423-7427`).
+- Если лестниц в здании > 1 — удалить текущую из пула (`:7437-7438`); если недостижима —
+  `m_eAI_Ladder = null` (`:7440-7441`).
+
+**На лестнице / отцепка** (`eAIBase.c:7498-7511`):
+
+- `m_eAI_IsOnLadder`: `HumanCommandLadder hcl = GetCommand_Ladder();` null → сброс состояния
+  (`:7503-7506`); `hcl.CanExit() && m_eAI_LadderTime > 2.0` → `hcl.Exit()` (`:7508-7510`).
+
+**Разворот при застревании** — `eAICommandMove` (`Classes/Commands/eAICommandMove.c:824-830`):
+`if (m_eAI_IsOnLadder && m_eAI_BlockedTime > 2.0) { m_eAI_LadderClimbDirection *= -1; ... }`.
+
+**Поля** (`eAIBase.c:138-163`): `m_eAI_IsOnLadder` (`:139`), `m_eAI_LadderTime` (`:140`),
+`m_eAI_LadderClimbDirection` (`:141`, 1=вверх/-1=вниз), `m_eAI_Ladder` (`:142`, `ExpansionLadder`),
+`m_eAI_LadderEntryPoint` (`:143`), `m_eAI_LadderDirPoint` (`:144`), `m_eAI_BuildingWithLadder`
+(`:147`), `m_eAI_FloorIsBuildingWithLadder` (`:148`), `m_eAI_TargetIsInBuildingWithLadderRadius`
+(`:149`), `m_eAI_Ladders` (`:152`, `ref eAILadders = new eAILadders`), `m_eAI_LadderLoops`
+(`:155`), `m_eAI_LastClimbedBuildingWithLadder` (`:158`), `m_eAI_LastClimbedLadder` (`:161`),
+`m_eAI_PreferLadder` (`:163`).
+Тип `eAILadders` = `typedef map<BuildingBase, ref map<int, ref ExpansionLadder>>` (`eAIBase.c:15`).
+
+**`ExpansionLadder`** (`Entities/Buildings/BuildingBase.c:1-44`): `m_Name`, `m_Index`,
+`m_Type`, `m_Con[2]`, `m_ConDir[2]`; `InsertVertex` сортирует по Y (низ = `[0]`, верх = `[1]`).
+Парсинг — `BuildingBase.Expansion_GetLaddersCount()` (`BuildingBase.c:297-434`): memory LOD
+(`LOD.NAME_MEMORY`) + geometry LOD (свойство `laddertype`), выборки `ladder*` → парсинг
+индекса из имени, вершины `ladderN_con` / `ladderN_con_dir`; кэш в static
+`s_Expansion_BuildingsWithLadders` (`map<string, map<int, ExpansionLadder>>` по типу здания).
+
+**Проверки близости/достижимости** (`eAIBase.c`):
+
+- `eAI_IsInLadderRadius(vector entryPoint)` (`:5233-5250`) — `IsPointInCircle(entryPoint,
+  UAMaxDistances.LADDERS, begPos)`; `UAMaxDistances.LADDERS = 1.3` (ваниль
+  `4_world/classes/useractionscomponent/actions/actionconstants.c:115`).
+- `eAI_IsCloseToLadderEntryPoint(float maxDist = 2.282542)` (`:5211-5231`) — если entry выше,
+  `begPos[1] += 1.1`, затем `DistanceSq < maxDist*maxDist`.
+- `eAI_CanReachLadderEntryPoint()` (`:5165-5209`) — `begPos[1] += 1.1`, `DayZPhysics.
+  SphereCastBullet(begPos, entryPoint, 0.1, mask, this, ...)`, затем
+  `Math.IsPointInRotatedRectangle(min, max, 0.6, contactPos)`, где min/max = entry ±
+  `perpend*0.35`/`dir*0.45`/`dir*0.15`.
+
+### 2. «Leap of faith» / прыжок вниз с крыши/объекта
+
+`Classes/PathFinding/ExpansionPathPoint.c`, метод `FindPathFrom(vector startPos, ExpansionPathHandler
+pathFinding, inout array<vector> path, out int pathGlueIdx = -1)` (`:133-365`).
+
+**Триггер** (`:193`): путь не найден ИЛИ путь из 2 точек, где `path[1]` рядом с ботом, но не
+с целью:
+
+```c
+if ((!found || (path.Count() == 2 && !Math.IsPointInCircle(Position, 1.0, path[1]) && Math.IsPointInCircle(pathFinding.m_Unit.GetPosition(), 0.55, path[1]))) && !pathFinding.m_Unit.m_eAI_Ladder)
+```
+
+т.е. «бот стоит на объекте/крыше, navmesh-связи с землёй нет» (лестница отключена).
+
+**Алгоритм**:
+
+1. `endPos = startPos` (`:212`) — конец обратного пути = текущая позиция бота.
+2. `dir = Direction(endPos, Position)`; если `dir.LengthSq() > 100.0` (дальше 10 м) —
+   `targetPos = endPos + dir.Normalized() * 10.0`, иначе `targetPos = Position` (`:217-227`).
+3. **Обратный поиск**: `m_AIWorld.FindPath(targetPos, endPos, filter, tempPath)` (`:229`) —
+   ищется путь ОТ цели К боту (с земли на крышу), затем разворачивается.
+4. Проверка: `tempPath.Count() > 2 || DistanceSq(tempEnd, endPos) > 0.0001` (`:241`).
+   - Продлеваем `tempEnd` на 0.5 от `endPos` (по горизонтали) — «сойти с края»
+     (`:255-257`); `checkPos[1] = max(max(endPos[1], checkPos[1]), unitY) + 0.5` (`:258-259`).
+   - `surfaceEndPosition = GetSurfaceRoadPosition(endPos)`, `surfacePosition =
+     GetSurfaceRoadPosition(tempEnd)` (`:261-262`).
+   - `climbHeight = surfacePosition[1] - surfaceEndPosition[1]`; `fallHeight =
+     surfaceEndPosition[1] - surfacePosition[1]` (`:276-277`).
+   - **Условие безопасности** (`:278`):
+     `IsPointInCircle(tempEnd, 10.0, endPos) && climbHeight < 2.5 && fallHeight <
+     DayZPlayerImplementFallDamage.HEALTH_HEIGHT_LOW && !IsBlockedPhysically(endPos + "0 0.5 0", checkPos)`.
+   - Второй raycast (`:280`): `isSwimming || !IsBlockedPhysically(checkPos, surfacePosition + "0 0.5 0")`
+     + проверка воды `GetWaterDepth(surfacePosition) <= 1.5` (`:283`).
+5. Если безопасно — `path.Clear()` и разворот: вставляем `tempPath` с конца в начало
+   (`:285-293`), `m_TempCount = 0`, `found = true`, `m_Time = -15.0` (длинная пауза до
+   пересчёта) (`:298-301`).
+
+`IsBlockedGeom` (`:425-444`) — физический raycast `DayZPhysics.RayCastBullet` по маске
+`BUILDING|DOOR|FENCE|ITEM_LARGE|VEHICLE|ROADWAY|TERRAIN` (замечание: НЕ `RaycastRV` —
+ложные срабатывания у пирсов).
+
+### 3. Защита от падения
+
+`Classes/PathFinding/ExpansionPathHandler.c`:
+
+- `UpdateNext()` вызывает `CheckFallHeight()` ТОЛЬКО когда путь почти завершён:
+  `if (m_Count == 1 + m_PointIdx && !CheckFallHeight()) return;` (`:943`) — иначе бот
+  застревает на верхних этажах (`Land_Barn_Metal_Big`/`Land_Mil_GuardTower`).
+- `bool CheckFallHeight()` (`:1014-1048`):
+  - если `m_Unit.eAI_IsDangerousAltitude()` (`:1016`):
+    - `checkDirection = Direction(unitPos, m_Points[1+m_PointIdx])`, `checkDirection[1]=0`,
+      `len = Length()` (`:1019-1021`).
+    - если `(!m_eAI_Ladder || (!m_eAI_IsOnLadder && !eAI_IsCloseToLadderEntryPoint())) &&
+      !eAI_IsFallSafe(checkDirection.Normalized()*(len+2.0), true, HEALTH_HEIGHT_LOW, true, 1339)`
+      (`:1022`):
+      - отодвинуть следующую точку на 0.55 м от края (`m_PathSegmentDirection`), `UpdatePoint`,
+        return true (`:1025-1031`);
+      - иначе `m_IsUnreachable = true; m_IsTargetUnreachable = true; return false`
+        (`:1041-1043`).
+
+`Entities/AI/eAIBase.c`:
+
+- `bool eAI_IsDangerousAltitude()` (`:11454-11474`): `fallHeight = position[1] - m_eAI_SurfaceY`;
+  `< HEALTH_HEIGHT_LOW` → false; при swimming вычитает `waterDepth`.
+- `bool eAI_IsFallSafe(vector checkDirection, bool checkBlocking = true, float heightThresh = 0,
+  bool checkHealth = true, int dbgIndex = 1337)` (`:11319-11452`):
+  - `heightThresh == 0` → `HEALTH_HEIGHT_LOW` (`:11321-11322`).
+  - **Блокировка (стена/перила)**: `RaycastRV(checkPosition + "0 0.76 0", position + "0 0.76 0",
+    ..., ObjIntersectGeom, 0.26)` → если упёрлись → **safe** (`:11335-11341`). Оффсет 0.76/радиус
+    0.26 подобран так, чтобы цеплять перила (`Land_Pier_Crane2_Base`, `Land_Factory_Small`).
+  - Поверхность: `checkPosition[1] = ExpansionStatic.GetSurfaceRoadY3D(checkX, checkY+1.5, checkZ,
+    RoadSurfaceDetection.UNDER)` (`:11358`); `fallHeight = position[1] - checkPosition[1]` (`:11360`).
+  - Вода: `waterDepth = GetWaterDepth(checkPosition)`, `fallHeight -= waterDepth` (`:11417-11423`);
+    `waterDepth > 1.5 && SurfaceIsWater` → safe если swimming включён (`:11425-11426`).
+  - Итог: `fallHeight <= heightThresh || (checkHealth && GetHealth01() - Math.InverseLerp(
+    heightThresh, HEALTH_HEIGHT_HIGH, fallHeight) >= 0.90)` → safe (`:11427-11428`).
+
+### 4. Детект vault/climb на сегменте
+
+`Classes/PathFinding/ExpansionPathHandler.c`:
+
+- `void UpdatePathSegmentState()` (`:1050-1115`):
+  - `start = m_Points[m_PointIdx]`, `end = m_Next0.GetPosition()` (`:1052-1053`),
+    `m_PathSegmentDirection = Direction(start, end)` (`:1055`).
+  - **Block-filter raycast** (`:1058`): `if ((AI_HANDLEVAULTING || AI_HANDLEDOORS) &&
+    IsBlocked(start, end, m_BlockFilter))` → `m_IsBlocked = true` (`:1060`); затем
+    `IsBlocked(start, end, m_PathFilter)` (обычный фильтр — true на vault/climb, но НЕ на
+    открытые двери) && `IsVaultClimb(start, end)` → `m_IsJumpClimb = true`,
+    `m_SuppressRecalculate = true` (`:1063-1074`).
+  - **Физическая блокировка/подъём** (`:1077-1091`): `else if (AI_HANDLEVAULTING)`:
+    `IsBlockedPhysically(start + "0 0.49 0", end + "0 0.49 0", ...) || IsElevated(start)` →
+    `m_IsBlockedPhysically = true`, `m_IsJumpClimb = true`.
+- `bool IsVaultClimb(vector start, vector end)` (`:1117-1127`): `distSq = DistanceSq(start, end)`;
+  `return distSq > 0.25 && distSq < 100.0` (0.5..10 м).
+- `bool IsElevated(vector start)` (`:1129-1135`): `start[1] - m_Unit.GetPosition()[1] > 0.5`.
+- `m_IsJumpClimb` затем потребляется `eAIBase.HandleVaulting(eAICommandMove hcm, float pDt)`
+  (`eAIBase.c:10946`) — `DoClimbTest` → `JumpOrClimb` (см. секцию Vault/climb выше);
+  вход в `CommandHandler` (`eAIBase.c:7568-7571`).
+
+### 5. Фильтры
+
+Полный текст уже в секции «Итоговый набор PGFilter». Ключевое для вертикальной навигации
+(`Classes/PathFinding/expansionpathfilters.c`):
+
+- include: `UNREACHABLE|DISABLED|WALK|DOOR|INSIDE|LADDER` (`:58`), `SPECIAL` при
+  `AI_HANDLEVAULTING` (`:62-64`); exclude: `CRAWL|CROUCH|SWIM_SEA|SWIM` (`:59`).
+- Cost (`SetFilterCost`, `:131-176`): `LADDER 1.0` (`:133`), `FENCE_WALL 5.0` (vault, `:136`),
+  `JUMP 10.0` (climb, `:137`), `DOOR_CLOSED 4.0` (`:143`), `DOOR_OPENED 10000.0` (`:144`).
+  `NoJumpClimb`-вариант: `FENCE_WALL 1000.0`/`JUMP 1000.0` (`:158-159`).
+- `m_BlockFilter` (`:103`): include = `m_IncludeFlags & ~(DOOR|DISABLED)`, exclude =
+  `m_ExcludeFlags | DOOR | DISABLED`.
+
+### 6. Сигнатуры/флаги (сводка)
+
+**Ваниль**:
+
+- `DayZPlayerImplementFallDamage.HEALTH_HEIGHT_LOW = 5`, `HEALTH_HEIGHT_HIGH = 14`
+  (`4_world/entities/dayzplayerimplementfalldamage.c:26-27`).
+- `UAMaxDistances.LADDERS = 1.3` (`4_world/classes/useractionscomponent/actions/actionconstants.c:115`).
+- `PGPolyFlags.LADDER/JUMP_OVER/JUMP_DOWN/CLIMB/SPECIAL/JUMP` (`3_game/ai/aiworld.c:25`),
+  `PGAreaType.LADDER/FENCE_WALL/JUMP` (см. «Итоговый набор PGFilter»).
+- `PhysicsGetFloorEntity()` (ваниль, используется в `eAI_CheckShouldClimbLadderToReachPosition`).
+
+**Expansion**:
+
+- `eAIBase.OverrideTargetPosition(vector, bool, float, bool)` — `eAIBase.c:4742`.
+- `eAIBase.eAI_CheckShouldClimbLadderToReachPosition(vector)` — `eAIBase.c:4995`.
+- `eAIBase.eAI_CheckShouldUseBuildingWithLadder(vector)` — `eAIBase.c:5111`.
+- `eAIBase.eAI_IsExcludedBuildingWithLadder(Object)` — `eAIBase.c:5049` (хардкод-исключения: краны, геоплант).
+- `eAIBase.eAI_CanReachLadderEntryPoint()` — `eAIBase.c:5165`.
+- `eAIBase.eAI_IsCloseToLadderEntryPoint(float maxDist=2.282542)` — `eAIBase.c:5211`.
+- `eAIBase.eAI_IsInLadderRadius(vector)` — `eAIBase.c:5233`.
+- `eAIBase.eAI_IsFallSafe(vector, bool, float, bool, int)` — `eAIBase.c:11319`.
+- `eAIBase.eAI_IsDangerousAltitude()` — `eAIBase.c:11454`.
+- `eAIBase.HandleVaulting(eAICommandMove, float)` — `eAIBase.c:10946`.
+- `eAIBase.eAI_CanClimbOn(IEntity, SHumanCommandClimbResult)` — `eAIBase.c:11235` (гейты клаймба: деревья/кусты/люди/`m_eAI_PreventClimb`/открытые ворота).
+- `ExpansionPathPoint.FindPathFrom(vector, ExpansionPathHandler, inout array<vector>, out int)` — `ExpansionPathPoint.c:133`; leap of faith `:191-344`.
+- `ExpansionPathPoint.IsBlockedGeom(vector, vector, eAIBase, ...)` — `ExpansionPathPoint.c:425`.
+- `ExpansionPathHandler.CheckFallHeight()` — `ExpansionPathHandler.c:1014`.
+- `ExpansionPathHandler.UpdatePathSegmentState()` — `ExpansionPathHandler.c:1050`.
+- `ExpansionPathHandler.IsVaultClimb(vector, vector)` — `ExpansionPathHandler.c:1117`.
+- `ExpansionPathHandler.IsElevated(vector)` — `ExpansionPathHandler.c:1129`.
+- `ExpansionPathHandler.IsBlocked(vector, vector, PGFilter, ...)` — `ExpansionPathHandler.c:262`.
+- `ExpansionPathHandler.IsBlockedPhysically(vector, vector, ...)` — `ExpansionPathHandler.c:275`.
+- `ExpansionPathHandler.UpdateNext(bool)` — `ExpansionPathHandler.c:918` (вызов `CheckFallHeight` на `:943`).
+- `BuildingBase.Expansion_GetLaddersCount()` — `BuildingBase.c:297`; `ExpansionLadder` — `BuildingBase.c:1`.
+- `ExpansionStatic.GetBoundingRadius(Object)` / `GetSurfaceRoadY3D` / `GetSurfaceRoadPosition` — helper'ы, используемые для радиусов/поверхности.
+
+### Что нужно портировать → в какую нашу сущность
+
+| Механизм (Expansion) | Наша сущность | Что сделать |
+|---|---|---|
+| Пул лестниц здания + взвешивание `2D-дистанция × ΔY` + entry-point низ/верх по направлению (`OverrideTargetPosition`/`eAI_CheckShouldClimbLadderToReachPosition`) | `dmBotLadderCache` + `MoveTo.TryStartLadder` | Хранить на лестницу `m_Con[2]` (низ/верх) + `m_ConDir[2]`; выбор лестницы заменить на `Distance2DSq × AbsFloat(ΔY)`, entry = низ при подъёме / верх при спуске; пул `map<Building, map<int, dmBotLadder>>` с удалением использованных (`process of elimination`) и капом циклов |
+| Гейт «нужна ли лестница» (радиус здания, `PhysicsGetFloorEntity`, `m_eAI_PreferLadder` при unreachable) | `MoveTo` / `dmBotIntent_UseLadder` | Перед стартом лестничного интента: цель в радиусе здания с лестницей ИЛИ бот на полу здания с лестницей; `|ΔY| > 1.5` |
+| Проверки близости/достижимости (`eAI_IsInLadderRadius`/`eAI_IsCloseToLadderEntryPoint`/`eAI_CanReachLadderEntryPoint`) | пешка `dmAISurvivorBase` (примитивы) | `IsPointInCircle(entry, 1.3, pos)`, `DistanceSq < 2.28²`, `SphereCastBullet` + `IsPointInRotatedRectangle` |
+| Прицепка/отцепка (`StartCommand_Ladder` + `CanExit`/`Exit`, `SetClimbingLadderType`) | `dmBotIntent_UseLadder` | уже есть; добавить разворот `climbDirection *= -1` при `m_eAI_BlockedTime > 2.0` (в `MoveTo` при застревании на лестнице) |
+| Leap of faith (`FindPathFrom` обратный путь) | `dmBotPathfinder` (или `MoveTo` при `Fail()`/unreachable) | При «нет пути»: обратный `FindPath(target → bot)` (лимит 10 м), проверка `climbHeight < 2.5 && fallHeight < HEALTH_HEIGHT_LOW` + физический raycast, разворот пути + `m_Time = -15` |
+| Fall-защита (`CheckFallHeight`/`eAI_IsDangerousAltitude`/`eAI_IsFallSafe`) | пешка (примитив) + `MoveTo` | `m_eAI_SurfaceY`-аналог (поверхность под ногами), `eAI_IsFallSafe`: raycast перила + `GetSurfaceRoadY3D(UNDER)` + `fallHeight <= threshold \|\| здоровье-эвристика`; в `MoveTo` перед шагом на конечную подцель — отодвинуть точку от края или `Fail()` |
+| Детект vault/climb на сегменте (`UpdatePathSegmentState`) | `MoveTo` (прогресс-монитор/блокировка) | raycast block-filter + `IsVaultClimb` (0.5..10 м) + `IsElevated` (>0.5) → флаг `m_IsJumpClimb` → `TryVaultClimb()` |
+| Константы | `cons/4_World/constants.c` | `DM_BOT_FALL_HEIGHT_LOW=5`, `DM_BOT_FALL_HEIGHT_HIGH=14`, `DM_BOT_CLIMB_LEAP_MAX=2.5`, `DM_BOT_LADDER_RADIUS=1.3`, `DM_BOT_LADDER_CLOSE=2.28`, vault/climb дистанция 0.5..10, cap лестничных циклов 10 |
+
+**Ключевые решения для botorama**: (1) лестницы — чисто «поверх пути», entry-point
+подставляется в цель `FindPath`/`SetMove`, а НЕ рассчитывается на то, что `FindPath` сам
+проведёт по лестнице; (2) прыжок вниз — это **обратный** `FindPath` + проверка высоты, а не
+флаг в нативном пути; (3) fall-защита — проверка только на последнем сегменте пути (чтобы не
+застревать на верхних этажах).
