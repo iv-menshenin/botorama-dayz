@@ -201,7 +201,7 @@ class dmBotCommand : dmCommandModule
 		dmCommandManager.GetPlayerLookPoint(player, point);
 
 		dmBotIntent_MoveTo move = new dmBotIntent_MoveTo();
-		move.m_Target = point;
+		move.m_Goal = point;
 		move.m_Priority = dmBotIntentPriority.CRITICAL;
 		move.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		move.m_Deadline = DM_TEST_COMMAND_DEADLINE;

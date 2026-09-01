@@ -56,7 +56,7 @@ static const float DM_MOVE_PROGRESS_EPS = 0.1;
 static const float DM_PATH_SAMPLE_RADIUS = 2.0;
 
 //! Reach radius (meters) for an intermediate path waypoint.
-static const float DM_PATH_WAYPOINT_REACH = 0.5;
+static const float DM_PATH_WAYPOINT_REACH = 0.15;
 
 //! Raycast distance (meters) straight ahead at eye level to detect a closed door.
 static const float DM_DOOR_OPEN_DIST = 2.0;

@@ -97,7 +97,7 @@ class dmBotState_Patrol : dmBotState
 	void StartMoveToCurrent()
 	{
 		m_Move = new dmBotIntent_MoveTo();
-		m_Move.m_Target = m_Route[m_Index];
+		m_Move.m_Goal = m_Route[m_Index];
 		m_Move.m_ReachDistance = DM_PATROL_REACH_DISTANCE;
 		GetOwner().AddFSMIntent(m_Move);
 	}

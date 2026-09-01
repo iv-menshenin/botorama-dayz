@@ -174,7 +174,7 @@ class dmBotState_Follow : dmBotState
 		if (m_IntentMove)
 		{
 			//! Re-aim if the last known position moved (the 1-min magic refreshed it).
-			vector aimDrift = m_Target.m_LastPosition - m_IntentMove.m_Target;
+			vector aimDrift = m_Target.m_LastPosition - m_IntentMove.m_Goal;
 			aimDrift[1] = 0.0;
 			if (aimDrift.Length() > 1.0)
 			{
@@ -185,7 +185,7 @@ class dmBotState_Follow : dmBotState
 		if (!m_IntentMove)
 		{
 			m_IntentMove = new dmBotIntent_MoveTo();
-			m_IntentMove.m_Target = m_Target.m_LastPosition;
+			m_IntentMove.m_Goal = m_Target.m_LastPosition;
 			m_IntentMove.m_ReachDistance = DM_FOLLOW_REACH;
 			m_IntentMove.m_ReachDeadline = 1.0;
 			bot.AddFSMIntent(m_IntentMove);

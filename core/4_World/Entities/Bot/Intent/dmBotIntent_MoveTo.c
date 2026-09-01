@@ -1,5 +1,8 @@
 //! dmBotIntent_MoveTo — walk to a world point along a navmesh path; finishes when
-//! reached.
+//! reached. Base class for path-following intents: dmBotIntent_FollowTo inherits
+//! the full movement machinery (steering, stuck detection, vault/climb, ladders,
+//! recovery) and only overrides the goal (UpdateGoal), speed (GetMoveSpeed) and
+//! continuity (IsContinuous).
 //!
 //! On start it requests a path (bot.FindPathTo) and then follows the waypoints one
 //! by one: each tick it steers toward the current waypoint using the body-relative
@@ -10,12 +13,13 @@
 //! back/sideways and re-routes, up to DM_MOVE_MAX_RECOVER times, then gives up.
 class dmBotIntent_MoveTo : dmBotIntent
 {
-	vector m_Target;
+	vector m_Goal;
 	float m_ReachDistance = 0.5;
 	float m_ReachDeadline = 0.0;   // seconds to reach the target; 0 = no deadline
 
 	ref array<vector> m_Path;
 	int m_PathIdx = 0;
+	bool m_HasPath = false;
 
 	float m_BestDist = -1.0;
 	float m_NoProgressTime = 0.0;
@@ -55,12 +59,35 @@ class dmBotIntent_MoveTo : dmBotIntent
 		return "MoveTo";
 	}
 
+	//! True for intents that keep moving forever (FollowTo) — no finish, no path
+	//! requirement on start, and a stuck bot re-routes instead of failing.
+	bool IsContinuous()
+	{
+		return false;
+	}
+
+	//! Whether the head should track the current sub-goal while moving. FollowTo
+	//! disables it (the LookAround intent owns the head).
+	bool KeepLookAtGoal()
+	{
+		return true;
+	}
+
+	//! Movement speed (0..3) toward m_Goal. FollowTo overrides it to match the
+	//! target speed and the distance to the escort anchor.
+	float GetMoveSpeed(dmAISurvivor bot)
+	{
+		return bot.CalcSpeed(m_Goal, m_ReachDeadline);
+	}
+
+	//! Called every tick after the door check, before steering. FollowTo uses it
+	//! to re-derive its dynamic escort anchor (m_Goal) and re-path.
+	void UpdateGoal(dmAISurvivor bot, float pDt)
+	{
+	}
+
 	override void OnStart(dmAISurvivor bot)
 	{
-		#ifdef DM_BOT_PROFILE
-		dmBotSpan _span = dmBotProfiler.Start("Intent.MoveTo.Start");
-		#endif
-
 		super.OnStart(bot);
 
 		m_BestDist = -1.0;
@@ -79,19 +106,16 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_UseLadder = null;
 
 		m_Path = new array<vector>();
-		bool hasPath = bot.FindPathTo(m_Target, m_Path);
+		m_HasPath = false;
 
-		#ifdef DM_BOT_DEBUG_FSM
-		if (!hasPath)
-			dmBotLog.Debug("[FSM] MoveTo.OnStart: FindPathTo=false target=" + m_Target);
-		else
-			dmBotLog.Debug("[FSM] MoveTo.OnStart: target=" + m_Target + " pathPoints=" + m_Path.Count());
-		#endif
-
-		if (!hasPath || m_Path.Count() == 0)
+		if (!IsContinuous())
 		{
-			dmBotLog.Error("MoveTo: нет пути к " + m_Target + " (вне navmesh или недостижимо), abort");
-			Fail();
+			RePath(bot);
+			if (!m_HasPath)
+			{
+				dmBotLog.Error("MoveTo: нет пути к " + m_Goal + " (вне navmesh или недостижимо), abort");
+				Fail();
+			}
 		}
 	}
 
@@ -115,9 +139,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 				return;
 
 			m_Recovering = false;
-			if (!Recalc(bot))
+			RePath(bot);
+			if (!m_HasPath && !IsContinuous())
 			{
-				dmBotLog.Error("MoveTo: восстановление не помогло, путь к " + m_Target + " недоступен, abort");
+				dmBotLog.Error("MoveTo: восстановление не помогло, путь к " + m_Goal + " недоступен, abort");
 				bot.SetMove(0.0, 0.0);
 				Fail();
 				return;
@@ -149,7 +174,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 				m_UseLadder = null;
 				m_Laddering = false;
 				m_NoProgressTime = 0.0;
-				Recalc(bot);   // пере-прокладка после смены этажа
+				RePath(bot);   // пере-прокладка после смены этажа
 			}
 			return;
 		}
@@ -161,9 +186,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 			bot.TryOpenDoorOnPath();
 		}
 
-		vector subGoal = m_Path[m_PathIdx];
+		UpdateGoal(bot, pDt);
+
+		vector subGoal = m_Goal;
+		if (m_HasPath && m_Path.Count() > 0)
+			subGoal = m_Path[m_PathIdx];
+
 		float reach = m_ReachDistance;
-		if (m_PathIdx < m_Path.Count() - 1)
+		if (m_HasPath && m_PathIdx < m_Path.Count() - 1)
 			reach = DM_PATH_WAYPOINT_REACH;
 
 		vector pos = bot.GetPosition();
@@ -173,16 +203,17 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (dist <= reach)
 		{
-			if (m_PathIdx >= m_Path.Count() - 1)
+			if (m_HasPath && m_PathIdx < m_Path.Count() - 1)
 			{
-				bot.SetMove(0.0, 0.0);
-				Finish();
+				m_PathIdx++;
+				m_BestDist = -1.0;
+				m_NoProgressTime = 0.0;
 				return;
 			}
 
-			m_PathIdx++;
-			m_BestDist = -1.0;
-			m_NoProgressTime = 0.0;
+			bot.SetMove(0.0, 0.0);
+			if (!IsContinuous())
+				Finish();
 			return;
 		}
 
@@ -194,8 +225,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 		//! waypoint. If a higher-priority look intent holds the body (FULL), moveAngle
 		//! becomes the strafe/backpedal direction instead.
 		bot.SetMoveYaw(subYaw);
-		bot.LookAtPoint(subGoal + Vector(0, DM_EYE_HEIGHT, 0), dmBotLookTurn.NONE);
-		float speed = bot.CalcSpeed(m_Target, m_ReachDeadline);
+		if (KeepLookAtGoal())
+			bot.LookAtPoint(subGoal + Vector(0, DM_EYE_HEIGHT, 0), dmBotLookTurn.NONE);
+		float speed = GetMoveSpeed(bot);
 		bot.SetMove(moveAngle, speed);
 
 		#ifdef DM_BOT_DEBUG_FSM
@@ -203,7 +235,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (m_DebugAccum >= 1.0)
 		{
 			m_DebugAccum = 0.0;
-			dmBotLog.Debug("[FSM] MoveTo: subGoal=" + subGoal + " pos=" + pos + " dist=" + dist + " reach=" + reach + " pathIdx=" + m_PathIdx + " pathPoints=" + m_Path.Count());
+			int pathPoints = 0;
+			if (m_Path)
+				pathPoints = m_Path.Count();
+			dmBotLog.Debug("[FSM] MoveTo: subGoal=" + subGoal + " pos=" + pos + " dist=" + dist + " reach=" + reach + " pathIdx=" + m_PathIdx + " pathPoints=" + pathPoints);
 			dmBotLog.Debug("[FSM] MoveTo: moveAngle=" + moveAngle + " speed=" + speed + " deadline=" + m_ReachDeadline);
 		}
 		#endif
@@ -265,23 +300,33 @@ class dmBotIntent_MoveTo : dmBotIntent
 				return;
 			}
 
-			dmBotLog.Error("MoveTo: застрял на пути к " + m_Target + " (подцель " + subGoal + "), abort");
+			if (IsContinuous())
+			{
+				m_NoProgressTime = 0.0;
+				RePath(bot);
+				return;
+			}
+
+			dmBotLog.Error("MoveTo: застрял на пути к " + m_Goal + " (подцель " + subGoal + "), abort");
 			bot.SetMove(0.0, 0.0);
 			Fail();
 		}
 	}
 
-	bool Recalc(dmAISurvivor bot)
+	//! Re-aim the navmesh path at m_Goal. On failure m_HasPath becomes false and
+	//! m_Path null — the steering then moves directly toward m_Goal.
+	void RePath(dmAISurvivor bot)
 	{
 		ref array<vector> newPath = new array<vector>();
-		if (!bot.FindPathTo(m_Target, newPath) || newPath.Count() == 0)
-			return false;
-
-		m_Path = newPath;
-		m_PathIdx = 0;
-		m_BestDist = -1.0;
-		m_NoProgressTime = 0.0;
-		return true;
+		if (bot.FindPathTo(m_Goal, newPath) && newPath.Count() > 0)
+		{
+			m_Path = newPath;
+			m_PathIdx = 0;
+			m_HasPath = true;
+			return;
+		}
+		m_HasPath = false;
+		m_Path = null;
 	}
 
 	//! Try to start a ladder climb/descend through the building directly ahead
@@ -319,7 +364,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			return false;
 
 		int dirSign = 1;
-		if (m_Target[1] < pos[1])
+		if (m_Goal[1] < pos[1])
 			dirSign = -1;
 
 		dmBotLadder best = null;

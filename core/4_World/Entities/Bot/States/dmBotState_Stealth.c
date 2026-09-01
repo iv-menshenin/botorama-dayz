@@ -38,7 +38,7 @@ class dmBotState_Stealth : dmBotState
 		GetOwner().AddFSMIntent(m_StanceIntent);
 
 		m_Move = new dmBotIntent_MoveTo();
-		m_Move.m_Target = m_CoverPosition;
+		m_Move.m_Goal = m_CoverPosition;
 		m_Move.m_ReachDistance = DM_PATROL_REACH_DISTANCE;
 		GetOwner().AddFSMIntent(m_Move);
 

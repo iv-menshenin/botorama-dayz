@@ -65,7 +65,7 @@ class dmBotIntent_Approach : dmBotIntent
 
 		if (m_Move)
 		{
-			vector drift = targetPos - m_Move.m_Target;
+			vector drift = targetPos - m_Move.m_Goal;
 			drift[1] = 0.0;
 			if (drift.Length() > 0.5)
 			{
@@ -77,7 +77,7 @@ class dmBotIntent_Approach : dmBotIntent
 		if (!m_Move)
 		{
 			m_Move = new dmBotIntent_MoveTo();
-			m_Move.m_Target = targetPos;
+			m_Move.m_Goal = targetPos;
 			m_Move.m_ReachDistance = m_ReachDistance;
 			m_Move.m_Priority = dmBotIntentPriority.DESIRABLE;
 			bot.AddFSMIntent(m_Move);

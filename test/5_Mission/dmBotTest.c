@@ -299,7 +299,7 @@ class dmBotTest_Shock : dmBotTestCase
 	void GiveMoveTo()
 	{
 		dmBotIntent_MoveTo move = new dmBotIntent_MoveTo();
-		move.m_Target = ForwardTarget(m_Player, 20.0);
+		move.m_Goal = ForwardTarget(m_Player, 20.0);
 		move.m_Priority = dmBotIntentPriority.CRITICAL;
 		move.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		m_Bot.AddCommandIntent(move);
@@ -319,7 +319,7 @@ class dmBotTest_Stamina : dmBotTestCase
 		bot.SetPreferredSpeed(3.0);
 
 		dmBotIntent_MoveTo move = new dmBotIntent_MoveTo();
-		move.m_Target = ForwardTarget(player, 300.0);
+		move.m_Goal = ForwardTarget(player, 300.0);
 		move.m_Priority = dmBotIntentPriority.CRITICAL;
 		move.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		bot.AddCommandIntent(move);
@@ -387,7 +387,7 @@ class dmBotTest_BrokenLeg : dmBotTestCase
 		pawn.GetModifiersManager().ActivateModifier(eModifiers.MDF_BROKEN_LEGS);
 
 		dmBotIntent_MoveTo move = new dmBotIntent_MoveTo();
-		move.m_Target = ForwardTarget(player, 100.0);
+		move.m_Goal = ForwardTarget(player, 100.0);
 		move.m_Priority = dmBotIntentPriority.CRITICAL;
 		move.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		bot.AddCommandIntent(move);

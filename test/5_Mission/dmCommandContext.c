@@ -113,7 +113,7 @@ class dmCommandContext
 		vector target = bot.GetPosition() - fwd * 1.0; // 1 m toward the player
 
 		dmBotIntent_MoveTo move = new dmBotIntent_MoveTo();
-		move.m_Target = target;
+		move.m_Goal = target;
 		move.m_Priority = dmBotIntentPriority.CRITICAL;
 		move.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		bot.AddCommandIntent(move);
