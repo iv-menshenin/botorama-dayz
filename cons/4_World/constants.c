@@ -168,6 +168,11 @@ static const float DM_FOLLOW_EXIT_TIME = 3.0;
 //! target's last known position ("magic" re-aim of the catch-up MoveTo).
 static const float DM_FOLLOW_LOST_SIGHT_TIME = 60.0;
 
+//! Follow: seconds the new FollowTo/MoveTo decision must persist before the state
+//! switches (hysteresis). Dampens the flickering m_HasLOS from the FOV-cone gate
+//! while the head scans, so intents aren't thrashed and the stuck monitor survives.
+static const float DM_FOLLOW_SWITCH_DWELL = 1.0;
+
 //! Follow (FollowTo): distance to the anchor (meters) beyond which the escort sprints.
 static const float DM_FOLLOW_SPRINT_GAP = 7.5;
 

@@ -24,6 +24,9 @@ class dmBotState_Follow : dmBotState
 	vector m_ExitRefPos;
 	float m_DebugAccum = 0.0;
 	float m_ExitDebugAccum = 0.0;
+	bool m_UseFollow = false;
+	bool m_DecisionInit = false;
+	float m_SwitchDwell = 0.0;
 
 	//! Follow-entry threshold by target kind: players may lead farther than others.
 	static float GetThresholdDistance(EntityAI target)
@@ -66,6 +69,9 @@ class dmBotState_Follow : dmBotState
 		m_LostSightTimer = 0.0;
 		m_ExitTimer = 0.0;
 		m_ExitRefPos = vector.Zero;
+		m_DecisionInit = false;
+		m_SwitchDwell = 0.0;
+		m_UseFollow = false;
 		if (m_TargetEntity)
 			m_ExitRefPos = m_TargetEntity.GetPosition();
 		m_SideSign = 1.0;
@@ -143,6 +149,7 @@ class dmBotState_Follow : dmBotState
 				look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 				look.m_Deadline = 5.0;
 				bot.AddPersonalityIntent( look );
+				m_LastLook = look.m_Deadline;
 			}
 		}
 		m_LastDist = dist;
@@ -152,7 +159,31 @@ class dmBotState_Follow : dmBotState
 		float threshold = GetThresholdDistance(m_TargetEntity);
 		bool useFollow = m_Target.m_HasLOS || dist <= threshold;
 
-		if (useFollow)
+		//! Hysteresis: commit to FollowTo/MoveTo only after the new decision persists
+		//! for DM_FOLLOW_SWITCH_DWELL. The FOV-cone LOS gate makes m_HasLOS flicker
+		//! while the head scans (LookAround), so an instant switch would thrash the
+		//! intents and reset the movement progress monitor (killing stuck detection).
+		if (!m_DecisionInit)
+		{
+			m_UseFollow = useFollow;
+			m_DecisionInit = true;
+			m_SwitchDwell = 0.0;
+		}
+		else if (useFollow != m_UseFollow)
+		{
+			m_SwitchDwell += pDt;
+			if (m_SwitchDwell >= DM_FOLLOW_SWITCH_DWELL)
+			{
+				m_UseFollow = useFollow;
+				m_SwitchDwell = 0.0;
+			}
+		}
+		else
+		{
+			m_SwitchDwell = 0.0;
+		}
+
+		if (m_UseFollow)
 		{
 			if (m_IntentMove) { m_IntentMove.Finish(); m_IntentMove = null; }
 			if (m_IntentFollow && (m_IntentFollow.IsFinished() || m_IntentFollow.IsExpired()))
@@ -217,7 +248,7 @@ class dmBotState_Follow : dmBotState
 		if (m_DebugAccum >= 1.0)
 		{
 			m_DebugAccum = 0.0;
-			dmBotLog.Debug("[FSM] Follow: dist=" + dist + " hasLOS=" + m_Target.m_HasLOS + " useFollow=" + useFollow);
+			dmBotLog.Debug("[FSM] Follow: dist=" + dist + " hasLOS=" + m_Target.m_HasLOS + " useFollow=" + m_UseFollow);
 		}
 		#endif
 
