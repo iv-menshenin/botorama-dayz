@@ -201,6 +201,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 		dir[1] = 0.0;
 		float dist = dir.Length();
 
+		//! Fall safety: don't step off a dangerous ledge when steering directly
+		//! (no navmesh path) toward a goal below.
+		if (!m_HasPath && m_Goal[1] < pos[1] && IsDangerousAltitude(bot))
+		{
+			bot.SetMove(0.0, 0.0);
+			return;
+		}
+
 		if (dist <= reach)
 		{
 			if (m_HasPath && m_PathIdx < m_Path.Count() - 1)
@@ -366,6 +374,27 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		float fallHeight = botPos[1] - contactPos[1];
 		return fallHeight < DM_BOT_FALL_HEIGHT_LOW;
+	}
+
+	//! True when the surface directly below the bot is far enough down that a fall
+	//! would be dangerous (>= DM_BOT_FALL_HEIGHT_LOW). Used by the fall-safety guard.
+	bool IsDangerousAltitude(dmAISurvivor bot)
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+			return false;
+
+		vector botPos = pawn.GetPosition();
+		vector beg = botPos + Vector(0.0, 0.5, 0.0);
+		vector end = botPos + Vector(0.0, -50.0, 0.0);
+		vector contactPos;
+		vector contactDir;
+		int contactComponent;
+		if (!DayZPhysics.RaycastRV(beg, end, contactPos, contactDir, contactComponent, null, null, pawn, false, false, ObjIntersectGeom))
+			return false;
+
+		float fallHeight = botPos[1] - contactPos[1];
+		return fallHeight >= DM_BOT_FALL_HEIGHT_LOW;
 	}
 
 	//! Try to start a ladder climb/descend (the stuck detector calls this when the
