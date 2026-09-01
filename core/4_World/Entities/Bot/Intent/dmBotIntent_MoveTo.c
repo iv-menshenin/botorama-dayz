@@ -128,7 +128,12 @@ class dmBotIntent_MoveTo : dmBotIntent
 		super.OnUpdate(bot, pDt);
 
 		if (IsFinished())
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] IsFinished движение завершено");
+			#endif
 			return;
+		}
 
 		if (m_Recovering)
 		{
@@ -271,24 +276,39 @@ class dmBotIntent_MoveTo : dmBotIntent
 				return;
 
 			dmAISurvivorBase vaultPawn = dmAISurvivorBase.Cast(bot.GetPawn());
-			if (vaultPawn && vaultPawn.TryVaultClimb())
+			if (vaultPawn)
 			{
-				m_Vaulting = true;
-				m_VaultGrace = DM_VAULT_GRACE;
-				m_NoProgressTime = 0.0;
-				return;
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] TryVaultClimb нужно попытаться забраться на препятствие");
+				#endif
+				if ( vaultPawn.TryVaultClimb() )
+				{
+					m_Vaulting = true;
+					m_VaultGrace = DM_VAULT_GRACE;
+					m_NoProgressTime = 0.0;
+					return;
+				}
 			}
 
 			dmAISurvivorBase ladderPawn = dmAISurvivorBase.Cast(bot.GetPawn());
-			if (ladderPawn && TryStartLadder(bot))
+			if (ladderPawn)
 			{
-				m_Laddering = true;
-				m_NoProgressTime = 0.0;
-				return;
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] TryVaultClimb нужно попытаться забраться на лестницу");
+				#endif
+				if ( TryStartLadder(bot) )
+				{
+					m_Laddering = true;
+					m_NoProgressTime = 0.0;
+					return;
+				}
 			}
 
 			if (m_RecoverCount < DM_MOVE_MAX_RECOVER)
 			{
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] Recovering я застрял, пытаюсь выбраться");
+				#endif
 				m_RecoverCount++;
 				m_Recovering = true;
 				m_RecoverTimer = DM_MOVE_RECOVER_TIME;
@@ -325,9 +345,15 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! m_Path null — the steering then moves directly toward m_Goal.
 	void RePath(dmAISurvivor bot)
 	{
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] RePath invoked");
+		#endif
 		ref array<vector> newPath = new array<vector>();
 		if (bot.FindPathTo(m_Goal, newPath) && newPath.Count() > 0)
 		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] FindPathTo выполнено успешно, обнаружено " + newPath.Count() + " сегментов в пути");
+			#endif
 			m_Path = newPath;
 			m_PathIdx = 0;
 			m_HasPath = true;
@@ -339,6 +365,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 		//! (m_HasPath stays false but we don't attempt to step off a drop).
 		if (TryLeapOfFaith(bot))
 		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] TryLeapOfFaith выполнено - высота падения не опасна");
+			#endif
 			m_HasPath = false;
 			m_Path = null;
 			return;
@@ -353,6 +382,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! fall height (to the surface directly underneath) is safe.
 	bool TryLeapOfFaith(dmAISurvivor bot)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("PathFinder.LeapOfFaith");
+		#endif
+
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (!pawn)
 			return false;
@@ -406,6 +439,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! started.
 	bool TryStartLadder(dmAISurvivor bot)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("PathFinder.StartLadder");
+		#endif
+
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (!pawn)
 			return false;

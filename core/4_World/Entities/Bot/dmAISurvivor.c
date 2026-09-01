@@ -476,6 +476,10 @@ class dmAISurvivor
 	//! off-navmesh or no path exists. Fills `path` (waypoints incl. start/end).
 	bool FindPathTo(vector target, inout array<vector> path)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("PathFinder.FindPath");
+		#endif
+
 		if (!m_Pathfinder)
 			m_Pathfinder = new dmBotPathfinder();
 
@@ -491,6 +495,10 @@ class dmAISurvivor
 	//! Рейкаст вперёд на уровне глаз; возвращает true, если интент запущен.
 	bool TryOpenDoorOnPath()
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("PathFinder.OpenDoor");
+		#endif
+		
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Pawn);
 		if (!pawn)
 			return false;

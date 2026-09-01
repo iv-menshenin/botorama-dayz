@@ -26,6 +26,7 @@
 //!                          shock/unconscious bridge, periodic body stats).
 //!   DM_BOT_DEBUG_LOADOUT — loadout application (dmLoadoutApplier).
 //!   DM_BOT_DEBUG_VISION  — perception scan (candidates, FOV/LOS results).
+//!   DM_BOT_DEBUG_PATHFINDER — pathfinding (moving to goal)
 //!
 //! TRACE — per-frame, verbose:
 //!   DM_BOT_TRACE_LOOK — head look steering (LookAtPoint, UpdateLook).

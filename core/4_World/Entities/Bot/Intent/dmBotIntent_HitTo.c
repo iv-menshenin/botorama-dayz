@@ -28,9 +28,19 @@ class dmBotIntent_HitTo : dmBotIntent
 		#endif
 
 		super.OnUpdate(bot, pDt);
-
-		if (bot.GetMeleeCooldown() > 0.0) return;
-		if (!m_TargetEntity) return;
+		float mCd = bot.GetMeleeCooldown();
+		if ( mCd > 0.0 || !m_TargetEntity)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			if ( m_TargetEntity )
+			{
+				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА MeleeCooldown=" + mCd);
+			} else {
+				dmBotLog.Debug("[FSM] Fighting: удар по `пустому месту` НЕУДАЧА MeleeCooldown=" + mCd);
+			}
+			#endif
+			return;
+		}
 
 		vector targetPos = m_TargetEntity.GetPosition();
 		vector botPos = bot.GetPosition();
@@ -38,17 +48,37 @@ class dmBotIntent_HitTo : dmBotIntent
 		d[1] = 0.0;
 		float dist = d.Length();
 		if (dist > m_ReachDistance)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА дистанция: " + dist + " > " + m_ReachDistance);
+			#endif
 			return;
+		}
 
 		float yawTo = d.VectorToAngles()[0];
 		float bodyYaw = bot.GetOrientation()[0];
 		float ang = dmAISurvivor.AngleDiff(yawTo, bodyYaw);
 		if (Math.AbsFloat(ang) > DM_MELEE_FACE_ANGLE)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА угол: " + Math.AbsFloat(ang) + " > " + DM_MELEE_FACE_ANGLE);
+			#endif
 			return;
+		}
 
 		dmTarget t = bot.FindTarget(m_TargetEntity);
 		if (!t || !t.m_HasLOS)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			if ( t )
+			{
+				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА видимость: " + t.m_HasLOS);
+			} else {
+				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА нет цели [FindTarget]");
+			}
+			#endif
 			return;
+		}
 
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (pawn)
