@@ -932,6 +932,29 @@ class dmAISurvivorBase : PlayerBase
 		return m_MeleeTarget;
 	}
 
+	//! Play a gesture/emote animation by EmoteConstants ID. Gated by the vanilla
+	//! CanPlayEmote (alive, not climbing/fighting/swimming, etc.). Returns false
+	//! when the emote can't start. Completion is detected by the Emote intent via
+	//! GetCommand_Action()/GetCommandModifier_Action() == null (NOT IsEmotePlaying,
+	//! which never clears for a server AI — EmoteManager.Update is gated by
+	//! IsPlayerSelected).
+	bool PlayEmote(int emoteID)
+	{
+		EmoteManager em = GetEmoteManager();
+		if (!em || !em.CanPlayEmote(emoteID))
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Bot] PlayEmote: refuse id=" + emoteID);
+			#endif
+			return false;
+		}
+		em.PlayEmote(emoteID);
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[Bot] PlayEmote: start id=" + emoteID);
+		#endif
+		return true;
+	}
+
 	void ConsumeMeleeAttackRequest()
 	{
 		m_MeleeAttackRequest = false;

@@ -902,3 +902,40 @@ class dmBotTest_Aim : dmBotTestCase
 		return state;
 	}
 }
+
+//! Emote: the bot plays a gesture animation by EmoteConstants ID. Verifies the
+//! emote action command actually starts on the pawn.
+class dmBotTest_Emote : dmBotTestCase
+{
+	int m_EmoteID;
+
+	void SetEmoteID(int id)
+	{
+		m_EmoteID = id;
+	}
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		dmBotIntent_Emote emote = new dmBotIntent_Emote();
+		emote.m_EmoteID = m_EmoteID;
+		emote.m_Priority = dmBotIntentPriority.CRITICAL;
+		bot.AddCommandIntent(emote);
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Эмоция». Бот играет жест (ID=" + m_EmoteID + "). Ожидается: команда action активна (GetCommand_Action/Modifier).";
+	}
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		PlayerBase pawn = m_Bot.GetPawn();
+		if (pawn.GetCommand_Action() || pawn.GetCommandModifier_Action())
+			return "PASS: эмоция запущена (команда action активна, t=" + elapsed + " c)";
+
+		return "";
+	}
+}

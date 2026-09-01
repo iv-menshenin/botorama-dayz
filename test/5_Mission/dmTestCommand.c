@@ -27,6 +27,8 @@
 //!                                50,100,... до N (или дистанции взгляда) метров; метрика —
 //!                                выстрелов до убийства; проверяются переходы Idle<->Shooting
 //!                                и перезарядка. {N} — максимальная дистанция в метрах.
+//!   /test bot emote {id} — эмоция: бот играет жест по EmoteConstants ID (напр.
+//!                                44=salute, 12=dance, 40=point).
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -42,10 +44,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | emote
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N}");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | emote {id}");
 			return false;
 		}
 
@@ -72,6 +74,8 @@ class dmTestCommand : dmCommandModule
 			return HandleShootTest(player, parts);
 		if (parts[2] == DM_CHAT_TEST_AIM)
 			return HandleAimTest(player, parts);
+		if (parts[2] == DM_CHAT_TEST_EMOTE)
+			return HandleEmoteTest(player, parts);
 
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий: " + parts[2]);
 		return false;
@@ -109,6 +113,25 @@ class dmTestCommand : dmCommandModule
 			if (dist > 0)
 				test.SetMaxDistance(dist);
 		}
+		return HandleBodyTest(player, test);
+	}
+
+	//! /test bot emote {id} — бот играет эмоцию по EmoteConstants ID (напр. 44=salute).
+	private bool HandleEmoteTest(PlayerBase player, array<string> parts)
+	{
+		if (parts.Count() < 4)
+		{
+			dmCommandManager.ChatToPlayer(player, "Укажи ID эмоции: /test bot emote {id} (напр. 44=salute, 12=dance, 40=point)");
+			return false;
+		}
+		int id = parts[3].ToInt();
+		if (id <= 0)
+		{
+			dmCommandManager.ChatToPlayer(player, "Некорректный ID эмоции: " + parts[3]);
+			return false;
+		}
+		dmBotTest_Emote test = new dmBotTest_Emote();
+		test.SetEmoteID(id);
 		return HandleBodyTest(player, test);
 	}
 
