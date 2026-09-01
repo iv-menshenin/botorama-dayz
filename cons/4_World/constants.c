@@ -324,3 +324,7 @@ static const float DM_BOT_FALL_HEIGHT_LOW = 5.0;
 
 //! Loot: timeout (seconds) after which an ignored item is picked up again.
 static const float DM_LOOT_IGNORE_TIMEOUT = 300.0;
+
+//! Loot: used-capacity fraction (0..1) above which the inventory counts as full
+//! (less than 25% free space). See dmRequirements.IsFull.
+static const float DM_LOOT_FULL_THRESHOLD = 0.75;
