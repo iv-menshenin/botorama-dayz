@@ -48,4 +48,28 @@ class dmLoot
 
 		return dmLootCategory.OTHER;
 	}
+
+	//! Предметы-на-земле (ItemBase вне чьего-либо инвентаря) в кубе radius вокруг пешки.
+	static array<EntityAI> ScanNearbyItems(PlayerBase pawn, float radius)
+	{
+		array<EntityAI> result = new array<EntityAI>();
+		if (!pawn)
+			return result;
+
+		vector botPos = pawn.GetPosition();
+		vector minPos = botPos - Vector(radius, radius, radius);
+		vector maxPos = botPos + Vector(radius, radius, radius);
+
+		array<EntityAI> entities = new array<EntityAI>();
+		DayZPlayerUtils.SceneGetEntitiesInBox(minPos, maxPos, entities, QueryFlags.DYNAMIC);
+
+		int i;
+		for (i = 0; i < entities.Count(); i++)
+		{
+			ItemBase item = ItemBase.Cast(entities[i]);
+			if (item && !item.GetHierarchyRootPlayer() && !item.IsDamageDestroyed())
+				result.Insert(item);
+		}
+		return result;
+	}
 }

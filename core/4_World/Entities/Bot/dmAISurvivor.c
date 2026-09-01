@@ -48,6 +48,7 @@ class dmAISurvivor
 	private ref dmWishlist m_Wishlist;
 	private ref dmRequirements m_Requirements;
 	private ref dmNeeds m_Needs;
+	private ref dmExplorer m_Explorer;
 
 	//! Pathfinder (navmesh wrapper), lazily created on first use.
 	private ref dmBotPathfinder m_Pathfinder;
@@ -94,6 +95,7 @@ class dmAISurvivor
 		m_Wishlist = new dmWishlist();
 		m_Requirements = new dmRequirements();
 		m_Needs = new dmNeeds();
+		m_Explorer = new dmExplorer();
 	}
 
 	//! Model class to use. Must be set before Spawn().
@@ -350,6 +352,8 @@ class dmAISurvivor
 
 		m_Needs.Update(this, pDt);
 
+		m_Explorer.OnUpdate(this, pDt);
+
 		if (m_FSM)
 			m_FSM.Update(pDt);
 
@@ -390,6 +394,11 @@ class dmAISurvivor
 	dmNeeds GetNeeds()
 	{
 		return m_Needs;
+	}
+
+	dmExplorer GetExplorer()
+	{
+		return m_Explorer;
 	}
 
 	//------------------------------------------------------------------
