@@ -357,3 +357,6 @@ static const float DM_EXPLORE_EXPLORE_RADIUS = 100.0;
 static const float DM_EXPLORE_BUILDING_REACH = 2.0;
 //! Loot exploration: cooldown (seconds) between drops when the inventory is full.
 static const float DM_EXPLORE_DROP_COOLDOWN = 1.0;
+
+//! Hearing: threat assigned to a target heard but not seen (below attack threshold 0.5).
+static const float DM_NOISE_THREAT = 0.4;

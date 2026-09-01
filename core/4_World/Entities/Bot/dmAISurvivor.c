@@ -43,6 +43,9 @@ class dmAISurvivor
 	//! Perception (vision): scans for visible threats on a throttled cadence.
 	private ref dmVision m_Vision;
 
+	//! Perception (hearing): subscribes to dmNoiseSystem and updates targets on noise.
+	private ref dmHearing m_Hearing;
+
 	//! Loot: wishlist (desires), inventory analysis, and the needs coordinator
 	//! (inventory -> desires; ticked from OnUpdate on a ~5s throttle).
 	private ref dmWishlist m_Wishlist;
@@ -96,6 +99,7 @@ class dmAISurvivor
 		m_Requirements = new dmRequirements();
 		m_Needs = new dmNeeds();
 		m_Explorer = new dmExplorer();
+		m_Hearing = new dmHearing(this);
 	}
 
 	//! Model class to use. Must be set before Spawn().
@@ -379,6 +383,11 @@ class dmAISurvivor
 	dmVision GetVision()
 	{
 		return m_Vision;
+	}
+
+	dmHearing GetHearing()
+	{
+		return m_Hearing;
 	}
 
 	dmWishlist GetWishlist()
@@ -834,6 +843,24 @@ class dmAISurvivor
 		}
 		t.m_Threat = threat;
 		t.m_Friendly = false;
+	}
+
+	//! Слух: обновить/добавить цель по шуму. Цель с HasLOS=false получает свежую
+	//! последнюю позицию; новая цель добавляется с низким threat (услышал, не видел).
+	void HearNoise(EntityAI entity, vector position)
+	{
+		dmTarget t = FindTarget(entity);
+		if (t)
+		{
+			if (!t.m_HasLOS)
+				t.m_LastPosition = position;
+			return;
+		}
+
+		DiscoverTarget(entity, DM_NOISE_THREAT, 0.0, false);
+		t = FindTarget(entity);
+		if (t)
+			t.m_LastPosition = position;
 	}
 
 	//! Ближайшая враждебная цель (threat >= DM_ATTACK_THREAT_THRESHOLD, не friendly,
