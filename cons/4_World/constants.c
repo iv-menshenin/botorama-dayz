@@ -321,3 +321,6 @@ static const float DM_AIM_RECOIL_RECOVERY = 5.0;
 //! Vertical navigation: fall height (meters) below which a drop is safe (matches
 //! DayZPlayerImplementFallDamage.HEALTH_HEIGHT_LOW).
 static const float DM_BOT_FALL_HEIGHT_LOW = 5.0;
+
+//! Loot: timeout (seconds) after which an ignored item is picked up again.
+static const float DM_LOOT_IGNORE_TIMEOUT = 300.0;
