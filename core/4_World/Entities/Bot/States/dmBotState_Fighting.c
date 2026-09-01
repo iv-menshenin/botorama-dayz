@@ -72,7 +72,7 @@ class dmBotState_Fighting : dmBotState
 		vector tPos = m_TargetEntity.GetPosition();
 		vector d = tPos - botPos;
 		d[1] = 0.0;
-		float distSq = d.LengthSq();
+		float distSq = d.LengthSq() - 0.5;
 		float reach = GetMeleeReach(bot);
 		float reachSq = reach * reach;
 

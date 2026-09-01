@@ -43,6 +43,9 @@ static const float DM_BOT_MODIFIER_TICK_INTERVAL = 0.25;
 //! cap the bot's speed when the body can't sprint (stamina depleted / broken legs).
 static const float DM_SPEED_IDX_JOG = 2.0;
 
+//! Turn speed multiplier
+static const float DM_MOVE_TURN_SPEED = 2.5;
+
 //! Max body slide-turn rate while moving (degrees per second).
 static const float DM_MOVE_TURN_RATE = 180.0;
 

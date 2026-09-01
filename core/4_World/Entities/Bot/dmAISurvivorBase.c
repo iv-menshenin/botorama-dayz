@@ -737,7 +737,7 @@ class dmAISurvivorBase : PlayerBase
 
 			if (Math.AbsFloat(dBody) > 1.0)
 			{
-				float step = Math.Clamp(dBody, -DM_MOVE_TURN_RATE * pDt, DM_MOVE_TURN_RATE * pDt);
+				float step = Math.Clamp(dBody, -DM_MOVE_TURN_RATE * pDt * DM_MOVE_TURN_SPEED, DM_MOVE_TURN_RATE * pDt * DM_MOVE_TURN_SPEED);
 				SetOrientation(Vector(bodyYaw + step, 0.0, 0.0));
 			}
 			return;
