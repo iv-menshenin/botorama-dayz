@@ -157,7 +157,9 @@ class dmBotState_Follow : dmBotState
 		//! Выбор интента: цель видна ИЛИ близко (≤ порога) → FollowTo; иначе —
 		//! MoveTo к последней известной позиции (догоняем спринтом).
 		float threshold = GetThresholdDistance(m_TargetEntity);
-		bool useFollow = m_Target.m_HasLOS || dist <= threshold;
+		float now = GetGame().GetTickTime();
+		bool seenRecently = (now - m_Target.m_LastContact) < DM_FOLLOW_VISIBLE_RECENT;
+		bool useFollow = seenRecently || dist <= threshold;
 
 		//! Hysteresis: commit to FollowTo/MoveTo only after the new decision persists
 		//! for DM_FOLLOW_SWITCH_DWELL. The FOV-cone LOS gate makes m_HasLOS flicker

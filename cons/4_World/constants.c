@@ -186,6 +186,15 @@ static const float DM_FOLLOW_PATH_INTERVAL = 1.0;
 //! Follow (FollowTo): target-velocity smoothing factor (0..1; higher = snappier).
 static const float DM_FOLLOW_VEL_SMOOTH = 0.3;
 
+//! Follow: seconds a target counts as "recently seen" for the FollowTo/MoveTo
+//! decision — the FOV-cone LOS gate flickers while the head scans, so this keeps
+//! FollowTo engaged for a few seconds after the head turns away.
+static const float DM_FOLLOW_VISIBLE_RECENT = 5.0;
+
+//! Follow (FollowTo): minimum 2D anchor drift (meters) that triggers a re-path
+//! while following. A stationary anchor must not re-path every second.
+static const float DM_FOLLOW_REPATH_DIST = 2.0;
+
 //! Scan: random interval (seconds) between idle direction changes.
 static const float DM_SCAN_INTERVAL_MIN = 10.0;
 static const float DM_SCAN_INTERVAL_MAX = 30.0;

@@ -26,6 +26,9 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 	float m_DistToAnchor;
 	float m_TargetSpeed;
 
+	vector m_LastPathGoal = vector.Zero;
+	bool m_PathGoalValid = false;
+
 	void dmBotIntent_FollowTo()
 	{
 		m_Concurrency = dmBotIntentConcurrency.PARALLEL;
@@ -56,6 +59,8 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 		m_Path = null;
 		m_PathIdx = 0;
 		m_PathTimer = DM_FOLLOW_PATH_INTERVAL;
+		m_LastPathGoal = vector.Zero;
+		m_PathGoalValid = false;
 		m_HasPath = false;
 		m_TargetPosKnown = false;
 		m_TargetVel = vector.Zero;
@@ -142,15 +147,25 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 		toAnchor[1] = 0.0;
 		m_DistToAnchor = toAnchor.Length();
 
-		//! Path re-computation: at most once per DM_FOLLOW_PATH_INTERVAL.
+		//! Path re-computation: at most once per DM_FOLLOW_PATH_INTERVAL, and only
+		//! when the anchor actually drifted (a stationary target must NOT re-path
+		//! every second — that resets MoveTo's progress monitor and kills stuck
+		//! detection / vault).
 		m_PathTimer += pDt;
 		if (m_PathTimer >= DM_FOLLOW_PATH_INTERVAL)
 		{
-			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] RePath #004");
-			#endif
 			m_PathTimer = 0.0;
-			RePath(bot);
+			vector drift = m_Goal - m_LastPathGoal;
+			drift[1] = 0.0;
+			if (!m_PathGoalValid || drift.Length() > DM_FOLLOW_REPATH_DIST)
+			{
+				m_LastPathGoal = m_Goal;
+				m_PathGoalValid = true;
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] RePath #004");
+				#endif
+				RePath(bot);
+			}
 		}
 	}
 
