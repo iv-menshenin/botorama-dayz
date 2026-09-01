@@ -80,6 +80,11 @@
   (`void RollWeighted(array<ref dmBotTransition> eligible, ...)`), иначе
   `FIX-ME: Method argument can't be strong reference`. `ref` — только для ПОЛЕЙ и
   ЛОКАЛЬНЫХ переменных не-Managed-классов. Исключение — `out`/`inout` (другой механизм).
+- **`out`/`inout` — ТОЛЬКО в сигнатуре, НА МЕСТЕ ВЫЗОВА НЕ ПИШУТСЯ.** Объявление:
+  `bool FindCarWithPlayer(out int freeSeat)` / `bool FindPath(vector from, vector to, inout array<vector> waypoints)`;
+  вызов: `FindCarWithPlayer(freeSeat)` / `m_Pathfinder.FindPath(GetPosition(), sampled, path)`.
+  Ошибка `FindCarWithPlayer(out freeSeat)` — не компилируется (не как C#/Pascal, где
+  `out` дублируется в вызове).
 - Нативные классы: «движок владеет → без `ref` (напр. `AIWorld`), `new`-ишь сам →
   с `ref` (напр. `PGFilter`)» — конкретика в скилле `dayz-ai-bot` (Pathfinding).
 
@@ -179,6 +184,7 @@
 - Никаких переносов строк внутри выражения/цепочки вызовов.
 - В функции каждое имя переменной объявлено ровно один раз.
 - `ref` для не-Managed-ссылок (поля/локалы), но НЕ на параметрах.
+- `out`/`inout` — только в сигнатуре; на месте вызова без `out`/`inout`.
 - Генерик не вызывает методы `T` без каста.
 - Логи — через `#ifdef` на месте вызова; `dmBotLog.Error` не гейтится.
 - Лог-строка не длиннее ~6 конкатенаций (`Formula too complex`); длинные логи — несколькими `Debug`-вызовами.
