@@ -396,11 +396,12 @@ bot.PlayDoorOpenGesture();        // hand-жест, в том же тике (и�
 - **Фильтр**: в `dmBotPathfinder.m_Filter` добавить `SPECIAL` в include (или `JUMP_OVER|JUMP_DOWN|CLIMB`)
   + `SetCost(FENCE_WALL, 5.0)` + `SetCost(JUMP, 10.0)`. Держать `NoJumpClimb`-вариант для фолбэка.
 - **Команда**: пешка `dmAISurvivorBase : PlayerBase` уже наследует `m_JumpClimb` и
-  `StartCommand_Climb`. Примитив в пешке: `bool TryVaultClimb(out SHumanCommandClimbResult)` =
+  `StartCommand_Climb`. Примитив в пешке: `bool TryVaultClimb()` =
   `HumanCommandClimb.DoClimbTest(this, res, 0)` → если `m_bIsClimb||m_bIsClimbOver` →
-  `m_JumpClimb.JumpOrClimb()` (или напрямую `StartCommand_Climb(res, GetClimbType(res.m_fClimbHeight))`
-  после `CanClimb`). `GetClimbType` приватный в `DayZPlayerImplementJumpClimb` — проще звать
-  `m_JumpClimb.JumpOrClimb()`, он сам всё делает (и `CanClimb`, и стамину).
+  свой `GetClimbTypeLocal(m_fClimbHeight)` (`<1.1`→0, `1.1..1.7`→1, `1.7..2.75`→2, иначе -1)
+  → **напрямую `StartCommand_Climb(res, climbType)`** (натив `Human`). `GetClimbType`
+  приватный в `DayZPlayerImplementJumpClimb` — поэтому локальная копия в пешке.
+  Сделано и проверено (бот перелезает забор).
 
 **Готча (обожглись): `JumpOrClimb()` НЕНАДЁЖЕН для серверного ИИ — звать напрямую
 `StartCommand_Climb(res, climbType)`.** `DayZPlayerImplementJumpClimb.JumpOrClimb()`
@@ -422,6 +423,18 @@ bot.PlayDoorOpenGesture();        // hand-жест, в том же тике (и�
   Держать счётчик попыток, иначе зациклится на непреодолимом препятствии.
 - Место: логика детекта/решения — в `MoveTo` (он уже следит за застреванием), сама команда —
   примитив пешки. Отдельный интент не нужен (как и для дверей).
+
+**Готча (обожглись): прогресс-монитор застревания сбрасывается при пересоздании интента и
+пересчёте пути — vault не срабатывает у `FollowTo`.** `MoveTo.OnStart` обнуляет
+`m_BestDist/m_NoProgressTime`, а `RePath` ставит `m_PathIdx=0` → бот проходит waypoint 0→1
+(сброс прогресса). `FollowTo` пересчитывал путь каждую секунду (`DM_FOLLOW_PATH_INTERVAL`),
+поэтому `m_NoProgressTime` никогда не набирал `DM_MOVE_STUCK_TIME=3с` → `TryVaultClimb` не
+вызывался, бот вечно осциллировал у забора (симптом: скачки `moveAngle ≈ ±180°` в логе).
+Фикс: (1) `useFollow` по рекенси `m_LastContact` (`DM_FOLLOW_VISIBLE_RECENT=5с`), а не по
+мигающему `m_HasLOS` (FOV-конус зависит от поворота головы) + гистерезис
+`DM_FOLLOW_SWITCH_DWELL=1с`; (2) `FollowTo` пересчитывает путь только при сдвиге якоря
+> `DM_FOLLOW_REPATH_DIST=2м` (`m_LastPathGoal`/`m_PathGoalValid`). После этого прогресс-монитор
+копится → застревание детектится → vault перелезает забор.
 
 ---
 

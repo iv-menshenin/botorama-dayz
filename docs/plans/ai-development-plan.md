@@ -41,9 +41,14 @@
 
 ### Группа 3 — продвинутый pathfinding
 7. `[x]` **Vault/climb** — перепрыгивание забора / влезание на ящик. Deps: 1.
-   Research: `docs/research/navigation.md`. — сделано: фильтр `JUMP|CLIMB`, примитив
-   `dmAISurvivorBase.TryVaultClimb()` (DoClimbTest → JumpOrClimb), в MoveTo при
-   застревании + фаза vaulting.
+   Research: `docs/research/navigation.md`. — сделано и проверено в игре (бот перелезает
+   забор): фильтр `JUMP|CLIMB`, примитив `dmAISurvivorBase.TryVaultClimb()` —
+   `DoClimbTest` → **напрямую `StartCommand_Climb(res, climbType)`** (НЕ `JumpOrClimb()`:
+   тот делает свой `DoPerformClimbTest`-ретест + `Jump()`-фолбэк и ломает ИИ), в MoveTo при
+   застревании + фаза vaulting. Чтобы детектор застревания реально срабатывал — фиксы
+   Follow: `useFollow` по рекенси `m_LastContact` (не по мигающему `m_HasLOS`) + пересчёт
+   пути `FollowTo` только при сдвиге якоря (`DM_FOLLOW_REPATH_DIST`) — иначе прогресс-монитор
+   сбрасывался каждую секунду и vault не запускался.
 8. `[x]` **Двери** — открыть и пройти. Deps: 1. — сделано: фильтр `DISABLED`+cost,
    `dmAISurvivor.TryOpenDoorOnPath()` (рейкаст → Building.OpenDoor), проактивный
    троттл-рейкаст в MoveTo.
