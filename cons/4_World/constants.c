@@ -21,6 +21,10 @@ static const float DM_LOOK_MAX_PITCH = 85.0;
 //! Distance (meters) at which a patrol point counts as reached.
 static const float DM_PATROL_REACH_DISTANCE = 1.0;
 
+//! Reach radius (meters) at which a crew entry point (Transport.CrewEntryWS)
+//! counts as reached and the bot starts boarding the vehicle.
+static const float DM_GETIN_REACH = 1.0;
+
 //! Time (seconds) the bot must dwell at a reached patrol point before advancing.
 static const float DM_PATROL_DWELL_TIME = 5.0;
 

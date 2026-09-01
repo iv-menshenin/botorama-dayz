@@ -955,6 +955,28 @@ class dmAISurvivorBase : PlayerBase
 		return true;
 	}
 
+	//! Enter a vehicle at the given crew seat. Starts the vanilla vehicle command
+	//! (get-in animation). Returns false when the command can't start.
+	bool GetInVehicle(Transport transport, int seatIndex)
+	{
+		if (!transport)
+			return false;
+		int seatAnim = transport.GetSeatAnimationType(seatIndex);
+		HumanCommandVehicle cmd = StartCommand_Vehicle(transport, seatIndex, seatAnim);
+		if (!cmd)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Bot] GetInVehicle: fail seat=" + seatIndex);
+			#endif
+			return false;
+		}
+		cmd.SetVehicleType(transport.GetAnimInstance());
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[Bot] GetInVehicle: seat=" + seatIndex);
+		#endif
+		return true;
+	}
+
 	void ConsumeMeleeAttackRequest()
 	{
 		m_MeleeAttackRequest = false;

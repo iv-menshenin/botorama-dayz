@@ -18,6 +18,7 @@
 //!   /bot give {item}            — выдать предмет в руки бота.
 //!   /bot melee                  — ударить враждебную цель (мили-удар).
 //!   /bot combat                 — боевой режим (атакует угрозы в радиусе).
+//!   /bot car sitdown            — сесть в машину с игроком на свободное место.
 //!
 //! Интенты добавляются в командный пул (приоритет CRITICAL), поэтому они
 //! перебивают автоматическое поведение; "/bot intent clear" возвращает бота
@@ -59,6 +60,8 @@ class dmBotCommand : dmCommandModule
 			return HandleMelee(player, parts);
 		if (parts[1] == DM_CHAT_COMBAT)
 			return HandleCombat(player, parts);
+		if (parts[1] == DM_CHAT_CAR)
+			return HandleCar(player, parts);
 		if (parts[1] == DM_CHAT_SETHEALTH)
 			return HandleSetHealth(player, parts);
 		if (parts[1] == DM_CHAT_SETBLOOD)
@@ -672,6 +675,74 @@ class dmBotCommand : dmCommandModule
 		bot.SetFSM(dmBotPreset_Combat.Create(bot));
 		dmCommandManager.ChatToPlayer(player, "Боевой режим (атакует угрозы в радиусе)");
 		return true;
+	}
+
+	//! "/bot car sitdown" — find a car where a real player is sitting and make the
+	//! bound bot get in on a free passenger seat.
+	private bool HandleCar(PlayerBase player, array<string> parts)
+	{
+		if (parts.Count() < 3 || parts[2] != DM_CHAT_CAR_SITDOWN)
+		{
+			dmCommandManager.ChatToPlayer(player, "Укажи: /bot car sitdown");
+			return true;
+		}
+		return HandleCarSitdown(player);
+	}
+
+	private bool HandleCarSitdown(PlayerBase player)
+	{
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
+			return true;
+		}
+
+		int freeSeat;
+		Transport transport = FindCarWithPlayer(out freeSeat);
+		if (!transport)
+		{
+			dmCommandManager.ChatToPlayer(player, "Не нашёл машину с игроком (или нет свободного места)");
+			return true;
+		}
+
+		dmBotIntent_GetInVehicle intent = new dmBotIntent_GetInVehicle();
+		intent.m_Transport = transport;
+		intent.m_Seat = freeSeat;
+		bot.AddCommandIntent(intent);
+
+		dmCommandManager.ChatToPlayer(player, "Сажусь в " + transport.GetType() + " место " + freeSeat);
+		return true;
+	}
+
+	//! Find a vehicle with a real (non-bot) player aboard and a free seat. Returns
+	//! the transport and the free seat index via out param.
+	private Transport FindCarWithPlayer(out int freeSeat)
+	{
+		freeSeat = -1;
+		array<PlayerBase> players = dmEntityRegistry.GetPlayers();
+		int i;
+		for (i = 0; i < players.Count(); i++)
+		{
+			PlayerBase p = players[i];
+			if (!p || !p.IsAlive())
+				continue;
+			if (dmAISurvivorBase.Cast(p) != null)
+				continue; // бот — пропускаем
+			Transport t = Transport.Cast(p.GetParent());
+			if (!t)
+				continue;
+			int s;
+			for (s = 0; s < t.CrewSize(); s++)
+			{
+				if (!t.CrewMember(s))
+				{
+					freeSeat = s;
+					return t;
+				}
+			}
+		}
+		return null;
 	}
 
 	//! Resolve the bound bot and parse the required float argument.
