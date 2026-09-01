@@ -329,46 +329,60 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_Path = null;
 	}
 
-	//! Try to start a ladder climb/descend through the building directly ahead
-	//! (the stuck detector calls this when the path goes across floors). Raycasts
-	//! forward, resolves the building, picks the nearest ladder entry point on the
-	//! correct side (up = bottom entry, down = top entry) and spawns a
-	//! dmBotIntent_UseLadder (EXCLUSIVE) to own the climb. Returns true if started.
+	//! Try to start a ladder climb/descend (the stuck detector calls this when the
+	//! path goes across floors). Resolves the building from the floor entity under
+	//! the bot, falling back to a forward raycast when approaching from outside,
+	//! then picks the ladder entry point with the lowest 2D-distance x height
+	//! difference on the correct side (up = bottom entry, down = top entry) and
+	//! spawns a dmBotIntent_UseLadder (EXCLUSIVE) to own the climb. Returns true if
+	//! started.
 	bool TryStartLadder(dmAISurvivor bot)
 	{
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (!pawn)
 			return false;
 
-		vector pos = pawn.GetPosition();
-		vector dir = pawn.GetDirection();
-		dir[1] = 0.0;
-		dir.Normalize();
-		vector beg = pos + Vector(0.0, DM_EYE_HEIGHT, 0.0);
-		vector end = beg + dir * DM_DOOR_OPEN_DIST;
+		vector botPos = pawn.GetPosition();
 
-		RaycastRVParams rp = new RaycastRVParams(beg, end, pawn);
-		rp.sorted = true;
-		rp.type = ObjIntersectView;
-		rp.flags = CollisionFlags.NEARESTCONTACT;
-		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
-			return false;
+		Building building;
+		IEntity floor = pawn.PhysicsGetFloorEntity();
+		if (floor)
+			building = Building.Cast(floor);
 
-		Building building = Building.Cast(hits[0].obj);
-		if (!building)
-			return false;
+		ref array<ref dmBotLadder> ladders;
+		if (building)
+			ladders = dmBotLadderCache.GetInstance().GetLadders(building);
 
-		ref array<ref dmBotLadder> ladders = dmBotLadderCache.GetInstance().GetLadders(building);
-		if (!ladders || ladders.Count() == 0)
+		if (!building || !ladders || ladders.Count() == 0)
+		{
+			vector dir = pawn.GetDirection();
+			dir[1] = 0.0;
+			dir.Normalize();
+			vector beg = botPos + Vector(0.0, DM_EYE_HEIGHT, 0.0);
+			vector end = beg + dir * DM_DOOR_OPEN_DIST;
+
+			RaycastRVParams rp = new RaycastRVParams(beg, end, pawn);
+			rp.sorted = true;
+			rp.type = ObjIntersectView;
+			rp.flags = CollisionFlags.NEARESTCONTACT;
+			ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
+			if (DayZPhysics.RaycastRVProxy(rp, hits) && hits.Count() > 0)
+			{
+				building = Building.Cast(hits[0].obj);
+				if (building)
+					ladders = dmBotLadderCache.GetInstance().GetLadders(building);
+			}
+		}
+
+		if (!building || !ladders || ladders.Count() == 0)
 			return false;
 
 		int dirSign = 1;
-		if (m_Goal[1] < pos[1])
+		if (m_Goal[1] < botPos[1])
 			dirSign = -1;
 
 		dmBotLadder best = null;
-		float bestDist = 0.0;
+		float bestWeight = 0.0;
 		int i;
 		for (i = 0; i < ladders.Count(); i++)
 		{
@@ -377,13 +391,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 			if (dirSign < 0)
 				modelEntry = ladder.m_Top;
 			vector entry = building.ModelToWorld(modelEntry);
-			vector delta = entry - pos;
-			delta[1] = 0.0;
-			float dist = delta.Length();
-			if (!best || dist < bestDist)
+			float dx = entry[0] - botPos[0];
+			float dz = entry[2] - botPos[2];
+			float dy = Math.AbsFloat(entry[1] - botPos[1]);
+			float weight = (dx * dx + dz * dz) * dy;
+			if (!best || weight < bestWeight)
 			{
 				best = ladder;
-				bestDist = dist;
+				bestWeight = weight;
 			}
 		}
 
