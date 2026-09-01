@@ -325,8 +325,47 @@ class dmBotIntent_MoveTo : dmBotIntent
 			m_HasPath = true;
 			return;
 		}
+
+		//! No navmesh path: allow a deliberate "leap of faith" drop only if the
+		//! goal is below and the fall is safe. Otherwise the target is unreachable
+		//! (m_HasPath stays false but we don't attempt to step off a drop).
+		if (TryLeapOfFaith(bot))
+		{
+			m_HasPath = false;
+			m_Path = null;
+			return;
+		}
+
 		m_HasPath = false;
 		m_Path = null;
+	}
+
+	//! Try to step off a ledge ("leap of faith") when there is no navmesh path
+	//! down. Only allows the drop when the goal is clearly below the bot and the
+	//! fall height (to the surface directly underneath) is safe.
+	bool TryLeapOfFaith(dmAISurvivor bot)
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+			return false;
+
+		vector botPos = pawn.GetPosition();
+
+		//! Goal must be below the bot (a real vertical gap).
+		if (m_Goal[1] >= botPos[1] - 0.5)
+			return false;
+
+		//! Find the surface directly below (floor/terrain) and check the fall height.
+		vector beg = botPos + Vector(0.0, 0.5, 0.0);
+		vector end = botPos + Vector(0.0, -50.0, 0.0);
+		vector contactPos;
+		vector contactDir;
+		int contactComponent;
+		if (!DayZPhysics.RaycastRV(beg, end, contactPos, contactDir, contactComponent, null, null, pawn, false, false, ObjIntersectGeom))
+			return false;
+
+		float fallHeight = botPos[1] - contactPos[1];
+		return fallHeight < DM_BOT_FALL_HEIGHT_LOW;
 	}
 
 	//! Try to start a ladder climb/descend (the stuck detector calls this when the

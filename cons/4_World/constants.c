@@ -317,3 +317,7 @@ static const float DM_AIM_RECOIL_MODIFIER = 1.0;
 
 //! Aiming recoil: recovery rate (degrees per second) — how fast the barrel lowers.
 static const float DM_AIM_RECOIL_RECOVERY = 5.0;
+
+//! Vertical navigation: fall height (meters) below which a drop is safe (matches
+//! DayZPlayerImplementFallDamage.HEALTH_HEIGHT_LOW).
+static const float DM_BOT_FALL_HEIGHT_LOW = 5.0;
