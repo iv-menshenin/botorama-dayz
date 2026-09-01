@@ -50,13 +50,13 @@ static const float DM_MOVE_TURN_RATE = 180.0;
 static const float DM_MOVE_STUCK_TIME = 3.0;
 
 //! Min distance decrease (meters) that counts as "progress" (resets the stuck timer).
-static const float DM_MOVE_PROGRESS_EPS = 0.1;
+static const float DM_MOVE_PROGRESS_EPS = 0.25;
 
 //! Radius (meters) to snap the pathfinding target onto the navmesh.
 static const float DM_PATH_SAMPLE_RADIUS = 2.0;
 
 //! Reach radius (meters) for an intermediate path waypoint.
-static const float DM_PATH_WAYPOINT_REACH = 0.15;
+static const float DM_PATH_WAYPOINT_REACH = 0.05;
 
 //! Raycast distance (meters) straight ahead at eye level to detect a closed door.
 static const float DM_DOOR_OPEN_DIST = 2.0;
