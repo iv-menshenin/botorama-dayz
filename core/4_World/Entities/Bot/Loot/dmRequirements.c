@@ -75,6 +75,7 @@ class dmRequirements
 		int otherCount = 0;
 
 		int i;
+		int k;
 		ItemBase item;
 		dmLootCategory category;
 		float baseIndex;
@@ -141,8 +142,8 @@ class dmRequirements
 			}
 
 			div = 1.0;
-			if (n > 1)
-				div = (float)(1 << (n - 1));
+			for (k = 1; k < n; k++)
+				div = div * 2.0;
 
 			index = baseIndex / div;
 
