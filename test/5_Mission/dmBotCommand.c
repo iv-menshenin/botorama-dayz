@@ -1,6 +1,6 @@
 //! dmBotCommand — команды "/bot ...": спавн бота и управление им.
 //!
-//!   /bot spawn test            — заспавнить тестового бота в метре перед игроком
+//!   /bot spawn {preset}        — заспавнить тестового бота в метре перед игроком
 //!                                 и привязать его к игроку (все последующие
 //!                                 команды действуют именно на него).
 //!   /bot intent lookAt         — бот смотрит в точку, куда смотрит игрок.
@@ -89,21 +89,22 @@ class dmBotCommand : dmCommandModule
 			return false;
 
 		if (parts[2] == DM_CHAT_TEST)
-			return HandleSpawnTest(player);
+			return HandleSpawnTest(player, "");
 
-		return false;
+		return HandleSpawnTest(player, parts[2]);
 	}
 
 	//! Spawn a bot one meter in front of the player and bind it to them.
-	private bool HandleSpawnTest(PlayerBase player)
+	private bool HandleSpawnTest(PlayerBase player, string preset)
 	{
 		vector fwd = player.GetDirection();
 		fwd[1] = 0.0;
 		fwd.Normalize();
 		vector spawnPos = player.GetPosition() + fwd * DM_SPAWN_DISTANCE;
+		spawnPos[1] = 0.1;
 
 		ref dmAISurvivor bot = new dmAISurvivor();
-		PlayerBase pawn = bot.Spawn(spawnPos, Vector(0, 0, 0));
+		PlayerBase pawn = bot.Spawn(SnapToGround(spawnPos), Vector(0, 0, 0));
 
 		if (pawn)
 		{
@@ -115,6 +116,18 @@ class dmBotCommand : dmCommandModule
 		else
 		{
 			dmCommandManager.ChatToPlayer(player, "Не удалось заспавнить бота.");
+		}
+
+		switch (preset) {
+		case "survivor":
+			bot.SetFSM(dmBotPreset_Survivor.Create(bot));
+			break;
+		case "escort":
+			bot.SetFSM(dmBotPreset_Escort.Create(bot));
+			break;
+		case "hunter":
+			bot.SetFSM(dmBotPreset_Hunter.Create(bot));
+			break;
 		}
 
 		return true;
@@ -853,4 +866,15 @@ class dmBotCommand : dmCommandModule
 	{
 		return (Math.Round(v * 1000.0) / 1000.0).ToString();
 	}
+}
+
+vector SnapToGround(vector pos)
+{
+	float pos_x = pos[0];
+	float pos_z = pos[2];
+	float pos_y = g_Game.SurfaceY(pos_x, pos_z);
+	vector tmp_pos = Vector(pos_x, pos_y, pos_z);
+	tmp_pos[1] = tmp_pos[1] + pos[1];
+
+	return tmp_pos;
 }

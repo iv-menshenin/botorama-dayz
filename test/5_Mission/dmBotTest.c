@@ -834,18 +834,6 @@ class dmBotTest_Aim : dmBotTestCase
 		lookDir.Normalize();
 	}
 
-	vector SnapToGround(vector pos)
-	{
-		float pos_x = pos[0];
-		float pos_z = pos[2];
-		float pos_y = g_Game.SurfaceY(pos_x, pos_z);
-		vector tmp_pos = Vector(pos_x, pos_y, pos_z);
-		tmp_pos[1] = tmp_pos[1] + pos[1];
-
-		return tmp_pos;
-	}
-
-
 	//! Equip an EMPTY AKM (no magazine) + PSO11Optic + a backpack with
 	//! DM_AIM_TEST_MAG_COUNT magazines of DM_AIM_TEST_MAG_ROUNDS rounds each.
 	void GiveEmptyAKMWithMags(PlayerBase pawn)
