@@ -73,81 +73,61 @@ class dmLoot
 		return result;
 	}
 
+	static void RemoveNearbyItem(PlayerBase pawn, EntityAI item, float radius)
+	{
+
+	}
+
+    static ref array<int> m_AttachmentSlots = {
+		InventorySlots.SHOULDER,
+		InventorySlots.MELEE,
+		InventorySlots.HEADGEAR,
+		InventorySlots.MASK,
+		InventorySlots.EYEWEAR,
+		InventorySlots.GLOVES,
+		InventorySlots.ARMBAND,
+		InventorySlots.HIPS,
+		InventorySlots.BACK,
+		InventorySlots.BODY,
+		InventorySlots.VEST,
+		InventorySlots.LEGS,
+		InventorySlots.FEET
+	};
+
 	//! Куда положить предмет (слот-зависимо): одежда → свободный слот из
 	//! inventorySlot[]; мили → SHOULDER/MELEE, затем руки; оружие → руки;
 	//! остальное → карго. Возвращает true и заполняет dst.
-	static bool FindDestination(PlayerBase pawn, ItemBase item, out InventoryLocation dst)
+	static bool FindDestination(PlayerBase pawn, EntityAI item, out InventoryLocation dst)
 	{
-		if (!pawn || !item)
-			return false;
+		if (!pawn || !item) return false;
 		GameInventory inv = pawn.GetInventory();
 		if (!inv)
 			return false;
 
-		if (item.IsClothing())
-		{
-			array<string> slots = new array<string>();
-			item.ConfigGetTextArray("inventorySlot", slots);
-			int i;
-			for (i = 0; i < slots.Count(); i++)
+        foreach(int slot: m_AttachmentSlots)
+        {
+            EntityAI attachment = inv.FindAttachment(slot);
+            if ( !attachment )
 			{
-				int slotId = InventorySlots.GetSlotIdFromString(slots[i]);
-				if (!InventorySlots.IsSlotIdValid(slotId))
-					continue;
-				if (!inv.HasAttachmentSlot(slotId))
-					continue;
-				if (!inv.FindAttachment(slotId))
+				// Attachment candidate?
+				if ( inv.CanAddAttachmentEx(item, slot) )
 				{
-					dst = new InventoryLocation();
-					dst.SetAttachment(pawn, item, slotId);
+					#ifdef DM_BOT_DEBUG_LOOTING
+					dmBotLog.Debug("[Loot] Have empty slot " + InventorySlots.GetSlotName( slot ) + " for item");
+					#endif
 					return true;
 				}
+				continue;
 			}
-			return false;
-		}
-
-		if (item.IsMeleeWeapon())
-		{
-			int shoulder = InventorySlots.SHOULDER;
-			if (InventorySlots.IsSlotIdValid(shoulder) && inv.HasAttachmentSlot(shoulder) && !inv.FindAttachment(shoulder))
+			GameInventory attInv = attachment.GetInventory();
+			if (attInv.FindFreeLocationFor(item, FindInventoryLocationType.CARGO | FindInventoryLocationType.ATTACHMENT, dst))
 			{
-				dst = new InventoryLocation();
-				dst.SetAttachment(pawn, item, shoulder);
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] Got empty space " + dst.DumpToString());
+				#endif
 				return true;
 			}
-			int melee = InventorySlots.MELEE;
-			if (InventorySlots.IsSlotIdValid(melee) && inv.HasAttachmentSlot(melee) && !inv.FindAttachment(melee))
-			{
-				dst = new InventoryLocation();
-				dst.SetAttachment(pawn, item, melee);
-				return true;
-			}
-			if (inv.CanAddEntityIntoHands(item))
-			{
-				dst = new InventoryLocation();
-				dst.SetHands(pawn, item);
-				return true;
-			}
-			return false;
-		}
-
-		if (item.IsWeapon())
-		{
-			if (inv.CanAddEntityIntoHands(item))
-			{
-				dst = new InventoryLocation();
-				dst.SetHands(pawn, item);
-				return true;
-			}
-			return false;
-		}
-
-		InventoryLocation loc = new InventoryLocation();
-		if (inv.FindFreeLocationFor(item, FindInventoryLocationType.CARGO, loc))
-		{
-			dst = loc;
-			return true;
-		}
+        }
 		return false;
 	}
 
@@ -155,6 +135,11 @@ class dmLoot
 	static bool CanCarry(PlayerBase pawn, ItemBase item)
 	{
 		InventoryLocation dst = new InventoryLocation();
-		return FindDestination(pawn, item, dst);
+		if ( pawn.GetInventory() && FindDestination(pawn, item, dst) )
+		{
+			if ( pawn.GetInventory().LocationCanAddEntity(dst) ) return true;
+			dst.Reset();
+		}
+		return false;
 	}
 }

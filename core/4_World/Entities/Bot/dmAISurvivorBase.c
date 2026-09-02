@@ -632,6 +632,25 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
+	bool m_ProcessindDMG = false;
+
+	override bool EEOnDamageCalculated(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
+	{
+		if ( m_ProcessindDMG ) return true;
+
+		ZombieBase z = ZombieBase.Cast( source );
+		if ( z )
+		{
+			m_ProcessindDMG = true;
+			ProcessDirectDamage(damageType, source, dmgZone, ammo, modelPos, 0.5);
+			m_ProcessindDMG = false;
+			return false;
+		}
+
+		return true;
+	}
+
+
 	//! Death: skip the vanilla PlayerBase.EEKilled chain — its GetHive().
 	//! CharacterKill() prints "Can't kill player with id -1" for an AI bot (no
 	//! character id). Replicate the essential death cleanup + corpse registration
@@ -1118,11 +1137,16 @@ class dmAISurvivorBase : PlayerBase
 	//! и ручным ре-синком сетевой репрезентации (клиент видит уход с пола).
 	bool TakeItem(ItemBase item)
 	{
-		if (!item)
-			return false;
+		if (!item) return false;
 		InventoryLocation src = new InventoryLocation();
 		if (!item.GetInventory().GetCurrentInventoryLocation(src))
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Не смог получить InventoryLocation: " + item.GetType());
+			#endif
 			return false;
+		}
+
 		InventoryLocation dst = new InventoryLocation();
 		if (!dmLoot.FindDestination(this, item, dst))
 		{
@@ -1131,6 +1155,9 @@ class dmAISurvivorBase : PlayerBase
 			#endif
 			return false;
 		}
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] TakeItem: InventoryLocation=" + dst.DumpToString());
+		#endif
 
 		GetGame().RemoteObjectTreeDelete(item);
 		bool ok = LocalTakeToDst(src, dst);

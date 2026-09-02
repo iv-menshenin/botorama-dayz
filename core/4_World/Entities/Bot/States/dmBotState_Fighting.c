@@ -48,10 +48,8 @@ class dmBotState_Fighting : dmBotState
 	override int OnUpdate(float pDt)
 	{
 		dmAISurvivor bot = GetOwner();
-		if (!m_TargetEntity || !m_TargetEntity.IsAlive())
-			ResolveTarget();
-		if (!m_TargetEntity)
-			return EXIT;
+		if (!m_TargetEntity || !m_TargetEntity.IsAlive()) ResolveTarget();
+		if (!m_TargetEntity) return EXIT;
 
 		m_RetargetTimer += pDt;
 		if (m_RetargetTimer >= DM_FIGHT_RETARGET_INTERVAL)

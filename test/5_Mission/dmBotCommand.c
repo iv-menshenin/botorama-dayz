@@ -120,6 +120,12 @@ class dmBotCommand : dmCommandModule
 
 		switch (preset) {
 		case "survivor":
+			dmLoadoutConfig cfg = dmLoadoutApplier.Load("PlayerSurvivorLoadout");
+			if (cfg)
+			{
+				pawn = bot.GetPawn();
+				if (pawn) dmLoadoutApplier.Apply(pawn, cfg);
+			}
 			bot.SetFSM(dmBotPreset_Survivor.Create(bot));
 			break;
 		case "escort":

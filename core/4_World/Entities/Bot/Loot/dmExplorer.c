@@ -53,8 +53,8 @@ class dmExplorer
 		for (i = 0; i < entities.Count(); i++)
 		{
 			Building building = Building.Cast(entities[i]);
-			if (!building)
-				continue;
+			if (!building) continue;
+			
 			if (!FindBuilding(building))
 			{
 				dmExploredBuilding eb = new dmExploredBuilding();

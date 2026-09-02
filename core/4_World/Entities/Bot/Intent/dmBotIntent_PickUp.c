@@ -14,7 +14,6 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 		m_Concurrency = dmBotIntentConcurrency.EXCLUSIVE;
 		m_Priority = dmBotIntentPriority.CRITICAL;
 		m_Manage = dmBotIntentsChannel.MOVE;
-		m_ReachDistance = DM_PICKUP_REACH;
 	}
 
 	override string GetIntentName()
@@ -27,6 +26,8 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 		if (m_Item)
 			m_Goal = m_Item.GetPosition();
 		super.OnStart(bot);
+
+		m_ReachDistance = DM_PICKUP_REACH;
 	}
 
 	//! Цель = позиция предмета (предмет статичен, но обновляем на случай сдвига).
@@ -37,8 +38,10 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 	}
 
 	//! Достигли предмета — поднять в инвентарь.
-	override void OnReachedGoal(dmAISurvivor bot)
+	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
+		super.OnReachedGoal(bot, pos);
+
 		if (!m_Item || m_Item.IsDamageDestroyed() || m_Item.IsSetForDeletion())
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
@@ -58,7 +61,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 			return;
 		}
 
-		if (pawn.TakeItem(m_Item))
+		if ( pawn.TakeItem(m_Item) )
 		{
 			Finish();
 			return;

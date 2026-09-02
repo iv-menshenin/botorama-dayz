@@ -811,6 +811,12 @@ class dmAISurvivor
 		float threat = DM_DAMAGE_THREAT_HIGH;
 		if (damage < DM_DAMAGE_THREAT_HP_THRESHOLD)
 			threat = DM_DAMAGE_THREAT_LOW;
+		
+		ZombieBase z = ZombieBase.Cast( source );
+		if ( z )
+		{
+			threat = 0.9;
+		}
 
 		dmTarget t = FindTarget(attacker);
 		if (!t)
@@ -820,8 +826,7 @@ class dmAISurvivor
 			t.m_Entity = attacker;
 			m_Targets.Insert(t);
 		}
-		if (threat > t.m_Threat)
-			t.m_Threat = threat;
+		if (threat > t.m_Threat) t.m_Threat = threat;
 		t.m_Friendly = false;
 		t.m_LastPosition = attacker.GetPosition();
 		t.m_LastContact = GetGame().GetTickTime();

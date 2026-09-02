@@ -29,7 +29,7 @@ class dmBotState_Idle : dmBotState
 			CreateScan();
 
 		m_TotalTimer += pDt;
-		if (m_TotalTimer >= 300.0)
+		if (m_TotalTimer >= 15.0)
 			return EXIT;
 
 		return CONTINUE;

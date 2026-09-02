@@ -72,8 +72,7 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 	//! not call methods inline.
 	override void UpdateGoal(dmAISurvivor bot, float pDt)
 	{
-		if (!m_Target)
-			return;
+		if (!m_Target) return;
 
 		vector targetPos = m_Target.GetPosition();
 		vector botPos = bot.GetPosition();
@@ -167,6 +166,12 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 				RePath(bot);
 			}
 		}
+	}
+
+	override void OnReachedGoal(dmAISurvivor bot, vector pos)
+	{
+		// не останавливаемся
+		// super.OnReachedGoal(bot, pos);
 	}
 
 	//! Speed (0..3) from the distance to the anchor, never slower than the target.

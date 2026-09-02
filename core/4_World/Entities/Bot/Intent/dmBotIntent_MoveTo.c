@@ -14,7 +14,7 @@
 class dmBotIntent_MoveTo : dmBotIntent
 {
 	vector m_Goal;
-	float m_ReachDistance = 0.5;
+	float m_ReachDistance = DM_PATH_WAYPOINT_REACH;
 	float m_ReachDeadline = 0.0;   // seconds to reach the target; 0 = no deadline
 
 	ref array<vector> m_Path;
@@ -88,11 +88,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 	//! Called when the final goal is reached. Default: stop and (unless continuous)
 	//! finish. Subclasses (e.g. dmBotIntent_PickUp) override to act on the goal.
-	void OnReachedGoal(dmAISurvivor bot)
+	void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
 		bot.SetMove(0.0, 0.0);
-		if (!IsContinuous())
-			Finish();
+		Finish();
 	}
 
 	override void OnStart(dmAISurvivor bot)
@@ -117,6 +116,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_Path = new array<vector>();
 		m_HasPath = false;
 
+		m_LastPassedPoint = bot.GetPosition();
+
 		if (!IsContinuous())
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
@@ -131,13 +132,20 @@ class dmBotIntent_MoveTo : dmBotIntent
 		}
 	}
 
+	float m_MovingVisionDt = 0;
+
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Intent.MoveTo");
 		#endif
 
-		super.OnUpdate(bot, pDt);
+		m_MovingVisionDt += pDt;
+		if ( m_MovingVisionDt > 1.0 )
+		{
+			MovingVision(bot);
+			m_MovingVisionDt = 0.0;
+		}
 
 		if (IsFinished())
 		{
@@ -231,8 +239,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 			bot.SetMove(0.0, 0.0);
 			return;
 		}
+		
+		bool reached = IsWaypointReachedOnce(pos, subGoal);
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] Иду к точке: subGoal=" + subGoal + " pos=" + pos + " reached=" + reached);
+		#endif
 
-		if (dist <= reach)
+		if ( reached )
 		{
 			if (m_HasPath && m_PathIdx < m_Path.Count() - 1)
 			{
@@ -242,7 +255,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 				return;
 			}
 
-			OnReachedGoal(bot);
+			OnReachedGoal(bot, subGoal);
 			return;
 		}
 
@@ -315,7 +328,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 							return;
 						}
 
-						OnReachedGoal(bot);
+						OnReachedGoal(bot, subGoal);
 						return;
 					}
 					return;
@@ -555,6 +568,167 @@ class dmBotIntent_MoveTo : dmBotIntent
 		dmBotLog.Debug("[FSM] MoveTo: ladder building=" + building + " dir=" + dirSign + " index=" + best.m_Index);
 		#endif
 		return true;
+	}
+
+	void MovingVision(dmAISurvivor bot)
+	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("PathFinder.MovingVision");
+		#endif
+
+		vector subGoal = m_Goal;
+		if (m_HasPath && m_Path.Count() > 0)
+			subGoal = m_Path[m_PathIdx];
+		vector pos = bot.GetPosition();
+		vector dir = subGoal - pos;
+		if ( dir.LengthSq() > 1.0 ) dir.Normalize();
+		if ( IsPointOnNavMesh( pos + dir ) )
+		{
+			// none
+		}
+		if ( HasObstaclesToPoint( bot, pos, pos + dir ) )
+		{
+			// none
+		}
+	}
+
+	autoptr PGFilter m_PathFilter;
+
+    bool IsPointOnNavMesh(vector point)
+    {
+		if (!m_PathFilter)
+		{
+			m_PathFilter = new PGFilter();
+			int include = PGPolyFlags.UNREACHABLE | PGPolyFlags.DISABLED | PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.LADDER;
+			int exclude = PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.SWIM_SEA | PGPolyFlags.SWIM;
+			int exclusive = PGPolyFlags.NONE;
+
+			m_PathFilter.SetCost(PGAreaType.LADDER, 1.0);
+			m_PathFilter.SetCost(PGAreaType.CRAWL, 10.0);
+			m_PathFilter.SetCost(PGAreaType.CROUCH, 10.0);
+			m_PathFilter.SetCost(PGAreaType.FENCE_WALL, 5.0);  //! Vault
+			m_PathFilter.SetCost(PGAreaType.JUMP, 10.0);  //! Climb
+			m_PathFilter.SetCost(PGAreaType.WATER, 5.0);
+			m_PathFilter.SetCost(PGAreaType.WATER_DEEP, 10.0);
+			m_PathFilter.SetCost(PGAreaType.WATER_SEA, 5.0);
+			m_PathFilter.SetCost(PGAreaType.WATER_SEA_DEEP, 10.0);
+
+			m_PathFilter.SetCost(PGAreaType.DOOR_CLOSED, 4.0);
+			m_PathFilter.SetCost(PGAreaType.DOOR_OPENED, 10000.0);
+
+			m_PathFilter.SetCost(PGAreaType.ROADWAY, 4.0);
+			m_PathFilter.SetCost(PGAreaType.TREE, 1.0);
+
+			m_PathFilter.SetCost(PGAreaType.OBJECTS_NOFFCON, 5.0);
+			m_PathFilter.SetCost(PGAreaType.OBJECTS, 5.0);
+			m_PathFilter.SetCost(PGAreaType.TERRAIN, 4.0);
+			m_PathFilter.SetCost(PGAreaType.BUILDING, 4.0);
+			m_PathFilter.SetCost(PGAreaType.ROADWAY_BUILDING, 1.0);
+
+			m_PathFilter.SetFlags(include, exclude, exclusive);
+		}
+
+        // Raycast вниз для проверки поверхности, нужно чтобы луч уперся в NAVMESH, иначе тут нельзя ходить
+        vector rayStart = point + "0 1.8 0"; // с высоты головы
+        vector rayEnd = point - "0 0.5 0";   // под землю на полметра
+        vector hitNormal;
+        vector hitPos;
+		bool hit = g_Game.GetWorld().GetAIWorld().RaycastNavMesh(rayStart, rayEnd, m_PathFilter, hitPos, hitNormal);
+		if ( hit )
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] RaycastNavMesh HIT hitPos=" + hitPos + " hitNormal=" + hitNormal);
+			#endif
+			return Math.AbsFloat( point[1] - hitPos[1] ) < 4.0;
+		}
+		return false;
+    }
+
+	bool HasObstaclesToPoint(dmAISurvivor bot, vector from, vector to)
+    {
+		float h = from[1] + 0.5;
+		from[1] = h;
+		to[1] = h;
+        
+        RaycastRVParams params = new RaycastRVParams(from, to, bot.GetPawn(), 0.3);
+        params.flags = CollisionFlags.ALLOBJECTS;
+        
+        array<ref RaycastRVResult> results = {};
+        if (DayZPhysics.RaycastRVProxy(params, results))
+        {
+            foreach (RaycastRVResult result : results)
+            {
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] HasObstaclesToPoint HIT Pos=" + result.pos + " hitNormal=" + result.obj.GetType() + " comp=" + result.component);
+				#endif
+            }
+        }
+        
+        return false;
+    }
+
+	vector m_LastPassedPoint;
+
+	bool IsWaypointReachedOnce(vector pos, vector wp)
+	{
+		vector A = m_LastPassedPoint;
+		vector B = pos;
+		vector P = wp;
+
+		// Обнуление высоты нужно, потому что высота Path и точка на которой стоит бот никогда не сходятся!
+		// Но для того, чтобы не было ошибки на разных этажах, заранее сравним высоту цели и высоту позиции.
+		if ( Math.AbsFloat( B[1] - P[1] ) > 1.8 )
+		{
+			m_LastPassedPoint = pos;
+			return false;
+		}
+		A[1] = 0;
+		B[1] = 0;
+		P[1] = 0;
+
+		m_LastPassedPoint = pos;
+
+		// Направляющий вектор отрезка: d = B - A
+		float dx = B[0] - A[0];
+		float dy = B[1] - A[1];
+		float dz = B[2] - A[2];
+
+		// Квадрат длины направляющего вектора
+		float dd = dx * dx + dy * dy + dz * dz;
+
+		// Вектор от A к P: v = P - A
+		float vx = P[0] - A[0];
+		float vy = P[1] - A[1];
+		float vz = P[2] - A[2];
+
+		// Вырожденный случай: A и B совпадают
+		if (dd < 0.0001 ) {
+			float distSq = vector.DistanceSq(B, P);
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] Вырожденный случай: A и B совпадают distSq=" + distSq);
+			#endif
+			return distSq <= m_ReachDistance * m_ReachDistance;
+		}
+
+		// Параметр проекции t = (v · d) / (d · d)
+		float t = (vx * dx + vy * dy + vz * dz) / dd;
+
+		// Если проекция не попадает на отрезок — точка не на отрезке
+		if (t < 0.0 || t > 1.0) return false;
+
+		// Перпендикулярное расстояние: |d × v| / |d|
+		float cross_x = dy * vz - dz * vy;
+		float cross_y = dz * vx - dx * vz;
+		float cross_z = dx * vy - dy * vx;
+
+		float cross_len = Math.Sqrt(cross_x * cross_x + cross_y * cross_y + cross_z * cross_z);
+		float seg_len = Math.Sqrt(dd);
+		float dist = cross_len / seg_len;
+
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] IsWaypointReached dist=" + dist + "[" + (dist <= m_ReachDistance) + "]");
+		#endif
+		return dist <= m_ReachDistance;
 	}
 
 	override void OnCancel(dmAISurvivor bot)

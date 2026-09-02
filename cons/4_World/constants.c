@@ -63,7 +63,7 @@ static const float DM_MOVE_PROGRESS_EPS = 0.25;
 static const float DM_PATH_SAMPLE_RADIUS = 2.0;
 
 //! Reach radius (meters) for an intermediate path waypoint.
-static const float DM_PATH_WAYPOINT_REACH = 0.05;
+static const float DM_PATH_WAYPOINT_REACH = 0.15;
 
 //! Raycast distance (meters) straight ahead at eye level to detect a closed door.
 static const float DM_DOOR_OPEN_DIST = 2.0;
@@ -354,7 +354,7 @@ static const float DM_LOOT_FULL_THRESHOLD = 0.75;
 static const float DM_NEEDS_TICK_INTERVAL = 5.0;
 
 //! Loot: distance (meters) to an item at which the bot picks it up.
-static const float DM_PICKUP_REACH = 1.5;
+static const float DM_PICKUP_REACH = 1.0;
 
 //! Loot exploration: scan radius (meters) for buildings around the bot.
 static const float DM_EXPLORE_SCAN_RADIUS = 50.0;

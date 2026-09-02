@@ -73,7 +73,13 @@ class dmBotState_Exploration : dmBotState
 		{
 			ItemBase item = ItemBase.Cast(items[i]);
 			if (!item) continue;
-			if (!dmLoot.CanCarry(pawn, item)) continue;
+			if (!dmLoot.CanCarry(pawn, item))
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] Не могу это нести: " + item.GetType() + " pos=" + item.GetPosition());
+				#endif
+				continue;
+			}
 			float desire = wish.CalcDesired(item);
 			if (desire > DM_EXPLORE_PICKUP_THRESHOLD && desire > bestDesire)
 			{
@@ -91,6 +97,7 @@ class dmBotState_Exploration : dmBotState
 		m_PickUp = new dmBotIntent_PickUp();
 		m_PickUp.m_Item = best;
 		bot.AddFSMIntent(m_PickUp);
+		dmLoot.RemoveNearbyItem(pawn, best, DM_EXPLORE_PICKUP_RADIUS);
 	}
 
 	//! Блуждание к ближайшему непосещённому зданию; по достижении — пометить.

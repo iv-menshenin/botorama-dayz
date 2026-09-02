@@ -23,6 +23,8 @@ class dmBotPreset_Survivor
 		idle.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		shoot.AddTransition(idle, 1.0);
 		fight.AddTransition(idle, 1.0);
+		explore.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
+		explore.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 
 		fsm.SetDefaultState("Exploration");
 		fsm.Start();

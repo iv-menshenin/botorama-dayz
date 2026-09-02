@@ -36,7 +36,7 @@ class dmBotIntent_GetInVehicle : dmBotIntent_MoveTo
 		super.OnStart(bot);
 	}
 
-	override void OnReachedGoal(dmAISurvivor bot)
+	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (!pawn || !pawn.GetInVehicle(m_Transport, m_Seat))
