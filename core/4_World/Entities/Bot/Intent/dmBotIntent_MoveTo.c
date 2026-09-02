@@ -302,6 +302,22 @@ class dmBotIntent_MoveTo : dmBotIntent
 					m_Vaulting = true;
 					m_VaultGrace = DM_VAULT_GRACE;
 					m_NoProgressTime = 0.0;
+					if ( dist < 0.5 )
+					{
+						#ifdef DM_BOT_DEBUG_PATHFINDER
+						dmBotLog.Debug("[PATH] TryVaultClimb до цели очень близко, боюсь перепрыгну");
+						#endif
+						if (m_HasPath && m_PathIdx < m_Path.Count() - 1)
+						{
+							m_PathIdx++;
+							m_BestDist = -1.0;
+							m_NoProgressTime = 0.0;
+							return;
+						}
+
+						OnReachedGoal(bot);
+						return;
+					}
 					return;
 				}
 			}

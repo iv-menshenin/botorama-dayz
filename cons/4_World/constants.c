@@ -54,7 +54,7 @@ static const float DM_MOVE_TURN_SPEED = 2.5;
 static const float DM_MOVE_TURN_RATE = 180.0;
 
 //! Seconds without meaningful progress toward the target before MoveTo aborts.
-static const float DM_MOVE_STUCK_TIME = 3.0;
+static const float DM_MOVE_STUCK_TIME = 0.5;
 
 //! Min distance decrease (meters) that counts as "progress" (resets the stuck timer).
 static const float DM_MOVE_PROGRESS_EPS = 0.25;
