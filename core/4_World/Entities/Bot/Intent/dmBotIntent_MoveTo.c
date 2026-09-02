@@ -429,7 +429,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		float distTo = dir.Length();
 		if (distTo < 0.01)
 			return;
-		dir = dir / distTo;
+		dir.Normalize();
 		float probeDist = Math.Min(1.0, distTo + 0.1);
 		vector probe = pos + dir * probeDist;
 
