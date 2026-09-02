@@ -20,7 +20,7 @@ class dmBotIntent_OpenDoor : dmBotIntent
 {
 	Building m_Building;
 	int m_DoorIdx;
-	vector m_DoorPos;
+	vector m_StartPos;
 	int m_Phase;          // 0 = back away, 1 = wait for open
 	float m_PhaseTimer;
 	HumanCommandActionCallback m_ActionCB;
@@ -47,10 +47,10 @@ class dmBotIntent_OpenDoor : dmBotIntent
 			return;
 		}
 
-		m_DoorPos = m_Building.GetDoorSoundPos(m_DoorIdx);
 		m_Phase = 0;
 		m_PhaseTimer = DM_DOOR_STEP_BACK_TIMEOUT;
 		m_ActionCB = null;
+		m_StartPos = bot.GetPosition();
 	}
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
@@ -60,7 +60,7 @@ class dmBotIntent_OpenDoor : dmBotIntent
 		if (m_Phase == 0)
 		{
 			vector botPos = bot.GetPosition();
-			vector d = botPos - m_DoorPos;
+			vector d = botPos - m_StartPos;
 			d[1] = 0.0;
 			float dist = d.Length();
 			m_PhaseTimer -= pDt;

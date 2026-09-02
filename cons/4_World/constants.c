@@ -59,6 +59,23 @@ static const float DM_MOVE_STUCK_TIME = 0.5;
 //! Min distance decrease (meters) that counts as "progress" (resets the stuck timer).
 static const float DM_MOVE_PROGRESS_EPS = 0.25;
 
+//! Min distance (meters) to the goal at which the stuck detector still resolves
+//! (closer than this the bot is at the goal, not stuck).
+static const float DM_MOVE_STUCK_MIN_DIST = 0.5;
+
+//! Proactive vision probe interval (seconds) — how often MoveTo probes ahead.
+static const float DM_MOVE_VISION_INTERVAL = 0.25;
+
+//! Cooldown (seconds) for the climb-candidate flag from the vision probe.
+static const float DM_CLIMB_FLAG_COOLDOWN = 1.0;
+
+//! Timeout (seconds) for the door-candidate flag from the vision probe.
+static const float DM_DOOR_FLAG_TIMEOUT = 2.0;
+
+//! Vertical tolerance (meters) for the ground probe — a point counts as on the
+//! navmesh when its height is within this of the navmesh surface.
+static const float DM_MOVE_GROUND_PROBE_Y = 1.0;
+
 //! Radius (meters) to snap the pathfinding target onto the navmesh.
 static const float DM_PATH_SAMPLE_RADIUS = 2.0;
 
@@ -73,7 +90,7 @@ static const float DM_DOOR_CHECK_INTERVAL = 0.5;
 
 //! Distance (meters) from the door the bot backs up to before opening it, so the
 //! swinging door doesn't push it (see dmBotIntent_OpenDoor).
-static const float DM_DOOR_STEP_BACK_DIST = 0.75;
+static const float DM_DOOR_STEP_BACK_DIST = 0.5;
 
 //! Max time (seconds) the bot backs away before opening the door anyway.
 static const float DM_DOOR_STEP_BACK_TIMEOUT = 3.0;

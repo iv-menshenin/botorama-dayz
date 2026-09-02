@@ -43,6 +43,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! Accumulator for the proactive door check (throttled by DM_DOOR_CHECK_INTERVAL).
 	float m_DoorCheckAccum = 0.0;
 
+	//! Proactive vision (ProbeAhead): climb/door candidates with a cooldown/timeout,
+	//! and whether walkable ground is ahead (fall safety).
+	bool m_ClimbCandidate = false;
+	float m_ClimbCandidateUntil = 0.0;
+	bool m_DoorCandidate = false;
+	float m_DoorCandidateUntil = 0.0;
+	bool m_GroundAhead = true;
+
 	//! Ladder climb/descend in progress: while the UseLadder intent (EXCLUSIVE)
 	//! owns the body, MoveTo is dormant; once it finishes MoveTo re-routes (see
 	//! OnUpdate).
@@ -140,76 +148,78 @@ class dmBotIntent_MoveTo : dmBotIntent
 		dmBotSpan _span = dmBotProfiler.Start("Intent.MoveTo");
 		#endif
 
-		m_MovingVisionDt += pDt;
-		if ( m_MovingVisionDt > 1.0 )
-		{
-			MovingVision(bot);
-			m_MovingVisionDt = 0.0;
-		}
+		TickVision(bot, pDt);
 
-		if (IsFinished())
+		if (IsFinished()) return;
+		if (m_Recovering) { TickRecover(bot, pDt); return; }
+		if (m_Vaulting)   { TickVault(bot, pDt);   return; }
+		if (m_Laddering)  { TickLadder(bot, pDt);  return; }
+
+		TickMove(bot, pDt);
+	}
+
+	//! Stuck recovery step-back/sideways: moves for DM_MOVE_RECOVER_TIME, then
+	//! re-routes. Runs while m_Recovering is set (see ResolveStuck).
+	void TickRecover(dmAISurvivor bot, float pDt)
+	{
+		m_RecoverTimer -= pDt;
+		bot.SetMove(m_RecoverDir, 1.0);
+
+		if (m_RecoverTimer > 0.0)
+			return;
+
+		m_Recovering = false;
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] RePath #003");
+		#endif
+		RePath(bot);
+		if (!m_HasPath && !IsContinuous())
 		{
-			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] IsFinished движение завершено");
-			#endif
+			dmBotLog.Error("MoveTo: восстановление не помогло, путь к " + m_Goal + " недоступен, abort");
+			bot.SetMove(0.0, 0.0);
+			Fail();
 			return;
 		}
 
-		if (m_Recovering)
+		m_NoProgressTime = 0.0;
+	}
+
+	//! Vault/climb in progress: wait for the grace period, then stop vaulting once
+	//! the climb command is no longer active (IsClimbing clears).
+	void TickVault(dmAISurvivor bot, float pDt)
+	{
+		m_VaultGrace -= pDt;
+		if (m_VaultGrace <= 0.0)
 		{
-			m_RecoverTimer -= pDt;
-			bot.SetMove(m_RecoverDir, 1.0);
-
-			if (m_RecoverTimer > 0.0)
-				return;
-
-			m_Recovering = false;
-			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] RePath #003");
-			#endif
-			RePath(bot);
-			if (!m_HasPath && !IsContinuous())
+			dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+			if (!pawn || !pawn.IsClimbing())
 			{
-				dmBotLog.Error("MoveTo: восстановление не помогло, путь к " + m_Goal + " недоступен, abort");
-				bot.SetMove(0.0, 0.0);
-				Fail();
-				return;
-			}
-
-			m_NoProgressTime = 0.0;
-			return;
-		}
-
-		if (m_Vaulting)
-		{
-			m_VaultGrace -= pDt;
-			if (m_VaultGrace <= 0.0)
-			{
-				dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
-				if (!pawn || !pawn.IsClimbing())
-				{
-					m_Vaulting = false;
-					m_NoProgressTime = 0.0;
-				}
-			}
-			return;
-		}
-
-		if (m_Laddering)
-		{
-			if (m_UseLadder && (m_UseLadder.IsFinished() || m_UseLadder.IsExpired()))
-			{
-				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] RePath #002");
-				#endif
-				m_UseLadder = null;
-				m_Laddering = false;
+				m_Vaulting = false;
 				m_NoProgressTime = 0.0;
-				RePath(bot);   // пере-прокладка после смены этажа
 			}
-			return;
 		}
+	}
 
+	//! Ladder climb/descend in progress: while the UseLadder intent runs, MoveTo is
+	//! dormant; once it finishes/expires, re-route (floor changed).
+	void TickLadder(dmAISurvivor bot, float pDt)
+	{
+		if (m_UseLadder && (m_UseLadder.IsFinished() || m_UseLadder.IsExpired()))
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] RePath #002");
+			#endif
+			m_UseLadder = null;
+			m_Laddering = false;
+			m_NoProgressTime = 0.0;
+			RePath(bot);   // пере-прокладка после смены этажа
+		}
+	}
+
+	//! Normal steering: proactive door check, goal re-derive, steer toward the
+	//! current waypoint, per-waypoint progress monitor and stuck resolution.
+	void TickMove(dmAISurvivor bot, float pDt)
+	{
 		m_DoorCheckAccum += pDt;
 		if (m_DoorCheckAccum >= DM_DOOR_CHECK_INTERVAL)
 		{
@@ -232,14 +242,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 		dir[1] = 0.0;
 		float dist = dir.Length();
 
-		//! Fall safety: don't step off a dangerous ledge when steering directly
-		//! (no navmesh path) toward a goal below.
-		if (!m_HasPath && m_Goal[1] < pos[1] && IsDangerousAltitude(bot))
+		//! Fall safety: the proactive vision probe found no walkable ground ahead —
+		//! stop instead of stepping off a ledge.
+		if (!m_GroundAhead)
 		{
 			bot.SetMove(0.0, 0.0);
 			return;
 		}
-		
+
 		bool reached = IsWaypointReachedOnce(pos, subGoal);
 		#ifdef DM_BOT_DEBUG_PATHFINDER
 		dmBotLog.Debug("[PATH] Иду к точке: subGoal=" + subGoal + " pos=" + pos + " reached=" + reached);
@@ -299,93 +309,160 @@ class dmBotIntent_MoveTo : dmBotIntent
 			m_NoProgressTime += pDt;
 		}
 
-		if (m_NoProgressTime >= DM_MOVE_STUCK_TIME)
+		if (m_NoProgressTime >= DM_MOVE_STUCK_TIME && dist > DM_MOVE_STUCK_MIN_DIST)
 		{
-			if (m_Recovering || m_Vaulting || m_Laddering)
-				return;
+			ResolveStuck(bot);
+			return;
+		}
+	}
 
-			dmAISurvivorBase vaultPawn = dmAISurvivorBase.Cast(bot.GetPawn());
-			if (vaultPawn)
+	//! Decision cascade when the bot is stuck: door first, then vault/climb, then
+	//! ladder, then a step-back recovery, and finally abort/re-path.
+	void ResolveStuck(dmAISurvivor bot)
+	{
+		if (TryOpenDoorAhead(bot)) return;
+		if (TryVaultOrClimb(bot))  return;
+		if (TryStartLadder(bot))   return;
+		if (TryRecover(bot))       return;
+		TryAbortOrRepath(bot);
+	}
+
+	//! Open a closed door flagged by ProbeAhead (within the timeout).
+	bool TryOpenDoorAhead(dmAISurvivor bot)
+	{
+		float now = GetGame().GetTickTime();
+		if (!m_DoorCandidate || now > m_DoorCandidateUntil)
+			return false;
+		return bot.TryOpenDoorOnPath();
+	}
+
+	//! Vault/climb the obstacle flagged by ProbeAhead (within the cooldown).
+	bool TryVaultOrClimb(dmAISurvivor bot)
+	{
+		float now = GetGame().GetTickTime();
+		if (!m_ClimbCandidate || now > m_ClimbCandidateUntil)
+			return false;
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn || !pawn.TryVaultClimb())
+			return false;
+		m_Vaulting = true;
+		m_VaultGrace = DM_VAULT_GRACE;
+		m_NoProgressTime = 0.0;
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] MoveTo: vault по флагу зрения");
+		#endif
+		return true;
+	}
+
+	//! Start a step-back/sideways recovery (if attempts remain). Returns true when
+	//! recovery started.
+	bool TryRecover(dmAISurvivor bot)
+	{
+		if (m_RecoverCount < DM_MOVE_MAX_RECOVER)
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] Recovering я застрял, пытаюсь выбраться");
+			#endif
+			m_RecoverCount++;
+			m_Recovering = true;
+			m_RecoverTimer = DM_MOVE_RECOVER_TIME;
+			m_NoProgressTime = 0.0;
+
+			m_RecoverDir = 180.0;
+			if (m_RecoverCount % 2 == 0)
 			{
-				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] TryVaultClimb нужно попытаться забраться на препятствие");
-				#endif
-				if ( vaultPawn.TryVaultClimb() )
-				{
-					m_Vaulting = true;
-					m_VaultGrace = DM_VAULT_GRACE;
-					m_NoProgressTime = 0.0;
-					if ( dist < 0.5 )
-					{
-						#ifdef DM_BOT_DEBUG_PATHFINDER
-						dmBotLog.Debug("[PATH] TryVaultClimb до цели очень близко, боюсь перепрыгну");
-						#endif
-						if (m_HasPath && m_PathIdx < m_Path.Count() - 1)
-						{
-							m_PathIdx++;
-							m_BestDist = -1.0;
-							m_NoProgressTime = 0.0;
-							return;
-						}
+				m_RecoverDir = 90.0;
+				if (m_RecoverCount % 4 == 0)
+					m_RecoverDir = -90.0;
+			}
 
-						OnReachedGoal(bot, subGoal);
-						return;
-					}
-					return;
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] MoveTo: stuck, recover #" + m_RecoverCount + " dir=" + m_RecoverDir);
+			#endif
+			return true;
+		}
+		return false;
+	}
+
+	//! Last resort: continuous intents re-path and keep going; one-shot intents
+	//! abort. Returns true if the bot keeps going (re-pathed), false if aborted.
+	bool TryAbortOrRepath(dmAISurvivor bot)
+	{
+		if (IsContinuous())
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] RePath #001");
+			#endif
+			m_NoProgressTime = 0.0;
+			RePath(bot);
+			return true;
+		}
+
+		dmBotLog.Error("MoveTo: застрял на пути к " + m_Goal + ", abort");
+		bot.SetMove(0.0, 0.0);
+		Fail();
+		return false;
+	}
+
+	//! Proactive vision throttle: probe ahead (navmesh ground + climb/door rays) at
+	//! a fixed interval.
+	void TickVision(dmAISurvivor bot, float pDt)
+	{
+		m_MovingVisionDt += pDt;
+		if (m_MovingVisionDt < DM_MOVE_VISION_INTERVAL)
+			return;
+		m_MovingVisionDt = 0.0;
+		ProbeAhead(bot);
+	}
+
+	//! Proactive look ahead: probe the point just ahead of the bot for walkable
+	//! ground (fall safety), a climbable obstacle (low upward ray) and a closed door
+	//! (eye ray). Sets m_GroundAhead and the m_ClimbCandidate/m_DoorCandidate flags.
+	void ProbeAhead(dmAISurvivor bot)
+	{
+		vector subGoal = m_Goal;
+		if (m_HasPath && m_Path.Count() > 0)
+			subGoal = m_Path[m_PathIdx];
+		vector pos = bot.GetPosition();
+		vector dir = subGoal - pos;
+		dir[1] = 0.0;
+		float distTo = dir.Length();
+		if (distTo < 0.01)
+			return;
+		dir = dir / distTo;
+		float probeDist = Math.Min(1.0, distTo + 0.1);
+		vector probe = pos + dir * probeDist;
+
+		m_GroundAhead = IsPointOnNavMesh(probe);
+
+		float now = GetGame().GetTickTime();
+
+		//! Низкий луч (под углом вверх 0.3 -> 1.0): кандидат на карабканье.
+		RaycastRVParams low = new RaycastRVParams(pos + Vector(0.0, 0.3, 0.0), probe + Vector(0.0, 1.0, 0.0), bot.GetPawn());
+		low.flags = CollisionFlags.ALLOBJECTS;
+		ref array<ref RaycastRVResult> lowHits = new array<ref RaycastRVResult>;
+		if (DayZPhysics.RaycastRVProxy(low, lowHits) && lowHits.Count() > 0 && lowHits[0].obj)
+		{
+			m_ClimbCandidate = true;
+			m_ClimbCandidateUntil = now + DM_CLIMB_FLAG_COOLDOWN;
+		}
+
+		//! Глазной луч (1.5м): дверь.
+		RaycastRVParams eye = new RaycastRVParams(pos + Vector(0.0, 1.5, 0.0), probe + Vector(0.0, 1.5, 0.0), bot.GetPawn());
+		eye.flags = CollisionFlags.ALLOBJECTS;
+		ref array<ref RaycastRVResult> eyeHits = new array<ref RaycastRVResult>;
+		if (DayZPhysics.RaycastRVProxy(eye, eyeHits) && eyeHits.Count() > 0)
+		{
+			Building building = Building.Cast(eyeHits[0].obj);
+			if (building)
+			{
+				int doorIdx = building.GetDoorIndex(eyeHits[0].component);
+				if (doorIdx >= 0 && !building.IsDoorOpen(doorIdx))
+				{
+					m_DoorCandidate = true;
+					m_DoorCandidateUntil = now + DM_DOOR_FLAG_TIMEOUT;
 				}
 			}
-
-			dmAISurvivorBase ladderPawn = dmAISurvivorBase.Cast(bot.GetPawn());
-			if (ladderPawn)
-			{
-				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] TryVaultClimb нужно попытаться забраться на лестницу");
-				#endif
-				if ( TryStartLadder(bot) )
-				{
-					m_Laddering = true;
-					m_NoProgressTime = 0.0;
-					return;
-				}
-			}
-
-			if (m_RecoverCount < DM_MOVE_MAX_RECOVER)
-			{
-				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] Recovering я застрял, пытаюсь выбраться");
-				#endif
-				m_RecoverCount++;
-				m_Recovering = true;
-				m_RecoverTimer = DM_MOVE_RECOVER_TIME;
-				m_NoProgressTime = 0.0;
-
-				m_RecoverDir = 180.0;
-				if (m_RecoverCount % 2 == 0)
-				{
-					m_RecoverDir = 90.0;
-					if (m_RecoverCount % 4 == 0)
-						m_RecoverDir = -90.0;
-				}
-
-				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[FSM] MoveTo: stuck, recover #" + m_RecoverCount + " dir=" + m_RecoverDir);
-				#endif
-				return;
-			}
-
-			if (IsContinuous())
-			{
-				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] RePath #001");
-				#endif
-				m_NoProgressTime = 0.0;
-				RePath(bot);
-				return;
-			}
-
-			dmBotLog.Error("MoveTo: застрял на пути к " + m_Goal + " (подцель " + subGoal + "), abort");
-			bot.SetMove(0.0, 0.0);
-			Fail();
 		}
 	}
 
@@ -570,37 +647,15 @@ class dmBotIntent_MoveTo : dmBotIntent
 		return true;
 	}
 
-	void MovingVision(dmAISurvivor bot)
-	{
-		#ifdef DM_BOT_PROFILE
-		dmBotSpan _span = dmBotProfiler.Start("PathFinder.MovingVision");
-		#endif
-
-		vector subGoal = m_Goal;
-		if (m_HasPath && m_Path.Count() > 0)
-			subGoal = m_Path[m_PathIdx];
-		vector pos = bot.GetPosition();
-		vector dir = subGoal - pos;
-		if ( dir.LengthSq() > 1.0 ) dir.Normalize();
-		if ( IsPointOnNavMesh( pos + dir ) )
-		{
-			// none
-		}
-		if ( HasObstaclesToPoint( bot, pos, pos + dir ) )
-		{
-			// none
-		}
-	}
-
-	autoptr PGFilter m_PathFilter;
+	ref PGFilter m_PathFilter;
 
     bool IsPointOnNavMesh(vector point)
     {
 		if (!m_PathFilter)
 		{
 			m_PathFilter = new PGFilter();
-			int include = PGPolyFlags.UNREACHABLE | PGPolyFlags.DISABLED | PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.LADDER;
-			int exclude = PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.SWIM_SEA | PGPolyFlags.SWIM;
+			int include = PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.DISABLED | PGPolyFlags.LADDER;
+			int exclude = PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.UNREACHABLE;
 			int exclusive = PGPolyFlags.NONE;
 
 			m_PathFilter.SetCost(PGAreaType.LADDER, 1.0);
@@ -639,7 +694,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			#ifdef DM_BOT_DEBUG_PATHFINDER
 			dmBotLog.Debug("[PATH] RaycastNavMesh HIT hitPos=" + hitPos + " hitNormal=" + hitNormal);
 			#endif
-			return Math.AbsFloat( point[1] - hitPos[1] ) < 4.0;
+			return Math.AbsFloat( point[1] - hitPos[1] ) < DM_MOVE_GROUND_PROBE_Y;
 		}
 		return false;
     }
