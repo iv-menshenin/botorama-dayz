@@ -58,24 +58,11 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 			return;
 		}
 
-		if (pawn.GetInventory().TakeEntityToInventory(InventoryMode.SERVER, FindInventoryLocationType.ATTACHMENT, m_Item))
+		if (pawn.TakeItem(m_Item))
 		{
-			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Приаттачил: " + m_Item.GetType());
-			#endif
 			Finish();
 			return;
 		}
-
-		if (pawn.GetInventory().TakeEntityToInventory(InventoryMode.SERVER, FindInventoryLocationType.CARGO, m_Item))
-		{
-			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Поднял в карго: " + m_Item.GetType());
-			#endif
-			Finish();
-			return;
-		}
-		
 		#ifdef DM_BOT_DEBUG_LOOTING
 		dmBotLog.Debug("[Loot] Не удалось поднять: " + m_Item.GetType());
 		#endif

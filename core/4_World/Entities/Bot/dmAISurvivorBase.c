@@ -1114,6 +1114,35 @@ class dmAISurvivorBase : PlayerBase
 		return GetInventory().DropEntity(InventoryMode.SERVER, this, item);
 	}
 
+	//! Подобрать предмет со слота-зависимым размещением (dmLoot.FindDestination)
+	//! и ручным ре-синком сетевой репрезентации (клиент видит уход с пола).
+	bool TakeItem(ItemBase item)
+	{
+		if (!item)
+			return false;
+		InventoryLocation src = new InventoryLocation();
+		if (!item.GetInventory().GetCurrentInventoryLocation(src))
+			return false;
+		InventoryLocation dst = new InventoryLocation();
+		if (!dmLoot.FindDestination(this, item, dst))
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] TakeItem: нет места для " + item.GetType());
+			#endif
+			return false;
+		}
+
+		GetGame().RemoteObjectTreeDelete(item);
+		bool ok = LocalTakeToDst(src, dst);
+		GetGame().RemoteObjectTreeCreate(item);
+
+		#ifdef DM_BOT_DEBUG_LOOTING
+		if (ok)
+			dmBotLog.Debug("[Loot] TakeItem: поднял " + item.GetType());
+		#endif
+		return ok;
+	}
+
 	//! Find a non-empty magazine in the inventory that fits the weapon (prefer an
 	//! attachable one, else a swappable one). Returns null if there is none.
 	Magazine FindReloadMagazine(Weapon_Base weapon, WeaponManager wm)

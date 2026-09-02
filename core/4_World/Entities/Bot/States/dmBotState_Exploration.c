@@ -55,29 +55,11 @@ class dmBotState_Exploration : dmBotState
 		}
 	}
 
-	ref array<EntityAI> skipList = new array<EntityAI>();
-
-	bool InSkip(EntityAI item)
-	{
-		foreach(EntityAI skip: skipList)
-		{
-			if (skip == item) return true;
-		}
-		return false;
-	}
-
 	//! Оппортунистический подбор: самый желаемый предмет рядом (порог).
 	void EnsurePickUp(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
 		if (m_PickUp)
 		{
-			if (m_PickUp.IsFailed() && m_PickUp.m_Item)
-			{
-				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[LOOT] НЕУДАЧА Забываем предмет " + m_PickUp.m_Item.GetType() + " тут " + m_PickUp.m_Item.GetPosition());
-				#endif
-				skipList.Insert(m_PickUp.m_Item);
-			}
 			if (m_PickUp.IsFinished() || m_PickUp.IsExpired() || m_PickUp.IsFailed()) m_PickUp = null;
 		}
 		if (m_PickUp) return;
@@ -91,7 +73,7 @@ class dmBotState_Exploration : dmBotState
 		{
 			ItemBase item = ItemBase.Cast(items[i]);
 			if (!item) continue;
-			if (InSkip(item)) continue;
+			if (!dmLoot.CanCarry(pawn, item)) continue;
 			float desire = wish.CalcDesired(item);
 			if (desire > DM_EXPLORE_PICKUP_THRESHOLD && desire > bestDesire)
 			{

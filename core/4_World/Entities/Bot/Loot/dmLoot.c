@@ -72,4 +72,89 @@ class dmLoot
 		}
 		return result;
 	}
+
+	//! Куда положить предмет (слот-зависимо): одежда → свободный слот из
+	//! inventorySlot[]; мили → SHOULDER/MELEE, затем руки; оружие → руки;
+	//! остальное → карго. Возвращает true и заполняет dst.
+	static bool FindDestination(PlayerBase pawn, ItemBase item, out InventoryLocation dst)
+	{
+		if (!pawn || !item)
+			return false;
+		GameInventory inv = pawn.GetInventory();
+		if (!inv)
+			return false;
+
+		if (item.IsClothing())
+		{
+			array<string> slots = new array<string>();
+			item.ConfigGetTextArray("inventorySlot", slots);
+			int i;
+			for (i = 0; i < slots.Count(); i++)
+			{
+				int slotId = InventorySlots.GetSlotIdFromString(slots[i]);
+				if (!InventorySlots.IsSlotIdValid(slotId))
+					continue;
+				if (!inv.HasAttachmentSlot(slotId))
+					continue;
+				if (!inv.FindAttachment(slotId))
+				{
+					dst = new InventoryLocation();
+					dst.SetAttachment(pawn, item, slotId);
+					return true;
+				}
+			}
+			return false;
+		}
+
+		if (item.IsMeleeWeapon())
+		{
+			int shoulder = InventorySlots.SHOULDER;
+			if (InventorySlots.IsSlotIdValid(shoulder) && inv.HasAttachmentSlot(shoulder) && !inv.FindAttachment(shoulder))
+			{
+				dst = new InventoryLocation();
+				dst.SetAttachment(pawn, item, shoulder);
+				return true;
+			}
+			int melee = InventorySlots.MELEE;
+			if (InventorySlots.IsSlotIdValid(melee) && inv.HasAttachmentSlot(melee) && !inv.FindAttachment(melee))
+			{
+				dst = new InventoryLocation();
+				dst.SetAttachment(pawn, item, melee);
+				return true;
+			}
+			if (inv.CanAddEntityIntoHands(item))
+			{
+				dst = new InventoryLocation();
+				dst.SetHands(pawn, item);
+				return true;
+			}
+			return false;
+		}
+
+		if (item.IsWeapon())
+		{
+			if (inv.CanAddEntityIntoHands(item))
+			{
+				dst = new InventoryLocation();
+				dst.SetHands(pawn, item);
+				return true;
+			}
+			return false;
+		}
+
+		InventoryLocation loc = new InventoryLocation();
+		if (inv.FindFreeLocationFor(item, FindInventoryLocationType.CARGO, loc))
+		{
+			dst = loc;
+			return true;
+		}
+		return false;
+	}
+
+	//! Может ли бот реально разместить предмет (без самого переноса).
+	static bool CanCarry(PlayerBase pawn, ItemBase item)
+	{
+		InventoryLocation dst = new InventoryLocation();
+		return FindDestination(pawn, item, dst);
+	}
 }
