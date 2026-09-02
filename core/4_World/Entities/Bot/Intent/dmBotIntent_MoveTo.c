@@ -31,6 +31,11 @@ class dmBotIntent_MoveTo : dmBotIntent
 	int m_RecoverCount = 0;
 	float m_RecoverDir = 180.0;
 
+	bool m_Detouring = false;
+	float m_DetourTimer = 0.0;
+	int m_DetourCount = 0;
+	float m_DetourDir = 90.0;
+
 	//! Vault/climb in progress: while the climb command is active MoveTo neither
 	//! steers nor monitors progress (see OnUpdate). Once IsClimbing() clears the
 	//! following resumes.
@@ -47,6 +52,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! and whether walkable ground is ahead (fall safety).
 	bool m_ClimbCandidate = false;
 	float m_ClimbCandidateUntil = 0.0;
+	float m_VaultFallbackUntil = 0.0;
 	bool m_DoorCandidate = false;
 	float m_DoorCandidateUntil = 0.0;
 	bool m_GroundAhead = true;
@@ -115,6 +121,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_RecoverTimer = 0.0;
 		m_RecoverCount = 0;
 
+		m_Detouring = false;
+		m_DetourTimer = 0.0;
+		m_DetourCount = 0;
+
 		m_Vaulting = false;
 		m_VaultGrace = 0.0;
 
@@ -152,6 +162,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (IsFinished()) return;
 		if (m_Recovering) { TickRecover(bot, pDt); return; }
+		if (m_Detouring)  { TickDetour(bot, pDt);  return; }
 		if (m_Vaulting)   { TickVault(bot, pDt);   return; }
 		if (m_Laddering)  { TickLadder(bot, pDt);  return; }
 
@@ -179,6 +190,36 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (!m_HasPath && !IsContinuous())
 		{
 			dmBotLog.Error("MoveTo: восстановление не помогло, путь к " + m_Goal + " недоступен, abort");
+			bot.SetMove(0.0, 0.0);
+			Fail();
+			return;
+		}
+
+		m_NoProgressTime = 0.0;
+	}
+
+	//! Lateral detour: sidestep perpendicular to the facing (left/right) for a longer
+	//! distance than the short recovery step, to walk AROUND an obstacle the bot
+	//! cannot vault/climb. Runs while m_Detouring is set (see ResolveStuck).
+	void TickDetour(dmAISurvivor bot, float pDt)
+	{
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] TickDetour m_DetourDir=" + m_DetourDir);
+		#endif
+		m_DetourTimer -= pDt;
+		bot.SetMove(m_DetourDir, 1.0);
+
+		if (m_DetourTimer > 0.0)
+			return;
+
+		m_Detouring = false;
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] RePath #006");
+		#endif
+		RePath(bot);
+		if (!m_HasPath && !IsContinuous())
+		{
+			dmBotLog.Error("MoveTo: detour не помог, путь к " + m_Goal + " недоступен, abort");
 			bot.SetMove(0.0, 0.0);
 			Fail();
 			return;
@@ -347,6 +388,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 			#endif
 			return;
 		}
+		if (TryVaultFallback(bot))
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] TryVaultFallback pos=" + bot.GetPosition());
+			#endif
+			return;
+		}
 		if (TryStartLadder(bot))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
@@ -358,6 +406,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
 			dmBotLog.Debug("[PATH] TryRecover pos=" + bot.GetPosition());
+			#endif
+			return;
+		}
+		if (TryDetour(bot))
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] TryDetour pos=" + bot.GetPosition());
 			#endif
 			return;
 		}
@@ -394,6 +449,29 @@ class dmBotIntent_MoveTo : dmBotIntent
 		return true;
 	}
 
+	//! Direct vault/climb fallback: the vision probe can miss a low obstacle, so when
+	//! stuck we also run the engine climb test directly (DoClimbTest), throttled to
+	//! avoid spamming the native test every stuck tick.
+	bool TryVaultFallback(dmAISurvivor bot)
+	{
+		float now = GetGame().GetTickTime();
+		if (now < m_VaultFallbackUntil)
+			return false;
+		m_VaultFallbackUntil = now + DM_CLIMB_FLAG_COOLDOWN;
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn || !pawn.TryVaultClimb())
+			return false;
+
+		m_Vaulting = true;
+		m_VaultGrace = DM_VAULT_GRACE;
+		m_NoProgressTime = 0.0;
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] MoveTo: vault (прямой фолбэк, флаг зрения не взведён)");
+		#endif
+		return true;
+	}
+
 	//! Start a step-back/sideways recovery (if attempts remain). Returns true when
 	//! recovery started.
 	bool TryRecover(dmAISurvivor bot)
@@ -418,6 +496,29 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] MoveTo: stuck, recover #" + m_RecoverCount + " dir=" + m_RecoverDir);
+			#endif
+			return true;
+		}
+		return false;
+	}
+
+	//! Start a lateral detour (if attempts remain): sidestep perpendicular to the
+	//! facing for DM_MOVE_DETOUR_TIME, then re-route. Returns true when started.
+	bool TryDetour(dmAISurvivor bot)
+	{
+		if (m_DetourCount < DM_MOVE_MAX_DETOUR)
+		{
+			m_DetourCount++;
+			m_Detouring = true;
+			m_DetourTimer = DM_MOVE_DETOUR_TIME;
+			m_NoProgressTime = 0.0;
+
+			m_DetourDir = 90.0;
+			if (m_DetourCount % 2 == 0)
+				m_DetourDir = -90.0;
+
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] MoveTo: detour #" + m_DetourCount + " dir=" + m_DetourDir);
 			#endif
 			return true;
 		}
@@ -482,6 +583,16 @@ class dmBotIntent_MoveTo : dmBotIntent
 		low.flags = CollisionFlags.ALLOBJECTS;
 		ref array<ref RaycastRVResult> lowHits = new array<ref RaycastRVResult>;
 		if (DayZPhysics.RaycastRVProxy(low, lowHits) && lowHits.Count() > 0 && lowHits[0].obj)
+		{
+			m_ClimbCandidate = true;
+			m_ClimbCandidateUntil = now + DM_CLIMB_FLAG_COOLDOWN;
+		}
+
+		//! Toe-луч у земли: ловит низкие перегородки, которые верхние лучи пропускают.
+		RaycastRVParams toe = new RaycastRVParams(pos + Vector(0.0, DM_MOVE_PROBE_TOE_Y, 0.0), probe + Vector(0.0, DM_MOVE_PROBE_TOE_Y, 0.0), bot.GetPawn());
+		toe.flags = CollisionFlags.ALLOBJECTS;
+		ref array<ref RaycastRVResult> toeHits = new array<ref RaycastRVResult>;
+		if (DayZPhysics.RaycastRVProxy(toe, toeHits) && toeHits.Count() > 0 && toeHits[0].obj)
 		{
 			m_ClimbCandidate = true;
 			m_ClimbCandidateUntil = now + DM_CLIMB_FLAG_COOLDOWN;

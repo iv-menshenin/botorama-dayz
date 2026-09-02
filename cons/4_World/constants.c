@@ -81,6 +81,10 @@ static const float DM_MOVE_GROUND_PROBE_Y = 1.0;
 //! within this of it.
 static const float DM_MOVE_GROUND_PROBE_RADIUS = 0.5;
 
+//! Height (meters) of the near-ground "toe" ray in ProbeAhead — catches low
+//! partitions/fences that the higher climb/eye rays pass over.
+static const float DM_MOVE_PROBE_TOE_Y = 0.15;
+
 //! Radius (meters) to snap the pathfinding target onto the navmesh.
 static const float DM_PATH_SAMPLE_RADIUS = 2.0;
 
@@ -124,6 +128,13 @@ static const float DM_MOVE_RECOVER_TIME = 1.0;
 
 //! Max stuck-recovery attempts (step back/sideways + re-route) before MoveTo aborts.
 static const int DM_MOVE_MAX_RECOVER = 2;
+
+//! Time (seconds) the bot sidesteps perpendicular per lateral-detour attempt
+//! before re-routing (a longer sidestep than the short recovery step).
+static const float DM_MOVE_DETOUR_TIME = 2.0;
+
+//! Max lateral-detour attempts before MoveTo gives up and aborts/re-paths.
+static const int DM_MOVE_MAX_DETOUR = 3;
 
 //! Stance transition timeout (seconds) for erect<->crouch.
 static const float DM_STANCE_TIMEOUT_CROUCH = 0.3;
