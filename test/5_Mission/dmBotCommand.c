@@ -699,7 +699,7 @@ class dmBotCommand : dmCommandModule
 		}
 
 		int freeSeat;
-		Transport transport = FindCarWithPlayer(out freeSeat);
+		Transport transport = FindCarWithPlayer(freeSeat);
 		if (!transport)
 		{
 			dmCommandManager.ChatToPlayer(player, "Не нашёл машину с игроком (или нет свободного места)");
