@@ -546,6 +546,14 @@ expansionpathfilters.c:51-176):
   `SetClimbingLadderType(string)`, `IsClimbingLadder()`, `Building.Expansion_GetLaddersCount()`
   (Expansion; ванильный `GetLaddersCount` не работает).
 - Path: `AIWorld.FindPath/RaycastNavMesh/SampleNavmeshPosition`, `PGFilter.SetFlags/SetCost`.
+- **Готча (обожглись): `AIWorld.RaycastNavMesh` ловит РЁБРА navmesh (границы полигонов),
+  НЕ плоскую поверхность.** Дока `aiworld.c:110` — `@returns true - if ray hits navmesh edge`.
+  Вертикальный луч вниз (`point+1.8 → point-0.5`) на ровной земле не пересекает ни одного
+  X/Z-ребра → `NOHIT`. Поэтому для ground-probe («есть ли проходимая поверхность рядом с
+  точкой», fall-safety) использовать **`SampleNavmeshPosition(point, radius, filter, out sampled)`**
+  (ближайшая точка navmesh в радиусе), а `RaycastNavMesh` — только для детекта «сегмент
+  пересекает границу» (vault/climb/block, как Expansion `IsBlocked`). Реализовано в
+  `dmBotIntent_MoveTo.IsPointOnNavMesh` (радиус `DM_MOVE_GROUND_PROBE_RADIUS=0.5`).
 
 ---
 
