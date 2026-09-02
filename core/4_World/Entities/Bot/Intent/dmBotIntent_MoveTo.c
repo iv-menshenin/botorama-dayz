@@ -723,20 +723,23 @@ class dmBotIntent_MoveTo : dmBotIntent
 			m_PathFilter.SetFlags(include, exclude, exclusive);
 		}
 
-        // Raycast вниз для проверки поверхности, нужно чтобы луч уперся в NAVMESH, иначе тут нельзя ходить
-        vector rayStart = point + "0 1.8 0"; // с высоты головы
-        vector rayEnd = point - "0 0.5 0";   // под землю на полметра
-        vector hitNormal;
-        vector hitPos;
-		bool hit = g_Game.GetWorld().GetAIWorld().RaycastNavMesh(rayStart, rayEnd, m_PathFilter, hitPos, hitNormal);
-		if ( hit )
+		//! Ground probe: find the closest navmesh point within a small radius.
+		//! RaycastNavMesh detects navmesh EDGES (polygon boundaries), NOT the flat
+		//! surface, so a vertical ray NOHITs on flat ground. SampleNavmeshPosition
+		//! returns the closest point on the navmesh — the correct "is there a
+		//! walkable surface here" check.
+		vector sampled;
+		if (!g_Game.GetWorld().GetAIWorld().SampleNavmeshPosition(point, DM_MOVE_GROUND_PROBE_RADIUS, m_PathFilter, sampled))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] RaycastNavMesh HIT hitPos=" + hitPos + " hitNormal=" + hitNormal);
+			dmBotLog.Debug("[PATH] SampleNavmeshPosition NOHIT point=" + point);
 			#endif
-			return Math.AbsFloat( point[1] - hitPos[1] ) < DM_MOVE_GROUND_PROBE_Y;
+			return false;
 		}
-		return false;
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] SampleNavmeshPosition HIT sampled=" + sampled);
+		#endif
+		return Math.AbsFloat(point[1] - sampled[1]) < DM_MOVE_GROUND_PROBE_Y;
     }
 
 	bool HasObstaclesToPoint(dmAISurvivor bot, vector from, vector to)
