@@ -121,6 +121,7 @@ static const string DM_CHAT_TEST_TARGET = "target";
 static const string DM_CHAT_TEST_SHOOT = "shoot";
 static const string DM_CHAT_TEST_AIM = "aim";
 static const string DM_CHAT_TEST_EMOTE = "emote";
+static const string DM_CHAT_TEST_FIGHT = "fight";
 
 //! Aim-observation test: pause (seconds) before/after the shots and shot interval.
 static const float DM_TEST_AIM_HOLD = 10.0;

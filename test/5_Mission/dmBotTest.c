@@ -520,6 +520,85 @@ class dmBotTest_Target : dmBotTestCase
 	}
 }
 
+//! Fight: a bot with a Machete repels 3 waves of two zombies (one in front, one
+//! behind). Verifies the Fighting state kills them and re-targets between waves.
+class dmBotTest_Fight : dmBotTestCase
+{
+	int m_Wave = 0;              // число отбитых волн (0..3)
+	int m_Phase = 0;             // 0 = тишина, 1 = бой текущей волны
+	EntityAI m_ZombieFront;
+	EntityAI m_ZombieBack;
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		PlayerBase pawn = bot.GetPawn();
+		if (pawn)
+			pawn.GetHumanInventory().CreateInHands("Machete");
+		bot.SetFSM(dmBotPreset_Combat.Create(bot));
+		m_Wave = 0;
+		m_Phase = 0;
+		m_ZombieFront = null;
+		m_ZombieBack = null;
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Бой». Боту дают Machete; через 5с спереди и сзади спавнятся зомби. Ожидается: бот убивает обоих; так 3 волны.";
+	}
+
+	override float GetDuration() { return 180.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		if (m_Phase == 0)
+		{
+			if (elapsed < 5.0)
+				return "";
+			SpawnWave();
+			m_Phase = 1;
+			return "волна 1: зомби спереди и сзади";
+		}
+
+		bool frontAlive = m_ZombieFront && m_ZombieFront.IsAlive();
+		bool backAlive = m_ZombieBack && m_ZombieBack.IsAlive();
+		if (frontAlive || backAlive)
+			return "";
+
+		m_Wave = m_Wave + 1;
+		if (m_Wave >= 3)
+			return "PASS: бот отбил 3 волны (по 2 зомби)";
+
+		SpawnWave();
+		return "волна " + (m_Wave + 1) + ": зомби спереди и сзади";
+	}
+
+	//! Spawn one zombie in front and one behind the bot (2 m, snapped to ground).
+	void SpawnWave()
+	{
+		PlayerBase pawn = m_Bot.GetPawn();
+		if (!pawn)
+			return;
+		vector botPos = m_Bot.GetPosition();
+		vector dir = pawn.GetDirection();
+		dir[1] = 0.0;
+		dir.Normalize();
+
+		vector frontPos = SnapToGround(botPos + dir * 2.0);
+		vector backPos = SnapToGround(botPos - dir * 2.0);
+
+		m_ZombieFront = EntityAI.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", frontPos, false));
+		m_ZombieBack = EntityAI.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", backPos, false));
+
+		if (m_ZombieFront)
+			m_Bot.RegisterHostile(m_ZombieFront, 1.0);
+		if (m_ZombieBack)
+			m_Bot.RegisterHostile(m_ZombieBack, 1.0);
+	}
+}
+
 //! Firing: a bot with a loaded AKM receives a damage threat, must enter the
 //! Shooting state and fire — the ammo count of the magazine in hands drops.
 class dmBotTest_Shoot : dmBotTestCase

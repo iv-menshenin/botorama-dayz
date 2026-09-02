@@ -29,6 +29,9 @@
 //!                                и перезарядка. {N} — максимальная дистанция в метрах.
 //!   /test bot emote {id} — эмоция: бот играет жест по EmoteConstants ID (напр.
 //!                                44=salute, 12=dance, 40=point).
+//!   /test bot fight    — бой: бот с Machete отбивает 3 волны зомби (по одному
+//!                                спереди и сзади); проверяет состояние Fighting и
+//!                                пере-таргетинг между волнами.
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -44,10 +47,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | emote
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | emote | fight
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | emote {id}");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | emote {id} | fight");
 			return false;
 		}
 
@@ -76,6 +79,8 @@ class dmTestCommand : dmCommandModule
 			return HandleAimTest(player, parts);
 		if (parts[2] == DM_CHAT_TEST_EMOTE)
 			return HandleEmoteTest(player, parts);
+		if (parts[2] == DM_CHAT_TEST_FIGHT)
+			return HandleBodyTest(player, new dmBotTest_Fight());
 
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий: " + parts[2]);
 		return false;
