@@ -290,7 +290,7 @@ static const float DM_TARGET_FORGET_TIME = 300.0;
 static const float DM_MELEE_COOLDOWN = 0.6;
 
 //! Melee: allowed body-facing error (degrees) before a strike is thrown.
-static const float DM_MELEE_FACE_ANGLE = 15.0;
+static const float DM_MELEE_FACE_ANGLE = 90.0;
 
 //! Melee: damage multiplier applied per strike against zombies.
 static const int DM_MELEE_DAMAGE_MULT_ZOMBIE = 2;

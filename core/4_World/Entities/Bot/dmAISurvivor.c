@@ -766,8 +766,12 @@ class dmAISurvivor
 			vector tPos = z.GetPosition();
 			vector d = tPos - myPos;
 			d[1] = 0.0;
-			if ( d.Length() < 5 ) t.m_Threat = 0.7;
-			else if ( d.Length() < 15 ) t.m_Threat = 0.5;
+			float dist = d.Length();
+			float newThreat = 0.5;
+			if (dist < 5.0)
+				newThreat = 0.7;
+			if (newThreat > t.m_Threat)
+				t.m_Threat = newThreat;
 		}
 	}
 
@@ -846,7 +850,7 @@ class dmAISurvivor
 			t.m_Entity = entity;
 			m_Targets.Insert(t);
 		}
-		t.m_Threat = threat;
+		if (threat > t.m_Threat) t.m_Threat = threat;
 		t.m_Friendly = false;
 	}
 
@@ -929,7 +933,7 @@ class dmAISurvivor
 			t.m_Entity = entity;
 			m_Targets.Insert(t);
 		}
-		t.m_Threat = threat;
+		if (threat > t.m_Threat) t.m_Threat = threat;
 		t.m_Attractiveness = attractiveness;
 		t.m_Friendly = friendly;
 		t.m_LastPosition = pos;
