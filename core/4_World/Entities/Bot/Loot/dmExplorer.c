@@ -66,7 +66,7 @@ class dmExplorer
 
 		ForgetFar(botPos);
 
-		#ifdef DM_BOT_DEBUG_LOADOUT
+		#ifdef DM_BOT_DEBUG_LOOTING
 		dmBotLog.Debug("[Loot] Explorer: scan found=" + entities.Count() + " tracked=" + m_Buildings.Count());
 		#endif
 	}

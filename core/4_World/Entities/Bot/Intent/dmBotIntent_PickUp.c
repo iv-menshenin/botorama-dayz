@@ -41,14 +41,44 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 	{
 		if (!m_Item || m_Item.IsDamageDestroyed() || m_Item.IsSetForDeletion())
 		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Вещь сломана или удалена");
+			#endif
 			Fail();
 			return;
 		}
 
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
-		if (pawn && pawn.GetInventory().TakeEntityToInventory(InventoryMode.SERVER, FindInventoryLocationType.CARGO, m_Item))
-			Finish();
-		else
+		if ( !pawn )
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Нет пешки");
+			#endif
 			Fail();
+			return;
+		}
+
+		if (pawn.GetInventory().TakeEntityToInventory(InventoryMode.SERVER, FindInventoryLocationType.ATTACHMENT, m_Item))
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Приаттачил: " + m_Item.GetType());
+			#endif
+			Finish();
+			return;
+		}
+
+		if (pawn.GetInventory().TakeEntityToInventory(InventoryMode.SERVER, FindInventoryLocationType.CARGO, m_Item))
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Поднял в карго: " + m_Item.GetType());
+			#endif
+			Finish();
+			return;
+		}
+		
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] Не удалось поднять: " + m_Item.GetType());
+		#endif
+		Fail();
 	}
 };

@@ -55,13 +55,32 @@ class dmBotState_Exploration : dmBotState
 		}
 	}
 
+	ref array<EntityAI> skipList = new array<EntityAI>();
+
+	bool InSkip(EntityAI item)
+	{
+		foreach(EntityAI skip: skipList)
+		{
+			if (skip == item) return true;
+		}
+		return false;
+	}
+
 	//! Оппортунистический подбор: самый желаемый предмет рядом (порог).
 	void EnsurePickUp(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
-		if (m_PickUp && (m_PickUp.IsFinished() || m_PickUp.IsExpired()))
-			m_PickUp = null;
 		if (m_PickUp)
-			return;
+		{
+			if (m_PickUp.IsFailed() && m_PickUp.m_Item)
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[LOOT] НЕУДАЧА Забываем предмет " + m_PickUp.m_Item.GetType() + " тут " + m_PickUp.m_Item.GetPosition());
+				#endif
+				skipList.Insert(m_PickUp.m_Item);
+			}
+			if (m_PickUp.IsFinished() || m_PickUp.IsExpired() || m_PickUp.IsFailed()) m_PickUp = null;
+		}
+		if (m_PickUp) return;
 
 		array<EntityAI> items = dmLoot.ScanNearbyItems(pawn, DM_EXPLORE_PICKUP_RADIUS);
 		dmWishlist wish = bot.GetWishlist();
@@ -71,8 +90,8 @@ class dmBotState_Exploration : dmBotState
 		for (i = 0; i < items.Count(); i++)
 		{
 			ItemBase item = ItemBase.Cast(items[i]);
-			if (!item)
-				continue;
+			if (!item) continue;
+			if (InSkip(item)) continue;
 			float desire = wish.CalcDesired(item);
 			if (desire > DM_EXPLORE_PICKUP_THRESHOLD && desire > bestDesire)
 			{
@@ -84,6 +103,9 @@ class dmBotState_Exploration : dmBotState
 		if (!best)
 			return;
 
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[LOOT] Собираюсь залутать " + best.GetType() + " тут " + best.GetPosition());
+		#endif
 		m_PickUp = new dmBotIntent_PickUp();
 		m_PickUp.m_Item = best;
 		bot.AddFSMIntent(m_PickUp);

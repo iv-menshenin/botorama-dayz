@@ -156,7 +156,7 @@ class dmRequirements
 		SortByIndex();
 		ComputeUsedRatio(pawn);
 
-		#ifdef DM_BOT_DEBUG_LOADOUT
+		#ifdef DM_BOT_DEBUG_LOOTING
 		dmBotLog.Debug("[Loot] Requirements: items=" + m_Items.Count() + " ruined=" + m_Ruined.Count() + " used=" + m_UsedRatio);
 		#endif
 	}
