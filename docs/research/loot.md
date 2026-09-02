@@ -220,6 +220,25 @@ ref eAITarget m_eAI_ItemTargetHistory[3];  // 85
 
 **Взятие с земли (ваниль):** `bool TakeEntityToInventory(InventoryMode mode, FindInventoryLocationType flags, notnull EntityAI item)` — `3_game/systems/inventory/inventory.c:1012`.
 
+**Готча (обожглись): `TakeEntityToInventory(SERVER)` двигает предмет на сервере, но у ИИ-бота
+клиент НЕ видит перемещение** — вещь остаётся на полу, модель голая (лог «Приаттачил» = true, а
+предмет на месте). Штатный `SendServerMove` не синкает серверного ИИ как игрока. Фикс (эталон
+`eAIBase.eAI_TakeItemToLocation`, `eAIBase.c:10605`): ручной ре-синк сетевой репрезентации:
+```c
+GetGame().RemoteObjectTreeDelete(item);   // клиент убирает со старой позиции
+bool ok = LocalTakeToDst(src, dst);        // локальный перенос (Man.c:842, без SendServerMove)
+GetGame().RemoteObjectTreeCreate(item);   // клиент рисует в новой позиции
+```
+`RemoteObjectTreeDelete/Create` — `3_game/global/game.c:706/708`; `Man.LocalTakeToDst` —
+`3_game/entities/man.c:842`.
+
+**Слот-зависимое размещение** (портировано в `dmLoot.FindDestination`): одежда → свободный слот
+из `item.ConfigGetTextArray("inventorySlot", slots)` (`Object.c:894`) через
+`InventorySlots.GetSlotIdFromString`/`HasAttachmentSlot`/`FindAttachment`; мили →
+`InventorySlots.SHOULDER`/`MELEE` затем `HANDS`; оружие → `HANDS`; остальное → `CARGO`
+(`FindFreeLocationFor(item, CARGO, loc)`). `InventoryLocation.SetAttachment/SetHands` —
+`inventorylocation.c:130/171`.
+
 ---
 
 ## Резюме: как Expansion делает лут
