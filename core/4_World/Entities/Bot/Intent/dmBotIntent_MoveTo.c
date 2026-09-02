@@ -162,6 +162,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! re-routes. Runs while m_Recovering is set (see ResolveStuck).
 	void TickRecover(dmAISurvivor bot, float pDt)
 	{
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] TickRecover m_RecoverDir=" + m_RecoverDir);
+		#endif
 		m_RecoverTimer -= pDt;
 		bot.SetMove(m_RecoverDir, 1.0);
 
@@ -189,6 +192,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 	void TickVault(dmAISurvivor bot, float pDt)
 	{
 		m_VaultGrace -= pDt;
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] TickVault m_VaultGrace=" + m_VaultGrace);
+		#endif
 		if (m_VaultGrace <= 0.0)
 		{
 			dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
@@ -204,6 +210,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! dormant; once it finishes/expires, re-route (floor changed).
 	void TickLadder(dmAISurvivor bot, float pDt)
 	{
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		if ( m_UseLadder )
+			dmBotLog.Debug("[PATH] TickLadder m_Phase=" + m_UseLadder.m_Phase);
+		#endif
 		if (m_UseLadder && (m_UseLadder.IsFinished() || m_UseLadder.IsExpired()))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
@@ -246,6 +256,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 		//! stop instead of stepping off a ledge.
 		if (!m_GroundAhead)
 		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] TickMove STOP m_GroundAhead=" + m_GroundAhead);
+			#endif
 			bot.SetMove(0.0, 0.0);
 			return;
 		}
@@ -320,10 +333,37 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! ladder, then a step-back recovery, and finally abort/re-path.
 	void ResolveStuck(dmAISurvivor bot)
 	{
-		if (TryOpenDoorAhead(bot)) return;
-		if (TryVaultOrClimb(bot))  return;
-		if (TryStartLadder(bot))   return;
-		if (TryRecover(bot))       return;
+		if (TryOpenDoorAhead(bot))
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] TryOpenDoorAhead pos=" + bot.GetPosition());
+			#endif
+			return;
+		}
+		if (TryVaultOrClimb(bot))
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] TryVaultOrClimb pos=" + bot.GetPosition());
+			#endif
+			return;
+		}
+		if (TryStartLadder(bot))
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] TryStartLadder pos=" + bot.GetPosition());
+			#endif
+			return;
+		}
+		if (TryRecover(bot))
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] TryRecover pos=" + bot.GetPosition());
+			#endif
+			return;
+		}
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] TryAbortOrRepath pos=" + bot.GetPosition());
+		#endif
 		TryAbortOrRepath(bot);
 	}
 
