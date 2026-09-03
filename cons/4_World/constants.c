@@ -29,6 +29,24 @@ static const float DM_GETIN_REACH = 1.0;
 //! completion — gives the get-out command a moment to become active.
 static const float DM_GETOUT_GRACE = 0.5;
 
+//! Idle sit-by-fire: search radius (meters) for a burning fireplace.
+static const float DM_SIT_BY_FIRE_RADIUS = 3.0;
+
+//! Idle sit-by-fire: sit distance (meters) from the fireplace — close for a
+//! campfire/barrel, farther for an indoor stove (so the bot doesn't block the player).
+static const float DM_SIT_BY_FIRE_DIST_CLOSE = 1.2;
+static const float DM_SIT_BY_FIRE_DIST_FAR = 2.5;
+
+//! Idle sit-by-fire: reach radius (meters) for the sit point (MoveTo target).
+static const float DM_SIT_BY_FIRE_REACH = 0.3;
+
+//! Idle sit-by-fire: how long (seconds) the bot stays seated.
+static const float DM_SIT_BY_FIRE_TIME = 15.0;
+
+//! Idle sit-by-fire: cooldown (seconds) after finishing a sit before the bot may
+//! sit again — prevents an immediate sit/stand/sit loop while the fire still burns.
+static const float DM_SIT_BY_FIRE_COOLDOWN = 60.0;
+
 //! Time (seconds) the bot must dwell at a reached patrol point before advancing.
 static const float DM_PATROL_DWELL_TIME = 5.0;
 
