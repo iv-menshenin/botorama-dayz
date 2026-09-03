@@ -604,7 +604,7 @@ class dmBotTest_Fight : dmBotTestCase
 class dmBotTest_Shoot : dmBotTestCase
 {
 	int m_Phase = 0;
-	EntityAI m_Zombie;
+	EntityAI m_Target;
 	int m_StartAmmo = 0;
 
 	//! Spawn distance from the player (meters); 0 = DM_SPAWN_DISTANCE default.
@@ -637,7 +637,7 @@ class dmBotTest_Shoot : dmBotTestCase
 
 	override string GetSummary()
 	{
-		return "Тест «Стрельба». Боту дают заряженный АКМ и впрыскивают угрозу (зомби в 15 м). Ожидается: бот входит в Shooting и стреляет — патроны в магазине убывают.";
+		return "Тест «Стрельба». Боту дают заряженный АКМ и регистрируют враждебную болванку-игрока (15 м). Ожидается: бот входит в Shooting и стреляет — патроны в магазине убывают.";
 	}
 
 	override float GetInterval() { return 1.0; }
@@ -660,14 +660,14 @@ class dmBotTest_Shoot : dmBotTestCase
 			dir.Normalize();
 			pos = pos + dir * 15.0;
 
-			m_Zombie = EntityAI.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", pos, false));
-			if (!m_Zombie)
-				return "FAIL: не удалось заспавнить зомби";
+			m_Target = EntityAI.Cast(GetGame().CreateObject("dmAI_SurvivorM_Denis", SnapToGround(pos), false));
+			if (!m_Target)
+				return "FAIL: не удалось заспавнить цель";
 
-			m_Bot.RegisterDamageThreat(m_Zombie, 100.0);
+			m_Bot.RegisterHostile(m_Target, 1.0);
 			m_StartAmmo = AmmoInHands();
 			m_Phase = 1;
-			return "зомби заспавнен в 15 м, угроза впрыснута (патронов в руках: " + m_StartAmmo + ")";
+			return "цель (болванка-игрок) заспавнена в 15 м, враждебна (патронов в руках: " + m_StartAmmo + ")";
 		}
 
 		if (m_Phase == 1)
