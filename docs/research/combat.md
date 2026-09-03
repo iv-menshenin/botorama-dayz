@@ -243,6 +243,12 @@ MOVE) или `!IsFighting()`. `WasHit()` — одноразовый флаг с�
   `SetFinisherType(-1)`. Если index неизвестен — использовать `-1` и переопределить
   `EvaluateHit`/`EvaluateHit_Common` (см. B), т.к. `GetTargetData` обнуляет цель при
   `hitZoneIdx < 0` (lightheavy L750-753), а урон идёт по `hitZoneIdx >= 0`.
+  **Готча позиции удара**: `SetHitPos` брать через
+  `target.ModelToWorld(target.GetDefaultHitPosition())`, НЕ через
+  `GetBoneIndexByName("Spine3")` — зомби (`ZombieBase`) это `DayZCreature`, а не `Human`,
+  и кости `"Spine3"` у него нет → фолбэк на `GetPosition()` (ноги/земля) → эффект удара
+  ложится на поверхность (листья/искры/снег) вместо крови на теле. Ваниль так и делает
+  (`EvaluateHit_Common` L678: `targetEntity.ModelToWorld(targetEntity.GetDefaultHitPosition())`).
 
 **B. `dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy`** (заменить
 текущую заглушку, `dmAISurvivorBase.c:547-554`).

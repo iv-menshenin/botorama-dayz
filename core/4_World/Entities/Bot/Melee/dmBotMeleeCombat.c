@@ -34,26 +34,12 @@ class dmBotMeleeCombat : DayZPlayerImplementMeleeCombat
 
 		SetTargetObject(target);
 
-		vector hp = target.GetPosition();
-		int chestBone = -1;
-		Human human = Human.Cast(target);
-		if (human)
-		{
-			chestBone = human.GetBoneIndexByName("Spine3");
-			if (chestBone >= 0)
-				hp = human.GetBonePositionWS(chestBone);
-		}
-		else
-		{
-			DayZCreature creature = DayZCreature.Cast(target);
-			if (creature)
-			{
-				chestBone = creature.GetBoneIndexByName("Spine3");
-				if (chestBone >= 0)
-					hp = creature.GetBonePositionWS(chestBone);
-			}
-		}
-		SetHitPos(hp);
+		//! Hit position = the target's default hit point (chest/torso) in world space,
+		//! like the vanilla EvaluateHit_Common. Do NOT look up a "Spine3" bone — zombies
+		//! (ZombieBase is DayZCreature, not Human) have no Spine3, so it fell back to
+		//! GetPosition() (feet/ground) and the hit effect became a surface impact
+		//! (leaves/sparks/snow) instead of blood on the body.
+		SetHitPos(target.ModelToWorld(target.GetDefaultHitPosition()));
 
 		SetHitZoneIdx(-1);
 		SetFinisherType(-1);
