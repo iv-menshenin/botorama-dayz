@@ -1208,8 +1208,13 @@ class dmAISurvivorBase : PlayerBase
 	//! to Jump() on failure — a useless hop that never starts the climb. Instead we
 	//! start the climb directly from OUR DoClimbTest result, like Expansion's
 	//! Expansion_Climb. Returns true if a climb was started.
-	bool TryVaultClimb()
+	bool TryVaultClimb(float yaw = 0.0)
 	{
+		if ( yaw != 0.0 )
+		{
+			SetOrientation(Vector(yaw, 0.0, 0.0));
+			SetTargetBodyYaw(yaw);
+		}
 		SHumanCommandClimbResult res = new SHumanCommandClimbResult();
 		if (!HumanCommandClimb.DoClimbTest(this, res, 0))
 			return false;
@@ -1226,8 +1231,7 @@ class dmAISurvivorBase : PlayerBase
 		}
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Bot] TryVaultClimb: height=" + res.m_fClimbHeight + " type=" + climbType);
-		dmBotLog.Debug("[Bot] TryVaultClimb: isClimb=" + res.m_bIsClimb + " isClimbOver=" + res.m_bIsClimbOver);
+		dmBotLog.Debug("[Bot] TryVaultClimb: height=" + res.m_fClimbHeight + " type=" + climbType + " isClimb=" + res.m_bIsClimb + " isClimbOver=" + res.m_bIsClimbOver);
 		#endif
 
 		StartCommand_Climb(res, climbType);

@@ -27,6 +27,10 @@ class dmAISurvivor
 
 	//! The pawn (visual/physical body) in the world. null until Spawn().
 	private PlayerBase m_Pawn;
+	
+	#ifdef DM_BOT_DEBUG_PATHFINDER
+	PlayerBase m_DebugPlayer;
+	#endif
 
 	//! Desired look direction.
 	//! m_TargetLookYawAbs - horizontal look target in WORLD space (degrees).
@@ -767,7 +771,7 @@ class dmAISurvivor
 			vector d = tPos - myPos;
 			d[1] = 0.0;
 			float dist = d.Length();
-			float newThreat = 0.5;
+			float newThreat = DM_TARGET_THREAT_ZOMBIE;
 			if (dist < 5.0)
 				newThreat = 0.7;
 			if (newThreat > t.m_Threat)
@@ -782,7 +786,11 @@ class dmAISurvivor
 	{
 		dmTarget t = FindTarget(entity);
 		if (t)
+		{
+			if ( threat > t.m_Threat ) t.m_Threat = threat;
+			if ( attractiveness > t.m_Attractiveness ) t.m_Attractiveness = attractiveness;
 			return;
+		}
 		t = new dmTarget();
 		t.m_Type = dmTargetType.DESTROY;
 		t.m_Entity = entity;

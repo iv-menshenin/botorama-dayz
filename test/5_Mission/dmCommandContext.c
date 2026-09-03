@@ -29,6 +29,9 @@ class dmCommandContext
 	//! Bind a bot to the player.
 	static void BindBot(PlayerBase player, dmAISurvivor bot)
 	{
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		bot.m_DebugPlayer = player;
+		#endif
 		string key = player.GetIdentity().GetName();
 		key.ToLower();
 		s_TestBotByPlayer.Set(key, bot);

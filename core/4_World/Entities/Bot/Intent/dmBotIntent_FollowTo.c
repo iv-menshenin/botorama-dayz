@@ -153,16 +153,19 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 		m_PathTimer += pDt;
 		if (m_PathTimer >= DM_FOLLOW_PATH_INTERVAL)
 		{
+			if ( m_NoProgressTime >= DM_MOVE_STUCK_TIME / 2 && m_NoProgressTime < DM_MOVE_STUCK_TIME * 2 ) return;
 			m_PathTimer = 0.0;
 			vector drift = m_Goal - m_LastPathGoal;
 			drift[1] = 0.0;
 			if (!m_PathGoalValid || drift.Length() > DM_FOLLOW_REPATH_DIST)
 			{
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] FollowTo: RePath t=" + m_NoProgressTime);
+				if ( bot.m_DebugPlayer )
+					GetGame().ChatMP(bot.m_DebugPlayer, "Путь следования изменен t=" + m_NoProgressTime, "colorAction");
+				#endif
 				m_LastPathGoal = m_Goal;
 				m_PathGoalValid = true;
-				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] RePath #004");
-				#endif
 				RePath(bot);
 			}
 		}
@@ -170,23 +173,28 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
-		// не останавливаемся
 		// super.OnReachedGoal(bot, pos);
+		bot.SetMove(0.0, 0.0);
 	}
 
 	//! Speed (0..3) from the distance to the anchor, never slower than the target.
 	override float GetMoveSpeed(dmAISurvivor bot)
 	{
 		float speedIdx = 1.0;
+
 		if (m_DistToAnchor > DM_FOLLOW_SPRINT_GAP)
 			speedIdx = 3.0;
 		else if (m_DistToAnchor > DM_FOLLOW_JOG_GAP)
 			speedIdx = 2.0;
+		else if ( m_DistToAnchor < DM_PATH_WAYPOINT_REACH )
+			return 0.0;
+		else if ( m_DistToAnchor < 1.0 )
+			return 1.0;
 
 		float targetSpeedIdx = 1.0;
-		if (m_TargetSpeed > DM_SPEED_JOG)
+		if (m_TargetSpeed > DM_SPEED_JOG * 1.2)
 			targetSpeedIdx = 3.0;
-		else if (m_TargetSpeed > DM_SPEED_WALK)
+		else if (m_TargetSpeed > DM_SPEED_WALK * 1.2)
 			targetSpeedIdx = 2.0;
 		if (targetSpeedIdx > speedIdx)
 			speedIdx = targetSpeedIdx;

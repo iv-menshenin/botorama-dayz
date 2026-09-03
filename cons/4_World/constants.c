@@ -74,12 +74,12 @@ static const float DM_DOOR_FLAG_TIMEOUT = 2.0;
 
 //! Vertical tolerance (meters) for the ground probe — a point counts as on the
 //! navmesh when its height is within this of the navmesh surface.
-static const float DM_MOVE_GROUND_PROBE_Y = 1.0;
+static const float DM_MOVE_GROUND_PROBE_Y = 4.0;
 
 //! Radius (meters) around the ground-probe point to search for the navmesh
 //! (SampleNavmeshPosition). A point counts as "on the ground" when the navmesh is
 //! within this of it.
-static const float DM_MOVE_GROUND_PROBE_RADIUS = 0.5;
+static const float DM_MOVE_GROUND_PROBE_RADIUS = 1.0;
 
 //! Height (meters) of the near-ground "toe" ray in ProbeAhead — catches low
 //! partitions/fences that the higher climb/eye rays pass over.
