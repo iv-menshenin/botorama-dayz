@@ -15,6 +15,7 @@ class dmBotState_Shooting : dmBotState
 	ref dmBotIntent_Aim m_Aim;
 	float m_RetargetTimer;
 	float m_Elapsed;
+	bool m_NoFirearm;
 
 	override dmBotStateKind GetKind()
 	{
@@ -28,14 +29,41 @@ class dmBotState_Shooting : dmBotState
 		m_Aim = null;
 		m_RetargetTimer = 0.0;
 		m_Elapsed = 0.0;
+		m_NoFirearm = false;
 
 		ResolveTarget();
 
-		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(GetOwner().GetPawn());
-		if (pawn)
+		dmAISurvivor bot = GetOwner();
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (pawn && m_TargetEntity)
 		{
-			pawn.SetAimMode(SelectAimMode());
-			pawn.RaiseWeapon(true);
+			vector botPos = bot.GetPosition();
+			vector tPos = m_TargetEntity.GetPosition();
+			vector d = tPos - botPos;
+			d[1] = 0.0;
+			float dist = d.Length();
+
+			Weapon_Base w = bot.SelectFirearmForRange(dist);
+			if (w)
+			{
+				if (w != bot.GetWeaponInHands())
+					pawn.ServerTakeEntityToHands(w);
+
+				pawn.SetAimMode(SelectAimMode());
+				pawn.RaiseWeapon(true);
+
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug("[FSM] Shooting: огнестрел " + w.GetType() + " dist=" + dist);
+				#endif
+			}
+			else
+			{
+				m_NoFirearm = true;
+
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug("[FSM] Shooting: нет заряженного огнестрела — EXIT");
+				#endif
+			}
 		}
 
 		#ifdef DM_BOT_DEBUG_FSM
@@ -48,6 +76,9 @@ class dmBotState_Shooting : dmBotState
 		dmAISurvivor bot = GetOwner();
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (!pawn)
+			return EXIT;
+
+		if (m_NoFirearm)
 			return EXIT;
 
 		m_Elapsed += pDt;

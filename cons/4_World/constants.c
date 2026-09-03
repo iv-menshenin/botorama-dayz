@@ -358,6 +358,10 @@ static const float DM_MELEE_EVADE_SPEED = 2.0;
 //! Melee evasion: seconds between strafe direction flips.
 static const float DM_MELEE_EVADE_SWITCH_TIME = 0.3;
 
+//! Weapon selection: distance (meters) below which a pistol is preferred over a
+//! rifle; at/above it a rifle is preferred.
+static const float DM_WEAPON_SEL_FAR = 50.0;
+
 //! Firearm: cooldown (seconds) between the bot's shots (throttles cadence).
 static const float DM_BOT_FIRE_COOLDOWN = 0.3;
 

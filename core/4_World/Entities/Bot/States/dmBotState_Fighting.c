@@ -40,6 +40,18 @@ class dmBotState_Fighting : dmBotState
 
 		ResolveTarget();
 
+		EntityAI melee = bot.SelectMeleeWeapon();
+		if (melee)
+		{
+			dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+			if (pawn && melee != pawn.GetItemInHands())
+				pawn.ServerTakeEntityToHands(melee);
+
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] Fighting: мили " + melee.GetType());
+			#endif
+		}
+
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Fighting.entry");
 		#endif

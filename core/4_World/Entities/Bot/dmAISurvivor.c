@@ -478,6 +478,109 @@ class dmAISurvivor
 		return !wpn.IsMeleeWeapon();
 	}
 
+	//! True when the given firearm has a live round in the chamber or ammo in its
+	//! magazine (detachable or internal). Mirrors HasNoAmmo() for an arbitrary weapon.
+	private bool IsWeaponLoaded(Weapon_Base wpn)
+	{
+		if (!wpn)
+			return false;
+		int mi = wpn.GetCurrentMuzzle();
+		bool chamberLive = !wpn.IsChamberEmpty(mi) && !wpn.IsChamberFiredOut(mi);
+		if (chamberLive)
+			return true;
+		Magazine mag = wpn.GetMagazine(mi);
+		if (mag)
+			return mag.GetAmmoCount() > 0;
+		return wpn.GetInternalMagazineCartridgeCount(mi) > 0;
+	}
+
+	//! True when the weapon inherits Pistol_Base.
+	bool IsPistol(Weapon_Base w)
+	{
+		if (!w)
+			return false;
+		return w.IsInherited(Pistol_Base);
+	}
+
+	//! True when the weapon inherits Rifle_Base.
+	bool IsRifle(Weapon_Base w)
+	{
+		if (!w)
+			return false;
+		return w.IsInherited(Rifle_Base);
+	}
+
+	//! True when the bot has a loaded firearm (non-melee Weapon_Base with ammo)
+	//! anywhere in its inventory, including the hands.
+	bool HasLoadedFirearm()
+	{
+		if (!m_Pawn)
+			return false;
+		array<EntityAI> items = new array<EntityAI>();
+		m_Pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			Weapon_Base w = Weapon_Base.Cast(items[i]);
+			if (!w || w.IsMeleeWeapon())
+				continue;
+			if (IsWeaponLoaded(w))
+				return true;
+		}
+		return false;
+	}
+
+	//! Pick the best loaded firearm for an engagement distance: prefer a pistol
+	//! below DM_WEAPON_SEL_FAR, a rifle at/above it; fall back to any loaded
+	//! firearm; null when there is none.
+	Weapon_Base SelectFirearmForRange(float dist)
+	{
+		if (!m_Pawn)
+			return null;
+		array<EntityAI> items = new array<EntityAI>();
+		m_Pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+		Weapon_Base anyLoaded = null;
+		bool wantPistol = dist < DM_WEAPON_SEL_FAR;
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			Weapon_Base w = Weapon_Base.Cast(items[i]);
+			if (!w || w.IsMeleeWeapon())
+				continue;
+			if (!IsWeaponLoaded(w))
+				continue;
+			if (!anyLoaded)
+				anyLoaded = w;
+			if (wantPistol)
+			{
+				if (IsPistol(w))
+					return w;
+			}
+			else
+			{
+				if (IsRifle(w))
+					return w;
+			}
+		}
+		return anyLoaded;
+	}
+
+	//! Find a melee weapon in the inventory (including hands); null when none.
+	EntityAI SelectMeleeWeapon()
+	{
+		if (!m_Pawn)
+			return null;
+		array<EntityAI> items = new array<EntityAI>();
+		m_Pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			if (items[i].IsMeleeWeapon())
+				return items[i];
+		}
+		return null;
+	}
+
 	//! (Phase 4) Perceives player signs nearby (killed zombie, campfire, items).
 	bool HasPlayerSigns()
 	{
