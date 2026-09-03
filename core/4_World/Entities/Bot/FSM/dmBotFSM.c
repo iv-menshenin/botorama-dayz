@@ -97,14 +97,17 @@ class dmBotFSM
 
 		if (m_CurrentState.OnUpdate(pDt) == dmBotState.EXIT)
 		{
-			if (!SelectTransition(dst))
-				dst = FallbackState();
-			if (dst)
-				TransitionTo(dst);
+			if ( m_CurrentState.CanExit() )
+			{
+				if (!SelectTransition(dst))
+					dst = FallbackState();
+				if (dst)
+					TransitionTo(dst);	
+			}
 			return;
 		}
 
-		if (m_CurrentState.GetKind() == dmBotStateKind.INTERRUPTIBLE)
+		if (m_CurrentState.GetKind() == dmBotStateKind.INTERRUPTIBLE && m_CurrentState.CanExit())
 		{
 			m_PreemptTimer += pDt;
 			if (m_PreemptTimer >= s_PreemptInterval)

@@ -531,6 +531,8 @@ class dmAISurvivorBase : PlayerBase
 			return;
 		}
 
+		if ( TickVehicle() ) return;
+			
 		ApplyWeaponADS();
 		ApplyBodyTurn(pDt);
 		ApplyMovement(pDt);
@@ -1011,13 +1013,18 @@ class dmAISurvivorBase : PlayerBase
 		#endif
 		return true;
 	}
+	
+	vector m_VehicleSitPos;
+	vector m_VehicleSitDir;
+	bool m_VehiclePendingEnter;
+	bool m_VehiclePendingExit;
 
 	//! Enter a vehicle at the given crew seat. Starts the vanilla vehicle command
 	//! (get-in animation). Returns false when the command can't start.
 	bool GetInVehicle(Transport transport, int seatIndex)
 	{
-		if (!transport)
-			return false;
+		if (!transport) return false;
+
 		int seatAnim = transport.GetSeatAnimationType(seatIndex);
 		HumanCommandVehicle cmd = StartCommand_Vehicle(transport, seatIndex, seatAnim);
 		if (!cmd)
@@ -1027,10 +1034,11 @@ class dmAISurvivorBase : PlayerBase
 			#endif
 			return false;
 		}
-		cmd.SetVehicleType(transport.GetAnimInstance());
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[Bot] GetInVehicle: seat=" + seatIndex);
 		#endif
+		cmd.SetVehicleType(transport.GetAnimInstance());
+		m_VehiclePendingEnter = true;
 		return true;
 	}
 
@@ -1046,11 +1054,40 @@ class dmAISurvivorBase : PlayerBase
 			#endif
 			return false;
 		}
+		Transport transport = cmd.GetTransport();
+		if (transport)
+			transport.CrewEntryWS(cmd.GetVehicleSeat(), m_VehicleSitPos, m_VehicleSitDir);
+
+		cmd.KeepInVehicleSpaceAfterLeave(false);
 		cmd.GetOutVehicle();
+		m_VehiclePendingExit = true;
+
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[Bot] GetOutVehicle: start");
 		#endif
 		return true;
+	}
+
+	bool TickVehicle()
+	{
+		if (m_VehiclePendingExit)
+		{
+			if (GetCommand_Vehicle()) return true;
+
+			SetPosition(m_VehicleSitPos);
+			SetOrientation(Vector(m_VehicleSitDir.VectorToAngles()[0], 0.0, 0.0));
+			m_VehiclePendingExit = false;
+			return true;
+		}
+
+		if ( m_VehiclePendingEnter )
+		{
+			if ( GetCommand_Vehicle())
+				m_VehiclePendingEnter = GetCommand_Vehicle().IsGettingIn();
+			return true;
+		}
+
+		return false;
 	}
 
 	void ConsumeMeleeAttackRequest()

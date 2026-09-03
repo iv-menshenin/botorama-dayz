@@ -13,10 +13,13 @@ class dmBotState_Follow : dmBotState
 {
 	EntityAI m_TargetEntity;
 	ref dmTarget m_Target;
+	
 	ref dmBotIntent_FollowTo m_IntentFollow;
 	ref dmBotIntent_MoveTo m_IntentMove;
 	ref dmBotIntent_HoldLook m_IntentLookAtTarget;
 	ref dmBotIntent_LookAround m_Scan;
+	ref dmBotIntent_GetInVehicle m_IntentGetInVehicle;
+
 	float m_SideSign = 1.0;
 	float m_SideDistance = 2.0;
 	float m_LostSightTimer;
@@ -91,19 +94,27 @@ class dmBotState_Follow : dmBotState
 	override int OnUpdate(float pDt)
 	{
 		dmAISurvivor bot = GetOwner();
+		dmAISurvivorBase pawn = bot.GetPawn();
 		m_TargetEntity = bot.GetFollowTarget();
-		if (!m_TargetEntity)
-			return EXIT;
 		PlayerBase player = PlayerBase.Cast(m_TargetEntity);
-		if (player && !player.IsAlive())
-			return EXIT;
-		//! Атакован/есть враждебная цель — уходим в Fighting.
-		if (bot.GetHostileTarget() != null)
-			return EXIT;
+		
+		if ( CanExit() )
+		{
+			if (!m_TargetEntity) return EXIT;
+			if (player && !player.IsAlive()) return EXIT;
+
+			//! Атакован/есть враждебная цель — уходим в Fighting.
+			if (bot.GetHostileTarget() != null) return EXIT;
+		}
+		
+		InTransportProcess(bot, pawn, player, pDt);
 
 		m_Target = bot.FindTarget(m_TargetEntity);
-		if (!m_Target)
-			return EXIT;
+		if ( !m_Target )
+		{
+			if ( CanExit() ) return EXIT;
+			return CONTINUE;
+		}
 
 		//! «Магия»: цель не видна ≥ DM_FOLLOW_LOST_SIGHT_TIME → обновить последнюю
 		//! известную позицию (только позицию), чтобы бот догонял актуальную точку.
@@ -256,11 +267,74 @@ class dmBotState_Follow : dmBotState
 
 		return CONTINUE;
 	}
+	
+	void InTransportProcess(dmAISurvivor bot, dmAISurvivorBase pawn, PlayerBase player, float pDt)
+	{
+		if ( !player || !player.IsAlive() )
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] GetOutVehicle: player is null");
+			#endif
+			m_IntentGetInVehicle.Finish();
+			m_IntentGetInVehicle = null;
+		}
+		if ( !bot || !pawn )
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] GetOutVehicle: pawn is null");
+			#endif
+			m_IntentGetInVehicle.Finish();
+			m_IntentGetInVehicle = null;
+		}
+
+		Transport playerCar = Transport.Cast( player.GetParent() );
+		if ( playerCar && !m_IntentGetInVehicle )
+		{
+			int seatId = -1;
+			int s;
+			for (s = 0; s < playerCar.CrewSize(); s++)
+			{
+				if ( seatId > -1 ) continue;
+				if (!playerCar.CrewMember(s)) seatId = s;
+			}
+
+			if ( seatId > -1 )
+			{
+				m_IntentGetInVehicle = new dmBotIntent_GetInVehicle();
+				m_IntentGetInVehicle.m_Transport = playerCar;
+				m_IntentGetInVehicle.m_Seat = seatId;
+				bot.AddFSMIntent(m_IntentGetInVehicle);
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug("[FSM] GetInVehicle m_Seat=" + m_IntentGetInVehicle.m_Seat);
+				#endif
+			}
+		}
+		if ( !playerCar && m_IntentGetInVehicle )
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] GetOutVehicle");
+			#endif
+			m_IntentGetInVehicle.Finish();
+			m_IntentGetInVehicle = null;
+		}
+	}
+
+	override bool CanExit()
+	{
+		if ( m_IntentGetInVehicle ) return false;
+
+		return super.CanExit();
+	}
 
 	//! Speed is no longer set via SetPreferredSpeed (the intents own it), and the
 	//! intents are cleaned by ClearFSMIntents on transition — nothing to restore.
 	override void OnExit(dmBotState to)
 	{
+		if ( m_IntentGetInVehicle )
+		{
+			m_IntentGetInVehicle.Finish();
+			m_IntentGetInVehicle = null;
+		}
 	}
 
 	void CreateScan()

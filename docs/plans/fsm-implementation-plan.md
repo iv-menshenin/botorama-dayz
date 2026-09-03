@@ -157,7 +157,6 @@ class dmBotIntent
 	dmBotIntentConcurrency m_Concurrency;
 	float m_Deadline = -1.0;   // -1 = без дедлайна
 	bool  m_Finished;
-	bool  m_Cancelled;
 
 	void OnStart(dmAISurvivor bot) {}
 	void OnUpdate(dmAISurvivor bot, float pDt) {}   // пишет в канал мозга (LookAt/MoveTo)

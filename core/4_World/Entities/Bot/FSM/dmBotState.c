@@ -74,6 +74,8 @@ class dmBotState
 	//! Relevance guard: return false to block every transition INTO this state.
 	bool CanEnter() { return true; }
 
+	bool CanExit() { return true; }
+
 	//! State kind for the preemption model (default NORMAL). Override in concrete
 	//! states: INTERRUPTIBLE (can be preempted) or PREEMPTIVE (preempts others).
 	dmBotStateKind GetKind() { return dmBotStateKind.NORMAL; }

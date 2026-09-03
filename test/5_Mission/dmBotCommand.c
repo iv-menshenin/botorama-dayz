@@ -717,6 +717,8 @@ class dmBotCommand : dmCommandModule
 		return true;
 	}
 
+	dmBotIntent_GetInVehicle m_intentGetInVehicle;
+
 	private bool HandleCarSitdown(PlayerBase player)
 	{
 		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
@@ -734,12 +736,15 @@ class dmBotCommand : dmCommandModule
 			return true;
 		}
 
-		dmBotIntent_GetInVehicle intent = new dmBotIntent_GetInVehicle();
-		intent.m_Transport = transport;
-		intent.m_Seat = freeSeat;
-		bot.AddCommandIntent(intent);
+		if ( !m_intentGetInVehicle )
+		{
+			dmBotIntent_GetInVehicle m_intentGetInVehicle = new dmBotIntent_GetInVehicle();
+			m_intentGetInVehicle.m_Transport = transport;
+			m_intentGetInVehicle.m_Seat = freeSeat;
+			bot.AddCommandIntent(m_intentGetInVehicle);
+			dmCommandManager.ChatToPlayer(player, "Сажусь в " + transport.GetType() + " место " + freeSeat);
+		}
 
-		dmCommandManager.ChatToPlayer(player, "Сажусь в " + transport.GetType() + " место " + freeSeat);
 		return true;
 	}
 
@@ -752,10 +757,12 @@ class dmBotCommand : dmCommandModule
 			return true;
 		}
 
-		dmBotIntent_GetOutVehicle intent = new dmBotIntent_GetOutVehicle();
-		bot.AddCommandIntent(intent);
-
-		dmCommandManager.ChatToPlayer(player, "Выхожу из машины");
+		if ( m_intentGetInVehicle )
+		{
+			m_intentGetInVehicle.Finish();
+			m_intentGetInVehicle = null;
+			dmCommandManager.ChatToPlayer(player, "Выхожу из машины");
+		}
 		return true;
 	}
 

@@ -44,7 +44,6 @@ class dmBotIntent
 
 	float m_Age = 0.0;         // runtime, тикает пул
 	bool m_Finished = false;
-	bool m_Cancelled = false;
 	bool m_Failed = false;
 	bool m_Active = true;
 
@@ -100,7 +99,7 @@ class dmBotIntent
 
 	bool IsFinished()
 	{
-		return m_Finished || m_Cancelled;
+		return m_Finished;
 	}
 
 	bool IsFailed()
