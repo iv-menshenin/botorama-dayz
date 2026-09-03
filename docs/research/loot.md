@@ -295,3 +295,177 @@ GetGame().RemoteObjectTreeCreate(item);   // клиент рисует в нов
 - `DayZ Projects/scripts/3_game/entities/object.c`, `entityai.c`, `inventoryitem.c`; `4_world/entities/itembase.c`
 - Expansion AI: `Classes/Targets/eAIItemTargetInformation.c`, `Classes/FSM/states/eaistate_takeitemtoinventory.c` (+`_base.c`), `3_Game/DayZExpansion_AI/Enums/AIenums.c`, `Entities/AI/eAIBase.c`
 - План портирования: `docs/plans/looting-and-exploration.md`
+
+---
+
+## Chamber-loading (break-action, e.g. B95)
+
+Статус: подтверждено по ванили. Задача — зарядить патронники break-action двустволки B95 из
+россыпной пачки `Ammo_308Win` серверным `WeaponManager` (для `dmAISurvivorBase.ReloadWeaponAI`).
+
+База ванили: `/home/devalio/dayz/Work/DayZ-Script-Diff/scripts/`.
+Референс ИИ: `DayZ-Expansion-Scripts/.../DayZExpansion_AI/` (`eAIWeaponManager.c`, `eAIBase.c`).
+
+### Иерархия классов
+
+`B95 : B95_base : DoubleBarrel_Base : Rifle_Base : Weapon_Base : Weapon`
+
+- `4_world/entities/firearms/rifle/b95.c` — `B95_base : DoubleBarrel_Base` (ничего не переопределяет).
+- `4_world/entities/firearms/doublebarrel_base.c` — `DoubleBarrel_Base : Rifle_Base` (ключевой файл).
+- У B95 **нет внутреннего магазина** и **нет отъёмного магазина**: `SpawnAmmo` идёт веткой
+  `FillChamber` (`weapon_base.c:758-760`), т.к. `HasInternalMagazine(-1)=false` и
+  `GetMagazineTypeCount(0)=0`. Патроны — только в 2 ствола (chambers).
+
+### 1. LoadBullet vs LoadMultiBullet
+
+`DoubleBarrel_Base.SetActions()` (`doublebarrel_base.c:312-317`) регистрирует **только**
+`FirearmActionLoadMultiBulletQuick` и `FirearmActionLoadMultiBullet` — и **НЕ** добавляет
+`FirearmActionLoadBullet`. Вывод: для break-action ваниль использует **непрерывную** зарядку.
+
+Разница на уровне `WeaponManager` (`weaponmanager.c`):
+
+| Вызов | `StartAction` | `m_WantContinue` в `StartPendingAction` |
+|---|---|---|
+| `LoadBullet(mag, ctrl=null)` (422) | `AT_WPN_LOAD_BULLET` | **false** (835) — ровно 1 патрон |
+| `LoadMultiBullet(mag, ctrl=null)` (427) | `AT_WPN_LOAD_MULTI_BULLETS_START` | **не трогает** (841) — остаётся true, грузит до упора |
+| `LoadMultiBulletStop()` (432) | — | `if (m_InProgress) m_WantContinue = false;` (434) |
+
+Оба постит `WeaponEventLoad1Bullet` (835 / 841). Цикл продолжается по трём гардам
+(`weaponchambering.c:846`, `guards.c`):
+1. `WeaponGuardHasAmmoInLoopedState` — в пачке ещё есть патроны (`m_srcMagazine.GetAmmoCount() > 0`, `guards.c:527`);
+2. `WeaponGuardChamberMultiHasRoomBulltet` — `GetTotalMaxCartridgeCount(i) - GetTotalCartridgeCount(i) >= 1` для любого ствола (`guards.c:478`);
+3. `WeaponGuardWeaponManagerWantContinue` — `m_WantContinue` (`guards.c:606`).
+
+Для B95 (2 ствола, каждый = 1 chamber) `LoadMultiBullet` сам заряжает **оба ствола** и
+останавливается, когда оба полны или пачка опустела. `LoadBullet` зарядил бы ровно 1.
+
+### 2. CanLoadBullet / CanLoadMultipleBullet
+
+Оба требуют (`weaponmanager.c:200-229` / `231-284`):
+- оружие в руках: `m_player.GetHumanInventory().GetEntityInHands() != wpn → false`;
+- `!mag.IsDamageDestroyed()`, `!wpn.IsDamageDestroyed()`;
+- `!wpn.IsJammed()`, `!m_player.IsItemsToDelete()`;
+- `reservationCheck` → нет `HasInventoryReservation(wpn)`/`(mag)`.
+
+Разница:
+- `CanLoadBullet` (200): `for i < GetMuzzleCount(): if (wpn.CanChamberBullet(i, mag)) return true` — true если **хоть один** ствол примет патрон.
+- `CanLoadMultipleBullet` (231): true только если можно зарядить **2+** патрона подряд (два пустых/выбитых ствола, или ствол + место во внутреннем магазине). Для B95 с **одним** пустым стволом → **false**.
+
+`DoubleBarrel_Base.CanChamberBullet` (`doublebarrel_base.c:299-310`):
+```c
+if (CanChamberFromMag(muzzleIndex, mag))
+    return IsChamberEmpty(muzzleIndex) || IsChamberFiredOut(muzzleIndex);
+return false;
+```
+
+**Рекомендация:** проверять `wm.CanLoadBullet(wpn, mag)` (не `CanLoadMultipleBullet`) и затем
+вызывать `wm.LoadMultiBullet(mag)`. Так делает Expansion (`eAIBase.ReloadWeaponAI:8955` →
+`LoadMultiBullet`; `FirearmActionLoadMultiBulletRadial.ActionCondition` тоже через `CanLoadBullet`,
+`firearmactionloadmultibullet.c:206`).
+
+### 3. Поиск россыпной пачки под оружие
+
+- `mag.IsAmmoPile()` — loose ammo stack (`ammunitionpiles.c:27`; `Ammo_308Win : Ammunition_Base`,
+  `ammunitionpiles.c:66`).
+- `wpn.CanChamberFromMag(i, mag)` — **нативный** и главный способ проверки «патроны этой пачки
+  заряжаемы в ствол i» (`weapon.c:255`). Читает конфиг `chamberableFrom`. Именно его использует
+  `WeaponManager.SetSutableMagazines` для пачек (`weaponmanager.c:1298`) и Expansion
+  `CanLoadBullet_NoHandsCheck_NoChamberCheck` (`eAIWeaponManager.c:352-376`, цикл по muzzles).
+- Альтернатива по типу: `AmmoTypesAPI.MagazineTypeToAmmoType(mag.GetType(), out ammoType)`
+  (`ammotypes.c:14`) + сравнение с `wpn.GetRandomChamberableAmmoTypeName(i)` (`weapon.c:143`).
+  `GetChamberAmmoTypeName(i)` (`weapon.c:150`) возвращает тип **заряженного** патрона в стволе
+  (используется только при `!IsChamberEmpty`, `weapon_base.c:191-194`) — для **пустого** ствола не годится.
+- `mag.GetAmmoCount()` (`magazine.c:68`, native) > 0 — пачка не пустая; `GetAmmoMax()` (158) — ёмкость стека.
+
+Эталон выбора пачки — `eAI_GetMagazineToReload` (`eAIBase.c:1583`): перебор `m_eAI_Magazines`,
+приоритет отъёмного магазина (attach/swap), иначе пачка через `CanLoadBullet_NoHandsCheck_NoChamberCheck`;
+для пачек берёт минимальный по `GetAmmoCount()`. В `FindReloadMagazine` бота (текущий
+`dmAISurvivorBase.c:1425`) пачки сейчас отфильтрованы (`mag.IsAmmoPile() → continue`) — для
+chamber-loading нужен отдельный проход, который НЕ отбрасывает `IsAmmoPile()` и проверяет
+`CanChamberFromMag`/`CanLoadBullet`.
+
+### 4. Завершение действия и число стволов
+
+- Запуск асинхронный: `StartAction` ставит `m_InProgress=true`, `m_readyToStart=true`;
+  реальный ивент постится в `StartPendingAction` из `Update` (`weaponmanager.c:943-948`).
+- Завершение: `Update` ждёт `m_canEnd && m_WeaponInHand.IsIdle()` → `OnWeaponActionEnd()` →
+  `m_InProgress=false` (`weaponmanager.c:953-958`, `995`). Опрос для AI: `wm.IsRunning()` (872).
+- **Один `LoadMultiBullet(mag)` заряжает оба ствола**; два вызова `LoadBullet` не нужны.
+  `LoadMultiBulletStop()` нужен только чтобы прервать раньше (напр. бой) — цикл сам
+  останавливается по гардам «нет места / пачка пуста».
+- Проверка результата: `wpn.GetMuzzleCount()` (2), `IsChamberEmpty(i)` / `IsChamberFiredOut(i)`
+  (`weapon.c:74/79`), либо `GetTotalCartridgeCount(i)` == `GetTotalMaxCartridgeCount(i)`.
+- Таймаут-страховка: Expansion держит 12с (`eaistate_weapon_reloading_reloading.c:36`).
+
+### 5. SpawnAmmo("Ammo_308Win", CHAMBER)
+
+`SpawnAmmo` (`weapon_base.c:748`) → `HasInternalMagazine(-1)` false → `GetMagazineTypeCount(0)==0`
+→ `FillChamber(magazineType, flags)` (759). `FillChamber` (`weapon_base.c:929`): с `CHAMBER`
+`amountToChamber = GetMuzzleCount()` (=2), по каждому стволу `FillSpecificChamber(m)` (965-966),
+который заполняет только `IsChamberEmpty` (988). Итог: **оба ствола заряжены** → состояние
+`DoubleBarrelLoadedLoaded` (L_L), `doublebarrel_base.c:25-35`.
+
+### Рекомендация для `ReloadWeaponAI`
+
+После unjam/eject и перед attach/swap добавить ветку:
+1. `if (wm.CanLoadBullet(weapon, mag))` где `mag` — непустая `IsAmmoPile()` из инвентаря
+   (найдена по `CanChamberFromMag`/`CanLoadBullet`).
+2. `wm.LoadMultiBullet(mag)` (одним вызовом, зарядит оба ствола).
+3. В `dmBotWeaponManager.StartPendingAction` добавить case'ы `AT_WPN_LOAD_BULLET` (с
+   `m_WantContinue=false`) и `AT_WPN_LOAD_MULTI_BULLETS_START` (пост `WeaponEventLoad1Bullet`),
+   иначе ивент никогда не постится (сейчас switch имеет только ATTACH/SWAP/DETACH/UNJAM/EJECT,
+   `dmBotWeaponManager.c:64-94`).
+4. Опрос `wm.IsRunning()` до false, затем проверить `!IsChamberEmpty` обоих стволов.
+
+### Подводные камни
+
+1. **Серверный путь** (главное): ванильный `WeaponManager.StartAction` возвращает `false` на
+   мультиплеерном сервере без `control_action` (`weaponmanager.c:787`). У бота уже есть
+   `dmBotWeaponManager`, но **обязательно** добавить обработку load-ивентов (см. выше) — иначе
+   `LoadBullet`/`LoadMultiBullet` ничего не сделают.
+2. **Оружие в руках**: `CanLoadBullet`/`CanLoadMultipleBullet` требуют
+   `GetHumanInventory().GetEntityInHands() == wpn`. `ReloadWeaponAI` читает именно из рук — ок.
+   Expansion держит `_NoHandsCheck`-варианты на случай, если бот целится из другого предмета.
+3. **Пачка временно уходит в левую руку**: `ChamberMultiBullet.OnEntry` двигает пачку в
+   `InventorySlots.LEFTHAND` (`weaponchambering.c:875-876`); если левая рука занята — зарядка
+   падает. У ИИ-бота левая рука обычно свободна, но учесть.
+4. **Jammed**: `CanLoadBullet` = false при `IsJammed()` — сначала unjam (в `ReloadWeaponAI` уже есть).
+5. **Reservation**: `InventoryReservation` (`weaponmanager.c:338`) резервирует оружие+пачку;
+   если прошлая операция не сняла резерв, `StartAction` вернёт false. `dmBotWeaponManager.OnWeaponActionEnd`
+   уже чистит резервы (`dmBotWeaponManager.c:113-144`).
+6. **Пустая/1-патронная пачка**: `destroyOnEmpty` съедает пачку при 0; при 1 патроне зарядится
+   1 ствол. `LoadMultiBullet` безопасен и в этом случае (останавливается по гарду «нет патронов»).
+7. **`GetChamberAmmoTypeName` ≠ chamberable type**: он читает патрон, **уже** находящийся в
+   стволе (не список «подходящих»). Для сопоставления пачки с оружием используй
+   `CanChamberFromMag` / `GetRandomChamberableAmmoTypeName`, а не `GetChamberAmmoTypeName`.
+
+### Сигнатуры (путь + строка)
+
+| Сигнатура | Файл:строка |
+|---|---|
+| `bool CanLoadBullet(Weapon_Base, Magazine, bool reservationCheck=true)` | `weaponmanager.c:200` |
+| `bool CanLoadMultipleBullet(Weapon_Base, Magazine, bool=true)` | `weaponmanager.c:231` |
+| `bool LoadBullet(Magazine, ActionBase=null)` | `weaponmanager.c:422` |
+| `bool LoadMultiBullet(Magazine, ActionBase=null)` | `weaponmanager.c:427` |
+| `void LoadMultiBulletStop()` | `weaponmanager.c:432` |
+| `bool StartAction(int, Magazine, InventoryLocation, ActionBase=null)` (server-return false на 787) | `weaponmanager.c:770` |
+| `bool IsRunning()` / `bool WantContinue()` | `weaponmanager.c:872` / `1069` |
+| `Magazine GetPreparedMagazine()` / `GetNextPreparedMagazine(out int)` | `weaponmanager.c:1074` / `1097` |
+| `void SetSutableMagazines()` (CanChamberFromMag на 1298) | `weaponmanager.c:1264` |
+| `bool CanChamberBullet(int, Magazine)` (base) | `weapon_base.c:324` |
+| `bool SpawnAmmo(string, int flags=CHAMBER)` | `weapon_base.c:748` |
+| `bool FillChamber(string, int)` / `FillSpecificChamber(int, float, string)` | `weapon_base.c:929` / `986` |
+| `proto native bool CanChamberFromMag(int, Magazine)` | `weapon.c:255` |
+| `proto native int GetMuzzleCount()` | `weapon.c:16` |
+| `proto native bool IsChamberEmpty/FiredOut(int)` | `weapon.c:74/79` |
+| `proto native bool HasInternalMagazine(int)` (`-1`=все стволы) | `weapon.c:106` |
+| `proto native owned string GetChamberAmmoTypeName(int)` / `GetRandomChamberableAmmoTypeName(int)` | `weapon.c:150/143` |
+| `static bool MagazineTypeToAmmoType(string, out string)` | `ammotypes.c:14` |
+| `override bool IsAmmoPile()` | `ammunitionpiles.c:27` |
+| `proto native int GetAmmoCount()` / `int GetAmmoMax()` | `magazine.c:68` / `158` |
+| `override bool CanChamberBullet(int, Magazine)` (B95) | `doublebarrel_base.c:299` |
+| `override void SetActions()` (только LoadMultiBullet*) | `doublebarrel_base.c:312` |
+| `eAIWeaponManager.StartAction` (server-path эталон) | `eAIWeaponManager.c:17` |
+| `eAIWeaponManager.CanLoadBullet_NoHandsCheck(_NoChamberCheck)` | `eAIWeaponManager.c:326/352` |
+| `eAIBase.ReloadWeaponAI` (ветка chamber-load на 8955) | `eAIBase.c:8825` |
+| `eAIBase.eAI_GetMagazineToReload` (выбор пачки) | `eAIBase.c:1583` |
