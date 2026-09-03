@@ -606,12 +606,10 @@ class dmBotTest_Shoot : dmBotTestCase
 	int m_Phase = 0;
 	EntityAI m_Zombie;
 	int m_StartAmmo = 0;
-	int m_SpawnDistMeters;
 
 	//! Spawn distance from the player (meters); 0 = DM_SPAWN_DISTANCE default.
 	void SetSpawnDistance(int meters)
 	{
-		m_SpawnDistMeters = meters;
 		m_SpawnDistance = meters;
 	}
 
@@ -1025,7 +1023,10 @@ class dmBotTest_WeaponLoad : dmBotTestCase
 			return;
 
 		pawn.GetHumanInventory().CreateInHands("B95");
-		pawn.GetInventory().CreateInInventory("Ammo_308Win");
+
+		EntityAI bag = pawn.GetInventory().CreateInInventory("TortillaBag");
+		if (bag)
+			bag.GetInventory().CreateInInventory("Ammo_308Win");
 
 		dmBotFSM fsm = new dmBotFSM(bot);
 		dmBotState idle = new dmBotState_Idle();
