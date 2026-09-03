@@ -48,10 +48,15 @@ static const float DM_BOT_MODIFIER_TICK_INTERVAL = 0.25;
 static const float DM_SPEED_IDX_JOG = 2.0;
 
 //! Turn speed multiplier
-static const float DM_MOVE_TURN_SPEED = 2.5;
+static const float DM_MOVE_TURN_SPEED = 1.0;
 
 //! Max body slide-turn rate while moving (degrees per second).
 static const float DM_MOVE_TURN_RATE = 180.0;
+
+//! Turn response (fraction of the remaining body-turn error applied per frame)
+//! for the moving slide-turn. <1.0 turns the body smoothly over several frames
+//! instead of snapping the full error in one frame.
+static const float DM_MOVE_TURN_RESPONSE = 0.4;
 
 //! Seconds without meaningful progress toward the target before MoveTo aborts.
 static const float DM_MOVE_STUCK_TIME = 0.5;
@@ -158,6 +163,10 @@ static const float DM_MOVE_TURN_SLOW_THRESHOLD = 30.0;
 
 //! Speed cap (0..3) applied while turning sharply.
 static const float DM_MOVE_TURN_SLOW_SPEED = 1.0;
+
+//! Dead-zone (degrees) for the body-relative movement angle: |angle| below this
+//! is zeroed to kill the ±1-2° strafe jitter (micro-tremor) at sprint.
+static const float DM_MOVE_ANGLE_DEADZONE = 3.0;
 
 //! Max age (seconds) of an intent without a deadline before the arbitration
 //! removes it (safety net — no intent lives forever).

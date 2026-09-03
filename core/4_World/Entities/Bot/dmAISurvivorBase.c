@@ -761,7 +761,9 @@ class dmAISurvivorBase : PlayerBase
 
 			if (Math.AbsFloat(dBody) > 1.0)
 			{
-				float step = Math.Clamp(dBody, -DM_MOVE_TURN_RATE * pDt * DM_MOVE_TURN_SPEED, DM_MOVE_TURN_RATE * pDt * DM_MOVE_TURN_SPEED);
+				float maxStep = DM_MOVE_TURN_RATE * pDt * DM_MOVE_TURN_SPEED;
+				float step = dBody * DM_MOVE_TURN_RESPONSE;
+				step = Math.Clamp(step, -maxStep, maxStep);
 				SetOrientation(Vector(bodyYaw + step, 0.0, 0.0));
 			}
 			return;
@@ -914,6 +916,8 @@ class dmAISurvivorBase : PlayerBase
 	//! the brain; applied by ApplyMovement in the CommandHandler.
 	void SetMove(float angle, float speed)
 	{
+		if (Math.AbsFloat(angle) < DM_MOVE_ANGLE_DEADZONE)
+			angle = 0.0;
 		m_DesiredMoveAngle = angle;
 		m_DesiredSpeed = speed;
 		m_IsMoving = speed > 0.0;
