@@ -203,6 +203,13 @@ description: Живой справочник по серверным ИИ-бот
   не вышло — «танец на полу» (`TakeToDst(SERVER, parentLoc, ground)` → `AddEntityToInventory`
   → вернуть назад, вокруг `RemoteObjectTreeDelete`/`RemoteObjectTreeCreate`). Эталон —
   `ExpLootSpawner.c` → `DMCreateInInventory`. Реализовано в `dmLoadoutApplier.CreateInContainerFallback`.
+- **Перемещение в руки/слот ИИ-бота — только `LocalTakeToDst` + ручной ре-синк**, НЕ
+  `ServerTakeEntityToHands`/`ServerTakeToDst`/`TakeToDst(SERVER)`: у серверного ИИ (нет
+  клиента) SERVER-режим не кладёт предмет — руки остаются пустыми (`GetEntityInHands()`=null →
+  `HasNoAmmo()`=true → Shooting-фликер/EXIT каждый кадр). Паттерн: `GetCurrentInventoryLocation(src)`
+  → `dst.SetHands`/`SetAttachment` → `GetGame().RemoteObjectTreeDelete(item)` → `LocalTakeToDst(src,dst)`
+  → `GetGame().RemoteObjectTreeCreate(item)`. Реализовано в `dmAISurvivorBase.TakeToHands`/`TakeToAttachmentSlot`.
+  **На ревью**: любой `ServerTakeEntityToHands`/`ServerTakeToDst`/`TakeToDst(SERVER)` у ИИ — красный флаг.
 - Формат loadout — `botorama/loadouts.md`; применение — `loadout/4_World/`.
 
 ## Зрение / слух (восприятие)
