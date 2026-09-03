@@ -1296,6 +1296,123 @@ class dmAISurvivorBase : PlayerBase
 		return null;
 	}
 
+	//! Merge two identical ammo piles (server-side, no animation): find a pair of
+	//! loose-round piles of the same type where one has free space and combine them
+	//! via the vanilla Magazine.CombineItems (it transfers cartridges, keeps their
+	//! damage/type, and the engine drops the emptied pile through destroyOnEmpty).
+	//! One merge per call; the TidyInventory intent throttles the cadence.
+	bool StackAmmoAI()
+	{
+		array<EntityAI> items = new array<EntityAI>();
+		GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+
+		string dstType;
+		string srcType;
+		int i;
+		int j;
+		Magazine a;
+		Magazine b;
+		for (i = 0; i < items.Count(); i++)
+		{
+			a = Magazine.Cast(items[i]);
+			if (!a || !a.IsAmmoPile() || a.GetAmmoCount() <= 0)
+				continue;
+
+			for (j = i + 1; j < items.Count(); j++)
+			{
+				b = Magazine.Cast(items[j]);
+				if (!b || !b.IsAmmoPile() || b.GetAmmoCount() <= 0)
+					continue;
+				if (a.GetType() != b.GetType())
+					continue;
+
+				if (a.GetAmmoCount() < a.GetAmmoMax())
+				{
+					dstType = a.GetType();
+					srcType = b.GetType();
+					a.CombineItems(b);
+
+					#ifdef DM_BOT_DEBUG_FSM
+					dmBotLog.Debug("[Tidy] StackAmmoAI: merged " + srcType + " into " + dstType);
+					#endif
+					return true;
+				}
+				else if (b.GetAmmoCount() < b.GetAmmoMax())
+				{
+					dstType = b.GetType();
+					srcType = a.GetType();
+					b.CombineItems(a);
+
+					#ifdef DM_BOT_DEBUG_FSM
+					dmBotLog.Debug("[Tidy] StackAmmoAI: merged " + srcType + " into " + dstType);
+					#endif
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	//! Load one empty/partial magazine from a compatible ammo pile (server-side, no
+	//! animation — the weapon-FSM load-bullet path needs client input and is not
+	//! wired for AI). Fills as many cartridges as fit (or until the pile runs dry),
+	//! keeping each cartridge's damage/type via Acquire/Store. One magazine per
+	//! call; the TidyInventory intent throttles the cadence.
+	bool LoadMagazineAI()
+	{
+		array<EntityAI> items = new array<EntityAI>();
+		GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+
+		int i;
+		int j;
+		Magazine mag;
+		Magazine pile;
+		for (i = 0; i < items.Count(); i++)
+		{
+			mag = Magazine.Cast(items[i]);
+			if (!mag || mag.IsAmmoPile() || mag.GetAmmoCount() >= mag.GetAmmoMax())
+				continue;
+
+			for (j = 0; j < items.Count(); j++)
+			{
+				if (j == i)
+					continue;
+				pile = Magazine.Cast(items[j]);
+				if (!pile || !pile.IsAmmoPile() || pile.GetAmmoCount() <= 0)
+					continue;
+				if (!mag.IsCompatiableAmmo(pile))
+					continue;
+
+				return TransferCartridges(pile, mag);
+			}
+		}
+
+		return false;
+	}
+
+	//! Move cartridges from an ammo pile into a magazine until one runs out of
+	//! space or bullets. Returns true if at least one cartridge was transferred.
+	private bool TransferCartridges(Magazine src, Magazine dst)
+	{
+		bool moved = false;
+		while (src.GetAmmoCount() > 0 && dst.CanAddCartridges(1))
+		{
+			float dmg;
+			string cartType;
+			if (!src.ServerAcquireCartridge(dmg, cartType))
+				break;
+			dst.ServerStoreCartridge(dmg, cartType);
+			moved = true;
+		}
+
+		#ifdef DM_BOT_DEBUG_FSM
+		if (moved)
+			dmBotLog.Debug("[Tidy] LoadMagazineAI: loaded " + dst.GetType());
+		#endif
+		return moved;
+	}
+
 	//! Try to vault/climb the obstacle in front of the bot. We deliberately avoid
 	//! m_JumpClimb.JumpOrClimb(): it re-runs its own DoPerformClimbTest (a different
 	//! native than DoClimbTest, so the result can disagree with ours) and falls back

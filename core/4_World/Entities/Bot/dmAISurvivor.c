@@ -79,6 +79,10 @@ class dmAISurvivor
 	private ref dmBotIntentPool m_PersonalityIntents;
 	private ref dmBotIntentPool m_CommandIntents;
 
+	//! Persistent "tidy inventory" personality intent (stack ammo / reload / load
+	//! magazines while out of combat). Recreated when it expires (auto-deadline).
+	private ref dmBotIntent_TidyInventory m_TidyIntent;
+
 	//! Patrol points (world positions visited in order).
 	private ref array<vector> m_PatrolPoints;
 
@@ -159,6 +163,9 @@ class dmAISurvivor
 		m_Pawn = pawn;
 		m_Pawn.SetPosition(position);
 		m_Pawn.SetOrientation(orientation);
+
+		m_TidyIntent = new dmBotIntent_TidyInventory();
+		AddPersonalityIntent(m_TidyIntent);
 
 		s_All.Insert(this);
 		s_ByPawn.Set(m_Pawn, this);
@@ -364,6 +371,15 @@ class dmAISurvivor
 
 		if (m_FSM)
 			m_FSM.Update(pDt);
+
+		//! The tidy intent never self-finishes (it idles when there's nothing to
+		//! do), but the pool drops it on the auto-deadline (DM_INTENT_MAX_AGE) —
+		//! recreate it then so the bot keeps tidying.
+		if (!m_TidyIntent || m_TidyIntent.IsFinished() || m_TidyIntent.IsExpired())
+		{
+			m_TidyIntent = new dmBotIntent_TidyInventory();
+			AddPersonalityIntent(m_TidyIntent);
+		}
 
 		UpdateIntents(pDt);
 		UpdateLook(pDt);
