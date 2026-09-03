@@ -697,15 +697,24 @@ class dmBotCommand : dmCommandModule
 	}
 
 	//! "/bot car sitdown" — find a car where a real player is sitting and make the
-	//! bound bot get in on a free passenger seat.
+	//! bound bot get in on a free passenger seat. "/bot car getout" — make the
+	//! bound bot exit the vehicle it is currently seated in.
 	private bool HandleCar(PlayerBase player, array<string> parts)
 	{
-		if (parts.Count() < 3 || parts[2] != DM_CHAT_CAR_SITDOWN)
+		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи: /bot car sitdown");
+			dmCommandManager.ChatToPlayer(player, "Укажи: /bot car sitdown | getout");
 			return true;
 		}
-		return HandleCarSitdown(player);
+
+		if (parts[2] == DM_CHAT_CAR_SITDOWN)
+			return HandleCarSitdown(player);
+
+		if (parts[2] == DM_CHAT_CAR_GETOUT)
+			return HandleCarGetout(player);
+
+		dmCommandManager.ChatToPlayer(player, "Укажи: /bot car sitdown | getout");
+		return true;
 	}
 
 	private bool HandleCarSitdown(PlayerBase player)
@@ -731,6 +740,22 @@ class dmBotCommand : dmCommandModule
 		bot.AddCommandIntent(intent);
 
 		dmCommandManager.ChatToPlayer(player, "Сажусь в " + transport.GetType() + " место " + freeSeat);
+		return true;
+	}
+
+	private bool HandleCarGetout(PlayerBase player)
+	{
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
+			return true;
+		}
+
+		dmBotIntent_GetOutVehicle intent = new dmBotIntent_GetOutVehicle();
+		bot.AddCommandIntent(intent);
+
+		dmCommandManager.ChatToPlayer(player, "Выхожу из машины");
 		return true;
 	}
 

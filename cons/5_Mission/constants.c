@@ -95,9 +95,10 @@ static const string DM_CHAT_COMBAT = "combat";
 //! Sub-command "vision" — report the bot's perception ("/bot vision").
 static const string DM_CHAT_VISION = "vision";
 
-//! Sub-command "car" and its action "sitdown" ("/bot car sitdown").
+//! Sub-command "car" and its actions ("/bot car sitdown | getout").
 static const string DM_CHAT_CAR = "car";
 static const string DM_CHAT_CAR_SITDOWN = "sitdown";
+static const string DM_CHAT_CAR_GETOUT = "getout";
 
 //! Sub-command "deadmans" — report the vanilla corpse-decay state (CorpseData).
 static const string DM_CHAT_DEADMANS = "deadmans";

@@ -1034,6 +1034,25 @@ class dmAISurvivorBase : PlayerBase
 		return true;
 	}
 
+	//! Exit the vehicle the bot is seated in. Starts the vanilla get-out animation.
+	//! Returns false when there is no active vehicle command (not in a vehicle).
+	bool GetOutVehicle()
+	{
+		HumanCommandVehicle cmd = GetCommand_Vehicle();
+		if (!cmd)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Bot] GetOutVehicle: not in vehicle");
+			#endif
+			return false;
+		}
+		cmd.GetOutVehicle();
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[Bot] GetOutVehicle: start");
+		#endif
+		return true;
+	}
+
 	void ConsumeMeleeAttackRequest()
 	{
 		m_MeleeAttackRequest = false;

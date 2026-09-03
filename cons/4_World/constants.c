@@ -25,6 +25,10 @@ static const float DM_PATROL_REACH_DISTANCE = 1.0;
 //! counts as reached and the bot starts boarding the vehicle.
 static const float DM_GETIN_REACH = 1.0;
 
+//! Grace period (seconds) after starting GetOutVehicle before the intent checks
+//! completion — gives the get-out command a moment to become active.
+static const float DM_GETOUT_GRACE = 0.5;
+
 //! Time (seconds) the bot must dwell at a reached patrol point before advancing.
 static const float DM_PATROL_DWELL_TIME = 5.0;
 
