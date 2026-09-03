@@ -1006,3 +1006,373 @@ class dmBotTest_Emote : dmBotTestCase
 		return "";
 	}
 }
+
+//! Weapon loading: phase 1 gives an empty B95 (break-action, chamber-fed) plus a
+//! loose Ammo_308Win pile; phase 2 despawns that bot and spawns a fresh one with an
+//! empty M4A1 (no magazine) + a backpack holding a 5.56 pile and an empty STANAG
+//! magazine. The TidyInventory personality intent must load them.
+class dmBotTest_WeaponLoad : dmBotTestCase
+{
+	int m_Phase = 0;
+	float m_Phase2Time = 0.0;
+	Magazine m_Mag;
+	Weapon_Base m_M4;
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return;
+
+		pawn.GetHumanInventory().CreateInHands("B95");
+		pawn.GetInventory().CreateInInventory("Ammo_308Win");
+
+		dmBotFSM fsm = new dmBotFSM(bot);
+		dmBotState idle = new dmBotState_Idle();
+		fsm.AddState(idle, "Idle");
+		fsm.SetDefaultState("Idle");
+		fsm.Start();
+		bot.SetFSM(fsm);
+
+		dmBotIntent_TidyInventory tidy = new dmBotIntent_TidyInventory();
+		bot.AddPersonalityIntent(tidy);
+
+		m_Phase = 0;
+		m_Phase2Time = 0.0;
+		m_Mag = null;
+		m_M4 = null;
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Зарядка оружия». Фаза 1: пустой B95 + пачка .308 — TidyInventory заряжает ствол. Фаза 2: новый бот с пустым M4A1 + пустой магазин STANAG + пачка 5.56 — магазин заряжается и вставляется.";
+	}
+
+	override float GetDuration() { return 120.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		Weapon_Base wpn;
+		int mi;
+		int internalAmmo;
+		bool chamberEmpty;
+		string err;
+		string msg;
+		Magazine mag;
+		int magAmmo;
+		bool hasMag;
+
+		if (m_Phase == 0)
+		{
+			if (elapsed < 5.0)
+				return "";
+			m_Phase = 1;
+			return "OK: тишина пройдена, проверяю B95";
+		}
+
+		if (m_Phase == 1)
+		{
+			wpn = m_Bot.GetWeaponInHands();
+			if (!wpn)
+				return "FAIL: фаза 1 — нет ствола в руках (state=" + CurrentStateName() + ")";
+			mi = wpn.GetCurrentMuzzle();
+			internalAmmo = wpn.GetInternalMagazineCartridgeCount(mi);
+			chamberEmpty = wpn.IsChamberEmpty(mi);
+			if (internalAmmo > 0 || !chamberEmpty)
+			{
+				err = SpawnPhase2();
+				if (err != "")
+					return err;
+				m_Phase = 2;
+				m_Phase2Time = elapsed;
+				return "OK: фаза 1 — B95 зарядился (internal=" + internalAmmo + ", chamberEmpty=" + chamberEmpty + "), спавню второго бота";
+			}
+			msg = "FAIL: фаза 1 — B95 не зарядился (state=" + CurrentStateName();
+			msg = msg + ", HasNoAmmo=" + m_Bot.HasNoAmmo();
+			msg = msg + ", internal=" + internalAmmo + ", chamberEmpty=" + chamberEmpty + ")";
+			return msg;
+		}
+
+		if (m_Phase == 2)
+		{
+			if (elapsed < m_Phase2Time + 20.0)
+				return "";
+			m_Phase = 3;
+			return "OK: пауза пройдена, проверяю M4";
+		}
+
+		if (m_Phase == 3)
+		{
+			if (!m_M4)
+				return "FAIL: фаза 2 — нет ссылки на M4";
+			mi = m_M4.GetCurrentMuzzle();
+			mag = m_M4.GetMagazine(mi);
+			magAmmo = 0;
+			if (m_Mag)
+				magAmmo = m_Mag.GetAmmoCount();
+			if (mag && magAmmo > 0)
+				return "PASS: фаза 2 — магазин заряжен (" + magAmmo + " патронов) и вставлен в M4";
+			hasMag = mag != null;
+			msg = "FAIL: фаза 2 — магазин не вставлен/не заряжен (ammo=" + magAmmo;
+			msg = msg + ", hasMag=" + hasMag + ", state=" + CurrentStateName() + ")";
+			return msg;
+		}
+
+		return "";
+	}
+
+	//! Despawn the phase-1 bot and spawn a fresh one on the same spot with the
+	//! phase-2 loadout (empty M4A1 + backpack with ammo pile + empty magazine).
+	string SpawnPhase2()
+	{
+		vector pos = m_Bot.GetPosition();
+		m_Bot.Despawn();
+
+		ref dmAISurvivor bot2 = new dmAISurvivor();
+		PlayerBase pawn2 = bot2.Spawn(pos, Vector(0, 0, 0));
+		if (!pawn2)
+		{
+			m_Bot = null;
+			dmBotTestRunner.GetInstance().m_Bot = null;
+			return "FAIL: не удалось заспавнить второго бота";
+		}
+
+		m_Bot = bot2;
+		dmBotTestRunner.GetInstance().m_Bot = bot2;
+		dmCommandContext.BindBot(m_Player, bot2);
+
+		m_M4 = Weapon_Base.Cast(pawn2.GetHumanInventory().CreateInHands("M4A1"));
+
+		EntityAI bag = pawn2.GetInventory().CreateInInventory("TortillaBag");
+		if (bag)
+		{
+			bag.GetInventory().CreateInInventory("Ammo_556x45");
+			m_Mag = Magazine.Cast(bag.GetInventory().CreateInInventory("Mag_STANAG_30Rnd"));
+			if (m_Mag)
+				m_Mag.ServerSetAmmoCount(0);
+		}
+
+		dmBotFSM fsm = new dmBotFSM(bot2);
+		dmBotState idle = new dmBotState_Idle();
+		fsm.AddState(idle, "Idle");
+		fsm.SetDefaultState("Idle");
+		fsm.Start();
+		bot2.SetFSM(fsm);
+
+		dmBotIntent_TidyInventory tidy = new dmBotIntent_TidyInventory();
+		bot2.AddPersonalityIntent(tidy);
+
+		return "";
+	}
+
+	//! Name of the current FSM state ("none" when unavailable).
+	string CurrentStateName()
+	{
+		string state = "none";
+		dmBotFSM fsm = m_Bot.GetFSM();
+		if (fsm && fsm.GetCurrentState())
+			state = fsm.GetCurrentState().GetName();
+		return state;
+	}
+}
+
+//! Weapon selection by target: a bot with a loaded B95 (shoulder), a barbed bat
+//! (melee) and spare .308 ammo in a backpack must pick the rifle vs a distant
+//! player dummy and switch to melee vs a nearby zombie.
+class dmBotTest_WeaponSelection : dmBotTestCase
+{
+	int m_Phase = 0;
+	Weapon_Base m_B95;
+	EntityAI m_Target;
+	int m_StartAmmo = 0;
+	bool m_WasShooting = false;
+	float m_Phase1Time = 0.0;
+	float m_Phase2Time = 0.0;
+	float m_Phase3Time = 0.0;
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return;
+
+		Weapon_Base b95 = Weapon_Base.Cast(pawn.GetInventory().CreateInInventory("B95"));
+		if (b95)
+		{
+			b95.SpawnAmmo("Ammo_308Win", WeaponWithAmmoFlags.CHAMBER);
+			m_B95 = b95;
+		}
+
+		pawn.GetInventory().CreateInInventory("BarbedBaseballBat");
+
+		EntityAI bag = pawn.GetInventory().CreateInInventory("TortillaBag");
+		if (bag)
+			bag.GetInventory().CreateInInventory("Ammo_308Win");
+
+		bot.SetFSM(dmBotPreset_Combat.Create(bot));
+
+		m_Phase = 0;
+		m_Target = null;
+		m_StartAmmo = 0;
+		m_WasShooting = false;
+		m_Phase1Time = 0.0;
+		m_Phase2Time = 0.0;
+		m_Phase3Time = 0.0;
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Выбор оружия». Бот с заряженным B95 (плечо) + битой (мили). Фаза 1: игрок-болванка на 75 м — бот входит в Shooting и стреляет. Фаза 2: зомби на 15 м — бот входит в Fighting и берёт мили.";
+	}
+
+	override float GetDuration() { return 120.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		int ammo;
+		PlayerBase pawn;
+		EntityAI inHands;
+		string hands;
+		string msg;
+
+		if (m_Phase == 0)
+		{
+			if (elapsed < 5.0)
+				return "";
+			if (!m_B95)
+				return "FAIL: нет B95";
+			m_StartAmmo = B95Ammo();
+			if (m_StartAmmo <= 0)
+				return "FAIL: B95 пуст после Setup (SpawnAmmo не сработал)";
+			SpawnDummy75();
+			m_Phase = 1;
+			m_Phase1Time = elapsed;
+			return "болванка-игрок на 75 м, hostile зарегистрирован (патронов в B95: " + m_StartAmmo + ")";
+		}
+
+		if (m_Phase == 1)
+		{
+			if (CurrentStateName() == "Shooting")
+				m_WasShooting = true;
+
+			ammo = B95Ammo();
+			if (ammo < m_StartAmmo)
+			{
+				CleanupTarget();
+				m_Phase = 2;
+				m_Phase2Time = elapsed;
+				msg = "бот выстрелил в болванку (патроны " + ammo + " < " + m_StartAmmo;
+				msg = msg + ", wasShooting=" + m_WasShooting + ")";
+				return msg;
+			}
+
+			if (elapsed >= m_Phase1Time + 15.0)
+			{
+				msg = "FAIL: бот не выстрелил в болванку (state=" + CurrentStateName();
+				msg = msg + ", ammo=" + ammo + "/" + m_StartAmmo;
+				msg = msg + ", wasShooting=" + m_WasShooting + ")";
+				return msg;
+			}
+			return "";
+		}
+
+		if (m_Phase == 2)
+		{
+			if (elapsed < m_Phase2Time + 3.0)
+				return "";
+			SpawnZombie15();
+			m_Phase = 3;
+			m_Phase3Time = elapsed;
+			return "зомби на 15 м, hostile зарегистрирован";
+		}
+
+		if (m_Phase == 3)
+		{
+			if (CurrentStateName() == "Fighting")
+			{
+				pawn = m_Bot.GetPawn();
+				inHands = pawn.GetItemInHands();
+				if (inHands && inHands.IsMeleeWeapon())
+					return "PASS: бот в Fighting с мили в руках (" + inHands.GetType() + ")";
+			}
+
+			if (elapsed >= m_Phase3Time + 15.0)
+			{
+				pawn = m_Bot.GetPawn();
+				hands = "none";
+				inHands = pawn.GetItemInHands();
+				if (inHands)
+					hands = inHands.GetType();
+				msg = "FAIL: бот не в Fighting с мили (state=" + CurrentStateName();
+				msg = msg + ", hands=" + hands + ")";
+				return msg;
+			}
+			return "";
+		}
+
+		return "";
+	}
+
+	//! Total live cartridges across all B95 muzzles (chambers).
+	int B95Ammo()
+	{
+		int total = 0;
+		if (!m_B95)
+			return 0;
+		int mc = m_B95.GetMuzzleCount();
+		int k;
+		for (k = 0; k < mc; k++)
+			total = total + m_B95.GetTotalCartridgeCount(k);
+		return total;
+	}
+
+	//! Spawn the humanoid dummy 75 m along the bot's look line and force it hostile.
+	void SpawnDummy75()
+	{
+		vector botPos = m_Bot.GetPosition();
+		vector dir = m_Bot.GetPawn().GetDirection();
+		dir[1] = 0.0;
+		dir.Normalize();
+		vector pos = botPos + dir * 75.0;
+		m_Target = EntityAI.Cast(GetGame().CreateObject("dmAI_SurvivorM_Denis", SnapToGround(pos), false));
+		if (m_Target)
+			m_Bot.RegisterHostile(m_Target, 1.0);
+	}
+
+	//! Spawn a zombie 15 m along the bot's look line and force it hostile.
+	void SpawnZombie15()
+	{
+		vector botPos = m_Bot.GetPosition();
+		vector dir = m_Bot.GetPawn().GetDirection();
+		dir[1] = 0.0;
+		dir.Normalize();
+		vector pos = botPos + dir * 15.0;
+		m_Target = EntityAI.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", SnapToGround(pos), false));
+		if (m_Target)
+			m_Bot.RegisterHostile(m_Target, 1.0);
+	}
+
+	//! Kill the current target so the bot's hostile set clears.
+	void CleanupTarget()
+	{
+		if (m_Target)
+			m_Target.SetHealth(0.0);
+		m_Target = null;
+	}
+
+	//! Name of the current FSM state ("none" when unavailable).
+	string CurrentStateName()
+	{
+		string state = "none";
+		dmBotFSM fsm = m_Bot.GetFSM();
+		if (fsm && fsm.GetCurrentState())
+			state = fsm.GetCurrentState().GetName();
+		return state;
+	}
+}

@@ -32,6 +32,8 @@
 //!   /test bot fight    — бой: бот с Machete отбивает 3 волны зомби (по одному
 //!                                спереди и сзади); проверяет состояние Fighting и
 //!                                пере-таргетинг между волнами.
+//!   /test bot weapon load — зарядка оружия: B95 (пачка .308) и M4 (магазин STANAG).
+//!   /test bot weapon selection — выбор оружия: игрок→огнестрел, зомби→мили.
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -47,10 +49,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | emote | fight
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | emote | fight | weapon load | weapon selection
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | emote {id} | fight");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | emote {id} | fight | weapon load | weapon selection");
 			return false;
 		}
 
@@ -81,6 +83,8 @@ class dmTestCommand : dmCommandModule
 			return HandleEmoteTest(player, parts);
 		if (parts[2] == DM_CHAT_TEST_FIGHT)
 			return HandleBodyTest(player, new dmBotTest_Fight());
+		if (parts[2] == DM_CHAT_TEST_WEAPON)
+			return HandleWeaponTest(player, parts);
 
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий: " + parts[2]);
 		return false;
@@ -91,6 +95,24 @@ class dmTestCommand : dmCommandModule
 	{
 		dmBotTestRunner.GetInstance().Start(test, player);
 		return true;
+	}
+
+	//! /test bot weapon load | selection — weapon loading/selection scenarios.
+	private bool HandleWeaponTest(PlayerBase player, array<string> parts)
+	{
+		if (parts.Count() < 4)
+		{
+			dmCommandManager.ChatToPlayer(player, "Укажи: /test bot weapon load | selection");
+			return false;
+		}
+
+		if (parts[3] == DM_CHAT_TEST_WEAPON_LOAD)
+			return HandleBodyTest(player, new dmBotTest_WeaponLoad());
+		if (parts[3] == DM_CHAT_TEST_WEAPON_SELECTION)
+			return HandleBodyTest(player, new dmBotTest_WeaponSelection());
+
+		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий weapon: " + parts[3]);
+		return false;
 	}
 
 	//! /test bot shoot {N} — firing test; N (meters) is the optional spawn distance
