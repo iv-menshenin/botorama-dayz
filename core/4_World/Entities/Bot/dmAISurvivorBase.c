@@ -1217,6 +1217,23 @@ class dmAISurvivorBase : PlayerBase
 		return false;
 	}
 
+	//! Надеть item в руки с ручным ре-синком сети (та же готча, что в TakeItem):
+	//! SERVER-перенос у AI-бота не кладёт оружие в руки сам.
+	bool TakeToHands(ItemBase item)
+	{
+		InventoryLocation src = new InventoryLocation();
+		if (!item.GetInventory().GetCurrentInventoryLocation(src))
+			return false;
+
+		InventoryLocation dst = new InventoryLocation();
+		dst.SetHands(this, item);
+
+		GetGame().RemoteObjectTreeDelete(item);
+		bool ok = LocalTakeToDst(src, dst);
+		GetGame().RemoteObjectTreeCreate(item);
+		return ok;
+	}
+
 	//! Drop an item from the bot's inventory onto the ground (server-side).
 	//! Returns true on success. The caller decides which item (GetDiscardOrder)
 	//! and marks it Ignore so it isn't re-picked up.

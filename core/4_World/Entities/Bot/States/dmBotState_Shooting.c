@@ -47,7 +47,7 @@ class dmBotState_Shooting : dmBotState
 			if (w)
 			{
 				if (w != bot.GetWeaponInHands())
-					pawn.ServerTakeEntityToHands(w);
+					pawn.TakeToHands(w);
 
 				pawn.SetAimMode(SelectAimMode());
 				pawn.RaiseWeapon(true);
