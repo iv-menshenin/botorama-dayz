@@ -766,8 +766,12 @@ class dmAISurvivor
 		ZombieBase z = ZombieBase.Cast(t.m_Entity);
 		if ( z )
 		{
-			vector myPos = m_Pawn.GetPosition();
 			vector tPos = z.GetPosition();
+			if ( z.m_ActualTarget )
+			{
+				tPos = z.m_ActualTarget.GetPosition();
+			}
+			vector myPos = m_Pawn.GetPosition();
 			vector d = tPos - myPos;
 			d[1] = 0.0;
 			float dist = d.Length();
