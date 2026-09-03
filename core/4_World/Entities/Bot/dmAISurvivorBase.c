@@ -110,6 +110,11 @@ class dmAISurvivorBase : PlayerBase
 	//! Accumulator for the periodic movement-apply debug log (DM_BOT_DEBUG_BODY).
 	private float m_MoveDebugAccum = 0.0;
 
+	//! Diagnostic: last logged position, for the per-frame displacement log
+	//! (DM_BOT_DEBUG_PERFRAME_MOVING_LOG).
+	private vector m_LastLogPos;
+	private bool m_LastLogPosValid = false;
+
 	//! One-shot melee attack request from the brain (see RequestMeleeAttack). The
 	//! fight logic consumes it as soon as the strike starts.
 	private bool m_MeleeAttackRequest = false;
@@ -827,8 +832,23 @@ class dmAISurvivorBase : PlayerBase
 				vanillaSpeed = move.GetCurrentMovementSpeed();
 			bool canSprintNow = CanSprint();
 			bool canConsumeSprint = CanConsumeStamina(EStaminaConsumers.SPRINT);
+
+			vector curPos = GetPosition();
+			float posDelta = 0.0;
+			if (m_LastLogPosValid)
+			{
+				vector d = curPos - m_LastLogPos;
+				d[1] = 0.0;
+				posDelta = d.Length();
+			}
+			m_LastLogPos = curPos;
+			m_LastLogPosValid = true;
+
+			float bodyYaw = GetOrientation()[0];
+
 			dmBotLog.Debug("[MOV] desired=" + m_DesiredSpeed + " target=" + target + " actual=" + m_ActualSpeed + " vanilla=" + vanillaSpeed);
 			dmBotLog.Debug("[MOV] turnSharp=" + m_TurnSharp + " canSprint=" + canSprintNow + " stamina=" + canConsumeSprint + " angle=" + m_DesiredMoveAngle);
+			dmBotLog.Debug("[MOV] bodyYaw=" + bodyYaw + " targetYaw=" + m_TargetBodyYaw + " posDelta=" + posDelta);
 		}
 		#endif
 
