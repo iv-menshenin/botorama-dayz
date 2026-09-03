@@ -21,7 +21,7 @@ class CfgMods
 		author = "devalio";
 		version = 2.4;
 		type = "mod";
-		defines[] = { "DM_BOT_PROFILE", "DM_BOT_DEBUG_LOOTING", "DM_BOT_DEBUG_LOADOUT", "DM_BOT_DEBUG_FSM", "DM_BOT_DEBUG_PATHFINDER" };	
+		defines[] = { "DM_BOT_PROFILE", "DM_BOT_DEBUG_LOOTING", "DM_BOT_DEBUG_LOADOUT", "DM_BOT_DEBUG_FSM", "DM_BOT_DEBUG_PATHFINDER", "DM_BOT_DEBUG_PERFRAME_MOVING_LOG" };	
 		class defs 
 		{
 			class gameScriptModule {

@@ -818,6 +818,20 @@ class dmAISurvivorBase : PlayerBase
 		hic.OverrideMovementAngle(HumanInputControllerOverrideType.ONE_FRAME, m_DesiredMoveAngle);
 		hic.OverrideMovementSpeed(HumanInputControllerOverrideType.ONE_FRAME, m_ActualSpeed);
 
+		#ifdef DM_BOT_DEBUG_PERFRAME_MOVING_LOG
+		if (m_DesiredSpeed > 0.0)
+		{
+			HumanCommandMove move = GetCommand_Move();
+			float vanillaSpeed = 0.0;
+			if (move)
+				vanillaSpeed = move.GetCurrentMovementSpeed();
+			bool canSprintNow = CanSprint();
+			bool canConsumeSprint = CanConsumeStamina(EStaminaConsumers.SPRINT);
+			dmBotLog.Debug("[MOV] desired=" + m_DesiredSpeed + " target=" + target + " actual=" + m_ActualSpeed + " vanilla=" + vanillaSpeed);
+			dmBotLog.Debug("[MOV] turnSharp=" + m_TurnSharp + " canSprint=" + canSprintNow + " stamina=" + canConsumeSprint + " angle=" + m_DesiredMoveAngle);
+		}
+		#endif
+
 		#ifdef DM_BOT_DEBUG_BODY
 		if (m_DesiredSpeed > 0.0)
 		{
