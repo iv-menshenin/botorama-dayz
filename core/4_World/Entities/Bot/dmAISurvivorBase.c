@@ -1189,6 +1189,17 @@ class dmAISurvivorBase : PlayerBase
 		Magazine mag = FindReloadMagazine(weapon, wm);
 		if (!mag)
 		{
+			Magazine pile = FindChamberAmmo(weapon, wm);
+			if (pile)
+			{
+				wm.LoadMultiBullet(pile);
+
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug("[Bot] ReloadWeaponAI: chamber-load pile=" + pile + " weapon=" + weapon);
+				#endif
+				return true;
+			}
+
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[Bot] ReloadWeaponAI: no suitable magazine weapon=" + weapon);
 			#endif
@@ -1310,6 +1321,27 @@ class dmAISurvivorBase : PlayerBase
 				return mag;
 		}
 
+		return null;
+	}
+
+	//! Find a non-empty loose ammo pile in the inventory that can be chamber-loaded
+	//! into the weapon (break-action / single-round loading). Returns null if none.
+	Magazine FindChamberAmmo(Weapon_Base weapon, WeaponManager wm)
+	{
+		array<EntityAI> items = new array<EntityAI>();
+		GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+
+		int i;
+		Magazine pile;
+		for (i = 0; i < items.Count(); i++)
+		{
+			pile = Magazine.Cast(items[i]);
+			if (!pile || !pile.IsAmmoPile() || pile.GetAmmoCount() <= 0)
+				continue;
+
+			if (wm.CanLoadBullet(weapon, pile))
+				return pile;
+		}
 		return null;
 	}
 

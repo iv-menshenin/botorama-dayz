@@ -89,6 +89,22 @@ class dmBotWeaponManager : WeaponManager
 				PostWeaponEvent(new WeaponEventMechanism(m_player, NULL));
 				break;
 			}
+			case AT_WPN_LOAD_BULLET:
+			{
+				m_WantContinue = false;
+				PostWeaponEvent(new WeaponEventLoad1Bullet(m_player, m_PendingTargetMagazine));
+				break;
+			}
+			case AT_WPN_LOAD_MULTI_BULLETS_START:
+			{
+				PostWeaponEvent(new WeaponEventLoad1Bullet(m_player, m_PendingTargetMagazine));
+				break;
+			}
+			case AT_WPN_LOAD_MULTI_BULLETS_END:
+			{
+				PostWeaponEvent(new WeaponEventContinuousLoadBulletEnd(m_player));
+				break;
+			}
 			default:
 				m_InProgress = false;
 		}
