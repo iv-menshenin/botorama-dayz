@@ -767,9 +767,16 @@ class dmAISurvivor
 		if ( z )
 		{
 			vector tPos = z.GetPosition();
-			if ( z.m_ActualTarget )
+			if ( z.GetInputController() )
 			{
-				tPos = z.m_ActualTarget.GetPosition();
+				EntityAI zTarget = z.GetInputController().GetTargetEntity();
+				if ( zTarget )
+				{
+					tPos = zTarget.GetPosition();
+				} else if ( z.m_ActualTarget )
+				{
+					tPos = z.m_ActualTarget.GetPosition();
+				}
 			}
 			vector myPos = m_Pawn.GetPosition();
 			vector d = tPos - myPos;
@@ -777,6 +784,8 @@ class dmAISurvivor
 			float dist = d.Length();
 			float newThreat = DM_TARGET_THREAT_ZOMBIE;
 			if (dist < 5.0)
+				newThreat = 0.9;
+			else if (dist < 15.0)
 				newThreat = 0.7;
 			if (newThreat > t.m_Threat)
 				t.m_Threat = newThreat;
