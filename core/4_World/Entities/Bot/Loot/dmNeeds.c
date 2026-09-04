@@ -4,6 +4,10 @@
 class dmNeeds
 {
 	float m_TickAccum;   // накопитель до DM_NEEDS_TICK_INTERVAL
+	
+	#ifdef DM_BOT_DEBUG_LOOTING
+	float m_TickAccumDebug;
+	#endif
 
 	void dmNeeds()
 	{
@@ -16,6 +20,7 @@ class dmNeeds
 		m_TickAccum += pDt;
 		if (m_TickAccum < DM_NEEDS_TICK_INTERVAL)
 			return;
+		float fullDt = m_TickAccum;
 		m_TickAccum = 0.0;
 
 		if (!bot)
@@ -26,8 +31,43 @@ class dmNeeds
 		if (!wish)
 			return;
 
+		#ifdef DM_BOT_DEBUG_LOOTING
+		m_TickAccumDebug += fullDt;
+		if ( m_TickAccumDebug > 30.0 )
+		{
+			m_TickAccumDebug = 0.0;
+			dmBotLog.Debug("[Loot] WISHLIST dump " + wish.DebugString());
+		}
+		#endif
+
 		if (req)
+		{
 			req.Update(bot);
+			if ( req.CheckFoodCount() == 0 )
+			{
+				wish.WishCategory(dmLootCategory.FOOD, 1.0);
+			} else {
+				wish.WishCategory(dmLootCategory.FOOD, 0.0);
+			}
+			if ( req.CheckWeaponCount() == 0 )
+			{
+				wish.WishCategory(dmLootCategory.WEAPON, 1.0);
+			} else {
+				wish.WishCategory(dmLootCategory.WEAPON, 0.0);
+			}
+			if ( req.CheckMeleeCount() == 0 )
+			{
+				wish.WishCategory(dmLootCategory.MELEE, 1.0);
+			} else {
+				wish.WishCategory(dmLootCategory.MELEE, 0.0);
+			}
+			if ( req.CheckMedicalCount() == 0 )
+			{
+				wish.WishCategory(dmLootCategory.MEDICAL, 1.0);
+			} else {
+				wish.WishCategory(dmLootCategory.MEDICAL, 0.0);
+			}
+		}
 
 		//! Нет оружия (огнестрел) → желать Weapon_Base.
 		bool hasWeapon = bot.HasFirearmInHands();

@@ -1321,4 +1321,91 @@ class dmAISurvivor
 		for (int i = s_All.Count() - 1; i >= 0; i--)
 			s_All[i].OnUpdate(dt);
 	}
+
+	//------------------------------------------------------------------
+	// Looting
+	//------------------------------------------------------------------
+
+	float CalcDesired(ItemBase item)
+	{
+		float wishIndex = m_Wishlist.CalcDesired( item );
+		if ( wishIndex >= 1.0 ) return 1.0;
+
+		if ( item.IsClothing() )
+		{
+			if ( IsBetterClothing(item) ) wishIndex = 1.0;
+		}
+
+		if (item.IsMagazine())
+		{
+			if ( IsSuitableMagazine(item) ) wishIndex = 0.7;
+		}
+
+		if (item.IsAmmoPile())
+		{
+			if ( IsSuitableAmmo(item) ) wishIndex = 0.9;
+		}
+
+		return wishIndex;
+	}
+
+	//! True when `item` is better clothing than what's worn in its slot: an empty
+	//! slot wins, then greater cargo capacity, then higher heat isolation.
+	bool IsBetterClothing(ItemBase item)
+	{
+		PlayerBase pawn = m_Pawn;
+		if (!pawn || !item)
+			return false;
+		GameInventory inv = pawn.GetInventory();
+		if (!inv)
+			return false;
+
+		array<string> slotNames = new array<string>();
+		item.ConfigGetTextArray("inventorySlot", slotNames);
+
+		int i;
+		for (i = 0; i < slotNames.Count(); i++)
+		{
+			int slotId = InventorySlots.GetSlotIdFromString(slotNames[i]);
+			if (slotId == InventorySlots.INVALID)
+				continue;
+
+			ItemBase current = ItemBase.Cast(inv.FindAttachment(slotId));
+			if (!current)
+				return true;
+
+			int itemCargo = CargoCapacity(item);
+			int currentCargo = CargoCapacity(current);
+			if (itemCargo > currentCargo)
+				return true;
+			if (itemCargo == currentCargo && item.GetHeatIsolation() > current.GetHeatIsolation())
+				return true;
+		}
+		return false;
+	}
+
+	//! Storage capacity (grid cells) of an item's own cargo; 0 when it has no cargo.
+	private int CargoCapacity(ItemBase ib)
+	{
+		CargoBase cargo = ib.GetInventory().GetCargo();
+		if (!cargo)
+			return 0;
+		return cargo.GetWidth() * cargo.GetHeight();
+	}
+
+	bool IsSuitableAmmo(ItemBase item)
+	{
+		// TODO Проверить:
+		//  Есть ли в инвентаре оружие (в том числе в слотах SHOULDER и MELEE), которому подходит этот вид патронов
+		//  Если да, вернуть TRUE
+		return true;
+	}
+
+	bool IsSuitableMagazine(ItemBase item)
+	{
+		// TODO Проверить
+		//  Есть ли в инвентаре (в том числе в слотах SHOULDER и MELEE) оружие, которому подзодит такой магазин
+		//  Если да, вернуть TRUE
+		return true;
+	}
 }

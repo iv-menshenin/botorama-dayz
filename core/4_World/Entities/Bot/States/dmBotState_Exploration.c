@@ -26,8 +26,11 @@ class dmBotState_Exploration : dmBotState
 			return EXIT;
 
 		MaybeDrop(bot, pawn, pDt);
-		EnsurePickUp(bot, pawn);
-		EnsureExplore(bot);
+
+		if (!EnsurePickUp(bot, pawn))
+		{
+			EnsureExplore(bot);
+		}
 
 		return CONTINUE;
 	}
@@ -40,32 +43,65 @@ class dmBotState_Exploration : dmBotState
 			return;
 
 		dmRequirements req = bot.GetRequirements();
+		#ifdef DM_BOT_DEBUG_LOOTING
+		if ( req && !req.IsFull() )
+		{
+			dmBotLog.Debug("[Loot] Полно места в инвентаре");
+		}
+		#endif
 		if (!req || !req.IsFull())
 			return;
 
 		ref array<EntityAI> order = req.GetDiscardOrder();
 		if (order.Count() == 0)
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Выбрасывать нечего");
+			#endif
 			return;
+		}
 
 		EntityAI item = order[0];
 		if (pawn.DropItem(item))
 		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Выбрасываю: " + item.GetType());
+			#endif
 			bot.GetWishlist().Ignore(item);
 			m_DropCooldown = DM_EXPLORE_DROP_COOLDOWN;
 		}
 	}
 
 	//! Оппортунистический подбор: самый желаемый предмет рядом (порог).
-	void EnsurePickUp(dmAISurvivor bot, dmAISurvivorBase pawn)
+	bool EnsurePickUp(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
 		if (m_PickUp)
 		{
 			if (m_PickUp.IsFinished() || m_PickUp.IsExpired() || m_PickUp.IsFailed()) m_PickUp = null;
 		}
-		if (m_PickUp) return;
+		if (m_PickUp) return true;
 
+		EntityAI item = pickUpItemSelect(bot, pawn);
+		if (item)
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[LOOT] Собираюсь залутать " + item.GetType() + " тут " + item.GetPosition());
+			#endif
+			m_PickUp = new dmBotIntent_PickUp();
+			m_PickUp.m_Item = item;
+			bot.AddFSMIntent(m_PickUp);
+			dmLoot.RemoveNearbyItem(pawn, item, DM_EXPLORE_PICKUP_RADIUS);
+			return true;
+		}
+		return false;
+	}
+
+	EntityAI pickUpItemSelect(dmAISurvivor bot, dmAISurvivorBase pawn)
+	{
 		array<EntityAI> items = dmLoot.ScanNearbyItems(pawn, DM_EXPLORE_PICKUP_RADIUS);
-		dmWishlist wish = bot.GetWishlist();
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] Рядом " + items.Count() + " вещей, выбираю, что подобрать");
+		#endif
 		ItemBase best = null;
 		float bestDesire = 0.0;
 		int i;
@@ -80,24 +116,26 @@ class dmBotState_Exploration : dmBotState
 				#endif
 				continue;
 			}
-			float desire = wish.CalcDesired(item);
+			float desire = bot.CalcDesired(item);
 			if (desire > DM_EXPLORE_PICKUP_THRESHOLD && desire > bestDesire)
 			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] Мне нравится: " + item.GetType() + " на " + desire);
+				#endif
 				best = item;
 				bestDesire = desire;
 			}
 		}
 
 		if (!best)
-			return;
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[LOOT] Все хлам");
+			#endif
+			return null;
+		}
 
-		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[LOOT] Собираюсь залутать " + best.GetType() + " тут " + best.GetPosition());
-		#endif
-		m_PickUp = new dmBotIntent_PickUp();
-		m_PickUp.m_Item = best;
-		bot.AddFSMIntent(m_PickUp);
-		dmLoot.RemoveNearbyItem(pawn, best, DM_EXPLORE_PICKUP_RADIUS);
+		return best;
 	}
 
 	//! Блуждание к ближайшему непосещённому зданию; по достижении — пометить.

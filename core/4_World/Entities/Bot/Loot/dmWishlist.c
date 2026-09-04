@@ -25,12 +25,14 @@ class dmWishlist
 	ref array<ref dmDesire> m_Desired;
 	ref array<ref dmDesire> m_Junk;
 	ref array<ref dmIgnoredItem> m_Ignored;
+	ref map<dmLootCategory, float> m_Categories;
 
 	void dmWishlist()
 	{
 		m_Desired = new array<ref dmDesire>();
 		m_Junk = new array<ref dmDesire>();
 		m_Ignored = new array<ref dmIgnoredItem>();
+		m_Categories = new map<dmLootCategory, float>();
 	}
 
 	//! Задать/обновить желание класса (наследуется: Edible_Base покрывает всю еду).
@@ -164,9 +166,15 @@ class dmWishlist
 
 		// 5) fallback — базовое желание по категории
 		dmLootCategory category = dmLoot.GetCategory(item);
+		
+		float categoryWant = m_Categories.Get( category );
+		if ( categoryWant > 0.0 ) return categoryWant;
+
 		if (category == dmLootCategory.FOOD)
 			return 0.5;
 		if (category == dmLootCategory.WEAPON)
+			return 0.8;
+		if (category == dmLootCategory.MELEE)
 			return 0.8;
 		if (category == dmLootCategory.MAGAZINE)
 			return 0.6;
@@ -179,5 +187,42 @@ class dmWishlist
 		if (category == dmLootCategory.MEDICAL)
 			return 0.5;
 		return 0.0;
+	}
+
+	void WishCategory(dmLootCategory category, float desire)
+	{
+		if ( desire > 0.0 )
+			m_Categories.Set(category, desire);
+		else
+			m_Categories.Remove(category);
+	}
+
+	string DebugString()
+	{
+		string result = "";
+
+		result += "m_Desired=";
+		foreach(dmDesire d: m_Desired)
+		{
+			result += "class/" + d.m_Class + ":" + d.m_Necessity + ";";
+		}
+		result += "m_Junk=";
+		foreach(dmDesire j: m_Junk)
+		{
+			result += "class/" + j.m_Class + ":" + j.m_Necessity + ";";
+		}
+		result += "m_Ignored=";
+		foreach(dmIgnoredItem i: m_Ignored)
+		{
+			if ( i.m_Item )
+				result += "class/" + i.m_Item.GetType() + ":" + i.m_ExpireTime + ";";
+		}
+		result += "m_Categories=";
+		foreach(dmLootCategory lc, float v: m_Categories)
+		{
+			result += "category/" + lc + ":" + v + ";";
+		}
+
+		return result;
 	}
 }

@@ -8,7 +8,8 @@
 enum dmLootCategory
 {
 	FOOD,      // еда/вода (Edible_Base)
-	WEAPON,    // оружие (огнестрел + мили)
+	WEAPON,    // оружие
+	MELEE,
 	MAGAZINE,  // магазин
 	AMMO,      // пачка патронов
 	CLOTHING,  // одежда/обувь
@@ -28,8 +29,11 @@ class dmLoot
 		if (item.IsInherited(Edible_Base))
 			return dmLootCategory.FOOD;
 
-		if (item.IsWeapon() || item.IsMeleeWeapon())
+		if (item.IsWeapon())
 			return dmLootCategory.WEAPON;
+
+		if (item.IsMeleeWeapon())
+			return dmLootCategory.MELEE;
 
 		if (item.IsMagazine())
 			return dmLootCategory.MAGAZINE;

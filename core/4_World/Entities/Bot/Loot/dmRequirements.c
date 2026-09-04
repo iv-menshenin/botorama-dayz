@@ -34,6 +34,8 @@ class dmRequirements
 		if (category == dmLootCategory.FOOD)
 			return 1.0;
 		if (category == dmLootCategory.WEAPON)
+			return 0.9;
+		if (category == dmLootCategory.MELEE)
 			return 1.0;
 		if (category == dmLootCategory.MAGAZINE)
 			return 1.0;
@@ -42,7 +44,7 @@ class dmRequirements
 		if (category == dmLootCategory.CLOTHING)
 			return 0.5;
 		if (category == dmLootCategory.REPAIR)
-			return 1.0;
+			return 0.7;
 		if (category == dmLootCategory.MEDICAL)
 			return 1.0;
 		return 0.5;
@@ -67,6 +69,7 @@ class dmRequirements
 
 		int foodCount = 0;
 		int weaponCount = 0;
+		int meleeCount = 0;
 		int magCount = 0;
 		int ammoCount = 0;
 		int clothCount = 0;
@@ -110,6 +113,11 @@ class dmRequirements
 				weaponCount = weaponCount + 1;
 				n = weaponCount;
 			}
+			else if (category == dmLootCategory.MELEE)
+			{
+				meleeCount = meleeCount + 1;
+				n = meleeCount;
+			}
 			else if (category == dmLootCategory.MAGAZINE)
 			{
 				magCount = magCount + 1;
@@ -152,6 +160,11 @@ class dmRequirements
 			entry.m_Index = index;
 			m_Items.Insert(entry);
 		}
+
+		m_foodCount = foodCount;
+		m_weaponCount = weaponCount;
+		m_meleeCount = meleeCount;
+		m_medicalCount = medicalCount;
 
 		SortByIndex();
 		ComputeUsedRatio(pawn);
@@ -268,5 +281,30 @@ class dmRequirements
 		}
 
 		m_UsedRatio = (float)used / (float)total;
+	}
+
+	int m_foodCount = 0;
+	int m_weaponCount = 0;
+	int m_meleeCount = 0;
+	int m_medicalCount = 0;
+
+	int CheckFoodCount()
+	{
+		return m_foodCount;
+	}
+	
+	int CheckWeaponCount()
+	{
+		return m_weaponCount;
+	}
+
+	int CheckMeleeCount()
+	{
+		return m_meleeCount;
+	}
+
+	int CheckMedicalCount()
+	{
+		return m_medicalCount;
 	}
 }

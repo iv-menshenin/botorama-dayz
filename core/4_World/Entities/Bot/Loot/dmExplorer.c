@@ -57,6 +57,9 @@ class dmExplorer
 			
 			if (!FindBuilding(building))
 			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] Обнаружил новое здание: " + building.GetType() + " на " + building.GetPosition());
+				#endif
 				dmExploredBuilding eb = new dmExploredBuilding();
 				eb.m_Building = building;
 				eb.m_Visited = false;
@@ -99,6 +102,13 @@ class dmExplorer
 				bestDist = dist;
 			}
 		}
+
+		if ( best )
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Рядом есть здание: " + best.GetType() + " на " + best.GetPosition());
+			#endif
+		}
 		return best;
 	}
 
@@ -126,12 +136,14 @@ class dmExplorer
 	//! DM_EXPLORE_FORGET_UNVISITED (непосещённое). С обратным циклом.
 	void ForgetFar(vector botPos)
 	{
+		int cnt;
 		int i;
 		for (i = m_Buildings.Count() - 1; i >= 0; i--)
 		{
 			dmExploredBuilding eb = m_Buildings[i];
 			if (!eb.m_Building)
 			{
+				cnt++;
 				m_Buildings.Remove(i);
 				continue;
 			}
@@ -140,9 +152,21 @@ class dmExplorer
 			d[1] = 0.0;
 			float dist = d.Length();
 			if (dist > DM_EXPLORE_FORGET_ANY)
+			{
 				m_Buildings.Remove(i);
+				cnt++;
+			}
 			else if (!eb.m_Visited && dist > DM_EXPLORE_FORGET_UNVISITED)
+			{
 				m_Buildings.Remove(i);
+				cnt++;
+			}
+		}
+		if ( cnt > 0 )
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Забыто " + cnt + " зданий");
+			#endif
 		}
 	}
 };

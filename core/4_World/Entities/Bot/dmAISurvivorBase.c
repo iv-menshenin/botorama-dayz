@@ -1252,7 +1252,31 @@ class dmAISurvivorBase : PlayerBase
 	{
 		if (!item)
 			return false;
-		return GetInventory().DropEntity(InventoryMode.SERVER, this, item);
+
+		if ( GetInventory().DropEntity(InventoryMode.SERVER, this, item) )
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] DropItem: сбросил " + item.GetType());
+			#endif
+			return true;
+		}
+
+        // vector transform[4];
+        // InventoryLocation parentLoc = new InventoryLocation;
+        // item.GetInventory().GetCurrentInventoryLocation(parentLoc);
+        // InventoryLocation placeToGrnd = new InventoryLocation;
+        // placeToGrnd.SetGround(item, transform);
+        // InventoryMode invMode = InventoryMode.SERVER;
+
+        // if ( item.GetInventory().LocationSyncMoveEntity(parentLoc, placeToGrnd) )
+        // {
+		// 	#ifdef DM_BOT_DEBUG_LOOTING
+		// 	dmBotLog.Debug("[Loot] DropItem: сбросил " + item.GetType());
+		// 	#endif
+		// 	return true;
+        // }
+        // failed
+        return false;
 	}
 
 	//! Подобрать предмет со слота-зависимым размещением (dmLoot.FindDestination)
@@ -1260,6 +1284,12 @@ class dmAISurvivorBase : PlayerBase
 	bool TakeItem(ItemBase item)
 	{
 		if (!item) return false;
+
+		if ( item.IsClothing() )
+		{
+			if ( PutOnClothes( item ) ) return true;
+		}
+
 		InventoryLocation src = new InventoryLocation();
 		if (!item.GetInventory().GetCurrentInventoryLocation(src))
 		{
@@ -1290,6 +1320,120 @@ class dmAISurvivorBase : PlayerBase
 			dmBotLog.Debug("[Loot] TakeItem: поднял " + item.GetType());
 		#endif
 		return ok;
+	}
+
+	//! Надеть одежду в её слот. Пустой слот — просто надеть. Занятый — сбросить
+	//! текущую вещь на землю, надеть новую и перенести карго из старой в новую;
+	//! если надеть не удалось — вернуть старую вещь обратно в слот.
+	bool PutOnClothes(ItemBase item)
+	{
+		if (!item)
+			return false;
+
+		array<string> slotNames = new array<string>();
+		item.ConfigGetTextArray("inventorySlot", slotNames);
+		if (slotNames.Count() == 0)
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] PutOnClothes: нет слота у " + item.GetType());
+			#endif
+			return false;
+		}
+
+		int slotId = InventorySlots.GetSlotIdFromString(slotNames[0]);
+		if (slotId == InventorySlots.INVALID)
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] PutOnClothes: невалидный слот " + slotNames[0]);
+			#endif
+			return false;
+		}
+
+		ItemBase current = ItemBase.Cast(GetInventory().FindAttachment(slotId));
+		if (!current)
+			return TakeToAttachmentSlot(item, slotId);
+
+		if (!DropItem(current))
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] PutOnClothes: не смог сбросить " + current.GetType());
+			#endif
+			return false;
+		}
+
+		if (TakeToAttachmentSlot(item, slotId))
+		{
+			MoveCargo(current, item);
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] PutOnClothes: надел " + item.GetType() + " вместо " + current.GetType());
+			#endif
+			return true;
+		}
+
+		TakeToAttachmentSlot(current, slotId);
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] PutOnClothes: не надеть " + item.GetType() + ", вернул " + current.GetType());
+		#endif
+		return false;
+	}
+
+	//! Надеть item в слот slotId с ручным ре-синком сети: item приходит с земли,
+	//! а SERVER-перенос у AI-бота не синкается сам (та же готча, что в TakeItem).
+	bool TakeToAttachmentSlot(ItemBase item, int slotId)
+	{
+		InventoryLocation src = new InventoryLocation();
+		if (!item.GetInventory().GetCurrentInventoryLocation(src))
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] TakeToAttachmentSlot: нет InventoryLocation у " + item.GetType());
+			#endif
+			return false;
+		}
+
+		InventoryLocation dst = new InventoryLocation();
+		if (!dmLoot.FindDestination(this, item, dst))
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] TakeToAttachmentSlot: нет места для " + item.GetType());
+			#endif
+			return false;
+		}
+
+		GetGame().RemoteObjectTreeDelete(item);
+		bool ok = LocalTakeToDst(src, dst);
+		GetGame().RemoteObjectTreeCreate(item);
+		return ok;
+	}
+
+	//! Move the direct cargo items of `from` into `to`'s cargo; drop any that don't fit.
+	void MoveCargo(ItemBase from, ItemBase to)
+	{
+		CargoBase cargo = from.GetInventory().GetCargo();
+		if (!cargo)
+			return;
+
+		int i;
+		for (i = cargo.GetItemCount() - 1; i >= 0; i--)
+		{
+			EntityAI inner = cargo.GetItem(i);
+			if (!inner)
+				continue;
+
+			InventoryLocation src = new InventoryLocation();
+			if (!inner.GetInventory().GetCurrentInventoryLocation(src))
+				continue;
+
+			InventoryLocation dst = new InventoryLocation();
+			if (to.GetInventory().FindFreeLocationFor(inner, FindInventoryLocationType.CARGO, dst))
+			{
+				if (!ServerTakeToDst(src, dst))
+					DropItem(inner);
+			}
+			else
+			{
+				DropItem(inner);
+			}
+		}
 	}
 
 	//! Find a non-empty magazine in the inventory that fits the weapon (prefer an
