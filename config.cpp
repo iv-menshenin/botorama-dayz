@@ -28,7 +28,8 @@ class CfgMods
 				value = "";
 				files[] = {
 					"botorama/cons/3_Game",
-					"botorama/core/3_Game"
+					"botorama/core/3_Game",
+					"botorama/test/3_Game"
 				};
 			};
 			class worldScriptModule {
@@ -37,7 +38,8 @@ class CfgMods
 					"botorama/cons/4_World",
 					"botorama/reg/4_World",
 					"botorama/core/4_World",
-					"botorama/loadout/4_World"
+					"botorama/loadout/4_World",
+					"botorama/test/4_World"
 				};
 			};
 			class missionScriptModule

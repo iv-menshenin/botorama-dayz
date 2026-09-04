@@ -2,7 +2,7 @@
 
 class dmCommandContext
 {
-	//! Player name (lowercase) -> bound bot.
+	//! Player Id -> bound bot.
 	static ref map<string, ref dmAISurvivor> s_TestBotByPlayer = new map<string, ref dmAISurvivor>;
 
 	//! FSM draft state names (/fsm new/add/apply).
@@ -17,12 +17,10 @@ class dmCommandContext
 	//! The bot bound to the player (or null).
 	static dmAISurvivor FindBotForPlayer(PlayerBase player)
 	{
-		string key = player.GetIdentity().GetName();
-		key.ToLower();
+		string key = player.GetIdentity().GetId();
 
 		dmAISurvivor bot;
-		if (s_TestBotByPlayer.Find(key, bot))
-			return bot;
+		if (s_TestBotByPlayer.Find(key, bot)) return bot;
 		return null;
 	}
 
@@ -32,8 +30,7 @@ class dmCommandContext
 		#ifdef DM_BOT_DEBUG_PATHFINDER
 		bot.m_DebugPlayer = player;
 		#endif
-		string key = player.GetIdentity().GetName();
-		key.ToLower();
+		string key = player.GetIdentity().GetId();
 		s_TestBotByPlayer.Set(key, bot);
 	}
 

@@ -97,6 +97,15 @@ class dmTestCommand : dmCommandModule
 		return true;
 	}
 
+	ref array<ref dmTestSuite_TestRunner> m_RunnerInstances = new array<ref dmTestSuite_TestRunner>();
+
+	//! Launch a self-verifying body-simulation scenario through dmTestSuite_TestRunner.
+	private bool HandleTestCase(PlayerBase player, dmTestSuite_TestCase test)
+	{
+		m_RunnerInstances.Insert( dmTestSuite_TestRunner.Start(test, player) );
+		return true;
+	}
+
 	//! /test bot weapon load | selection — weapon loading/selection scenarios.
 	private bool HandleWeaponTest(PlayerBase player, array<string> parts)
 	{
@@ -116,7 +125,7 @@ class dmTestCommand : dmCommandModule
 	}
 
 	//! /test bot shoot {N} — firing test; N (meters) is the optional spawn distance
-	//! from the player (0/default = DM_SPAWN_DISTANCE).
+	//! from the player (0/default = DM_TEST_RANGE_DISTANCE).
 	private bool HandleShootTest(PlayerBase player, array<string> parts)
 	{
 		dmBotTest_Shoot test = new dmBotTest_Shoot();
@@ -126,7 +135,7 @@ class dmTestCommand : dmCommandModule
 			if (dist > 0)
 				test.SetSpawnDistance(dist);
 		}
-		return HandleBodyTest(player, test);
+		return HandleTestCase(player, test);
 	}
 
 	//! /test bot aim {N} — aim-accuracy ladder; N (meters) is the optional maximum

@@ -3,9 +3,6 @@
 //! Default survivor model class used when spawning a bot.
 static const string DM_DEFAULT_MODEL = "dmAI_SurvivorM_Denis";
 
-//! Distance (meters) in front of the player at which a bot spawns.
-static const float DM_SPAWN_DISTANCE = 5.0;
-
 //! Approximate eye/head height above the feet (meters).
 static const float DM_EYE_HEIGHT = 1.4;
 

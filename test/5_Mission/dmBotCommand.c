@@ -717,7 +717,7 @@ class dmBotCommand : dmCommandModule
 		return true;
 	}
 
-	dmBotIntent_GetInVehicle m_intentGetInVehicle;
+	ref dmBotIntent_GetInVehicle m_intentGetInVehicle;
 
 	private bool HandleCarSitdown(PlayerBase player)
 	{
@@ -738,7 +738,7 @@ class dmBotCommand : dmCommandModule
 
 		if ( !m_intentGetInVehicle )
 		{
-			dmBotIntent_GetInVehicle m_intentGetInVehicle = new dmBotIntent_GetInVehicle();
+			m_intentGetInVehicle = new dmBotIntent_GetInVehicle();
 			m_intentGetInVehicle.m_Transport = transport;
 			m_intentGetInVehicle.m_Seat = freeSeat;
 			bot.AddCommandIntent(m_intentGetInVehicle);
