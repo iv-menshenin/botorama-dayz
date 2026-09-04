@@ -110,7 +110,8 @@ class dmCommandContext
 		vector fwd = player.GetDirection();
 		fwd[1] = 0.0;
 		fwd.Normalize();
-		vector target = bot.GetPosition() - fwd * 1.0; // 1 m toward the player
+		vector botPos = bot.GetPosition();
+		vector target = SnapToGroundExactly(botPos - fwd * 1.0); // 1 m toward the player
 
 		dmBotIntent_MoveTo move = new dmBotIntent_MoveTo();
 		move.m_Goal = target;

@@ -100,7 +100,8 @@ class dmBotCommand : dmCommandModule
 		vector fwd = player.GetDirection();
 		fwd[1] = 0.0;
 		fwd.Normalize();
-		vector spawnPos = player.GetPosition() + fwd * DM_SPAWN_DISTANCE;
+		vector playerPos = player.GetPosition();
+		vector spawnPos = playerPos + fwd * DM_SPAWN_DISTANCE;
 		spawnPos[1] = 0.1;
 
 		ref dmAISurvivor bot = new dmAISurvivor();

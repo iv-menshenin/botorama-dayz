@@ -285,7 +285,8 @@ class dmTestCommand : dmCommandModule
 		fwd[1] = 0.0;
 		fwd.Normalize();
 
-		vector spawnPos = player.GetPosition() + fwd * DM_SPAWN_DISTANCE;
+		vector playerPos = player.GetPosition();
+		vector spawnPos = playerPos + fwd * DM_SPAWN_DISTANCE;
 
 		ref dmAISurvivor bot = new dmAISurvivor();
 		PlayerBase pawn = bot.Spawn(spawnPos, player.GetOrientation());
