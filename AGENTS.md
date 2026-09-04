@@ -23,6 +23,23 @@
 - Реализацию делает субагент `dayz-dev`; ревью оркестратора — по чеклисту `codeguide.md`.
 - API-исследование — субагент `dayz-research` (пишет только `docs/research/`).
 
+## Модуль `/test` (конвенции каркаса тестов)
+
+- Тест-код (константы, хелперы, сценарии) живёт ТОЛЬКО в `test/` — не в `cons/`/`core/`.
+  Слои зеркалят core: `test/3_Game` — низкоуровневое (константы), `test/4_World` — каркас
+  + сценарии + хелперы мира, `test/5_Mission` — команды-хендлеры + bootstrap.
+- **Кости vs мясо**: родитель `dmTestSuite_TestCase` держит общее (поля `m_Bot`/`m_Player`/
+  `m_SpawnDistance`/`m_TestRange`, спавн-хелперы врагов, `CurrentStateName`/`Fmt`/
+  `ForwardTarget`/`HorizontalMove`); сценарий — только свои фазы/проверки. `Setup` обязан
+  звать `super.Setup(bot, player)`.
+- **SpawnDistance** — где спавнится БОТ-тестировщик (от игрока). **GetTestRange** — от бота
+  до края зоны, где спавнятся ВРАГИ. Не путать.
+- Спавн врагов — только в родителе (`SpawnEnemy`/`SpawnZombie`/`SpawnEnemyNearBot`/
+  `SpawnZombieNearBot`); координаты через `SnapToGroundExactly` (строго на землю), НЕ
+  `SnapToGroundRelative` (прибавляет `pos[1]` → враг висит в воздухе).
+- Параллельные тесты: реестр `dmTestSuite_TestRunner.s_Active` (ленивая чистка
+  `SweepFinished`), отмена — `/test cancel all|last`.
+
 ## Логирование (обязательно для каждой доработки)
 
 1. **Любая новая логика оснащается логами**, которые помогут разобрать неожиданную
