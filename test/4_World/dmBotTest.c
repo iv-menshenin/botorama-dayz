@@ -49,7 +49,7 @@ class dmBotTest_Shoot : dmTestSuite_TestCase
 			if (elapsed < 5.0)
 				return "";
 
-            m_Target = SpawnEmeny();
+			m_Target = SpawnEnemy();
 			if (!m_Target)
 				return "FAIL: не удалось заспавнить цель";
 
@@ -109,16 +109,6 @@ class dmBotTest_Shoot : dmTestSuite_TestCase
 		Magazine mag = wpn.GetMagazine(wpn.GetCurrentMuzzle());
 		if (mag)
 			mag.ServerSetAmmoCount(0);
-	}
-
-	//! Name of the current FSM state ("none" when unavailable).
-	string CurrentStateName()
-	{
-		string state = "none";
-		dmBotFSM fsm = m_Bot.GetFSM();
-		if (fsm && fsm.GetCurrentState())
-			state = fsm.GetCurrentState().GetName();
-		return state;
 	}
 
 	string FailDebug(int ammo)
