@@ -141,6 +141,10 @@ static const float DM_TEST_AIM_SHOT_INTERVAL = 2.0;
 //! Test command "cancel" — aborts the running test and cleans it up.
 static const string DM_CHAT_TEST_CANCEL = "cancel";
 
+//! Test command "cancel" modifiers: all tests / only the last test of the player.
+static const string DM_CHAT_TEST_CANCEL_ALL = "all";
+static const string DM_CHAT_TEST_CANCEL_LAST = "last";
+
 //! Quiet delay (seconds) after showing a test summary before the test actually runs.
 static const float DM_TEST_QUIET_SECONDS = 5.0;
 

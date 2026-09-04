@@ -47,7 +47,7 @@ class dmTestCommand : dmCommandModule
 	{
 		//! /test cancel — abort the running test
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
-			return HandleCancel(player);
+			return HandleCancel(player, parts);
 
 		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | emote | fight | weapon load | weapon selection
 		if (parts.Count() < 3)
@@ -66,15 +66,15 @@ class dmTestCommand : dmCommandModule
 			return HandleOverload(player, parts);
 
 		if (parts[2] == DM_CHAT_TEST_SHOCK)
-			return HandleBodyTest(player, new dmBotTest_Shock());
+			return HandleTestCase(player, new dmBotTest_Shock());
 		if (parts[2] == DM_CHAT_TEST_STAMINA)
-			return HandleBodyTest(player, new dmBotTest_Stamina());
+			return HandleTestCase(player, new dmBotTest_Stamina());
 		if (parts[2] == DM_CHAT_TEST_BROKENLEG)
-			return HandleBodyTest(player, new dmBotTest_BrokenLeg());
+			return HandleTestCase(player, new dmBotTest_BrokenLeg());
 		if (parts[2] == DM_CHAT_TEST_DEATH)
-			return HandleBodyTest(player, new dmBotTest_Death());
+			return HandleTestCase(player, new dmBotTest_Death());
 		if (parts[2] == DM_CHAT_TEST_TARGET)
-			return HandleBodyTest(player, new dmBotTest_Target());
+			return HandleTestCase(player, new dmBotTest_Target());
 		if (parts[2] == DM_CHAT_TEST_SHOOT)
 			return HandleShootTest(player, parts);
 		if (parts[2] == DM_CHAT_TEST_AIM)
@@ -82,7 +82,7 @@ class dmTestCommand : dmCommandModule
 		if (parts[2] == DM_CHAT_TEST_EMOTE)
 			return HandleEmoteTest(player, parts);
 		if (parts[2] == DM_CHAT_TEST_FIGHT)
-			return HandleBodyTest(player, new dmBotTest_Fight());
+			return HandleTestCase(player, new dmBotTest_Fight());
 		if (parts[2] == DM_CHAT_TEST_WEAPON)
 			return HandleWeaponTest(player, parts);
 
@@ -90,19 +90,10 @@ class dmTestCommand : dmCommandModule
 		return false;
 	}
 
-	//! Launch a self-verifying body-simulation scenario through dmBotTestRunner.
-	private bool HandleBodyTest(PlayerBase player, dmBotTestCase test)
-	{
-		dmBotTestRunner.GetInstance().Start(test, player);
-		return true;
-	}
-
-	ref array<ref dmTestSuite_TestRunner> m_RunnerInstances = new array<ref dmTestSuite_TestRunner>();
-
-	//! Launch a self-verifying body-simulation scenario through dmTestSuite_TestRunner.
+	//! Launch a self-verifying scenario through dmTestSuite_TestRunner.
 	private bool HandleTestCase(PlayerBase player, dmTestSuite_TestCase test)
 	{
-		m_RunnerInstances.Insert( dmTestSuite_TestRunner.Start(test, player) );
+		dmTestSuite_TestRunner.Start(test, player);
 		return true;
 	}
 
@@ -116,16 +107,16 @@ class dmTestCommand : dmCommandModule
 		}
 
 		if (parts[3] == DM_CHAT_TEST_WEAPON_LOAD)
-			return HandleBodyTest(player, new dmBotTest_WeaponLoad());
+			return HandleTestCase(player, new dmBotTest_WeaponLoad());
 		if (parts[3] == DM_CHAT_TEST_WEAPON_SELECTION)
-			return HandleBodyTest(player, new dmBotTest_WeaponSelection());
+			return HandleTestCase(player, new dmBotTest_WeaponSelection());
 
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий weapon: " + parts[3]);
 		return false;
 	}
 
 	//! /test bot shoot {N} — firing test; N (meters) is the optional spawn distance
-	//! from the player (0/default = DM_TEST_RANGE_DISTANCE).
+	//! of the BOT from the player (0/default = DM_SPAWN_DISTANCE).
 	private bool HandleShootTest(PlayerBase player, array<string> parts)
 	{
 		dmBotTest_Shoot test = new dmBotTest_Shoot();
@@ -149,7 +140,7 @@ class dmTestCommand : dmCommandModule
 			if (dist > 0)
 				test.SetMaxDistance(dist);
 		}
-		return HandleBodyTest(player, test);
+		return HandleTestCase(player, test);
 	}
 
 	//! /test bot emote {id} — бот играет эмоцию по EmoteConstants ID (напр. 44=salute).
@@ -168,13 +159,19 @@ class dmTestCommand : dmCommandModule
 		}
 		dmBotTest_Emote test = new dmBotTest_Emote();
 		test.SetEmoteID(id);
-		return HandleBodyTest(player, test);
+		return HandleTestCase(player, test);
 	}
 
-	//! /test cancel — abort the running test and clean up after it.
-	private bool HandleCancel(PlayerBase player)
+	//! /test cancel [all|last] — отменить все тесты игрока или только последний.
+	private bool HandleCancel(PlayerBase player, array<string> parts)
 	{
-		dmBotTestRunner.GetInstance().Cancel(player);
+		if (parts.Count() >= 3 && parts[2] == DM_CHAT_TEST_CANCEL_ALL)
+		{
+			dmTestSuite_TestRunner.CancelAll(player);
+			return true;
+		}
+		// "/test cancel" и "/test cancel last" — последний тест игрока.
+		dmTestSuite_TestRunner.CancelLast(player);
 		return true;
 	}
 
