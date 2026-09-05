@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.31";
+static const string DM_BOTORAMA_VERSION = "3.32";
 
 //! Hearing: threat assigned to a target heard but not seen (below attack threshold 0.5).
 static const float DM_NOISE_THREAT = 0.4;

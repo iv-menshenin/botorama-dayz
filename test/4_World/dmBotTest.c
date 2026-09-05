@@ -1070,6 +1070,7 @@ class dmBotTest_LootingGet : dmTestSuite_TestCase
 	float m_PhaseTime = 0.0;
 	EntityAI m_Item;
 	ref array<string> m_Items;
+	ref array<string> m_Slots;
 
 	override void Setup(dmAISurvivor bot, PlayerBase player)
 	{
@@ -1088,11 +1089,20 @@ class dmBotTest_LootingGet : dmTestSuite_TestCase
 		m_Items.Insert("Shemag_Green");
 		m_Items.Insert("CombatBoots_Black");
 		m_Items.Insert("Armband_White");
+
+		m_Slots = new array<string>();
+		m_Slots.Insert("Body");
+		m_Slots.Insert("Legs");
+		m_Slots.Insert("Headgear");
+		m_Slots.Insert("Gloves");
+		m_Slots.Insert("Mask");
+		m_Slots.Insert("Feet");
+		m_Slots.Insert("Armband");
 	}
 
 	override string GetSummary()
 	{
-		return "Тест «Лут (подбор)». Бот по очереди поднимает с пола 7 предметов одежды (куртка, штаны, кепка, перчатки, шемаг, ботинки, повязка). Ожидается: каждый предмет оказывается в инвентаре (надет).";
+		return "Тест «Лут (подбор)». Бот по очереди поднимает с пола 7 предметов одежды (куртка, штаны, кепка, перчатки, шемаг, ботинки, повязка). Ожидается: каждый предмет НАДЕТ в свой слот (Body/Legs/Headgear/Gloves/Mask/Feet/Armband).";
 	}
 
 	override float GetDuration() { return 200.0; }
@@ -1129,13 +1139,14 @@ class dmBotTest_LootingGet : dmTestSuite_TestCase
 			return "интент PickUp на " + cls;
 		}
 
-		if (HasItemInInventory(cls))
+		ItemBase worn = GetWorn(m_Slots[m_Step]);
+		if (worn && worn.GetType() == cls)
 		{
 			m_Step = m_Step + 1;
 			m_SubPhase = 0;
 			m_PhaseTime = elapsed;
 			m_Item = null;
-			return "поднят " + cls + " (" + m_Step + "/7)";
+			return "надет " + cls + " в " + m_Slots[m_Step - 1] + " (" + m_Step + "/7)";
 		}
 
 		if (elapsed - m_PhaseTime > 20.0)
@@ -1160,21 +1171,10 @@ class dmBotTest_LootingGet : dmTestSuite_TestCase
 		m_Bot.AddCommandIntent(p);
 	}
 
-	//! Есть ли предмет класса `cls` где-либо в инвентаре бота (в т.ч. надетый).
-	bool HasItemInInventory(string cls)
+	//! Надетый в слот предмет (или null).
+	ItemBase GetWorn(string slotName)
 	{
-		PlayerBase pawn = m_Bot.GetPawn();
-		if (!pawn)
-			return false;
-		array<EntityAI> items = new array<EntityAI>();
-		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
-		int i;
-		for (i = 0; i < items.Count(); i++)
-		{
-			if (items[i].GetType() == cls)
-				return true;
-		}
-		return false;
+		return ItemBase.Cast(m_Bot.GetPawn().GetInventory().FindAttachment(InventorySlots.GetSlotIdFromString(slotName)));
 	}
 }
 

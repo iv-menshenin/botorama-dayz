@@ -1617,10 +1617,12 @@ class dmAISurvivorBase : PlayerBase
 		return ok;
 	}
 
-	//! Drop an item from the bot's inventory onto the ground (server-side).
-	//! Returns true on success. The caller decides which item (GetDiscardOrder)
-	//! and marks it Ignore so it isn't re-picked up.
-	bool DropItem(EntityAI item)
+	//! Сбросить item на землю (server-side). Это ОВЕРРАЙД ванильного
+	//! PlayerBase.DropItem(ItemBase) — ванильный вызывать нельзя (он делает
+	//! PredictiveDropEntity и валит сервер, см. docs/research/loot.md). Возвращает
+	//! true при успехе. Вызывающий сам выбирает предмет (GetDiscardOrder) и помечает
+	//! его Ignore, чтобы не подобрать заново.
+	override bool DropItem(ItemBase item)
 	{
 		if (!item)
 			return false;
@@ -1639,8 +1641,10 @@ class dmAISurvivorBase : PlayerBase
 		return false;
 	}
 
-	//! Надеть item в слот slotId с ручным ре-синком сети: item приходит с земли,
-	//! а SERVER-перенос у AI-бота не синкается сам (готча — в docs/research/loot.md).
+	//! Надеть item СТРОГО в слот slotId (dst.SetAttachment(this, item, slotId)) с ручным
+	//! ре-синком сети: item приходит с земли, а SERVER-перенос у AI-бота не синкается
+	//! сам (готча — docs/research/loot.md). При неудаче возвращает false (предмет
+	//! остаётся на земле). SetAttachment — аналог dst.SetHands(this, item) в TakeToHands.
 	bool TakeToAttachmentSlot(ItemBase item, int slotId)
 	{
 		InventoryLocation src = new InventoryLocation();
@@ -1653,13 +1657,7 @@ class dmAISurvivorBase : PlayerBase
 		}
 
 		InventoryLocation dst = new InventoryLocation();
-		if (!dmLoot.FindDestination(this, item, dst))
-		{
-			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] TakeToAttachmentSlot: нет места для " + item.GetType());
-			#endif
-			return false;
-		}
+		dst.SetAttachment(this, item, slotId);
 
 		GetGame().RemoteObjectTreeDelete(item);
 		bool ok = LocalTakeToDst(src, dst);

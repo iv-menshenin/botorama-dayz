@@ -62,7 +62,7 @@ class dmBotState_Exploration : dmBotState
 		}
 
 		EntityAI item = order[0];
-		if (pawn.DropItem(item))
+		if (pawn.DropItem(ItemBase.Cast(item)))
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
 			dmBotLog.Debug("[Loot] Выбрасываю: " + item.GetType());

@@ -265,6 +265,21 @@ GetGame().RemoteObjectTreeCreate(item);
 НЕ в руках `HumanInventory.DropEntity` (`humaninventory.c:139`) идёт по ветке `default` → `super.DropEntity`
 (немедленно, без `HandEvent`).
 
+**Готча: свой `DropItem` обязан быть `override bool DropItem(ItemBase item)`.** Ванильный
+`PlayerBase.DropItem(ItemBase)` (`playerbase.c:6278`) делает `PredictiveDropEntity` →
+`JunctureDropEntity` → `TakeToDst(JUNCTURE)` → отложенный ивент, который на dedicated/offline
+сервере падает в `DayZPlayerInventory.HandleTakeToDst` (NULL `GetGame().GetPlayer()`), а сам
+предмет лишь телепортирует (`SetPosition`+`PlaceOnSurface`), НЕ убирая из слота. Если сигнатура
+своего `DropItem` отличается (напр. `EntityAI`), фрейм-менеджер (`dmInventoryFrame.m_Item : ItemBase`)
+вызывает ванильный оверлоад. Правильно: `override bool DropItem(ItemBase item)` с
+`LocalDropEntity(item)` + `RemoteObjectTreeDelete/Create`.
+
+**`TakeToAttachmentSlot` ставит предмет строго в указанный `slotId`** (`dst.SetAttachment(this, item, slotId)`),
+без `FindDestination`; не удалось — `false` (предмет остаётся на земле). `FindDestination` остался
+только в `dmLoot.CanCarry` (exploration-проверка «влезет ли»). Дженерик-скан `FindDestination` НЕЛЬЗЯ
+использовать для одежды — он сканирует слоты по порядку (BODY раньше LEGS) и кладёт штаны в карго
+занятой куртки, не доходя до пустого LEGS.
+
 ---
 
 ## Резюме: как Expansion делает лут
