@@ -71,7 +71,7 @@ class dmBotState
 	//! Lifecycle (override in concrete states).
 	void OnEntry(dmBotState from)
 	{
-		m_CooldownGameTime == 0.0
+		m_CooldownGameTime = 0.0;
 	}
 
 	void OnExit(dmBotState to) {}
