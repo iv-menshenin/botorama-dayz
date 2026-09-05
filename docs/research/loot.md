@@ -239,6 +239,32 @@ GetGame().RemoteObjectTreeCreate(item);   // клиент рисует в нов
 (`FindFreeLocationFor(item, CARGO, loc)`). `InventoryLocation.SetAttachment/SetHands` —
 `inventorylocation.c:130/171`.
 
+**Готча (краш 1, 17:14:12): `FindDestination` возвращал `true` в ветке «свободный слот», но НЕ
+заполнял `out InventoryLocation dst`.** Вызывающий `TakeToAttachmentSlot` звал
+`LocalTakeToDst(src, dst)` с дефолтным (неинициализированным) `dst` → `PlayerBase.TakeToDstImpl`
+(`playerbase.c:9281`) → `CheckAndExecuteStackSplitToInventoryLocation(dst, dst.GetItem())`
+(`playerbase.c:9188`) → `dst.GetItem()` = null → NULL-ptr (`#return`). Правило: **каждая
+return-true ветка метода, возвращающего назначение через `out`, обязана его заполнить** (здесь —
+`dst.SetAttachment(pawn, item, slot)` перед `return true`; ветка «занятый слот» и так заполняет
+через `FindFreeLocationFor(..., dst)`).
+
+**Готча (краш 2, 17:15:02): сброс на землю тоже НЕЛЬЗЯ делать `DropEntity(InventoryMode.SERVER, …)`.**
+SERVER-режим откладывает манипуляцию в CommandHandler
+(`HumanInventory.Update` → `HandleInventoryManipulation` → `DayZPlayerInventory.HandleTakeToDst`),
+где у серверного ИИ падает NULL-ptr (variable `player` при `GetHumanInventory`) — и сброс не
+происходит (слот остаётся занят, `FindDestination` дальше даёт «нет места»). Аналог эталона выше
+для направления «на землю» — LOCAL-режим с тем же ручным ре-синком:
+```c
+GetGame().RemoteObjectTreeDelete(item);
+bool ok = LocalDropEntity(item);   // Man.c:132 → GetHumanInventory().DropEntity(LOCAL) → TakeToDst(LOCAL)
+GetGame().RemoteObjectTreeCreate(item);
+```
+`LocalDropEntity`/`ServerDropEntity`/`PredictiveDropEntity`/`JunctureDropEntity` — `man.c:113-139`,
+объявлены на `EntityAI` (`entityai.c:2043-2056`, дефолт `false`); `Inventory.DropEntity` (gameinventory,
+`inventory.c:1264`) внутри сводится к `TakeToDst(mode, src, SetGroundPosByOwner(...))`. Для предмета
+НЕ в руках `HumanInventory.DropEntity` (`humaninventory.c:139`) идёт по ветке `default` → `super.DropEntity`
+(немедленно, без `HandEvent`).
+
 ---
 
 ## Резюме: как Expansion делает лут

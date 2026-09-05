@@ -116,6 +116,7 @@ class dmLoot
 				// Attachment candidate?
 				if ( inv.CanAddAttachmentEx(item, slot) )
 				{
+					dst.SetAttachment(pawn, item, slot);
 					#ifdef DM_BOT_DEBUG_LOOTING
 					dmBotLog.Debug("[Loot] Have empty slot " + InventorySlots.GetSlotName( slot ) + " for item");
 					#endif
