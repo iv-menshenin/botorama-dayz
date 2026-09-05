@@ -24,6 +24,8 @@ class dmBotState_Shooting : dmBotState
 
 	override void OnEntry(dmBotState from)
 	{
+		super.OnEntry(from);
+
 		m_TargetEntity = null;
 		m_Target = null;
 		m_Aim = null;
@@ -79,14 +81,15 @@ class dmBotState_Shooting : dmBotState
 			return EXIT;
 
 		if (m_NoFirearm)
+		{
+			m_CooldownGameTime = GetGame().GetTickTime() + 15.0;
 			return EXIT;
+		}
 
 		m_Elapsed += pDt;
 
-		if (!m_TargetEntity || !m_TargetEntity.IsAlive())
-			ResolveTarget();
-		if (!m_TargetEntity)
-			return EXIT;
+		if (!m_TargetEntity || !m_TargetEntity.IsAlive()) ResolveTarget();
+		if (!m_TargetEntity) return EXIT;
 
 		m_RetargetTimer += pDt;
 		if (m_RetargetTimer >= DM_FIGHT_RETARGET_INTERVAL)
@@ -100,7 +103,10 @@ class dmBotState_Shooting : dmBotState
 		if (bot.HasNoAmmo())
 		{
 			if (!pawn.ReloadWeaponAI())
+			{
+				m_CooldownGameTime = GetGame().GetTickTime() + 15.0;
 				return EXIT;
+			}
 			return CONTINUE;
 		}
 
@@ -167,6 +173,7 @@ class dmBotState_Shooting : dmBotState
 		{
 			if (m_Aim) { m_Aim.Finish(); m_Aim = null; }
 			m_Elapsed = 0.0;
+			m_RetargetTimer = 0.0;
 
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] Shooting: цель сменилась, интент сброшен");

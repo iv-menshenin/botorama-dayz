@@ -26,7 +26,7 @@ class dmAISurvivor
 	private string m_Model = DM_DEFAULT_MODEL;
 
 	//! The pawn (visual/physical body) in the world. null until Spawn().
-	private PlayerBase m_Pawn;
+	private dmAISurvivorBase m_Pawn;
 	
 	#ifdef DM_BOT_DEBUG_PATHFINDER
 	PlayerBase m_DebugPlayer;
@@ -222,6 +222,13 @@ class dmAISurvivor
 	{
 		if (m_Pawn)
 			return m_Pawn.GetPosition();
+		return vector.Zero;
+	}
+
+	vector GetDirection()
+	{
+		if (m_Pawn)
+			return m_Pawn.GetDirection();
 		return vector.Zero;
 	}
 
@@ -535,8 +542,8 @@ class dmAISurvivor
 	//! firearm; null when there is none.
 	Weapon_Base SelectFirearmForRange(float dist)
 	{
-		if (!m_Pawn)
-			return null;
+		if (!m_Pawn) return null;
+
 		array<EntityAI> items = new array<EntityAI>();
 		m_Pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
 		Weapon_Base anyLoaded = null;
@@ -562,6 +569,18 @@ class dmAISurvivor
 					return w;
 			}
 		}
+
+		// TODO Good decision and reload if needed
+		// m_TidyIntent = new dmBotIntent_TidyInventory();
+		// GetOwner().AddPersonalityIntent(m_TidyIntent);
+		if ( !anyLoaded && HasFirearmInHands() && HasNoAmmo() )
+		{
+			if ( m_Pawn.ReloadWeaponAI() )
+			{
+				return GetWeaponInHands();
+			}
+		}
+
 		return anyLoaded;
 	}
 
@@ -878,10 +897,11 @@ class dmAISurvivor
 		return null;
 	}
 
-	void RecalcTargetThreat(dmTarget t)
+	void RecalcTargetThreat(dmTarget t, float pDt)
 	{
 		if (t.m_Friendly) return;
-	
+
+		float now = GetGame().GetTickTime();
 		ZombieBase z = ZombieBase.Cast(t.m_Entity);
 		if ( z )
 		{
@@ -901,13 +921,23 @@ class dmAISurvivor
 			vector d = tPos - myPos;
 			d[1] = 0.0;
 			float dist = d.Length();
+
 			float newThreat = DM_TARGET_THREAT_ZOMBIE;
-			if (dist < 5.0)
-				newThreat = 0.9;
-			else if (dist < 15.0)
+			if (dist < 5.0) newThreat = 0.9;
+			else
+			if (dist < 15.0)
 				newThreat = 0.7;
-			if (newThreat > t.m_Threat)
+				
+			// no reason to relize as a threat zombie that do not attack us
+			if (newThreat > t.m_Threat || now - t.m_LastDamage > 5.0)
 				t.m_Threat = newThreat;
+			return;
+		}
+
+		// Когда бот не видит цели, он теряет к цели интерес
+		if ( !t.m_HasLOS && now - t.m_LastContact > 45.0 && now - t.m_LastDamage > 120.0 )
+		{
+			t.m_Threat -= 0.005 * ( pDt / 1000.0 );
 		}
 	}
 
@@ -974,6 +1004,7 @@ class dmAISurvivor
 		t.m_Friendly = false;
 		t.m_LastPosition = attacker.GetPosition();
 		t.m_LastContact = GetGame().GetTickTime();
+		t.m_LastDamage = GetGame().GetTickTime();
 	}
 
 	//! Force-add an entity to the target memory as hostile (used by tests/orders).

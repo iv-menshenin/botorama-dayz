@@ -22,7 +22,12 @@ class dmBotIntent_TidyInventory : dmBotIntent
 	{
 		//! Don't tidy while fighting (the Shooting/Fighting states own the weapon).
 		if (bot.GetHostileTarget() != null)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] TidyInventory: not appliable while fighting");
+			#endif
 			return;
+		}
 
 		if (m_Cooldown > 0.0)
 		{
@@ -37,6 +42,9 @@ class dmBotIntent_TidyInventory : dmBotIntent
 		//! 1) Stack ammo (server, no animation) — always, if there's something to merge.
 		if (pawn.StackAmmoAI())
 		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] TidyInventory: StackAmmoAI completed");
+			#endif
 			m_Cooldown = DM_TIDY_STEP_INTERVAL;
 			return;
 		}
@@ -46,6 +54,9 @@ class dmBotIntent_TidyInventory : dmBotIntent
 		{
 			if (pawn.ReloadWeaponAI())
 			{
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug("[FSM] TidyInventory: ReloadWeaponAI completed");
+				#endif
 				m_Cooldown = DM_TIDY_STEP_INTERVAL;
 				return;
 			}
@@ -54,6 +65,9 @@ class dmBotIntent_TidyInventory : dmBotIntent
 		//! 3) Load magazines from ammo piles (only out of combat — here we always are).
 		if (pawn.LoadMagazineAI())
 		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] LoadMagazineAI: ReloadWeaponAI completed");
+			#endif
 			m_Cooldown = DM_TIDY_STEP_INTERVAL;
 			return;
 		}

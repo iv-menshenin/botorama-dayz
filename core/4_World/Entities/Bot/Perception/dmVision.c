@@ -25,7 +25,17 @@ class dmVision
 	{
 		m_BoxAccum += pDt;
 		if (m_BoxAccum >= DM_PERCEPTION_BOX_INTERVAL) { m_BoxAccum = 0.0; Scan(bot); }
+
 		UpdateLOS(bot);
+		
+		float now = GetGame().GetTickTime();
+		ref array<ref dmTarget> targets = bot.GetTargets();
+		for (int i = 0; i < targets.Count(); i++)
+		{
+			dmTarget t = targets[i];
+			if ( t.m_HasLOS || now - t.m_LastContact < 15.0 || now - t.m_LastDamage < 60.0 || t.m_LastDistance < 200.0 )
+				bot.RecalcTargetThreat(t, pDt);
+		}
 	}
 
 	//! 1 Hz discovery pass: registry -> radius -> DiscoverTarget (create new targets
@@ -147,14 +157,22 @@ class dmVision
 			vector targetPos = e.GetPosition();
 			vector toTarget = targetPos - botPos;
 			toTarget[1] = 0.0;
-			float dist = toTarget.Length();
-			if (dist < 0.01)
+			t.m_LastDistance = toTarget.Length();
+
+			#ifdef DM_BOT_DEBUG_VISION
+			dmBotLog.Debug("[Vision] Update LOS target=" + e.GetType() + " pos=" + targetPos + " dist=" + t.m_LastDistance);
+			#endif
+
+			if (t.m_LastDistance < 0.01)
 				continue;
 
 			//! LOS-гейт: райкаст только в пределах радиуса релевантности типа цели
 			//! (тот же радиус, что и при открытии в Scan).
-			if (dist > GetLOSMaxDist(t))
+			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD && t.m_LastDistance > GetLOSMaxDist(t))
 			{
+				#ifdef DM_BOT_DEBUG_VISION
+				dmBotLog.Debug("[Vision] No interest " + e.GetType() + " m_Threat=" + t.m_Threat + " dist:" + t.m_LastDistance + ">" + GetLOSMaxDist(t));
+				#endif
 				t.m_HasLOS = false;
 				continue;
 			}
@@ -165,6 +183,9 @@ class dmVision
 			float ang = dmAISurvivor.AngleDiff(targetYaw, lookYaw);
 			if (Math.AbsFloat(ang) > DM_PERCEPTION_FOV * 0.5)
 			{
+				#ifdef DM_BOT_DEBUG_VISION
+				dmBotLog.Debug("[Vision] Angle too big " + e.GetType() + " ang:" + Math.AbsFloat(ang) + ">" + (DM_PERCEPTION_FOV * 0.5));
+				#endif
 				t.m_HasLOS = false;
 				continue;
 			}
@@ -174,7 +195,6 @@ class dmVision
 			{
 				t.m_LastPosition = targetPos;
 				t.m_LastContact = now;
-				bot.RecalcTargetThreat(t);
 			}
 		}
 
@@ -275,6 +295,15 @@ class dmVision
 
 		Object o = hits[0].obj;
 		Object p = hits[0].parent;
-		return (o == target) || (p == target);
+		bool hasLOS = (o == target) || (p == target);
+		#ifdef DM_BOT_DEBUG_VISION
+		if ( o && p )
+			dmBotLog.Debug("[Vision] Raycast to " + target.GetType() + " hit:" + o.GetType() + " parent=" + p.GetType() + " hasLOS=" + hasLOS);
+		if ( o && !p )
+			dmBotLog.Debug("[Vision] Raycast to " + target.GetType() + " hit:" + o.GetType() + " hasLOS=" + hasLOS);
+		if ( !o && p )
+			dmBotLog.Debug("[Vision] Raycast to " + target.GetType() + " hit:None parent=" + p.GetType() + " hasLOS=" + hasLOS);
+		#endif
+		return hasLOS;
 	}
 }

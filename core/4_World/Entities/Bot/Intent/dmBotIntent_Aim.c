@@ -61,14 +61,27 @@ class dmBotIntent_Aim : dmBotIntent
 
 		pawn.RaiseWeapon(true);
 		if (!pawn.IsReadyToShoot())
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] BotIntent: Aim not ReadyToShoot");
+			#endif
 			return;
+		}
 
 		if (!t.m_HasLOS)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] BotIntent: Aim has no LOS");
+			#endif
 			return;
+		}
 
 		m_FireTimer -= pDt;
 		if (m_FireTimer <= 0.0)
 		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] BotIntent: Aim.RequestFire");
+			#endif
 			pawn.RequestFire();
 			m_FireTimer = DM_BOT_FIRE_INTERVAL;
 		}

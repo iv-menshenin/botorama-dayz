@@ -30,6 +30,8 @@ class dmBotWeaponManager : WeaponManager
 			StartPendingAction();
 			return true;
 		}
+		m_WeaponInHand = Weapon_Base.Cast(m_player.GetHumanInventory().GetEntityInHands());
+		if (!m_WeaponInHand) return false;
 
 		if (!InventoryReservation(mag, il))
 		{

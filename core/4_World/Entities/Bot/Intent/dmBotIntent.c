@@ -68,6 +68,9 @@ class dmBotIntent
 	
 	void OnSkip(dmAISurvivor bot, float pDt)
 	{
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".OnSkip");
+		#endif
 		// lost the arbitration
 	}
 
@@ -81,6 +84,9 @@ class dmBotIntent
 	//! Вызвать из OnUpdate, когда условие выполнения достигнуто.
 	void Finish()
 	{
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".Finish");
+		#endif
 		m_Finished = true;
 	}
 
@@ -88,6 +94,9 @@ class dmBotIntent
 	//! Завершает интент с пометкой неудачи (пул его удалит).
 	void Fail()
 	{
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".Fail");
+		#endif
 		m_Failed = true;
 		m_Finished = true;
 	}

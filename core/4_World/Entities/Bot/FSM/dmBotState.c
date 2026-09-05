@@ -20,6 +20,8 @@ class dmBotState
 	private ref dmBotFSM m_FSM;
 	private ref array<ref dmBotTransition> m_Transitions;
 
+	float m_CooldownGameTime = 0.0;
+
 	void dmBotState()
 	{
 		m_Transitions = new array<ref dmBotTransition>();
@@ -67,12 +69,19 @@ class dmBotState
 	}
 
 	//! Lifecycle (override in concrete states).
-	void OnEntry(dmBotState from) {}
+	void OnEntry(dmBotState from)
+	{
+		m_CooldownGameTime == 0.0
+	}
+
 	void OnExit(dmBotState to) {}
 	int OnUpdate(float pDt) { return CONTINUE; }
 
 	//! Relevance guard: return false to block every transition INTO this state.
-	bool CanEnter() { return true; }
+	bool CanEnter()
+	{
+		return m_CooldownGameTime == 0.0 || m_CooldownGameTime < GetGame().GetTickTime();
+	}
 
 	bool CanExit() { return true; }
 

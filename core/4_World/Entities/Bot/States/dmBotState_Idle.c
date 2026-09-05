@@ -4,7 +4,9 @@ class dmBotState_Idle : dmBotState
 {
 	ref dmBotIntent_LookAround m_Scan;
 	ref dmBotIntent_SitByFireplace m_SitIntent;
+	ref dmBotIntent_TidyInventory m_TidyIntent;
 	float m_SitCooldown = 0.0;
+	float m_TidyCooldown = 0.0;
 	float m_TotalTimer;
 
 	override dmBotStateKind GetKind()
@@ -16,6 +18,7 @@ class dmBotState_Idle : dmBotState
 	{
 		m_Scan = null;
 		m_SitIntent = null;
+		m_TidyCooldown = 5.0;
 		m_SitCooldown = 0.0;
 		m_TotalTimer = 0.0;
 		CreateScan();
@@ -67,8 +70,15 @@ class dmBotState_Idle : dmBotState
 		}
 
 		m_TotalTimer += pDt;
-		if (m_TotalTimer >= 15.0)
-			return EXIT;
+		m_TidyCooldown -= pDt;
+		if (!m_SitIntent && !m_TidyIntent && m_TidyCooldown <= 0.0)
+		{
+			m_TidyIntent = new dmBotIntent_TidyInventory();
+			GetOwner().AddFSMIntent(m_TidyIntent);
+			m_TidyCooldown = 15.0;
+		}
+
+		if (m_TotalTimer >= 15.0) return EXIT;
 
 		return CONTINUE;
 	}
