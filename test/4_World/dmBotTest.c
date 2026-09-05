@@ -11,7 +11,7 @@ class dmBotTest_Shoot : dmTestSuite_TestCase
 		// do not forget!
 		super.Setup(bot, player);
 
-		bot.SetFSM(dmBotPreset_Combat.Create(bot));
+		bot.SetFSM(dmBotTestPreset_Shooting.Create(bot));
 
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn) return;
@@ -548,16 +548,10 @@ class dmBotTest_Aim : dmTestSuite_TestCase
 		GiveEmptyAKMWithMags(pawn);
 
 		// 4) minimal FSM: Idle + Shooting (test the transitions + reload)
-		dmBotFSM fsm = new dmBotFSM(bot);
-		dmBotState idle = new dmBotState_Idle();
-		dmBotState shoot = new dmBotState_Shooting();
-		fsm.AddState(idle, "Idle");
-		fsm.AddState(shoot, "Shooting");
-		idle.AddTransition(shoot, 1.0).Require(dmBotConditions.HasHostile());
-		shoot.AddTransition(idle, 1.0);
-		fsm.SetDefaultState("Idle");
-		fsm.Start();
-		bot.SetFSM(fsm);
+		bot.SetFSM(dmBotTestPreset_Shooting.Create(bot));
+        
+		// dmBotIntent_TidyInventory tidy = new dmBotIntent_TidyInventory();
+		// bot.AddPersonalityIntent(tidy);
 
 		// 5) distances 50..maxDist step 50
 		m_Distances = new array<float>();
@@ -595,7 +589,7 @@ class dmBotTest_Aim : dmTestSuite_TestCase
 
 		if (m_PassPhase == 0)
 		{
-			SpawnTarget(dist);
+			SpawnEnemyNearBot(dist);
 			m_StartAmmo = TotalAmmo(m_Bot.GetPawn());
 			m_PassPhase = 1;
 			m_PassTimer = 0.0;
@@ -640,16 +634,6 @@ class dmBotTest_Aim : dmTestSuite_TestCase
 			s = s + Fmt(m_Distances[i]) + "м=" + m_Results[i];
 		}
 		return "PASS: " + s;
-	}
-
-	void SpawnTarget(float distance)
-	{
-		vector botPos = m_Bot.GetPosition();
-		vector pos = botPos + m_LookDir * distance;
-
-		m_TargetEntity = EntityAI.Cast(GetGame().CreateObject("dmAI_SurvivorM_Denis", SnapToGroundExactly(pos), false));
-		if (m_TargetEntity)
-			m_Bot.RegisterHostile(m_TargetEntity, 1.0);
 	}
 
 	void GetPlayerLookDir(PlayerBase player, out vector lookDir)

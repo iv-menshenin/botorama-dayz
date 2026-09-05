@@ -161,3 +161,8 @@ static const float DM_AIM_TEST_PASS_TIMEOUT = 60.0;
 //! Aim-accuracy test: backpack magazines (count and rounds each).
 static const int DM_AIM_TEST_MAG_COUNT = 10;
 static const int DM_AIM_TEST_MAG_ROUNDS = 5;
+
+//! Teleport command family ("/tp ...").
+static const string DM_CHAT_CMD_TP = "tp";
+
+static const string DM_CHAT_CMD_TP_ME = "me";

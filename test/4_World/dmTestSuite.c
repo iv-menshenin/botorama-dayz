@@ -83,6 +83,17 @@ class dmTestSuite_TestCase
 		return SpawnHostile("dmAI_SurvivorM_Denis", pos);
 	}
 
+	//! Спавн болванки-игрока на `distance` метров от бота (по взгляду бота; distance<0 — сзади).
+	EntityAI SpawnEnemyNearBot(float distance)
+	{
+		vector origin = m_Bot.GetPosition();
+		vector dir = m_Bot.GetDirection();
+		dir[1] = 0.0;
+		dir.Normalize();
+		vector pos = origin + dir * distance;
+		return SpawnHostile("dmAI_SurvivorM_Denis", pos);
+	}
+
 	//! Спавн зомби на GetTestRange() от бота (по взгляду игрока), на земле, враждебного.
 	EntityAI SpawnZombie()
 	{
@@ -92,17 +103,6 @@ class dmTestSuite_TestCase
 		dir.Normalize();
 		vector pos = origin + dir * GetTestRange();
 		return SpawnHostile("ZmbM_PatrolNormal_Autumn", pos);
-	}
-
-	//! Спавн болванки-игрока на `distance` метров от бота (по взгляду бота; distance<0 — сзади).
-	EntityAI SpawnEnemyNearBot(float distance)
-	{
-		vector origin = m_Bot.GetPosition();
-		vector dir = m_Bot.GetPawn().GetDirection();
-		dir[1] = 0.0;
-		dir.Normalize();
-		vector pos = origin + dir * distance;
-		return SpawnHostile("dmAI_SurvivorM_Denis", pos);
 	}
 
 	//! Спавн зомби на `distance` метров от бота (по взгляду бота; distance<0 — сзади).
