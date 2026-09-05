@@ -75,6 +75,10 @@ class dmAISurvivorBase : PlayerBase
 	//! path in Phase 3. dmAiming is a plain class -> ref.
 	private ref dmAiming m_Aiming;
 
+	//! Inventory frame-sequence manager (Phase 2 builders). dmInventoryFrames is a
+	//! plain class -> ref.
+	private ref dmInventoryFrames m_InventoryFrames;
+
 	//! Desired body yaw (world, degrees), set by the controller each tick.
 	private float m_TargetBodyYaw = 0.0;
 
@@ -155,6 +159,110 @@ class dmAISurvivorBase : PlayerBase
 		m_WeaponManager = new dmBotWeaponManager(this);
 
 		m_Aiming = new dmAiming(this);
+		m_InventoryFrames = new dmInventoryFrames(this);
+	}
+
+	//! The inventory frame-sequence manager (Phase 2 builders enqueue into it).
+	dmInventoryFrames GetInventoryFrames()
+	{
+		return m_InventoryFrames;
+	}
+
+	//! Build a single action frame (verb + item + slot + target container).
+	private dmInventoryFrame MakeInventoryAction(dmInventoryDoing verb, ItemBase item, int slotId, EntityAI to)
+	{
+		dmInventoryFrame frame = new dmInventoryFrame();
+		frame.m_ToDo = verb;
+		frame.m_Item = item;
+		frame.m_SlotId = slotId;
+		frame.m_To = to;
+		return frame;
+	}
+
+	//! Цепочка переноса ВСЕГО карго из `from` в `to` (по предмету за фрейм; не влезло/уничтожен — на пол). Возвращает голову или null.
+	dmInventoryFrame InventoryMoveCargo(ItemBase from, ItemBase to)
+	{
+		CargoBase cargo = from.GetInventory().GetCargo();
+		if (!cargo)
+			return null;
+		dmInventoryFrame head = null;
+		int i;
+		for (i = cargo.GetItemCount() - 1; i >= 0; i--)
+		{
+			ItemBase item = ItemBase.Cast(cargo.GetItem(i));
+			if (!item)
+				continue;
+			dmInventoryFrame move = MakeInventoryAction(dmInventoryDoing.TAKEINTOCARGO, item, -1, to);
+			dmInventoryFrame drop = MakeInventoryAction(dmInventoryDoing.PLACEONGROUND, item, -1, null);
+			move.m_OnSuccess = head;
+			move.m_OnFail = drop;
+			drop.m_OnSuccess = head;
+			drop.m_OnFail = head;
+			head = move;
+		}
+		return head;
+	}
+
+	//! Сменить одежду: сбросить старую → надеть новую → перенести карго; при неудаче
+	//! надеть старую обратно. Ставит цепочку в очередь, возвращает корень (контроль IsAllDone).
+	dmInventoryFrame InventoryChangeClothes(ItemBase newItem)
+	{
+		if (!newItem)
+			return null;
+		array<string> slotNames = new array<string>();
+		newItem.ConfigGetTextArray("inventorySlot", slotNames);
+		if (slotNames.Count() == 0)
+			return null;
+		int slotId = InventorySlots.GetSlotIdFromString(slotNames[0]);
+		if (slotId == InventorySlots.INVALID)
+			return null;
+
+		ItemBase old = ItemBase.Cast(GetInventory().FindAttachment(slotId));
+
+		dmInventoryFrame moveCargo = null;
+		if (old)
+			moveCargo = InventoryMoveCargo(old, newItem);
+
+		dmInventoryFrame wearNew = MakeInventoryAction(dmInventoryDoing.ATTACHTOSLOT, newItem, slotId, null);
+		wearNew.m_OnSuccess = moveCargo;
+
+		dmInventoryFrame root;
+		if (old)
+		{
+			dmInventoryFrame wearBack = MakeInventoryAction(dmInventoryDoing.ATTACHTOSLOT, old, slotId, null);
+			wearNew.m_OnFail = wearBack;
+
+			dmInventoryFrame dropOld = MakeInventoryAction(dmInventoryDoing.PLACEONGROUND, old, -1, null);
+			dropOld.m_OnSuccess = wearNew;
+			dropOld.m_OnFail = null;
+			root = dropOld;
+		}
+		else
+		{
+			root = wearNew;
+		}
+
+		if (m_InventoryFrames)
+			m_InventoryFrames.Enqueue(root);
+		return root;
+	}
+
+	//! Подобрать предмет: одежда → InventoryChangeClothes; прочее → в карго рюкзака (Back). Возвращает корень или null.
+	dmInventoryFrame InventoryPickUp(ItemBase item)
+	{
+		if (!item)
+			return null;
+		if (item.IsClothing())
+			return InventoryChangeClothes(item);
+
+		EntityAI bag = GetInventory().FindAttachment(InventorySlots.GetSlotIdFromString("Back"));
+		if (!bag)
+			return null;
+
+		dmInventoryFrame frame = MakeInventoryAction(dmInventoryDoing.TAKEINTOCARGO, item, -1, bag);
+		if (m_InventoryFrames)
+			m_InventoryFrames.Enqueue(frame);
+		return frame;
 	}
 
 	//! Bind the custom head-look animation graph variables.
