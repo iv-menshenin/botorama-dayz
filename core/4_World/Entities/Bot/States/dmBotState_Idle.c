@@ -23,6 +23,11 @@ class dmBotState_Idle : dmBotState
 		m_TotalTimer = 0.0;
 		CreateScan();
 
+		//! В Idle привести режим огня к предпочтительному (если в руках оружие).
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(GetOwner().GetPawn());
+		if (pawn)
+			pawn.RefreshPreferredFireMode();
+
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Idle.entry");
 		#endif

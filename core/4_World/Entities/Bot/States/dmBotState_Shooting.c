@@ -86,6 +86,11 @@ class dmBotState_Shooting : dmBotState
 			return EXIT;
 		}
 
+		//! Если бот давно не стрелял (напр. цель вне досягаемости/нет LOS) —
+		//! перевыставить предпочтительный режим огня на оружии.
+		if (pawn.GetTimeSinceLastShot() > 10.0)
+			pawn.RefreshPreferredFireMode();
+
 		m_Elapsed += pDt;
 
 		if (!m_TargetEntity || !m_TargetEntity.IsAlive()) ResolveTarget();

@@ -130,6 +130,10 @@ class dmAISurvivorBase : PlayerBase
 	private bool m_FireRequest = false;
 	private float m_FireCooldown = 0.0;
 
+	//! Time (GetGame().GetTickTime()) of the last successful shot, for the
+	//! burst/auto series pacing and the proactive fire-mode refresh.
+	private float m_LastFireTime = 0.0;
+
 	void dmAISurvivorBase()
 	{
 		m_DesiredStance = DayZPlayerConstants.STANCEIDX_ERECT;
@@ -427,6 +431,7 @@ class dmAISurvivorBase : PlayerBase
 		origin = GetShotOrigin();
 		direction = GetAimWorldDirection();
 		CompensateBulletDrop(weapon, mi, origin, direction);
+		ApplyWeaponDispersion(weapon, mi, direction);
 		velocity = ComputeShotVelocity(weapon, mi, direction);
 	}
 
@@ -1244,6 +1249,7 @@ class dmAISurvivorBase : PlayerBase
 		}
 
 		wm.Fire(weapon);
+		m_LastFireTime = GetGame().GetTickTime();
 		ConsumeFireRequest();
 		m_FireCooldown = DM_BOT_FIRE_COOLDOWN;
 
@@ -1306,6 +1312,88 @@ class dmAISurvivorBase : PlayerBase
 				return modes[i];
 		}
 		return null;
+	}
+
+	//! Время (сек) с последнего выстрела.
+	float GetTimeSinceLastShot()
+	{
+		return GetGame().GetTickTime() - m_LastFireTime;
+	}
+
+	//! Текущий режим огня оружия (dmFireMode по индексу GetCurrentMode).
+	dmFireMode GetCurrentFireMode(Weapon_Base weapon)
+	{
+		int mi = weapon.GetCurrentMuzzle();
+		int modeIndex = weapon.GetCurrentMode(mi);
+		ref array<ref dmFireMode> modes = GetAvailableFireModes(weapon);
+		if (modeIndex >= 0 && modeIndex < modes.Count())
+			return modes[modeIndex];
+		return null;
+	}
+
+	//! Число выстрелов в серии для текущего режима: AUTO=random 3..12, BURST=m_Burst,
+	//! SINGLE/DOUBLE=1 (Double: оба ствола стреляет FSM WeaponFireMultiMuzzle за один вызов).
+	int ComputeQueuedShots(Weapon_Base weapon)
+	{
+		dmFireMode mode = GetCurrentFireMode(weapon);
+		if (!mode)
+			return 1;
+		if (mode.m_Type == dmFireModeType.AUTO)
+			return Math.RandomIntInclusive(3, 12);
+		if (mode.m_Type == dmFireModeType.BURST)
+			return mode.m_Burst;
+		return 1;
+	}
+
+	//! Предпочтительный режим для текущего оружия и цели (через мозг dmAISurvivor.Find).
+	dmFireMode GetPreferredFireMode()
+	{
+		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+		if (!weapon)
+			return null;
+		ref array<ref dmFireMode> modes = GetAvailableFireModes(weapon);
+		float distance = DM_AI_SHOT_MAX_DISTANCE;
+		dmAISurvivor brain = dmAISurvivor.Find(this);
+		if (brain)
+		{
+			dmTarget t = brain.GetHostileTarget();
+			if (t && t.m_Entity)
+			{
+				vector botPos = GetPosition();
+				vector tPos = t.m_Entity.GetPosition();
+				distance = vector.Distance(botPos, tPos);
+			}
+		}
+		return GetPreferredFireModeByDistance(distance, modes);
+	}
+
+	//! Перевыставить предпочтительный режим на оружии (если отличается от текущего).
+	void RefreshPreferredFireMode()
+	{
+		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+		if (!weapon)
+			return;
+		dmFireMode preferred = GetPreferredFireMode();
+		if (!preferred)
+			return;
+		if (weapon.GetCurrentMode(weapon.GetCurrentMuzzle()) != preferred.m_Index)
+			SetFireMode(weapon, preferred);
+	}
+
+	//! Оружейный разброс: случайный доворот направления в конусе полуугла dispersion
+	//! (rad). Кладётся СВЕРХУ личного разброса dmAiming.
+	void ApplyWeaponDispersion(Weapon_Base weapon, int mi, inout vector direction)
+	{
+		dmFireMode mode = GetCurrentFireMode(weapon);
+		if (!mode || mode.m_Dispersion <= 0.0)
+			return;
+		//! VectorToAngles/AnglesToVector работают в градусах, конфиг dispersion — в радианах.
+		float disp = mode.m_Dispersion * Math.RAD2DEG;
+		vector angles = direction.VectorToAngles();
+		angles[0] = angles[0] + Math.RandomFloat(-disp, disp);
+		angles[1] = angles[1] + Math.RandomFloat(-disp, disp);
+		direction = angles.AnglesToVector();
+		direction.Normalize();
 	}
 
 	//! Simplified server reload of the weapon in hands (see docs/research/combat.md

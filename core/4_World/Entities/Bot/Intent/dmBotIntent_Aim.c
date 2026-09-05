@@ -9,6 +9,7 @@ class dmBotIntent_Aim : dmBotIntent
 {
 	EntityAI m_TargetEntity;
 	float m_FireTimer = 0.0;
+	int m_QueuedShots = 0;
 
 	void dmBotIntent_Aim()
 	{
@@ -82,8 +83,16 @@ class dmBotIntent_Aim : dmBotIntent
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] BotIntent: Aim.RequestFire");
 			#endif
+			Weapon_Base weapon = bot.GetWeaponInHands();
+			if (m_QueuedShots <= 0 && weapon)
+				m_QueuedShots = pawn.ComputeQueuedShots(weapon);
 			pawn.RequestFire();
-			m_FireTimer = DM_BOT_FIRE_INTERVAL;
+			if (m_QueuedShots > 0)
+				m_QueuedShots = m_QueuedShots - 1;
+			if (m_QueuedShots > 0 && weapon)
+				m_FireTimer = weapon.GetReloadTime(weapon.GetCurrentMuzzle());
+			else
+				m_FireTimer = DM_BOT_FIRE_INTERVAL;
 		}
 	}
 }
