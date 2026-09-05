@@ -1492,6 +1492,23 @@ class dmAISurvivorBase : PlayerBase
 		return ok;
 	}
 
+	//! Перенести item в карго контейнера `to` (ручной ре-синк сети, как в TakeItem).
+	bool TakeIntoCargo(ItemBase item, EntityAI to)
+	{
+		if (!item || !to)
+			return false;
+		InventoryLocation src = new InventoryLocation();
+		if (!item.GetInventory().GetCurrentInventoryLocation(src))
+			return false;
+		InventoryLocation dst = new InventoryLocation();
+		if (!to.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, dst))
+			return false;
+		GetGame().RemoteObjectTreeDelete(item);
+		bool ok = LocalTakeToDst(src, dst);
+		GetGame().RemoteObjectTreeCreate(item);
+		return ok;
+	}
+
 	//! Drop an item from the bot's inventory onto the ground (server-side).
 	//! Returns true on success. The caller decides which item (GetDiscardOrder)
 	//! and marks it Ignore so it isn't re-picked up.

@@ -1,77 +1,139 @@
-class dmInventoryFrames
+enum dmInventoryDoing
 {
-    dmAISurvivorBase m_Pawn;
-
-    void dmInventoryFrames(dmAISurvivorBase pawn)
-    {
-        m_Pawn = pawn;
-    }
-
-    
-}
-
-enum dmInventoryDoing {
-    PLACEONGROUND,
-    ATTACHTOSLOT,
-    TAKEINTOCARGO,
-    PUTINTOHANDS
+	PLACEONGROUND = 0,
+	ATTACHTOSLOT,
+	TAKEINTOCARGO,
+	PUTINTOHANDS
 }
 
 class dmInventoryFrame
 {
-    ref dmInventoryFrame m_OnSuccess;
-    ref dmInventoryFrame m_OnFail;
+	bool m_Done = false;          // выполнялся ли (не важен результат)
+	dmInventoryDoing m_ToDo;      // глагол
+	ItemBase m_Item;              // предмет операции
+	int m_SlotId = -1;            // слот для ATTACHTOSLOT
+	EntityAI m_To;                // контейнер для TAKEINTOCARGO
 
-    dmInventoryDoing m_ToDo;
+	ref dmInventoryFrame m_OnSuccess;
+	ref dmInventoryFrame m_OnFail;
 
-    static dmInventoryFrame SuccessFail(dmInventoryFrame s, dmInventoryFrame f)
-    {
-        return new dmInventoryFrame(s, f);
-    }
+	//! Выполнить глагол через примитивы пешки. Ставит m_Done=true и возвращает успех.
+	bool Execute(dmAISurvivorBase pawn)
+	{
+		m_Done = true;
+		if (!m_Item)
+			return false;
+		switch (m_ToDo)
+		{
+		case dmInventoryDoing.PLACEONGROUND:
+			return pawn.DropItem(m_Item);
+		case dmInventoryDoing.ATTACHTOSLOT:
+			return pawn.TakeToAttachmentSlot(m_Item, m_SlotId);
+		case dmInventoryDoing.TAKEINTOCARGO:
+			return pawn.TakeIntoCargo(m_Item, m_To);
+		case dmInventoryDoing.PUTINTOHANDS:
+			return pawn.TakeToHands(m_Item);
+		}
+		return false;
+	}
 
-    static dmInventoryFrame SuccessOnly(dmInventoryFrame s)
-    {
-        return new dmInventoryFrame(s, null);
-    }
+	//! Следующий фрейм по результату выполнения.
+	dmInventoryFrame Next(bool success)
+	{
+		if (success)
+			return m_OnSuccess;
+		return m_OnFail;
+	}
 
-    static dmInventoryFrame FailOnly(dmInventoryFrame f)
-    {
-        return new dmInventoryFrame(null, f);
-    }
+	//! Готово ли ВСЁ дерево (выполненная ветка рекурсивно). ВАЖНО: листовой фрейм
+	//! (выполнен, веток нет) — готов.
+	bool IsAllDone()
+	{
+		if (!m_Done)
+			return false;
+		if (!m_OnSuccess && !m_OnFail)
+			return true;
+		if (m_OnSuccess && m_OnSuccess.IsAllDone())
+			return true;
+		if (m_OnFail && m_OnFail.IsAllDone())
+			return true;
+		return false;
+	}
 
-    static dmInventoryFrame EvenFail(dmInventoryFrame a)
-    {
-        return new dmInventoryFrame(a, a);
-    }
+	//! Фабрики построения цепочек.
+	static dmInventoryFrame SuccessFail(dmInventoryFrame s, dmInventoryFrame f)
+	{
+		dmInventoryFrame frame = new dmInventoryFrame();
+		frame.m_OnSuccess = s;
+		frame.m_OnFail = f;
+		return frame;
+	}
 
-    void dmInventoryFrame(dmInventoryFrame s, dmInventoryFrame f)
-    {
-        m_OnSuccess = s;
-        m_OnFail = f;
-    }
+	static dmInventoryFrame SuccessOnly(dmInventoryFrame s)
+	{
+		dmInventoryFrame frame = new dmInventoryFrame();
+		frame.m_OnSuccess = s;
+		return frame;
+	}
 
-    dmInventoryFrame DoNext()
-    {
-        if ( ExecuteCurrent() )
-        {
-            return m_OnSuccess;
-        }
-        return m_OnFail;
-    }
+	static dmInventoryFrame FailOnly(dmInventoryFrame f)
+	{
+		dmInventoryFrame frame = new dmInventoryFrame();
+		frame.m_OnFail = f;
+		return frame;
+	}
 
-    bool ExecuteCurrent()
-    {
-        switch( m_ToDo )
-        {
-        case dmInventoryDoing.PLACEONGROUND:
-            break;
-        case dmInventoryDoing.ATTACHTOSLOT:
-            break;
-        case dmInventoryDoing.TAKEINTOCARGO:
-            break;
-        case dmInventoryDoing.PUTINTOHANDS:
-            break;
-        }
-        return false;
-    }
+	//! Безусловный следующий (и при успехе, и при фейле).
+	static dmInventoryFrame Then(dmInventoryFrame a)
+	{
+		dmInventoryFrame frame = new dmInventoryFrame();
+		frame.m_OnSuccess = a;
+		frame.m_OnFail = a;
+		return frame;
+	}
+}
+
+class dmInventoryFrames
+{
+	dmAISurvivorBase m_Pawn;
+	ref array<ref dmInventoryFrame> m_Queue;
+
+	void dmInventoryFrames(dmAISurvivorBase pawn)
+	{
+		m_Pawn = pawn;
+		m_Queue = new array<ref dmInventoryFrame>();
+	}
+
+	//! Поставить цепочку (её корень) в очередь.
+	void Enqueue(dmInventoryFrame head)
+	{
+		if (head)
+			m_Queue.Insert(head);
+	}
+
+	//! Выполнить одну голову за тик: head.Execute(pawn) → head.Next(success);
+	//! если next != null — подменить голову, иначе — удалить (цепочка закончена).
+	void Tick()
+	{
+		if (m_Queue.Count() == 0)
+			return;
+		dmInventoryFrame head = m_Queue[0];
+		bool success = head.Execute(m_Pawn);
+		dmInventoryFrame next = head.Next(success);
+		if (next)
+			m_Queue[0] = next;
+		else
+			m_Queue.Remove(0);
+	}
+
+	//! Отменить все запланированные цепочки.
+	void Clear()
+	{
+		m_Queue.Clear();
+	}
+
+	bool IsEmpty()
+	{
+		return m_Queue.Count() == 0;
+	}
 }
