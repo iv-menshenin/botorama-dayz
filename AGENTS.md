@@ -4,6 +4,7 @@
 
 - `docs/codeguide.md` — синтаксис/движок Enfusion (готчи, чеклист).
 - `docs/combat.md` — архитектура системы боя (огнестрел): слои, направление пули, режимы, разброс, отдача, cooldown.
+- `docs/tester-guide.md` — руководство тестировщика: все команды чата (`/bot`, `/fsm`, `/test`, `/prof`, `/tp`).
 - `docs/plans/ai-development-plan.md` — дорожная карта задач ИИ (порядок + прогресс).
 - `docs/plans/fsm-implementation-plan.md` — план/история FSM (фазы, уроки).
 - `docs/research/*.md` — research-заметки по API (ведёт субагент `dayz-research`).
