@@ -1,11 +1,11 @@
 ---
 name: dayz-ai-bot
-description: Живой справочник по серверным ИИ-ботам для DayZ (мод botorama, префикс dm). Использовать при работе с dmAISurvivor/dmAISurvivorBase, FSM/интентами/состояниями ботов, спавном/синхронизацией, движением/поворотом головы и тела, pathfinding, инвентарём/loadout, боем/лутом. Содержит архитектуру, механики и DayZ-готчи; синтаксис Enfusion — в docs/codeguide.md.
+description: Живой справочник по ИИ-ботам для DayZ (мод botorama, префикс dm). Использовать при работе с dmAISurvivor/dmAISurvivorBase, FSM/интентами/состояниями ботов, спавном/синхронизацией, движением/поворотом головы и тела, pathfinding, инвентарём/loadout, боем/лутом. Содержит архитектуру, механики и DayZ-готчи; синтаксис Enfusion — в docs/codeguide.md.
 ---
 
 # DayZ AI Bot (botorama) — живой справочник
 
-Справочник по механике серверных ИИ-ботов DayZ (мод `botorama`, префикс `dm`).
+Справочник по механике ИИ-ботов DayZ (мод `botorama`, префикс `dm`).
 Синтаксис/движок Enfusion — в `docs/codeguide.md`. Research-заметки по API — в
 `docs/research/*.md`. Планы — в `docs/plans/`.
 
@@ -32,7 +32,7 @@ description: Живой справочник по серверным ИИ-бот
 - Клиент читает в `override void OnVariablesSynchronized()` под `#ifndef SERVER`.
 - `SetSynchDirty()` БЕЗ реального изменения значения — не сработает (надо менять поле).
 
-## Серверные хуки (что где бежит)
+## Сервер/клиент (что где бежит)
 
 - **Только сервер**: `MissionServer` (`OnInit`/`OnEvent` чат-команды/`OnUpdate` →
   `dmAISurvivor.TickAll`), мозг `dmAISurvivor`, FSM + интенты, pathfinding

@@ -1,4 +1,4 @@
-//! dmAISurvivor — server-side bot controller (Layer 0 + head look).
+//! dmAISurvivor — bot controller (Layer 0 + head look).
 //!
 //! The "brain" object is separate from the visual model (pawn). The pawn is a
 //! dmAISurvivorBase entity (client-server mod) created via GetGame().CreateObject

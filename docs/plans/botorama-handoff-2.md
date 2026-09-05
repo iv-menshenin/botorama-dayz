@@ -6,7 +6,7 @@
 
 ## Objective
 
-Building a server-side AI bot "engine" for DayZ (EnfusionScript), mod `botorama`
+Building an AI bot "engine" for DayZ (EnfusionScript), mod `botorama`
 (prefix `dm`). The bot spawns/syncs/looks/turns/moves; behaviour is driven by an
 FSM that commands atomic "intents" (look/move/turn). We are mid-implementation of
 the FSM↔intent wiring and the hybrid (cooperative + preemptive) transition model.

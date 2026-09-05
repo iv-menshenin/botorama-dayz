@@ -193,7 +193,7 @@ test/                       # тестовые команды/сценарии (
   (`DM_BOT_MODIFIER_TICK_INTERVAL` = 0.25 c, аккумулятор) — внутренние интервалы
   систем ≥ 0.35 c, чаще не нужно.
 - **Нокаут (мост команды)**: синк-джанктура `UnconsciousnessMdfr → SendSyncJuncture`
-  до server-only бота не доходит, а ванильный блок, который стартует команду, гейтится
+  до ИИ-бота не доходит, а ванильный блок, который стартует команду, гейтится
   на `m_ActionManager` (у `INSTANCETYPE_AI_SERVER` он `NULL`). Поэтому `m_ShouldBeUnconscious`
   ведём сами из `GetHealth("","Shock")` и **напрямую** зовём
   `StartCommand_Unconscious(0)` / `hcu.WakeUp(PRONE)` (граф анимаций поддерживает

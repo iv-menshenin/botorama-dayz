@@ -6,7 +6,7 @@
 
 ## Context / Objective
 
-We are building a server-side AI bot "engine" for DayZ (EnfusionScript). The mod is
+We are building an AI bot "engine" for DayZ (EnfusionScript). The mod is
 `botorama` (prefix `dm`), a separate DayZ mod. The bot can already **spawn, sync
 server→client, turn its head, and rotate its body with foot-stepping** — that part is
 DONE and confirmed working in-game.

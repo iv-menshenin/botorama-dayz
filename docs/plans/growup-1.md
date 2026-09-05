@@ -31,7 +31,7 @@
 - Подключение: `config.cpp` → `class enfAnimSys : enfAnimSys { graphName = "botorama\Animations\player_main.agr"; }` + `requiredAddons = {"DZ_Characters","DZ_Anims_Anm_Player","DZ_Anims_Cfg"}`.
 - В `$Files` подграфы указываются своим путём (`botorama/Animations/Locomotion.agr`), остальные — ванильным.
 
-## Важные факты про серверные хуки
+## Важные факты про сервер/клиент (хуки)
 - Для AI_REMOTE (клиент) ВСЁ, что относится к анимации, бежит ТОЛЬКО на сервере: `CommandHandler`, `HeadingModel`, `AimingModel`, `HumanCommandScript`. Клиент лишь проигрывает синхронизированную анимацию.
 - Единственный клиентский хук — `OnVariablesSynchronized` (сеть). `AnimSet*` оттуда НЕ работают ("usable only from CommandHandler").
 - Поэтому всё анимационное управление делаем на сервере в `CommandHandler`, а на клиент уезжает результат (переменные).
