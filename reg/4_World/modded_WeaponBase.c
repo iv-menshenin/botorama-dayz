@@ -25,8 +25,9 @@ modded class Weapon_Base
 	}
 
 	//! Fire one shot with the EXPLICIT aim direction (magic 100%): the bullet is
-	//! spawned from the neck bone toward dmAISurvivorBase.GetWeaponAimDirection(),
-	//! bypassing the vanilla GetCameraPoint (which an AI bot never drives).
+	//! spawned from the neck bone toward dmAISurvivorBase's stored world aim
+	//! direction (ComputeShot: aim + bullet-drop compensation), bypassing the
+	//! vanilla GetCameraPoint (which an AI bot never drives).
 	//! Server-only: on the client the weapon FSM still runs for the AI_REMOTE pawn
 	//! and must fall back to the vanilla TryFireWeapon so the muzzle flash/sound
 	//! (enabled by our SyncEventToRemote override) keeps playing.
@@ -36,17 +37,15 @@ modded class Weapon_Base
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(GetHierarchyParent());
 		if (!pawn)
 			return false;
-		int neck = pawn.GetBoneIndexByName("neck");
-		if (neck < 0)
-			return false;
-		vector pos = pawn.GetBonePositionWS(neck);
-		vector dir = pawn.GetWeaponAimDirection();
-		pos = pos + dir * 0.2;
-		bool fired = Fire(muzzleIndex, pos, dir, dir);
+		vector origin;
+		vector direction;
+		vector velocity;
+		pawn.ComputeShot(this, muzzleIndex, origin, direction, velocity);
+		vector pos = origin + direction * 0.2;
+		bool fired = Fire(muzzleIndex, pos, direction, velocity);
 		if (fired)
 		{
-			float recoilPitch = pawn.GetAiming().AddRecoil(DM_AIM_RECOIL_MODIFIER);
-			pawn.KickRecoilVisual(recoilPitch);
+			pawn.ApplyRecoil(this);
 			vector ownerPos = pawn.GetPosition();
 			dmNoiseSystem.AddNoise(pawn, ownerPos, DM_NOISE_GUNSHOT_STRENGTH);
 		}
@@ -58,8 +57,8 @@ modded class Weapon_Base
 
 	//! Publish a gunshot noise after a successful shot for the VANILLA shooter path.
 	//! The AI bot's own shot already emits noise inside dmBot_Fire (server branch),
-	//! so this override skips AI owners to avoid a double noise (dmBot_Fire + the
-	//! vanilla TryFireWeapon that WeaponFire.OnEntry also runs via super.OnEntry).
+	//! so this override skips AI owners to avoid a double noise (dmBot_Fire's
+	//! AddNoise + this AddNoise).
 	override void OnFire(int muzzle_index)
 	{
 		super.OnFire(muzzle_index);

@@ -51,6 +51,11 @@ class dmAISurvivorBase : PlayerBase
 	private float m_AimRelAngleLR = 0.0;
 	private float m_AimRelAngleUD = 0.0;
 
+	//! World-space aim direction (normalized), stored directly by SetAimDirection
+	//! and read by ComputeShot. Kept authoritative instead of being reconstructed
+	//! from body yaw + relative angles (the body may have turned since then).
+	private vector m_AimWorldDirection;
+
 	//! Smoothed copy of m_AimRelAngleLR/UD, pushed to the animation graph so the
 	//! barrel rotates smoothly. The raw angles stay authoritative for
 	//! GetWeaponAimDirection() (the actual shot direction).
@@ -311,10 +316,14 @@ class dmAISurvivorBase : PlayerBase
 	{
 		if (worldDir.Length() < 0.01)
 		{
+			m_AimWorldDirection = vector.Zero;
 			m_AimRelAngleLR = 0.0;
 			m_AimRelAngleUD = 0.0;
 			return;
 		}
+
+		worldDir.Normalize();
+		m_AimWorldDirection = worldDir;
 
 		vector angles = worldDir.VectorToAngles();
 		float bodyYaw = GetOrientation()[0];
@@ -380,10 +389,104 @@ class dmAISurvivorBase : PlayerBase
 		return angles.AnglesToVector();
 	}
 
+	//! Current world-space aim direction (from dmAiming). Stored directly, not
+	//! reconstructed from body yaw + relative angle (the body may have turned).
+	vector GetAimWorldDirection()
+	{
+		return m_AimWorldDirection;
+	}
+
 	//! The shooting accuracy model (used by the fire path in Phase 3).
 	dmAiming GetAiming()
 	{
 		return m_Aiming;
+	}
+
+	//! Bullet spawn point: the neck bone; fallback to the feet + eye height.
+	vector GetShotOrigin()
+	{
+		vector origin = GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
+		int neck = GetBoneIndexByName("neck");
+		if (neck >= 0)
+			origin = GetBonePositionWS(neck);
+		return origin;
+	}
+
+	//! Bullet velocity as a VECTOR. The engine takes the speed magnitude from the
+	//! CfgAmmo initSpeed, so we return the direction; placeholder for future speed
+	//! influence.
+	vector ComputeShotVelocity(Weapon_Base weapon, int mi, vector direction)
+	{
+		return direction;
+	}
+
+	//! Full shot computation: spawn point + direction (aim + bullet-drop
+	//! compensation) + velocity.
+	void ComputeShot(Weapon_Base weapon, int mi, out vector origin, out vector direction, out vector velocity)
+	{
+		origin = GetShotOrigin();
+		direction = GetAimWorldDirection();
+		CompensateBulletDrop(weapon, mi, origin, direction);
+		velocity = ComputeShotVelocity(weapon, mi, direction);
+	}
+
+	//! Recoil strength (fixed for now; later derived from the weapon config).
+	float ComputeRecoilModifier(Weapon_Base weapon)
+	{
+		return DM_AIM_RECOIL_MODIFIER;
+	}
+
+	//! Apply recoil to the aiming model (reusable — call from anywhere).
+	void ApplyRecoil(Weapon_Base weapon)
+	{
+		float pitch = GetAiming().AddRecoil(ComputeRecoilModifier(weapon));
+		KickRecoilVisual(pitch);
+	}
+
+	//! Compensate bullet drop: raycast along the aim direction -> distance -> flight
+	//! time (initSpeed from CfgAmmo) -> drop = 0.5*g*t^2 -> tilt the direction up.
+	void CompensateBulletDrop(Weapon_Base weapon, int mi, vector origin, inout vector direction)
+	{
+		vector end = origin + direction * DM_AI_SHOT_MAX_DISTANCE;
+		vector hitPosition;
+		vector hitNormal;
+		int contactComponent;
+		if (!DayZPhysics.RaycastRV(origin, end, hitPosition, hitNormal, contactComponent, null, null, this, false, false, ObjIntersectFire, 0.01))
+			return;
+		float distance = vector.Distance(origin, hitPosition);
+		float travelTime = ComputeBulletTravelTime(weapon, mi, distance);
+		float drop = 0.5 * DM_AI_GRAVITY * travelTime * travelTime;
+		if (drop > 0.1)
+		{
+			vector projected = origin + direction * distance;
+			projected[1] = projected[1] + drop * 0.8;
+			vector newDir = vector.Direction(origin, projected);
+			newDir.Normalize();
+			direction = newDir;
+		}
+	}
+
+	//! Bullet flight time to a distance (simplified: distance / initSpeed; air
+	//! resistance ignored — initSpeed from CfgAmmo <bullet> initSpeed).
+	float ComputeBulletTravelTime(Weapon_Base weapon, int mi, float distance)
+	{
+		float initSpeed = GetAmmoInitSpeed(weapon, mi);
+		if (initSpeed <= 0.0)
+			initSpeed = DM_AI_DEFAULT_INIT_SPEED;
+		return distance / initSpeed;
+	}
+
+	//! initSpeed of the chambered cartridge: CfgMagazines <ammoMagazine> ammo ->
+	//! CfgAmmo <bullet> initSpeed.
+	float GetAmmoInitSpeed(Weapon_Base weapon, int mi)
+	{
+		string ammoMag = weapon.GetChamberedCartridgeMagazineTypeName(mi);
+		if (ammoMag == "")
+			return 0.0;
+		string bullet;
+		if (!g_Game.ConfigGetText(CFG_MAGAZINESPATH + " " + ammoMag + " ammo", bullet))
+			return 0.0;
+		return g_Game.ConfigGetFloat(CFG_AMMO + " " + bullet + " initSpeed");
 	}
 
 	//! Push the aim angles into the graph. Runs before super. The values written

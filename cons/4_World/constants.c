@@ -404,6 +404,15 @@ static const float DM_AIM_RECOIL_MODIFIER = 1.0;
 //! Aiming recoil: recovery rate (degrees per second) — how fast the barrel lowers.
 static const float DM_AIM_RECOIL_RECOVERY = 5.0;
 
+//! Shot: max hitscan distance (meters) for bullet-drop compensation.
+static const float DM_AI_SHOT_MAX_DISTANCE = 1200.0;
+
+//! Shot: gravity (m/s^2) used for bullet-drop compensation.
+static const float DM_AI_GRAVITY = 9.81;
+
+//! Shot: fallback muzzle velocity (m/s) when the ammo initSpeed can't be read.
+static const float DM_AI_DEFAULT_INIT_SPEED = 800.0;
+
 //! Vertical navigation: fall height (meters) below which a drop is safe (matches
 //! DayZPlayerImplementFallDamage.HEALTH_HEIGHT_LOW).
 static const float DM_BOT_FALL_HEIGHT_LOW = 5.0;
