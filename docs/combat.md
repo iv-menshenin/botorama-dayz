@@ -1,0 +1,69 @@
+# Система боя (огнестрел)
+
+Архитектура и ключевые решения стрельбы бота. Исследование API — `docs/research/combat.md`,
+дизайн точности (`dmAiming`) — `docs/plans/aiming-design.md`.
+
+## Слои (строгое разделение)
+
+- **Логика** — `dmAISurvivorBase` (пешка): все параметры выстрела (точка / направление /
+  скорость / отдача) и выбор режима огня. Методы переиспользуемы, с явными параметрами.
+- **Низкий уровень** — `modded class Weapon_Base` (`reg/4_World/`): только нативный
+  `Fire(mi, pos, dir, speed)` и `SetCurrentMode`. Никакой игровой логики.
+- **Хук** — `modded class WeaponFire*` (`reg/4_World/`): детект ИИ-стрелка → `dmBot_Fire`
+  + `ApplyRecoil`; ванильный muzzle-fire (`TryFireWeapon`) не вызывается.
+
+Вся логика в пешке — будущие модификаторы (скиллы / баффы / состояние) вешаются в одном
+месте, а не растаскиваются по слоям.
+
+## Направление пули
+
+- `dmAiming` считает ЛИЧНЫЙ разброс бота (движение/угол цели, трекинг, здоровье) → `m_AimDirection`.
+- Пешка хранит world-направление **напрямую** (`m_AimWorldDirection`, сетится там же, где
+  берётся `m_AimDirection`), а не реконструирует из bodyYaw + относительного угла (корпус
+  успевает довернуться между прицелом и выстрелом).
+- `ComputeShot(...)` → точка вылета (neck) + направление (aim + drop-компенсация +
+  оружейный dispersion) + скорость.
+- `dmBot_Fire` → `ComputeShot` + нативный `Fire(mi, pos, dir, velocity)`. Величину скорости
+  движок берёт из `CfgAmmo initSpeed`; в `speed` передаётся только направление.
+
+## Разброс — двухуровневый
+
+1. **Личный** (`dmAiming`) — качество стрелка (бота).
+2. **Оружейный** (`dispersion` из конфига режима) — качество оружия, добавляется **поверх**
+   в `ComputeShot` (`ApplyWeaponDispersion`). Нативный `Fire` оружейный разброс не добавляет.
+
+## Режим огня
+
+- Режимы читаются из конфига оружия (`modes[]` + burst/dispersion/reloadTime) и кэшируются
+  (`dmWeaponFireInfo` / `dmFireMode`).
+- **Выбор зависит от дистанции** до цели: `GetPreferredFireModeByDistance(distance,
+  availableModes)` возвращает предпочтительный режим.
+- **Применяется в `SetFireMode`** (→ `SetCurrentMode`), то есть ставится **на оружие**, а не
+  закрепляется за ботом. При выстреле используется режим, выставленный на оружии
+  (`GetCurrentMode` / `GetCurrentModeBurstSize`), без обращения к пешке.
+- Установка **проактивна**: в Idle — при входе; в Shooting — если бот долго не стрелял
+  (цепочка `GetPreferredFireMode` → `SetFireMode`).
+- Серия (Burst/Auto) — интент `Aim` очередит выстрелы (интервал `reloadTime`); Double —
+  оба ствола за один вызов (`WeaponFireMultiMuzzle`).
+
+## Отдача
+
+- Сила считается в пешке (`ComputeRecoilModifier`), применяется к `dmAiming`
+  (`ApplyRecoil` → `AddRecoil` + визуальный кик). Переиспользуемо — вызывается из любого места.
+
+## Падение пули
+
+- `CompensateBulletDrop`: рейкаст вдоль aim → дистанция → время полёта (из `initSpeed`) →
+  drop → доворот направления вверх.
+
+## Перезарядка
+
+- `ReloadWeaponAI`: unjam → eject → chamber-load (break-action) → attach/swap магазина.
+- Автоперезарядка при пустом стволе: `SelectFirearmForRange` зовёт `ReloadWeaponAI`, если
+  заряженного огнестрела нет.
+
+## Cooldown повторного входа (FSM)
+
+- `dmBotState.m_CooldownGameTime` + `CanEnter()`: состояние, из которого бот вышел по
+  «не могу стрелять» (нет ствола / нет патронов и перезарядиться нечем), ставит cooldown;
+  FSM не пускает обратно, пока cooldown не истёк. Убирает осцилляцию `Shooting ↔ Idle`.
