@@ -361,7 +361,37 @@ class dmAISurvivorBase : PlayerBase
 	//! Whether the weapon is fully ready to fire (all readiness timings elapsed).
 	bool IsReadyToShoot()
 	{
-		return m_WeaponRaised && m_WeaponRaisedTimer >= m_RaiseReadyDuration;
+		if ( m_WeaponRaised && m_WeaponRaisedTimer >= m_RaiseReadyDuration )
+		{
+			Weapon_Base wpn = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+			if (!wpn) return false;
+
+			int mi = wpn.GetCurrentMuzzle();
+			if (wpn.IsChamberFiredOut(mi) || wpn.IsJammed() || wpn.IsChamberEmpty(mi))
+			{
+				#ifdef DM_WEAPON_DEBUG_FSM
+				dmBotLog.Debug("[Weapon] IsReadyToShoot: IsChamberFiredOut=" + wpn.IsChamberFiredOut(mi) + " IsJammed=" + wpn.IsJammed() + " IsChamberEmpty=" + wpn.IsChamberEmpty(mi));
+				#endif
+				return false;
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+
+	bool CheckNeedsChamber(Weapon_Base wpn, int mi)
+	{
+		if ( !wpn.IsChamberFiredOut(mi) && !wpn.IsJammed() && wpn.IsChamberEmpty(mi) )
+		{
+			Magazine mag = wpn.GetMagazine(mi);
+			if (mag)
+				return mag.GetAmmoCount() > 0;
+
+			return wpn.GetInternalMagazineCartridgeCount(mi) > 0;
+		}
+		return false;
 	}
 
 	//! Whether the weapon is currently raised (override of the vanilla flag).
@@ -538,6 +568,7 @@ class dmAISurvivorBase : PlayerBase
 	{
 		origin = GetShotOrigin();
 		direction = GetAimWorldDirection();
+		ApplyPersonalDispersion(direction);
 		CompensateBulletDrop(weapon, mi, origin, direction);
 		ApplyWeaponDispersion(weapon, mi, direction);
 		velocity = ComputeShotVelocity(weapon, mi, direction);
@@ -865,7 +896,7 @@ class dmAISurvivorBase : PlayerBase
 		if ( z )
 		{
 			m_ProcessindDMG = true;
-			ProcessDirectDamage(damageType, source, dmgZone, ammo, modelPos, 0.5);
+			ProcessDirectDamage(damageType, source, dmgZone, ammo, modelPos, speedCoef);
 			m_ProcessindDMG = false;
 			return false;
 		}
@@ -1488,6 +1519,22 @@ class dmAISurvivorBase : PlayerBase
 			SetFireMode(weapon, preferred);
 	}
 
+	//! Личный разброс стрелка (dmAiming) — случайный доворот направления на выстрел.
+	void ApplyPersonalDispersion(inout vector direction)
+	{
+		if (!m_Aiming)
+			return;
+		float angLR;
+		float angUD;
+		if (!m_Aiming.GetShotDispersion(angLR, angUD))
+			return;
+		vector angles = direction.VectorToAngles();
+		angles[0] = angles[0] + angLR * Math.RAD2DEG;
+		angles[1] = angles[1] + angUD * Math.RAD2DEG;
+		direction = angles.AnglesToVector();
+		direction.Normalize();
+	}
+
 	//! Оружейный разброс: случайный доворот направления в конусе полуугла dispersion
 	//! (rad). Кладётся СВЕРХУ личного разброса dmAiming.
 	void ApplyWeaponDispersion(Weapon_Base weapon, int mi, inout vector direction)
@@ -1508,6 +1555,7 @@ class dmAISurvivorBase : PlayerBase
 	//! "Перезарядка"): unjam > eject a chambered-out bullet > attach/swap a
 	//! non-empty magazine from the inventory. Ammo-pile/bullet-per-bullet loading
 	//! is not handled yet (later pass).
+	//! TODO: возвращать кол-о секунд необходимое для выполенния действия, чтобы на вызывающей стороне ставить правильный кулдаун
 	bool ReloadWeaponAI()
 	{
 		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
@@ -1524,8 +1572,8 @@ class dmAISurvivorBase : PlayerBase
 		{
 			wm.Unjam();
 
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Bot] ReloadWeaponAI: unjam weapon=" + weapon);
+			#ifdef DM_WEAPON_DEBUG_FSM
+			dmBotLog.Debug("[Weapon] ReloadWeaponAI: unjam weapon=" + weapon);
 			#endif
 			return true;
 		}
@@ -1535,8 +1583,8 @@ class dmAISurvivorBase : PlayerBase
 		{
 			wm.EjectBullet();
 
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Bot] ReloadWeaponAI: eject bullet weapon=" + weapon);
+			#ifdef DM_WEAPON_DEBUG_FSM
+			dmBotLog.Debug("[Weapon] ReloadWeaponAI: eject bullet weapon=" + weapon);
 			#endif
 			return true;
 		}
@@ -1549,24 +1597,32 @@ class dmAISurvivorBase : PlayerBase
 			{
 				wm.LoadMultiBullet(pile);
 
-				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[Bot] ReloadWeaponAI: chamber-load pile=" + pile + " weapon=" + weapon);
+				#ifdef DM_WEAPON_DEBUG_FSM
+				dmBotLog.Debug("[Weapon] ReloadWeaponAI: chamber-load pile=" + pile + " weapon=" + weapon);
 				#endif
 				return true;
 			}
 
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Bot] ReloadWeaponAI: no suitable magazine weapon=" + weapon);
+			#ifdef DM_WEAPON_DEBUG_FSM
+			dmBotLog.Debug("[Weapon] ReloadWeaponAI: no suitable magazine weapon=" + weapon);
 			#endif
 			return false;
 		}
-
-		if (wm.CanAttachMagazine(weapon, mag))
+		
+		if ( CheckNeedsChamber(weapon, mi) )
+		{
+			wm.EjectBullet();
+			#ifdef DM_WEAPON_DEBUG_FSM
+			dmBotLog.Debug("[Weapon] ReloadWeaponAI: calling EjectBullet");
+			#endif
+			return true;
+		}
+		else if (wm.CanAttachMagazine(weapon, mag))
 		{
 			wm.AttachMagazine(mag);
 
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Bot] ReloadWeaponAI: attach mag=" + mag + " weapon=" + weapon);
+			#ifdef DM_WEAPON_DEBUG_FSM
+			dmBotLog.Debug("[Weapon] ReloadWeaponAI: attach mag=" + mag + " weapon=" + weapon);
 			#endif
 			return true;
 		}
@@ -1574,8 +1630,8 @@ class dmAISurvivorBase : PlayerBase
 		{
 			wm.SwapMagazine(mag);
 
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Bot] ReloadWeaponAI: swap mag=" + mag + " weapon=" + weapon);
+			#ifdef DM_WEAPON_DEBUG_FSM
+			dmBotLog.Debug("[Weapon] ReloadWeaponAI: swap mag=" + mag + " weapon=" + weapon);
 			#endif
 			return true;
 		}

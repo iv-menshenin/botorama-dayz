@@ -29,6 +29,8 @@
 //!   DM_BOT_DEBUG_PATHFINDER — pathfinding (moving to goal)
 //!   DM_BOT_DEBUG_PERFRAME_MOVING_LOG — per-frame movement speed/angle (ApplyMovement).
 //!
+//!   DM_WEAPON_DEBUG_FSM - debug weapon FSM events
+//!
 //! TRACE — per-frame, verbose:
 //!   DM_BOT_TRACE_LOOK — head look steering (LookAtPoint, UpdateLook).
 //!

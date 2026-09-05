@@ -72,12 +72,6 @@ class dmBotState_Fighting : dmBotState
 		if (!m_TargetEntity)
 			return EXIT;
 
-		//! Tick the strike cooldown (bot-level, read by HitTo/Evasion).
-		float cd = bot.GetMeleeCooldown() - pDt;
-		if (cd < 0.0)
-			cd = 0.0;
-		bot.SetMeleeCooldown(cd);
-
 		vector botPos = bot.GetPosition();
 		vector tPos = m_TargetEntity.GetPosition();
 		vector d = tPos - botPos;

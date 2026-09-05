@@ -50,7 +50,7 @@ class dmBotIntent_TidyInventory : dmBotIntent
 		}
 
 		//! 2) Reload the weapon in hands when it has run dry. Reuses ReloadWeaponAI.
-		if (bot.GetWeaponInHands() && bot.HasNoAmmo())
+		if (bot.GetWeaponInHands() && (bot.HasNoAmmo() || bot.CheckNeedsChamber()))
 		{
 			if (pawn.ReloadWeaponAI())
 			{

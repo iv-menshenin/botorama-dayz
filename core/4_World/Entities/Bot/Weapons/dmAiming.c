@@ -28,6 +28,13 @@ class dmAiming
 	//! Recoil pitch offset (degrees, positive = up). Kicks on shot, decays in Update.
 	private float m_RecoilPitch = 0.0;
 
+	//! Детерминированная точность (hitProbability), дистанция до точки прицела и
+	//! угловая скорость цели, сохранённые из Update() для per-shot разброса в
+	//! GetShotDispersion().
+	private float m_HitProbability = 1.0;
+	private float m_Dist = 0.0;
+	private float m_TargetSpeedMult = 0.0;
+
 	void dmAiming(dmAISurvivorBase unit)
 	{
 		m_Unit = unit;
@@ -62,6 +69,49 @@ class dmAiming
 		return m_RecoilPitch;
 	}
 
+	//! Случайный линейный разброс (в ширинах силуэта) на основе сохранённой hitProbability.
+	void RollDeviation(out float deviationLR, out float deviationUD)
+	{
+		float hp = m_HitProbability;
+		if (hp < 0.01)
+			hp = 0.01;
+		float rollUD = Math.RandomFloat(0.0, 1.0);
+		float rollLR = Math.RandomFloat(0.0, 2.0) - 1.0;
+		if (rollLR <= hp)
+			deviationLR = Math.Lerp(0.0, 0.25, rollLR / hp);
+		else
+			deviationLR = Math.Lerp(0.25, 1.0, (rollLR - hp) / (1.0 - hp));
+		if (rollUD <= hp)
+			deviationUD = Math.Lerp(0.0, 0.9, rollUD / hp);
+		else
+			deviationUD = Math.Lerp(0.9, 2.0, (rollUD - hp) / (1.0 - hp));
+		if (Math.RandomIntInclusive(0, 1))
+			deviationLR = -deviationLR;
+		if (Math.RandomIntInclusive(0, 1))
+			deviationUD = -deviationUD;
+	}
+
+	//! Per-shot личный разброс (угловой, радианы) для текущей цели. Возвращает false
+	//! для не-человеческой цели (зомби/животное = 100% попадание, без разброса).
+	bool GetShotDispersion(out float angLR, out float angUD)
+	{
+		angLR = 0.0;
+		angUD = 0.0;
+		if (!m_Target || !m_Target.m_Entity || !m_Target.m_Entity.IsAlive())
+			return false;
+		if (ZombieBase.Cast(m_Target.m_Entity) || AnimalBase.Cast(m_Target.m_Entity))
+			return false;
+		float devLR;
+		float devUD;
+		RollDeviation(devLR, devUD);
+		float dist = m_Dist;
+		if (dist < 0.01)
+			dist = 0.01;
+		angLR = (devLR / dist) * (1.0 + m_TargetSpeedMult);
+		angUD = (devUD / dist) * (0.5 + m_TargetSpeedMult);
+		return true;
+	}
+
 	void Update(float pDt)
 	{
 		EntityAI targetEntity;
@@ -86,6 +136,10 @@ class dmAiming
 		ItemOptics optics;
 		float zoomMin;
 		float zoomMax;
+		float visibility;
+		float hitProbability;
+		float distFactor;
+		float farFactor;
 		float targetSpeedMult;
 		vector targetVelocity;
 		vector dirNorm;
@@ -93,14 +147,6 @@ class dmAiming
 		vector vTangential;
 		float vCross;
 		float angularSpeed;
-		float visibility;
-		float hitProbability;
-		float distFactor;
-		float farFactor;
-		float rollUD;
-		float rollLR;
-		float deviationLR;
-		float deviationUD;
 		vector aimOrientation;
 
 		//! Recoil recovery: the barrel lowers back over time.
@@ -211,25 +257,24 @@ class dmAiming
 			}
 		}
 
-		//! Influence of the target's angular velocity on accuracy.
+		accuracyMin = Math.Clamp(accuracyMin, 0.1, 1.0);
+		accuracyMax = Math.Clamp(accuracyMax, 0.1, 1.0);
+
+		//! Influence of the target's angular velocity on accuracy (deterministic,
+		//! stored and applied per-shot in GetShotDispersion).
 		targetSpeedMult = 0.0;
 		if (Class.CastTo(targetPlayer, targetEntity))
 		{
 			targetPlayer.PhysicsGetVelocity(targetVelocity);
 			dirNorm = direction.Normalized();
-			//! Radial component (along the line of sight).
 			vRadial = vector.Dot(targetVelocity, dirNorm);
-			//! Tangential vector.
 			vTangential = targetVelocity - dirNorm * vRadial;
-			//! Magnitude of the tangential velocity.
 			vCross = vTangential.Length();
-			//! Target angular velocity (rad/s at distance dist).
 			angularSpeed = vCross / dist;
 			targetSpeedMult = angularSpeed;
 		}
+		m_TargetSpeedMult = targetSpeedMult;
 
-		accuracyMin = Math.Clamp(accuracyMin, 0.1, 1.0);
-		accuracyMax = Math.Clamp(accuracyMax, 0.1, 1.0);
 		visibility = 1.0;
 		if (dist <= DM_AIM_MAX_ACCURACY_DIST)
 		{
@@ -242,30 +287,8 @@ class dmAiming
 			hitProbability = Math.Lerp(accuracyMin, 0.01, farFactor * farFactor) * visibility;
 		}
 
-		rollUD = Math.RandomFloat(0.0, 1.0);
-		rollLR = Math.RandomFloat(0.0, 2.0) - 1.0;
-
-		//! Horizontal deviation.
-		if (rollLR <= hitProbability)
-			deviationLR = Math.Lerp(0.0, 0.25, rollLR / hitProbability);
-		else
-			deviationLR = Math.Lerp(0.25, 1.0, (rollLR - hitProbability) / (1.0 - hitProbability));
-
-		//! Vertical deviation.
-		if (rollUD <= hitProbability)
-			deviationUD = Math.Lerp(0.0, 0.9, rollUD / hitProbability);
-		else
-			deviationUD = Math.Lerp(0.9, 2.0, (rollUD - hitProbability) / (1.0 - hitProbability));
-
-		//! Random sign.
-		if (Math.RandomIntInclusive(0, 1))
-			deviationLR = -deviationLR;
-		if (Math.RandomIntInclusive(0, 1))
-			deviationUD = -deviationUD;
-
-		//! Accuracy influenced by target movement speed and angle.
-		aimOrientation[0] = aimOrientation[0] + (deviationLR / dist) * Math.RAD2DEG * (1.0 + targetSpeedMult);
-		aimOrientation[1] = aimOrientation[1] + (deviationUD / dist) * Math.RAD2DEG * (0.5 + targetSpeedMult);
+		m_Dist = dist;
+		m_HitProbability = hitProbability;
 
 		direction = aimOrientation.AnglesToVector().Multiply3(transform);
 		direction.Normalize();

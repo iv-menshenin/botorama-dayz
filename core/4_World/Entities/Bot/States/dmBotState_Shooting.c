@@ -12,10 +12,16 @@ class dmBotState_Shooting : dmBotState
 {
 	EntityAI m_TargetEntity;
 	ref dmTarget m_Target;
+
 	ref dmBotIntent_Aim m_Aim;
+	ref dmBotIntent_HitTo m_HitTo;
+	ref dmBotIntent_HoldLook m_Look;
+
 	float m_RetargetTimer;
 	float m_Elapsed;
 	bool m_NoFirearm;
+
+	const float HIT_BUTTSTCK_RANGE = 1.5;
 
 	override dmBotStateKind GetKind()
 	{
@@ -86,6 +92,17 @@ class dmBotState_Shooting : dmBotState
 			return EXIT;
 		}
 
+		EnsureLook();
+		EnsureHitTo(bot);
+
+		vector botPos = bot.GetPosition();
+		vector tPos = m_TargetEntity.GetPosition();
+		vector d = tPos - botPos;
+		d[1] = 0.0;
+		float dist = d.Length();
+		m_HitTo.m_Active = (dist <= HIT_BUTTSTCK_RANGE);
+		m_Look.m_Active = (dist <= HIT_BUTTSTCK_RANGE);
+
 		//! Если бот давно не стрелял (напр. цель вне досягаемости/нет LOS) —
 		//! перевыставить предпочтительный режим огня на оружии.
 		if (pawn.GetTimeSinceLastShot() > 10.0)
@@ -105,7 +122,7 @@ class dmBotState_Shooting : dmBotState
 		if (!m_TargetEntity)
 			return EXIT;
 
-		if (bot.HasNoAmmo())
+		if ((bot.HasNoAmmo() || bot.CheckNeedsChamber()) && dist > HIT_BUTTSTCK_RANGE)
 		{
 			if (!pawn.ReloadWeaponAI())
 			{
@@ -115,10 +132,14 @@ class dmBotState_Shooting : dmBotState
 			return CONTINUE;
 		}
 
-		pawn.SetAimMode(SelectAimMode());
-		pawn.RaiseWeapon(true);
-
-		EnsureAim(bot);
+		if ( dist > HIT_BUTTSTCK_RANGE )
+		{
+			pawn.SetAimMode(SelectAimMode());
+			pawn.RaiseWeapon(true);
+			EnsureAim(bot);
+		} else {
+			pawn.RaiseWeapon(false);
+		}
 
 		return CONTINUE;
 	}
@@ -129,8 +150,9 @@ class dmBotState_Shooting : dmBotState
 		dmBotLog.Debug("[FSM] Shooting.exit");
 		#endif
 
-		if (m_Aim)
-			m_Aim.Finish();
+		if ( m_HitTo ) m_HitTo.Finish();
+		if (m_Aim) m_Aim.Finish();
+		if ( m_Look ) m_Look.Finish();
 
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(GetOwner().GetPawn());
 		if (pawn)
@@ -177,6 +199,8 @@ class dmBotState_Shooting : dmBotState
 		if (newEntity != m_TargetEntity)
 		{
 			if (m_Aim) { m_Aim.Finish(); m_Aim = null; }
+			if (m_HitTo) { m_HitTo.Finish(); m_HitTo = null; }
+			if (m_Look) { m_Look.Finish(); m_Look = null; }
 			m_Elapsed = 0.0;
 			m_RetargetTimer = 0.0;
 
@@ -187,5 +211,35 @@ class dmBotState_Shooting : dmBotState
 
 		m_Target = t;
 		m_TargetEntity = newEntity;
+	}
+
+	void EnsureHitTo(dmAISurvivor bot)
+	{
+		if (m_HitTo && (m_HitTo.IsFinished() || m_HitTo.IsExpired()))
+			m_HitTo = null;
+		if (!m_HitTo)
+		{
+			m_HitTo = new dmBotIntent_HitTo();
+			m_HitTo.m_TargetEntity = m_TargetEntity;
+			m_HitTo.m_ReachDistance = HIT_BUTTSTCK_RANGE;
+			m_HitTo.m_Priority = dmBotIntentPriority.CRITICAL;
+			m_HitTo.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+			bot.AddFSMIntent(m_HitTo);
+		}
+	}
+
+	void EnsureLook()
+	{
+		if (m_Look && (m_Look.IsFinished() || m_Look.IsExpired()))
+			m_Look = null;
+		if (!m_Look)
+		{
+			m_Look = new dmBotIntent_HoldLook();
+			m_Look.m_Entity = m_TargetEntity;
+			m_Look.m_Turn = dmBotLookTurn.FULL;
+			m_Look.m_Priority = dmBotIntentPriority.CRITICAL;
+			m_Look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+			GetOwner().AddFSMIntent(m_Look);
+		}
 	}
 }

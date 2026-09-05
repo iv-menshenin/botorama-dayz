@@ -19,8 +19,19 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 	//! Heavy when the bot has stamina for it, light otherwise (inputs ignored).
 	override protected EMeleeHitType GetAttackTypeFromInputs(HumanInputController pInputs)
 	{
-		if (m_Player.CanConsumeStamina(EStaminaConsumers.MELEE_HEAVY))
-			return EMeleeHitType.HEAVY;
+		if ( m_Bot && m_Bot.GetHumanInventory() )
+		{
+			Weapon_Base w = Weapon_Base.Cast(m_Bot.GetHumanInventory().GetEntityInHands());
+			if ( w )
+			{
+				if ( w.IsInherited(Rifle_Base) )
+					return EMeleeHitType.WPN_HIT_BUTTSTOCK;	
+				return EMeleeHitType.WPN_HIT;
+			}
+		}
+
+		if (m_Player.CanConsumeStamina(EStaminaConsumers.MELEE_HEAVY)) return EMeleeHitType.HEAVY;
+
 		return EMeleeHitType.LIGHT;
 	}
 

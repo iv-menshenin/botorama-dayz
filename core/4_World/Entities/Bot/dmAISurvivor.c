@@ -353,8 +353,7 @@ class dmAISurvivor
 		dmBotSpan _span = dmBotProfiler.Start("Bot.Update");
 		#endif
 
-		if (!m_Pawn)
-			return;
+		if (!m_Pawn) return;
 
 		//! Death -> release the brain; the corpse stays in the world (engine decay).
 		if (!m_Pawn.IsAlive())
@@ -362,6 +361,10 @@ class dmAISurvivor
 			OnDeath();
 			return;
 		}
+
+		//! Tick the strike cooldown (bot-level, read by Fighting systems).
+		if ( m_MeleeCooldown > 0.0 ) m_MeleeCooldown =- pDt;
+		if (m_MeleeCooldown < 0.0) m_MeleeCooldown = 0.0;
 
 		//! Incapacitated (unconscious/restrained) -> skip the motor; the pawn's
 		//! CommandHandler gate already stops actuation, so don't fight the body.
@@ -477,6 +480,26 @@ class dmAISurvivor
 		return !chamberLive && !magAmmo;
 	}
 
+	// IsReadyToShoot: IsChamberFiredOut=false IsJammed=false IsChamberEmpty=true
+	// Это может означать, что магазин заряжен, но в стволе нет патрона - нужно передернуть затвор
+	bool CheckNeedsChamber()
+	{
+		Weapon_Base wpn = GetWeaponInHands();
+		if (!wpn)
+			return false;
+
+		int mi = wpn.GetCurrentMuzzle();
+		if ( !wpn.IsChamberFiredOut(mi) && !wpn.IsJammed() && wpn.IsChamberEmpty(mi) )
+		{
+			Magazine mag = wpn.GetMagazine(mi);
+			if (mag)
+				return mag.GetAmmoCount() > 0;
+
+			return wpn.GetInternalMagazineCartridgeCount(mi) > 0;
+		}
+		return false;
+	}
+
 	//! True when a firearm (non-melee Weapon_Base) is in the bot's hands.
 	bool HasFirearmInHands()
 	{
@@ -574,7 +597,7 @@ class dmAISurvivor
 		// TODO Good decision and reload if needed
 		// m_TidyIntent = new dmBotIntent_TidyInventory();
 		// GetOwner().AddPersonalityIntent(m_TidyIntent);
-		if ( !anyLoaded && HasFirearmInHands() && HasNoAmmo() )
+		if ( (!anyLoaded && HasFirearmInHands() && HasNoAmmo()) || CheckNeedsChamber() )
 		{
 			if ( m_Pawn.ReloadWeaponAI() )
 			{
