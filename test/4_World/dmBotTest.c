@@ -1059,3 +1059,301 @@ class dmBotTest_WeaponSelection : dmTestSuite_TestCase
 		m_Target = null;
 	}
 }
+
+//! Looting (get): the bot picks up a sequence of 7 clothing items from the ground
+//! one by one (5 s silence → spawn → 5 s silence → PickUp intent → wait until it is
+//! worn in the inventory). PASS when all 7 are worn.
+class dmBotTest_LootingGet : dmTestSuite_TestCase
+{
+	int m_Step = 0;
+	int m_SubPhase = 0;   // 0 = spawn, 1 = PickUp, 2 = check
+	float m_PhaseTime = 0.0;
+	EntityAI m_Item;
+	ref array<string> m_Items;
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		super.Setup(bot, player);
+
+		m_Step = 0;
+		m_SubPhase = 0;
+		m_PhaseTime = 0.0;
+		m_Item = null;
+
+		m_Items = new array<string>();
+		m_Items.Insert("M65Jacket_Black");
+		m_Items.Insert("CargoPants_Beige");
+		m_Items.Insert("BaseballCap_Black");
+		m_Items.Insert("TacticalGloves_Black");
+		m_Items.Insert("Shemag_Green");
+		m_Items.Insert("CombatBoots_Black");
+		m_Items.Insert("Armband_White");
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Лут (подбор)». Бот по очереди поднимает с пола 7 предметов одежды (куртка, штаны, кепка, перчатки, шемаг, ботинки, повязка). Ожидается: каждый предмет оказывается в инвентаре (надет).";
+	}
+
+	override float GetDuration() { return 200.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		if (m_Step >= 7)
+			return "PASS: все 7 предметов подняты";
+
+		string cls = m_Items[m_Step];
+
+		if (m_SubPhase == 0)
+		{
+			if (elapsed - m_PhaseTime < 5.0)
+				return "";
+			m_Item = SpawnItemNearBot(cls);
+			if (!m_Item)
+				return "FAIL: не удалось заспавнить " + cls;
+			m_SubPhase = 1;
+			m_PhaseTime = elapsed;
+			return "предмет " + (m_Step + 1) + "/7: " + cls + " заспавнен";
+		}
+
+		if (m_SubPhase == 1)
+		{
+			if (elapsed - m_PhaseTime < 5.0)
+				return "";
+			CreatePickUpIntent(m_Item);
+			m_SubPhase = 2;
+			m_PhaseTime = elapsed;
+			return "интент PickUp на " + cls;
+		}
+
+		if (HasItemInInventory(cls))
+		{
+			m_Step = m_Step + 1;
+			m_SubPhase = 0;
+			m_PhaseTime = elapsed;
+			m_Item = null;
+			return "поднят " + cls + " (" + m_Step + "/7)";
+		}
+
+		if (elapsed - m_PhaseTime > 20.0)
+			return "FAIL: таймаут подбора " + cls;
+
+		return "";
+	}
+
+	//! Создать предмет на полу рядом с ботом (2 м вперёд-вправо), прибитый к земле.
+	EntityAI SpawnItemNearBot(string cls)
+	{
+		vector origin = m_Bot.GetPosition();
+		vector pos = origin + Vector(2.0, 0.0, 2.0);
+		return EntityAI.Cast(GetGame().CreateObject(cls, SnapToGroundExactly(pos), false));
+	}
+
+	//! Выдать боту интент подбора предмета (идёт и поднимает).
+	void CreatePickUpIntent(EntityAI item)
+	{
+		dmBotIntent_PickUp p = new dmBotIntent_PickUp();
+		p.m_Item = item;
+		m_Bot.AddCommandIntent(p);
+	}
+
+	//! Есть ли предмет класса `cls` где-либо в инвентаре бота (в т.ч. надетый).
+	bool HasItemInInventory(string cls)
+	{
+		PlayerBase pawn = m_Bot.GetPawn();
+		if (!pawn)
+			return false;
+		array<EntityAI> items = new array<EntityAI>();
+		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			if (items[i].GetType() == cls)
+				return true;
+		}
+		return false;
+	}
+}
+
+//! Looting (change): a bot already wearing shorts/t-shirt/shoes (with Pear/Apple in
+//! their cargo) picks up Gorka pants and a Gorka jacket from the ground. The new
+//! clothes must be worn in their slots and the cargo transferred to them.
+class dmBotTest_LootingChange : dmTestSuite_TestCase
+{
+	int m_Phase = 0;
+	float m_PhaseTime = 0.0;
+	EntityAI m_Item;
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		super.Setup(bot, player);
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return;
+
+		pawn.GetInventory().CreateInInventory("TShirt_Green");
+		pawn.GetInventory().CreateInInventory("CanvasPantsMidi_Blue");
+		pawn.GetInventory().CreateInInventory("JoggingShoes_Black");
+
+		ItemBase tshirt = GetWorn("Body");
+		if (tshirt)
+			tshirt.GetInventory().CreateInInventory("Apple");
+
+		ItemBase shorts = GetWorn("Legs");
+		if (shorts)
+			shorts.GetInventory().CreateInInventory("Pear");
+
+		m_Phase = 0;
+		m_PhaseTime = 0.0;
+		m_Item = null;
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Лут (смена одежды)». Бот в шортах/футболке/обуви (в карго — груша/яблоко) поднимает горку-штаны и горку-куртку с пола. Ожидается: новая одежда надевается в слоты Legs/Body, а карго переносится.";
+	}
+
+	override float GetDuration() { return 200.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		ItemBase worn;
+
+		if (m_Phase == 0)
+		{
+			if (elapsed - m_PhaseTime < 5.0)
+				return "";
+			m_Item = SpawnItemNearBot("GorkaPants_Autumn");
+			if (!m_Item)
+				return "FAIL: не удалось заспавнить GorkaPants_Autumn";
+			m_Phase = 1;
+			m_PhaseTime = elapsed;
+			return "горка-штаны заспавнены на полу";
+		}
+
+		if (m_Phase == 1)
+		{
+			if (elapsed - m_PhaseTime < 5.0)
+				return "";
+			CreatePickUpIntent(m_Item);
+			m_Phase = 2;
+			m_PhaseTime = elapsed;
+			return "интент PickUp на горку-штаны";
+		}
+
+		if (m_Phase == 2)
+		{
+			worn = GetWorn("Legs");
+			if (worn && worn.GetType() == "GorkaPants_Autumn")
+			{
+				m_Phase = 3;
+				m_PhaseTime = elapsed;
+				return "бот надел горку-штаны (Legs)";
+			}
+			if (elapsed - m_PhaseTime > 30.0)
+				return "FAIL: бот не надел горку-штаны (Legs)";
+			return "";
+		}
+
+		if (m_Phase == 3)
+		{
+			if (elapsed - m_PhaseTime < 5.0)
+				return "";
+			m_Item = SpawnItemNearBot("GorkaEJacket_Autumn");
+			if (!m_Item)
+				return "FAIL: не удалось заспавнить GorkaEJacket_Autumn";
+			m_Phase = 4;
+			m_PhaseTime = elapsed;
+			return "горка-куртка заспавнена на полу";
+		}
+
+		if (m_Phase == 4)
+		{
+			if (elapsed - m_PhaseTime < 5.0)
+				return "";
+			CreatePickUpIntent(m_Item);
+			m_Phase = 5;
+			m_PhaseTime = elapsed;
+			return "интент PickUp на горку-куртку";
+		}
+
+		if (m_Phase == 5)
+		{
+			worn = GetWorn("Body");
+			if (worn && worn.GetType() == "GorkaEJacket_Autumn")
+			{
+				m_Phase = 6;
+				m_PhaseTime = elapsed;
+				return "бот надел горку-куртку (Body)";
+			}
+			if (elapsed - m_PhaseTime > 30.0)
+				return "FAIL: бот не надел горку-куртку (Body)";
+			return "";
+		}
+
+		//! m_Phase == 6: финальная проверка слотов и перенесённого карго.
+		ItemBase legs = GetWorn("Legs");
+		ItemBase body = GetWorn("Body");
+
+		bool legsOk = legs && legs.GetType() == "GorkaPants_Autumn";
+		bool bodyOk = body && body.GetType() == "GorkaEJacket_Autumn";
+		bool pearOk = HasInCargo(legs, "Pear");
+		bool appleOk = HasInCargo(body, "Apple");
+
+		if (legsOk && bodyOk && pearOk && appleOk)
+			return "PASS: горка-штаны (Legs) с грушей, горка-куртка (Body) с яблоком";
+
+		string msg = "FAIL: финальная проверка (legs=" + legsOk;
+		msg = msg + ", body=" + bodyOk;
+		msg = msg + ", pear=" + pearOk;
+		msg = msg + ", apple=" + appleOk + ")";
+		return msg;
+	}
+
+	//! Надетый в слот предмет (или null).
+	ItemBase GetWorn(string slotName)
+	{
+		return ItemBase.Cast(m_Bot.GetPawn().GetInventory().FindAttachment(InventorySlots.GetSlotIdFromString(slotName)));
+	}
+
+	//! Есть ли предмет класса `cls` в карго контейнера.
+	bool HasInCargo(ItemBase container, string cls)
+	{
+		if (!container)
+			return false;
+		CargoBase cargo = container.GetInventory().GetCargo();
+		if (!cargo)
+			return false;
+		int i;
+		for (i = 0; i < cargo.GetItemCount(); i++)
+		{
+			EntityAI item = cargo.GetItem(i);
+			if (item && item.GetType() == cls)
+				return true;
+		}
+		return false;
+	}
+
+	//! Создать предмет на полу рядом с ботом (2 м вперёд-вправо), прибитый к земле.
+	EntityAI SpawnItemNearBot(string cls)
+	{
+		vector origin = m_Bot.GetPosition();
+		vector pos = origin + Vector(2.0, 0.0, 2.0);
+		return EntityAI.Cast(GetGame().CreateObject(cls, SnapToGroundExactly(pos), false));
+	}
+
+	//! Выдать боту интент подбора предмета (идёт и поднимает).
+	void CreatePickUpIntent(EntityAI item)
+	{
+		dmBotIntent_PickUp p = new dmBotIntent_PickUp();
+		p.m_Item = item;
+		m_Bot.AddCommandIntent(p);
+	}
+}

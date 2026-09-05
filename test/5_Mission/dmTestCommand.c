@@ -85,6 +85,8 @@ class dmTestCommand : dmCommandModule
 			return HandleTestCase(player, new dmBotTest_Fight());
 		if (parts[2] == DM_CHAT_TEST_WEAPON)
 			return HandleWeaponTest(player, parts);
+		if (parts[2] == DM_CHAT_TEST_LOOTING)
+			return HandleLootingTest(player, parts);
 
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий: " + parts[2]);
 		return false;
@@ -112,6 +114,22 @@ class dmTestCommand : dmCommandModule
 			return HandleTestCase(player, new dmBotTest_WeaponSelection());
 
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий weapon: " + parts[3]);
+		return false;
+	}
+
+	//! /test bot looting get|change — сценарии лута.
+	private bool HandleLootingTest(PlayerBase player, array<string> parts)
+	{
+		if (parts.Count() < 4)
+		{
+			dmCommandManager.ChatToPlayer(player, "Укажи: /test bot looting get | change");
+			return false;
+		}
+		if (parts[3] == DM_CHAT_TEST_LOOTING_GET)
+			return HandleTestCase(player, new dmBotTest_LootingGet());
+		if (parts[3] == DM_CHAT_TEST_LOOTING_CHANGE)
+			return HandleTestCase(player, new dmBotTest_LootingChange());
+		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий looting: " + parts[3]);
 		return false;
 	}
 

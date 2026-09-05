@@ -134,6 +134,11 @@ static const string DM_CHAT_TEST_WEAPON = "weapon";
 static const string DM_CHAT_TEST_WEAPON_LOAD = "load";
 static const string DM_CHAT_TEST_WEAPON_SELECTION = "selection";
 
+//! Test scenario "looting" and its actions ("/test bot looting get|change").
+static const string DM_CHAT_TEST_LOOTING = "looting";
+static const string DM_CHAT_TEST_LOOTING_GET = "get";
+static const string DM_CHAT_TEST_LOOTING_CHANGE = "change";
+
 //! Aim-observation test: pause (seconds) before/after the shots and shot interval.
 static const float DM_TEST_AIM_HOLD = 10.0;
 static const float DM_TEST_AIM_SHOT_INTERVAL = 2.0;
