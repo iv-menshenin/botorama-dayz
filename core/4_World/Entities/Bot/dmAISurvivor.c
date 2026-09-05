@@ -389,6 +389,7 @@ class dmAISurvivor
 		}
 
 		UpdateIntents(pDt);
+		m_Pawn.GetInventoryFrames().Tick();
 		UpdateLook(pDt);
 	}
 

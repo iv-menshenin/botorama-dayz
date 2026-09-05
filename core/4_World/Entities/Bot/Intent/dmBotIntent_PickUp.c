@@ -8,6 +8,8 @@
 class dmBotIntent_PickUp : dmBotIntent_MoveTo
 {
 	EntityAI m_Item;
+	ref dmInventoryFrame m_Root;
+	bool m_PickupQueued = false;
 
 	void dmBotIntent_PickUp()
 	{
@@ -37,38 +39,52 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 			m_Goal = m_Item.GetPosition();
 	}
 
-	//! Достигли предмета — поднять в инвентарь.
+	//! Достигли предмета — поставить цепочку подбора в менеджер инвентаря, не
+	//! завершая интент (ждём IsAllDone() в OnUpdate).
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
-		super.OnReachedGoal(bot, pos);
+		bot.SetMove(0.0, 0.0);
+
+		//! Уже ждём выполнения цепочки — не перезапускаем.
+		if (m_PickupQueued)
+			return;
+		m_PickupQueued = true;
 
 		if (!m_Item || m_Item.IsDamageDestroyed() || m_Item.IsSetForDeletion())
 		{
-			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Вещь сломана или удалена");
-			#endif
 			Fail();
 			return;
 		}
 
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
-		if ( !pawn )
+		if (!pawn)
 		{
-			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Нет пешки");
-			#endif
 			Fail();
 			return;
 		}
 
-		if ( pawn.TakeItem(m_Item) )
+		m_Root = pawn.InventoryPickUp(ItemBase.Cast(m_Item));
+		if (!m_Root)
 		{
-			Finish();
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] InventoryPickUp: нет цепочки (нет рюкзака/слота)");
+			#endif
+			Fail();
 			return;
 		}
-		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Не удалось поднять: " + m_Item.GetType());
-		#endif
-		Fail();
+		//! Не завершаем — ждём IsAllDone() в OnUpdate.
+	}
+
+	override void OnUpdate(dmAISurvivor bot, float pDt)
+	{
+		super.OnUpdate(bot, pDt);
+
+		if (m_PickupQueued && m_Root && m_Root.IsAllDone())
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] PickUp: цепочка инвентаря завершена");
+			#endif
+			Finish();
+		}
 	}
 };
