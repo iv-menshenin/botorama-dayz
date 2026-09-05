@@ -1098,3 +1098,218 @@ target+hitPos+hitZone) → `SetFinisherType()`; при Hit-событии — `m
   нет бага — у них НЕТ «магии без райкаста»).
 - botorama: `core/4_World/Entities/Bot/Melee/dmBotMeleeCombat.c:37-56` (SetHitPos=Spine3),
   `core/4_World/Entities/Bot/Melee/dmBotMeleeFightLogic_LightHeavy.c:80-98` (ProcessMeleeHitName).
+
+## AI weapon fire — direction + modes
+
+Цель: заменить muzzle-based выстрел (`TryFireWeapon` → вперёд от дула) на натив
+`Weapon_Base.Fire(mi, pos, dir, speed)` с **явным** направлением из модели прицеливания
+`dmAiming`, при этом сохранив ванильный weapon-FSM (речь/анимация/reload/джам). Эталон —
+Expansion (`eAI_Fire` / modded `weaponfire.c`). Все пути — ваниль `DayZ-Script-Diff/scripts/`,
+конфиги — `DayZ Projects/DZ/`.
+
+### 1. Натив `Fire(mi, pos, dir, speed)` — семантика `speed`
+
+- Сигнатура: `proto native bool Fire(int muzzleIndex, vector pos, vector dir, vector speed)`
+  (`4_world/entities/core/inherited/weapon.c:58`). Никакой док-комментария нет.
+- Ванильный выстрел (muzzle-based): `proto native bool TryFireWeapon(EntityAI weapon, int muzzleIndex)`
+  (`3_game/systems/inventory/weaponinventory.c:8`) — глобальный натив; сам берёт transform дула
+  (`GetCameraPoint(mi, out pos, out dir)`, `weapon.c:413` — модель-пространство «глаза»/дула),
+  читает `initSpeed` из `CfgAmmo` патрона в патроннике, применяет `dispersion` и спавнит пулю.
+  Именно его зовут все ванильные `WeaponFire*`-состояния (`TryFireWeapon(m_weapon, mi)`).
+- **Семантика `speed` (не подтверждено исходниками натива — движок, но поведение подтверждено
+  Expansion в проде):** `pos` = мировая точка спавна пули, `dir` = норм. направление выстрела,
+  `speed` = **направление** вектора скорости; величину скорости движок берёт сам из
+  `CfgAmmo <ammo> initSpeed` (× `initSpeedMultiplier` музла). Доказательство: Expansion в
+  `eAI_Fire` передаёт `Fire(muzzleIndex, pos, dir, dir)` — т.е. **в `speed` кладёт тот же
+  единичный `dir`** (`DayZExpansion_AI/.../Entities/Weapons/Firearms/Weapon_Base.c:157`), и
+  выстрелы летят/убивают с корректной скоростью/уроном; свою модель урона Expansion считает
+  от `g_Game.ConfigGetFloat("CfgAmmo " + ammoType + " initSpeed")` (`Weapon_Base.c:546`), а не
+  от аргумента `speed`.
+- **Рекомендация для botorama**: повторять эталон — `Fire(mi, pos, dir, dir)` (направление в
+  обоих аргументах). Мировое направление бот держит в `m_AimWorldDirection`; перед выстрелом
+  добавить сверху оружейный `dispersion` (конус), затем `pos = neck-кость (или eye) + dir*0.2`
+  (сдвиг вперёд, как Expansion `Weapon_Base.c:149`), `dir` = итоговое направление. ВАЖНО: не
+  пытаться самому умножать `dir` на `initSpeed` — величину скорости движок возьмёт из патрона.
+
+### 2. Иерархия `WeaponFire*` и какие нужны для AKM / M4A1 / B95
+
+Файл `4_world/entities/firearms/fsm/states/weaponfire.c` (+ `weaponfirelast.c`,
+`weaponfireandchambernext.c`, `weaponfireandchambernextfrominnermag.c`). Иерархия:
+
+```
+WeaponStateBase                                  (weaponstatebase.c:10)
+├─ WeaponStartAction                             (weaponstartaction.c:4)  — стартует hcw.StartAction
+│  ├─ WeaponDryFire                              (weaponfire.c:2)
+│  ├─ WeaponFire                                 (weaponfire.c:44)        — ядро: TryFireWeapon
+│  │  ├─ WeaponFireWithEject                     (weaponfire.c:112)
+│  │  ├─ WeaponFireAndChamber                    (weaponfire.c:329)
+│  │  └─ WeaponFireAndChamberFromInnerMagazine   (weaponfire.c:350)
+│  ├─ WeaponFireMultiMuzzle                      (weaponfire.c:135)
+│  │  └─ WeaponFireMagnum                        (weaponfire.c:212)
+│  └─ WeaponFireToJam                            (weaponfire.c:279)
+├─ WeaponFireLast                                (weaponfirelast.c:2)     — nested FSM: WeaponFireWithEject
+├─ WeaponFireAndChamberNext                      (weaponfireandchambernext.c:1) — nested FSM: WeaponFireAndChamber
+└─ WeaponFireAndChamberNextFromInnerMag          (weaponfireandchambernextfrominnermag.c:1) — nested FSM: WeaponFireAndChamber
+```
+
+- `WeaponFireLast` / `WeaponFireAndChamberNext` / `WeaponFireAndChamberNextFromInnerMag` — НЕ
+  наследники `WeaponStartAction`; это «составные» состояния с вложенным FSM, стартующим
+  `WeaponFireWithEject` (`weaponfirelast.c:16`) или `WeaponFireAndChamber`
+  (`weaponfireandchambernext.c:15`, `weaponfireandchambernextfrominnermag.c:15`).
+- `WeaponFireMultiMuzzle.OnEntry` (`weaponfire.c:141-181`): `mi = GetCurrentMuzzle()`,
+  `b = GetCurrentModeBurstSize(mi)`; если `b > 1` → цикл `for i < b: TryFireWeapon(m_weapon, i)`
+  (огонь со ВСЕХ стволов подряд), иначе один выстрел `mi`; затем листает ствол
+  `SetCurrentMuzzle(mi + 1)` (или в 0, если был последний) — `weaponfire.c:175-178`.
+  Для B95 «двойной ствол» `Double`-режим имеет `burst=2` → оба ствола; `Single` → `burst=1` →
+  один ствол, с чередованием.
+
+**Какие fire-состояния реально стреляют у наших стволов** (по `InitStateMachine` баз):
+
+- **AKM** (`AKM_Base : RifleBoltFree_Base`, `automaticrifle/akm.c:1`; FSM в
+  `rifleboltfree_base.c:106`): `Trigger_C10 = WeaponFireLast` (:145, последний патрон без магазина),
+  `Trigger_C11 = WeaponFireAndChamberNext` (:146, обычный с магазином),
+  `Trigger_C11L = WeaponFireLast` (:147, последний патрон), `Trigger_C10J/C11J = WeaponFireToJam`
+  (:154-155), dry = `WeaponDryFire`.
+- **M4A1** (`M4A1_Base : RifleBoltLock_Base`, `automaticrifle/m4a1.c:1`; FSM в
+  `rifleboltlock_base.c:134`): те же — `WeaponFireLast` (:183), `WeaponFireAndChamberNext` (:184),
+  `WeaponFireLast` (:185), `WeaponFireToJam` (:193-194).
+- **B95** (`B95_base : DoubleBarrel_Base`, `rifle/b95.c:1`; FSM в `doublebarrel_base.c:130`):
+  `Trigger_L_E/E_L/F_L/L_L = WeaponFireMultiMuzzle` (:167-170), dry = `WeaponDryFire` (:172-175).
+  Мультиствол: `enum MuzzleIndex { First=0, Second=1 }` (`doublebarrel_base.c:19-23`).
+
+**Какие классы надо moddить** (ровно те, что трогает Expansion в
+`0_DayZExpansion_AI_Preload/4_world/entities/weapons/firearms/fsm/states/weaponfire.c`):
+`WeaponFire`, `WeaponFireWithEject`, `WeaponFireMultiMuzzle`, `WeaponFireToJam`.
+Почему этого достаточно: `WeaponFireAndChamber` / `WeaponFireAndChamberFromInnerMagazine`
+наследуют `WeaponFire` и зовут `super.OnEntry(e)` → попадают в modded `WeaponFire.OnEntry`;
+`WeaponFireLast`/`WeaponFireAndChamberNext` — составные, их вложенные состояния (`WeaponFireWithEject`
+/ `WeaponFireAndChamber`) уже покрыты modded-классами.
+
+### 3. Паттерн `eAI_Vanilla_OnEntry`
+
+- **Ванильный `WeaponStateBase.OnEntry`** (`weaponstatebase.c:103-112`) делает ТОЛЬКО запуск
+  вложенного FSM: `if (HasFSM() && !m_fsm.IsRunning()) m_fsm.Start(e);` (иначе лог).
+- **Ванильный `WeaponStartAction.OnEntry`** (`weaponstartaction.c:15-46`): `super.OnEntry(e)`
+  (запуск под-FSM) + старт анимации: `e.m_player.GetCommandModifier_Weapons().StartAction(m_action,
+  m_actionType)` (с `HumanCommandAdditives.CancelModifier()` перед этим).
+- Expansion переименовывает это в helper, НЕ трогая ванильный `OnEntry`:
+  - `modded class WeaponStateBase` (`DayZExpansion_AI/.../FSM/States/weaponstatebase.c:3-12`)
+    добавляет `void eAI_Vanilla_OnEntry(WeaponEventBase e)` = тело ванильного `OnEntry`
+    (`if (HasFSM() && !m_fsm.IsRunning()) m_fsm.Start(e);`). Там же — override лог-хелперов
+    `wpnDebugPrint`/`wpnPrint`/`Error` (:25-43).
+  - `modded class WeaponStartAction` (`.../FSM/States/weaponstartaction.c:3-34`) override
+    `eAI_Vanilla_OnEntry(e)`: `super.eAI_Vanilla_OnEntry(e)` (= `WeaponStateBase.eAI_Vanilla_OnEntry`
+    = запуск под-FSM) + блок `hcw.StartAction(m_action, m_actionType)`.
+- **modded `WeaponFire.OnEntry`** (`0_DayZExpansion_AI_Preload/.../weaponfire.c:3-24`) — порядок:
+  ```
+  override void OnEntry(WeaponEventBase e)
+  {
+      if (e) {
+          eAIBase p;
+          if (Class.CastTo(p, e.m_player)) {          // ветка ИИ
+              m_dtAccumulator = 0;
+              int mi = m_weapon.GetCurrentMuzzle();
+              if (m_weapon.eAI_Fire(mi, p)) {         // ЯВНЫЙ выстрел по направлению ИИ
+                  p.GetAimingModel().SetRecoil(m_weapon);   // отдача
+                  m_weapon.OnFire(mi);                // EEFired + звук/эффекты
+              }
+              super.eAI_Vanilla_OnEntry(e);           // запуск под-FSM + hcw.StartAction
+              return;
+          }
+      }
+      super.OnEntry(e);                               // ванильный fallback для не-ИИ
+  }
+  ```
+  Тот же порядок в modded `WeaponFireWithEject` (:27-53, + `EjectCasing`/`EffectBulletHide` между
+  recoil и `OnFire`), `WeaponFireMultiMuzzle` (:55-100, `b = min(GetCurrentModeBurstSize(mi),
+  GetMuzzleCount())`, цикл по стволам с проверкой `!IsChamberEmpty(i) && !IsChamberFiredOut(i)`,
+  затем `SetCurrentMuzzle`-ротация), `WeaponFireToJam` (:102-128, + `SetJammed(true)` +
+  `ResetBurstCount()`).
+- **Зачем `eAI_Vanilla_OnEntry`, а не `super.OnEntry`**: в ванильном `WeaponFireWithEject.OnEntry`
+  вызов `super.OnEntry(e)` (= `WeaponFire.OnEntry`) — «безобидный повторный» выстрел (после
+  `EjectCasing` патронник пуст → `TryFireWeapon` вернёт false). Для ИИ это не работает: modded
+  `WeaponFire.OnEntry` зовёт `eAI_Fire` (hitscan+`Fire`-натив), который НЕ зависит от
+  «пустоты» патронника так же — повторный `super.OnEntry(e)` дал бы **двойной выстрел**.
+  Поэтому modded-состояния зовут `super.eAI_Vanilla_OnEntry(e)` — «чистое» ванильное базовое
+  поведение (под-FSM + анимация), минуя modded fire-логику.
+
+### 4. Конфиг: `modes[]` / `burst` / `dispersion` / `reloadTime` / патрон
+
+**API чтения конфига** (определены в `3_game/global/game.c` и `3_game/entities/object.c`):
+- Глобально (по path-строке, классы через пробел): `GetGame().ConfigGetFloat(path)` (:522),
+  `ConfigGetInt(path)` (:537), `ConfigGetText(path, out string)` (:447),
+  `ConfigGetTextArray(path, out TStringArray)` (:556), `ConfigGetTextArrayRaw` (:569),
+  `ConfigGetFloatArray` (:576), `ConfigGetType` (:544).
+- Относительно конфиг-класса объекта (методы `Object`): `ConfigGetString(entry)` (:871),
+  `ConfigGetInt(entry)` (:879), `ConfigGetFloat(entry)` (:885), `ConfigGetTextArray(entry, out)` (:894).
+  Именно так Expansion читает `weapon.ConfigGetTextArray("modes", modes)`
+  (`Core/.../Firearms/Weapon_Base.c:44`).
+- Константы: `CFG_WEAPONSPATH = "CfgWeapons"` (`3_game/constants.c:221`),
+  `CFG_MAGAZINESPATH = "CfgMagazines"` (:222), `CFG_AMMO = "CfgAmmo"` (:223).
+
+**Пути**:
+- Режимы: `weapon.ConfigGetTextArray("modes", modes)`; строка режима → класс
+  `CfgWeapons <type> <mode>`, ключи `burst` / `dispersion` / `reloadTime` / `autoFire` /
+  `recoil` / `soundSetShot`. Подтверждено Expansion: `g_Game.ConfigGetFloat(CFG_WEAPONSPATH + " "
+  + type + " " + mode + " reloadTime")` (`Core/.../Firearms/Weapon_Base.c:50`).
+- `dispersion` — то же место (`CfgWeapons <type> <mode> dispersion`); это оружейный разброс
+  (радиан), который наш `dmAiming` должен добавлять СВЕРХУ своего личного `m_AimDirection`.
+- Патрон: `CfgAmmo <ammo> initSpeed|airFriction|typicalSpeed` (`Weapon_Base.c:516/546/552`).
+  `initSpeedMultiplier` — ключ музла (читается `ConfigGetFloat("initSpeedMultiplier")` от объекта,
+  `Weapon_Base.c:547`; напр. B95 `SecondMuzzle initSpeedMultiplier=1.05`).
+
+**Фактические значения (из `DayZ Projects/DZ/`)**:
+- **AKM** (`weapons/firearms/akm/config.cpp`): `modes[] = {"SemiAuto","FullAuto"}` (:74-78);
+  `SemiAuto`: `reloadTime=0.12` (:110), `dispersion=0.0020000001` (:113);
+  `FullAuto`: `reloadTime=0.097999997` (:158), `dispersion=0.0020000001` (:161).
+- **M4A1** (`weapons/firearms/m4/config.cpp`): `modes[] = {"SemiAuto","FullAuto"}` (:93-96);
+  `SemiAuto`: `reloadTime=0.12` (:124), `dispersion=0.0020000001` (:127);
+  `FullAuto`: `reloadTime=0.064999998` (:172), `dispersion=0.0020000001` (:175).
+- **B95** (`weapons/firearms/b95/config.cpp`): `modes[] = {"Single","Double"}` (:78-82);
+  `Single`: `reloadTime=0.1` (:93), `dispersion=0.00075000001` (:94);
+  `Double`: `reloadTime=0.1` (:107), `dispersion=0.0015` (:108). `SecondMuzzle` дублирует
+  `modes[]` (:130-134) и имеет `initSpeedMultiplier=1.05` (:126).
+- **Типовые строки режимов** (матчатся по `typename.StringToEnum(ExpansionFireMode, mode)`,
+  enum в `Core/.../Enums/ExpansionFireMode.c:1-9`: `INVALID=-1, SemiAuto, Burst, FullAuto, Single,
+  Double`): `"SemiAuto"` (самозаряд/одно нажатие), `"Burst"` (очередь, `burst=N`), `"FullAuto"`
+  (`autoFire=1`), `"Single"` (ручная перезарядка/однозаряд), `"Double"` (двустволка, `burst=2`).
+- **`burst`/`autoFire`**: базовые классы `Mode_Single`/`Mode_SemiAuto`/`Mode_Burst`/`Mode_FullAuto`/
+  `Mode_Double` в DZ-конфигах только forward-declared (`class Mode_Single;` и т.п.) — их
+  определения (`burst`, `autoFire`) engine-side, в скриптах не читаются. Значения `burst` в
+  конфигах появляются только у burst-режимов: `burst=3` (`m16a2/config.cpp:220`,
+  `aug:114/498`, `famas:197`, `mp5:154`). Семантика: `GetCurrentModeBurstSize(mi)` (`weapon.c:46`)
+  возвращает `burst` (≥1); `GetCurrentModeAutoFire(mi)` (`weapon.c:47`) возвращает `autoFire`
+  (FullAuto). Для `Double` `burst=2` — поэтому `WeaponFireMultiMuzzle` палит оба ствола.
+
+**Формулы полёта/падения (эталон Expansion `Weapon_Base.c:514-616`), компактно**:
+- `speedCoef = e^(airFriction * distance)` = `Math.Pow(Math.EULER, airFriction * distance)`
+  (`Weapon_Base.c:519`; `airFriction` из `CfgAmmo <ammo> airFriction`, `distance` = |origin − hit|).
+- `initSpeed' = initSpeed * initSpeedMultiplier` (:546-550).
+- `speed = initSpeed' * speedCoef` (:558).
+- Время полёта `travelTime` (`eAI_CalculateProjectileTravelTime`, :580-606): интегрирование с шагом
+  `simulationStep=0.05`, на каждом шаге `speed = e^(airFriction * distanceTraveled) * initSpeed`,
+  `distanceTraveled += speed * dt`; остановка при `distanceTraveled >= distance` или `time >= 6.0`
+  (макс. время полёта пули в DayZ — 6 с); последний шаг линейно интерполируется.
+- Падение `drop = 0.5 * 9.81 * travelTime^2` (`eAI_CalculateProjectileDrop`, :611-616).
+- Компенсация в `eAI_Fire` (:140-149): если `drop > 0.1` → `projectedPos = pos + dir*distance;
+  projectedPos[1] += drop * 0.8; dir = normalize(projectedPos - pos);` затем `pos += dir*0.2`.
+- Коэф. урона (`eAI_CalculateProjectileDamageCoefAtPosition`, :544-575): если
+  `typicalSpeed != initSpeed'`, то `dmgCoef = (speed > typicalSpeed ? 1.0 : speed/typicalSpeed)`,
+  иначе `dmgCoef = speedCoef` (`typicalSpeed` из `CfgAmmo <ammo> typicalSpeed`, :552).
+
+### Открытые вопросы / не подтверждено
+
+- Точное поведение `Fire(...)` на стороне натива (берёт ли `speed`-величину из `initSpeed` или
+  игнорирует magnitude) — исходников движка нет; вывод по косвенным признакам (см. п.1). Пометка
+  «не подтверждено из кода» честная; эталон Expansion в проде — рабочее доказательство.
+- `m_TravelTime` в `eAIShot` (используется `eAI_CalculateProjectileDrop(shot.m_TravelTime)`,
+  `Weapon_Base.c:141`) — вычисляется в конструкторе `eAIShot` (не входил в разбор); предполагается
+  `eAI_CalculateProjectileTravelTime(airFriction, distance, initSpeed)`. Стоит проверить при
+  переносе формулы времени полёта в `dmAiming`.
+- Точные значения `burst`/`autoFire` базовых mode-классов (`Mode_*`) — engine-side, в скриптах/конфигах
+  DZ не определены (только forward-декларации); при необходимости задавать `burst` своим стволам
+  явно в `config.cpp` (как `burst=3` у M16A2/AUG).
+- Передача оружейного `dispersion` как конуса: Expansion НЕ добавляет `dispersion` к `dir` в
+  `eAI_Fire` (разброс у них в aiming-профиле `eAIAimingProfile.Update`, `Classes/Weapons/eAIAimingProfile.c:16`).
+  Для botorama решение, КУДА добавлять `dispersion` (в `dmAiming` или при `Fire`), — наша конвенция,
+  не ванильный контракт.
