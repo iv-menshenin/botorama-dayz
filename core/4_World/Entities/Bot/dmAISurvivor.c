@@ -618,10 +618,29 @@ class dmAISurvivor
 		int i;
 		for (i = 0; i < items.Count(); i++)
 		{
-			if (items[i].IsMeleeWeapon())
+			if ( EntityIsMelee(items[i]) && !items[i].IsRuined() )
 				return items[i];
 		}
 		return null;
+	}
+
+	bool EntityIsMelee(EntityAI item)
+	{
+		if (item.IsWeapon()) return false; // FireArms
+
+		array<string> inventorySlot = new array<string>();
+		item.ConfigGetTextArray("inventorySlot", inventorySlot);
+
+		if ( inventorySlot.Find("Knife") > -1 ) return true;
+		if ( inventorySlot.Find("Melee") > -1 ) return true;
+		if ( inventorySlot.Find("Shoulder") > -1 ) return true;
+
+		array<string> itemInfo = new array<string>();
+		item.ConfigGetTextArray("itemInfo", itemInfo);
+		if ( itemInfo.Find("Knife") > -1 ) return true;
+		if ( itemInfo.Find("Axe") > -1 ) return true;
+
+		return false;
 	}
 
 	//! (Phase 4) Perceives player signs nearby (killed zombie, campfire, items).

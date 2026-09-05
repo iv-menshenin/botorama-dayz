@@ -704,6 +704,20 @@ return !chamberLive && !magAmmo;
   Expansion: `Expansion_HasAmmo(out Magazine)` (`Core/.../Weapon_Base.c:412`),
   `Expansion_GetMagazineAmmoCount(int, out Magazine)` L434, `Expansion_IsChambered(int)` L404.
 
+### Взятие в руки (мили) — занятые руки
+
+- Флаг `isMeleeWeapon` (`InventoryItem.m_IsMeleeWeapon`) НЕнадёжен для классификации мили
+  (ложный `BomberJacket_Brown`). Классификация — `EntityIsMelee` (в `dmAISurvivor`): НЕ
+  `IsWeapon()` (огнестрел) + `inventorySlot`/`itemInfo` содержит Knife/Melee/Shoulder/Axe.
+- Взятие в ЗАНЯТЫЕ руки сырым `LocalTakeToDst(src, hands)` → `LocationSyncMoveEntity`
+  некорректен (вытесняет/теряет предмет, дальше в руки попадает одежда). Правильный путь —
+  `dmInventoryFrame`-цепочка: фрейм 1 освобождает руки (stash: сломанное → PLACEONGROUND,
+  иначе TAKEINTOCARGO в `Back`, fallback PLACEONGROUND), фрейм 2 — `PUTINTOHANDS` мили.
+  Оркестрация — в `dmBotState_Fighting.EnsureMeleeEquipped` (re-runnable каждый тик).
+- После `LocalTakeToDst` в руки — `GetItemAccessor().HideItemInHands(true); HideItemInHands(false);`
+  (эталон Expansion `eAI_TakeItemToLocation`, фикс аним-состояния рук).
+- `IsRuined()` ≡ `IsDamageDestroyed()` (`object.c:1211`).
+
 ### Попадание/урон — сигнатуры
 
 - Пуля — настоящий физический снаряд, симулируется на **сервере** движком (не скриптом). `Fire()`/

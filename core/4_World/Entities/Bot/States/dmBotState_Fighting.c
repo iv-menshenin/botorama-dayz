@@ -19,6 +19,7 @@ class dmBotState_Fighting : dmBotState
 	ref dmBotIntent_HitTo m_HitTo;
 	ref dmBotIntent_HoldLook m_Look;
 	float m_RetargetTimer;
+	ref dmInventoryFrame m_EquipRoot;
 
 	override dmBotStateKind GetKind()
 	{
@@ -34,23 +35,12 @@ class dmBotState_Fighting : dmBotState
 		m_HitTo = null;
 		m_Look = null;
 		m_RetargetTimer = 0.0;
+		m_EquipRoot = null;
 
 		dmAISurvivor bot = GetOwner();
 		bot.SetMeleeCooldown(0.0);
 
 		ResolveTarget();
-
-		EntityAI melee = bot.SelectMeleeWeapon();
-		if (melee)
-		{
-			dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
-			if (pawn && melee != pawn.GetItemInHands())
-				pawn.TakeToHands(ItemBase.Cast(melee));
-
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] Fighting: мили " + melee.GetType());
-			#endif
-		}
 
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Fighting.entry");
@@ -71,6 +61,10 @@ class dmBotState_Fighting : dmBotState
 		}
 		if (!m_TargetEntity)
 			return EXIT;
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (pawn)
+			EnsureMeleeEquipped(bot, pawn);
 
 		vector botPos = bot.GetPosition();
 		vector tPos = m_TargetEntity.GetPosition();
@@ -187,6 +181,66 @@ class dmBotState_Fighting : dmBotState
 			m_HitTo.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 			bot.AddFSMIntent(m_HitTo);
 		}
+	}
+
+	//! Держать в руках целый мили-предмет: если в руках не мили (или мили сломан),
+	//! собрать цепочку «stash текущего → PUTINTOHANDS мили» и поставить в очередь.
+	//! Re-runnable каждый тик — так бот меняет сломанный мили на целый без пересоздания стейта.
+	void EnsureMeleeEquipped(dmAISurvivor bot, dmAISurvivorBase pawn)
+	{
+		if (m_EquipRoot)
+		{
+			if (!m_EquipRoot.IsAllDone())
+				return;              // цепочка ещё выполняется
+			m_EquipRoot = null;      // цепочка завершена
+		}
+
+		EntityAI inHands = pawn.GetItemInHands();
+		if (inHands && bot.EntityIsMelee(inHands) && !inHands.IsRuined())
+			return;                  // уже целый мили в руках
+
+		EntityAI melee = bot.SelectMeleeWeapon();
+		if (!melee)
+			return;                  // мили нет — кулаки
+
+		dmInventoryFrame equip = dmInventoryFrame.Make(dmInventoryDoing.PUTINTOHANDS, ItemBase.Cast(melee));
+
+		dmInventoryFrame root = equip;
+		if (inHands && inHands != melee)
+		{
+			ItemBase current = ItemBase.Cast(inHands);
+			if (current.IsRuined())
+			{
+				root = dmInventoryFrame.Make(dmInventoryDoing.PLACEONGROUND, current);
+				root.m_OnSuccess = equip;
+			}
+			else
+			{
+				EntityAI bag = pawn.GetInventory().FindAttachment(InventorySlots.GetSlotIdFromString("Back"));
+				if (bag)
+				{
+					dmInventoryFrame stash = dmInventoryFrame.Make(dmInventoryDoing.TAKEINTOCARGO, current, -1, bag);
+					dmInventoryFrame drop = dmInventoryFrame.Make(dmInventoryDoing.PLACEONGROUND, current);
+					stash.m_OnSuccess = equip;
+					stash.m_OnFail = drop;
+					drop.m_OnSuccess = equip;
+					drop.m_OnFail = equip;
+					root = stash;
+				}
+				else
+				{
+					root = dmInventoryFrame.Make(dmInventoryDoing.PLACEONGROUND, current);
+					root.m_OnSuccess = equip;
+				}
+			}
+		}
+
+		pawn.GetInventoryFrames().Enqueue(root);
+		m_EquipRoot = root;
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] Fighting: мили " + melee.GetType());
+		#endif
 	}
 
 	//! Weapon reach (melee combat GetRange()) with a static fallback.

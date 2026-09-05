@@ -91,6 +91,17 @@ class dmInventoryFrame
 		frame.m_OnFail = a;
 		return frame;
 	}
+
+	//! Фабрика листового action-фрейма (verb + item + slot + target).
+	static dmInventoryFrame Make(dmInventoryDoing verb, ItemBase item, int slotId = -1, EntityAI to = null)
+	{
+		dmInventoryFrame frame = new dmInventoryFrame();
+		frame.m_ToDo = verb;
+		frame.m_Item = item;
+		frame.m_SlotId = slotId;
+		frame.m_To = to;
+		return frame;
+	}
 }
 
 class dmInventoryFrames
