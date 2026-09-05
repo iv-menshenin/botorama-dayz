@@ -1252,6 +1252,62 @@ class dmAISurvivorBase : PlayerBase
 		#endif
 	}
 
+	//! Доступные режимы огня оружия (кэш dmWeaponFireInfo).
+	ref array<ref dmFireMode> GetAvailableFireModes(Weapon_Base weapon)
+	{
+		return dmWeaponFireInfo.Get(weapon).m_Modes;
+	}
+
+	//! Предпочтительный режим по дистанции. Пороги: Double <30м; Auto <30м;
+	//! Burst <75м; иначе Single.
+	dmFireMode GetPreferredFireModeByDistance(float distance, array<ref dmFireMode> modes)
+	{
+		dmFireMode m;
+		if (distance < 30.0)
+		{
+			m = FindMode(modes, dmFireModeType.DOUBLE);
+			if (m)
+				return m;
+			m = FindMode(modes, dmFireModeType.AUTO);
+			if (m)
+				return m;
+			m = FindMode(modes, dmFireModeType.BURST);
+			if (m)
+				return m;
+		}
+		else if (distance < 75.0)
+		{
+			m = FindMode(modes, dmFireModeType.BURST);
+			if (m)
+				return m;
+		}
+		m = FindMode(modes, dmFireModeType.SINGLE);
+		if (m)
+			return m;
+		if (modes.Count() > 0)
+			return modes[0];
+		return null;
+	}
+
+	//! Установить режим на оружии (SetCurrentMode по индексу).
+	void SetFireMode(Weapon_Base weapon, dmFireMode mode)
+	{
+		if (weapon && mode)
+			weapon.SetCurrentMode(weapon.GetCurrentMuzzle(), mode.m_Index);
+	}
+
+	//! Найти режим заданного типа; null если нет.
+	dmFireMode FindMode(array<ref dmFireMode> modes, int type)
+	{
+		int i;
+		for (i = 0; i < modes.Count(); i++)
+		{
+			if (modes[i].m_Type == type)
+				return modes[i];
+		}
+		return null;
+	}
+
 	//! Simplified server reload of the weapon in hands (see docs/research/combat.md
 	//! "Перезарядка"): unjam > eject a chambered-out bullet > attach/swap a
 	//! non-empty magazine from the inventory. Ammo-pile/bullet-per-bullet loading
