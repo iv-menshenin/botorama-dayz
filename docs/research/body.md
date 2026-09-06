@@ -99,6 +99,81 @@ override void EEKilled(Object killer) {
 `ClientData.RemovePlayerBase`, **`super.EEKilled` → `SendDeathJuncture`** (смертельная анимация),
 `SyncRespawnModeInfo`. Труп регистрируется (`InsertCorpse`), но анимация смерти не запускается.
 
+## vanilla EEKilled для AI_SERVER (покроково: краш / спам / no-op)
+
+Цель: понять, какие шаги ванильного `super.EEKilled`-флоу реально крашат/спамят для
+`INSTANCETYPE_AI_SERVER`-бота (нет character id, нет identity, нет клиента/action-manager),
+чтобы выбрать минимальный фикс (труп создаётся + бот реально «умирает», без ошибки).
+
+### Полная цепочка (сервер) с разметкой
+
+`PlayerBase.EEKilled` (`playerbase.c:1045-1084`):
+
+| # | Строка | Вызов | Для AI_SERVER |
+|---|---|---|---|
+| 1 | :1049-1052 | `if (m_AdminLog) m_AdminLog.PlayerKilled(this, killer)` | **безопасно** (в). `m_AdminLog` не null на сервере (`playerbase.c:380`). `PluginAdminLog.PlayerKilled` (`pluginadminlog.c:116`) при `identity==null` берёт `GetCachedName()/GetCachedID()` (`:90-91`) — не крашит, просто лог-строка. |
+| 2 | :1054-1055 | `delete GetBleedingManagerServer()` | **безопасно** (в). `m_BleedingManagerServer` создаётся в серверном блоке (`:373`). |
+| 3 | :1058-1061 | `if (GetHive()) GetHive().CharacterKill(this)` | **СПАМ** (б). `GetHive()` — глобальный native (`hive.c:31`), всегда не-null на сервере → `CharacterKill` зовётся всегда; native печатает «Can't kill player with id -1» (у ИИ `GetIdentity()==null`). Единственный реальный источник ошибки. |
+| 4 | :1064 | `GetGame().EnableVoN(this, false)` | **no-op** (в). У ИИ нет клиента/VoN. |
+| 5 | :1065-1066 | `if (!IsDedicatedServer()) ClientData.RemovePlayerBase(this)` | **пропускается** (в) на дедике (типично для AI_SERVER). |
+| 6 | :1067 | `GetSymptomManager().OnPlayerKilled()` | **безопасно** (в). `m_SymptomManager` безусловно создаётся (`:383`). |
+| 7 | :1069-1073 | `InsertCorpse(this)` (guard по `GetEconomyProfile() && !m_CorpseProcessing && m_CorpseState==0`) | **нужно** — создаёт труп. ИИ спавнится `CreateObject` → CE profile есть (лог `hasCEProfile=1`). |
+| 8 | :1075-1081 | `SyncRespawnModeInfo(GetIdentity())` | **не краш, лёгкий waste** (в). `GetIdentity()==null` (лог `hasIdentity=0`) → `ScriptRPC.Send(null, …, true, null)`; `recipient==null` = broadcast всем клиентам (`gameplay.c:117`). Лишний `RPC_SERVER_RESPAWN_MODE` на каждую смерть ИИ. |
+| 9 | :1083 | `super.EEKilled(killer)` | → `DayZPlayerImplement.EEKilled` (`dayzplayerimplement.c:762`). |
+
+`DayZPlayerImplement.EEKilled` (`dayzplayerimplement.c:762-767`):
+
+- `SendDeathJuncture(-1, 0)` (`:764`) → `DayZPlayerSyncJunctures.SendDeath(this, -1, 0)`
+  (`dayzplayersyncjunctures.c:65-72`) → `SendSyncJuncture(SJ_DEATH=12, ctx)` (native,
+  `dayzplayer.c:1282`). **Нужно, не крашит**: шлёт `SJ_DEATH` на `AI_REMOTE`-клиентов →
+  смертельная анимация + терминальное мёртвое состояние. Identity не требуется.
+- `super.EEKilled` → `EntityAI.EEKilled` (`entityai.c:1072-1081`): `m_OnKilledInvoker.Invoke`
+  (может быть null — безопасно), `GetAnalyticsServer().OnEntityKilled(killer, this)`
+  (`analyticsmanagerserver.c:48` — null-killer обрабатывается), `ReplaceOnDeath()==false`
+  для игроков → no-op.
+
+`StartCommand_Death` / `HandleDeath` (`dayzplayerimplement.c:623-720`) /
+`OnCommandDeathStart` (`playerbase.c:3964-3973`) — **КЛИЕНТСКИЕ** (идут из `CommandHandler`
+под action-manager). Для AI_SERVER на сервере не выполняются; на клиенте `AI_REMOTE`
+отрабатывают штатно через juncture. Краша/спама не дают.
+
+### `GetHive()`: что это и как его «переопределить»
+
+- `GetHive()` — **глобальный native** (`hive.c:31`), НЕ метод класса. В ванили нет ни одного
+  метода `GetHive()` в иерархии `DayZPlayer*`/`PlayerBase`; все вызовы в `playerbase.c:1058/1060`
+  и `missionserver.c` — bare-вызовы глобала. Поэтому **`if (GetHive())` у ИИ всегда true**, и
+  `CharacterKill` не скипается.
+- Bare-вызов функции внутри метода резолвится в пользу **метода класса** над глобалом. Значит
+  затенять глобал можно ТОЛЬКО объявив метод `GetHive()` на **ancestor'е** `PlayerBase`
+  (`DayZPlayerImplement`/`ManBase`/`PlayerBase`) через `modded class`. Метод на потомке
+  (`dmAISurvivorBase`) глобал для `PlayerBase.EEKilled` **не затеняет** (вызов резолвится по
+  иерархии вверх, потомок не виден).
+- Подтверждённый референс — **Expansion**: `modded class DayZPlayerImplement { Hive GetHive()
+  { if (IsAI()) return null; return Expansion_GlobalGetHive(); } }`
+  (`DayZExpansion_AI/.../DayZPlayerImplement.c:418-429`), где `Expansion_GlobalGetHive()`
+  (`.../Hive.c:1-7`) — wrapper, зовущий глобал (внутри метода bare `GetHive()` рекурсивно ушёл
+  бы в сам метод). Комментарий Expansion: «Suppress "couldn't kill player" in server logs when
+  AI gets killed».
+- **Достаточно ли `GetHive()→null` для CharacterKill-спама?** Да: `if (GetHive())` в
+  `playerbase.c:1058` станет false → `CharacterKill` штатно скипается. Это ровно фикс Expansion.
+
+### Итоговая рекомендация (минимальный безопасный набор)
+
+1. `modded class PlayerBase` (или `DayZPlayerImplement`, как Expansion):
+   `Hive GetHive() { if (GetInstanceType() == DayZPlayerInstanceType.INSTANCETYPE_AI_SERVER)
+   return null; return <wrapper-к-глобалу>; }` — глушит шаг 3 (единственный спам).
+2. В `dmAISurvivorBase.EEKilled` вернуть **`super.EEKilled(killer)`** вместо ручной репликации:
+   полный ванильный флоу теперь безопасен (шаги 1/2/4/5/6/8 no-op, шаг 7 даёт труп, шаг 9 даёт
+   `SendDeathJuncture` → анимация + мёртвое состояние). `CharacterKill` скипается за счёт п.1.
+3. `SendDeathJuncture` переопределять no-op **НЕ нужно** — он желаем и не крашит.
+4. (опц.) `SyncRespawnModeInfo(null)`-broadcast можно заглушить (override `GetIdentity()` или
+   guard), но это не краш/спам — только лишний RPC.
+
+Минимальный вариант БЕЗ `modded class` (если не хочется трогать `GetHive`): оставить ручной
+`EEKilled`, но добавить `SendDeathJuncture(-1, 0);` (public, наследуется от
+`DayZPlayerImplement`) — это убирает «стоячего мёртвого» (анимация) без CharacterKill; труп уже
+регистрируется. Менее «ванильно», но короче.
+
 ## 2. Натуральная смерть vs внешний килл (EEKilled при Health=0)
 
 Два разных API манипуляции здоровьем (`object.c`):
@@ -193,10 +268,10 @@ override void EEKilled(Object killer) {
 ## Выводы для фикса (рекомендации)
 
 - **Смерть**: в `EEKilled` вызвать `super.EEKilled(killer)` (это уберёт «стоячего мёртвого» за
-  счёт `SendDeathJuncture`/корректного завершения) и при необходимости перехватить
-  `GetHive()`/`CharacterKill` отдельно (или переопределить `GetHive()` → `null`, чтобы ваниль
-  сама скипала БД-шаг). Для скриптового «убить» использовать рут-хелф (`SetHealth(0)`), а не
-  `SetHealth("","Health",0)`.
+  счёт `SendDeathJuncture`/корректного завершения) и заглушить `CharacterKill` через
+  `modded class`-метод `GetHive()`→null на **ancestor'е** `PlayerBase` (не на `dmAISurvivorBase` —
+  см. «vanilla EEKilled для AI_SERVER»). Для скриптового «убить» использовать рут-хелф
+  (`SetHealth(0)`), а не `SetHealth("","Health",0)`.
 - **Нокаут**: при `StartCommand_Unconscious(0)` ставить `m_IsUnconscious = true` и звать
   `OnUnconsciousStart()`; при `WakeUp` — `m_IsUnconscious = false` + `OnUnconsciousStop()`.
   Либо, как Expansion, дать боту action-manager, чтобы ванильный блок отработал сам.
@@ -245,9 +320,18 @@ override void EEKilled(Object killer) {
 - `4_world/classes/emotemanager.c:826-832` (`KillPlayer` → `SetHealth(0)`).
 - `4_world/classes/useractionscomponent/actions/continuous/medical/actioncpr.c:50`
   (`IsUnconscious()`-гейт CPR).
+- `3_game/hive/hive.c:31` (`proto native Hive GetHive();` — глобал, НЕ метод).
+- `3_game/gameplay.c:117` (`ScriptRPC.Send(..., recipient=NULL)` → broadcast всем клиентам),
+  `:338-391` (`PlayerIdentity`).
+- `3_game/analytics/analyticsmanagerserver.c:48` (`OnEntityKilled` — null-killer безопасен).
+- `4_world/plugins/pluginbase/pluginadminlog.c:116` (`PlayerKilled`), `:67-101` (`GetPlayerPrefix`,
+  null-identity → `GetCachedName()/GetCachedID()`).
 - `DayZ-Expansion-Scripts/.../eAIBase.c:735-736` (создание action-manager), `:1355-1384`
   (`EEKilled` с `super`), `:10158-10195` (`OnUnconsciousStart/Stop`), `:7077/7199-7202`
   (`CommandHandler` + реплика INSTANCETYPE_SERVER-гейтов).
+- `DayZ-Expansion-Scripts/DayZExpansion/AI/Scripts/4_World/DayZExpansion_AI/Entities/
+  DayZPlayerImplement.c:418-429` (`modded class DayZPlayerImplement` → `Hive GetHive()` с
+  `IsAI()→null`), `.../3_Game/DayZExpansion_AI/Hive.c:1-7` (`Expansion_GlobalGetHive()` wrapper).
 - Мод: `core/4_World/Entities/Bot/dmAISurvivorBase.c:864` (`UpdateUnconsciousBridge`), `:934`
   (`EEKilled` без `super`), `:953` (`CanAct`); `core/4_World/Entities/Bot/dmAISurvivor.c:198/359`
   (`OnDeath`, релиз мозга); `test/4_World/dmBotTest.c:350` (`SetHealth("","Health",0.0)`).

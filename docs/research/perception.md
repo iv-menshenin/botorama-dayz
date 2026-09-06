@@ -361,3 +361,144 @@ m_Bot.HearNoise(root, position);                        // → DiscoverTarget(en
 - ваниль: `3_game/noise.c`; `3_game/global/game.c:736`; `4_world/entities/dayzplayerimplement.c:3228,3239,3484,3587`; `3_game/dayzgame.c:3414,3589,3627`; `4_world/entities/firearms/fsm/states/weaponfire.c:66–72`; `4_world/entities/firearms/weapon_base.c:1028`; `3_game/systems/inventory/weaponinventory.c:8`; `4_world/classes/weapons/weaponmanager.c:484–499`; `3_game/entities/entityai.c:869,872`.
 - Expansion: `eAINoiseSystem.c`; `Entities/AI/eAIBase.c:563,1427,4105–4298`; `Entities/DayZPlayerImplement.c:595`; `Entities/Weapons/Firearms/Weapon_Base.c:329,342,394,402`; `3_Game/DayZExpansion_AI/DayZGame.c:72,95`; `Classes/Targets/eAINoiseTargetInformation.c`.
 - mod: `core/3_Game/Perception/dmNoiseSystem.c`; `core/4_World/Entities/Bot/Perception/dmHearing.c`; `core/3_Game/modded/modded_DayZGame.c`; `reg/4_World/modded_WeaponBase.c`; `reg/4_World/modded_WeaponFire.c`; `reg/4_World/modded_DayZPlayerImplement.c`; `reg/4_World/modded_ZombieBase.c`; `cons/3_Game/constants.c`; `cons/4_World/constants.c:323`.
+
+---
+
+## Глушитель и сила шума по типу оружия
+
+Статус: **исследование** (веха T13). Задача — ввести силу шума константами:
+обычный выстрел 3000 м, глушитель-пистолет 75 м, глушитель-винтовка 100 м,
+попадание пули 15 м. В моде уже есть `dmNoiseSystem.AddNoise(source, position, strength)`
+(strength = радиус, м) и `dmAISurvivor.IsPistol(Weapon_Base)`.
+
+### 1. Детект глушителя — подтверждено
+
+- **Главный API**: `proto native ItemSuppressor GetAttachedSuppressor();` — `4_world/entities/core/inherited/weapon.c:407`
+  (класс `Weapon extends InventoryItemSuper`). Возвращает `null`, если глушитель не надет.
+  - Класс-обёртка: `4_world/entities/core/inherited/inventoryitem.c:2` `class ItemSuppressor extends InventoryItemSuper`
+    + `typedef ItemSuppressor SuppressorBase;` (стр. 6).
+  - Употребление в ванили: `4_world/entities/firearms/weapon_base.c:345` (`EEFired` — частицы),
+    `weapon_base.c:2016` (`GetEffectiveAttachmentLength`), `4_world/entities/firearms/fsm/events.c:326`.
+  - Употребление в Expansion (эталон): `DayZExpansion/AI/.../Weapons/Firearms/Weapon_Base.c:271`
+    `ItemSuppressor suppressor = GetAttachedSuppressor(); if (suppressor && !suppressor.IsDamageDestroyed()) {...}` —
+    с проверкой на разрушенность. `IsDamageDestroyed()` — engine-native на `EntityAI`/`ItemBase`
+    (вызывается напрямую `item.IsDamageDestroyed()`, proto-объявления в scripts нет).
+- **Альтернатива** (перебор всех насадок, если понадобится не только глушитель):
+  `GetInventory().AttachmentCount()` (`3_game/systems/inventory/inventory.c:205`) +
+  `GetInventory().GetAttachmentFromIndex(int)` (`inventory.c:220`) → `att.IsInherited(ItemSuppressor)`.
+  Для единственного глушителя `GetAttachedSuppressor()` проще.
+- Классы глушителей (все `extends ItemSuppressor`/`SuppressorBase`):
+  `PistolSuppressor`, `MakarovPBSuppressor`, `AK_Suppressor`, `M4_Suppressor`, `ImprovisedSuppressor`
+  (`4_world/entities/itembase/suppressorbase/*.c`); `Mosin_Compensator`, `MP5_Compensator`
+  (`4_world/entities/itembase/inventory_base/*.c`).
+- **Не подтверждено (в ванили отсутствует)**: метод `IsSuppressed()`, поле `m_Suppressor`,
+  класс/метод `AttachmentSuppressor`, натив `GetMuzzleIndex` как детект глушителя. Есть только
+  `GetCurrentMuzzle()` (`weapon.c:35`) / `GetMuzzleCount()` (`weapon.c:16`) — про выбор дула у
+  многоствольного оружия, НЕ про глушитель; `GetMuzzleID()` (`4_world/entities/itembase.c:719`) —
+  для конфига частиц, тоже мимо.
+
+### 2. Пистолет vs винтовка — подтверждено (с готчами)
+
+- **Ванильного `IsPistol()` нет** (grep пуст). Ваниль различает через
+  `item.IsInherited(Pistol_Base)` (`actionturnoffweaponflashlight.c:29`) или
+  `weapon.IsKindOf("Pistol_Base")` (`4_world/classes/emoteclasses/emoteclasses.c:641`).
+- Иерархия: `class Pistol_Base extends Weapon_Base` (`4_world/entities/firearms/pistol_base.c:149`);
+  `class Rifle_Base extends Weapon_Base` (`4_world/entities/firearms/rifle_base.c:10`).
+- Мод: `dmAISurvivor.IsPistol(w)` = `w.IsInherited(Pistol_Base)` и `IsRifle(w)` = `w.IsInherited(Rifle_Base)`
+  (`core/4_World/Entities/Bot/dmAISurvivor.c:529–542`) — достаточно для базовой классификации.
+- **Готчи**:
+  1. `SingleShotPistol_Base : Weapon_Base` (`4_world/entities/firearms/singleshotpistol_base.c:52`,
+     напр. LongHorn) — НЕ `Pistol_Base` и НЕ `Rifle_Base` → проваливается сквозь оба `IsInherited`.
+     Для силы шума решать дефолт (трактовать как винтовку).
+  2. **ПП (SMG) наследуют `Rifle_Base`**: `PP19_Base : RifleBoltFree_Base`, `MP5K_Base : RifleBoltFree_Base`,
+     `CZ61_Base : RifleBoltLock_Base`, `UMP45_Base : RifleBoltLock_Base`, `VSS_Base : RifleBoltFree_Base`,
+     `PM73Rak_Base extends OpenBolt_Base` — все ведут к `Rifle_Base`
+     (`4_world/entities/firearms/smg/*.c`). Значит «пистолет/ПП с глушителем = 75» НЕ покрывается
+     чистым `IsInherited(Pistol_Base)` — ПП попадёт в категорию «винтовка» (100). Нужно явное
+     правило (отдельный список ПП или отдельная категория «тихое/компактное оружие»).
+
+### 3. Эталон Expansion `eAINoiseParams` — подтверждено точно
+
+Файл `DayZ-Expansion-Scripts/DayZExpansion/AI/Scripts/3_Game/DayZExpansion_AI/eAINoiseSystem.c`:
+
+- `enum eAINoiseType { SHOT, SOUND, EXPLOSION, BULLETIMPACT }` (стр. 1–7).
+- `class eAINoiseParams` (стр. 9–50): поля `m_Path`/`m_Strength`/`m_Type`; ctor
+  `m_Strength = g_Game.ConfigGetFloat(path + " strength")` (стр. 18);
+  SHOT: `m_Strength = Math.Min(m_Strength * 13.75, 1100)` (стр. 40);
+  BULLETIMPACT: `m_Strength *= 2` (стр. 44).
+- `class eAINoiseSystem` (стр. 52–114): `static ref ScriptInvoker SI_OnNoiseAdded` (стр. 54);
+  кэш `static ref map<string, eAINoiseParams> s_NoiseParams` (стр. 56); `GetNoiseParams(path, type=-1)`
+  (стр. 58); overloads `AddNoise(source[, pos[, lifetime]], path, strengthMultiplier, type)` (стр. 70/76/82)
+  и `AddNoiseEx(...params...)` (стр. 88/93/98) — все делают `SI_OnNoiseAdded.Invoke(...)`.
+- Приёмник `eAIBase.eAI_OnNoiseEvent` (стр. 4105–4298): фильтр `distSq > strength²` (стр. 4165),
+  конверсия strength→threat (cap 0.4, bullet-impact 0.2), lifetime/delay — уже расписан в разделе «Слух» выше.
+
+**Сила шума задаётся КОНФИГОМ оружия, не кодом** (`CfgWeapons <Type> NoiseShoot`, `strength` + `type`):
+- Пистолет 1911: `NoiseShoot strength=40 type="shot"` (`DZ/weapons/pistols/1911/config.cpp:58–62`).
+- Винтовки: M4/AK74 `strength=80` (`DZ/weapons/firearms/{m4,ak74}/config.cpp`); Mosin/SVD `strength=100`;
+  дробовик MP133 `strength=100`. ПП: PP19/MP5 `strength=60`.
+- Попадание пули: `Bullet_* NoiseHit strength=2 type="sound"` (`DZ/weapons/projectiles/config.cpp:3456–3460`).
+
+**Глушитель в Expansion** режет силу множителем, а не фиксированной константой:
+в конфиге насадки `noiseShootModifier` (`DZ/weapons/attachments/muzzle/config.cpp`):
+Improvised `-0.85`, M4/AK/Pistol `-0.93`, Groza/MakarovPB `-0.90`. Expansion суммирует в
+`modded PropertyModifiers.UpdateModifiers()` (`DayZExpansion/AI/.../Classes/PropertyModifiers.c:9–22`):
+`m_eAI_NoiseShootModifier = 1.0 + Σ att.ConfigGetFloat("noiseShootModifier")`, затем
+`eAINoiseSystem.AddNoiseEx(this, eAI_GetNoiseParams(), strengthMultiplier)` (`Weapon_Base.c:342`).
+Итог: глушитель даёт множитель ~0.07–0.15 (радиус падает в ~7–14 раз), а не «ровно 75/100 м».
+Наши константы 75/100/3000 — упрощение поверх этой схемы (см. «Что портировать» ниже).
+
+### 4. Попадание пули — подтверждено
+
+- Ваниль НЕ генерит script-шум выстрела (`NoiseShot` в script-вызовах нет — выстрел шумит нативно
+  в движке). Попадание генерит НАТИВНЫЙ sink: `DayZGame.FirearmEffects` →
+  `GetNoiseSystem().AddNoiseTarget(pos, 10, m_NoiseParams, ...)` (`3_game/dayzgame.c:3663`),
+  `m_NoiseParams.LoadFromPath("cfgAmmo " + ammoType + " NoiseHit")` (стр. 3656). Script-колбэка нет
+  (для зомби/животных) — подтверждено.
+- Правильная точка нашего сигнала — `modded_DayZGame.FirearmEffects`
+  (`core/3_Game/modded/modded_DayZGame.c:8–15`), уже шлёт `dmNoiseSystem.AddNoise(null, pos, DM_NOISE_BULLETIMPACT_STRENGTH)`.
+  Точка верная; сейчас `DM_NOISE_BULLETIMPACT_STRENGTH = 20.0` (`cons/3_Game/constants.c:14`) —
+  по заданию заменить на 15.0.
+
+### Что портировать (структура для копирования, но с нашими константами)
+
+| Expansion | botorama | Заметки |
+|---|---|---|
+| `eAINoiseType { SHOT, SOUND, EXPLOSION, BULLETIMPACT }` | `dmNoiseType` (enum в `cons/4_World/constants.c`) | нужно, чтобы различать выстрел/попадание на приёме |
+| `eAINoiseParams` (path/strength/type, чтение из конфига) | **константы `DM_NOISE_*`**, не конфиг | у нас фиксированные значения, не `ConfigGetFloat` |
+| `eAINoiseSystem.AddNoise(source[,pos[,lifetime]], path, mult, type)` | расширить `dmNoiseSystem.AddNoise(source, pos, strength, type)` | добавить `type` + не отсекать `source==null` (bullet-impact — позиционный пинг) |
+| множитель глушителя через `noiseShootModifier` (конфиг) | `if (GetAttachedSuppressor() && !suppressor.IsDamageDestroyed()) strength = IsPistol(w) ? 75 : 100;` | плюс выбор 75/100 по `IsPistol`/`IsRifle` (с готчей ПП) |
+| выстрел ×13.75 clamp 1100 (из `NoiseShoot` конфига) | `DM_NOISE_GUNSHOT_STRENGTH = 3000.0` | наш радиус выстрела без глушителя |
+| BULLETIMPACT ×2 | `DM_NOISE_BULLETIMPACT_STRENGTH = 15.0` | наше попадание |
+
+### Открытые вопросы
+
+1. **ПП (SMG) → Rifle_Base**: «пистолет/ПП = 75» не покрывается `IsPistol`. Нужно правило:
+   отдельный список ПП-классов или категория «компактное/тихое» — иначе ПП с глушителем даст 100 м.
+2. **`SingleShotPistol_Base`** (LongHorn) — вне `Pistol_Base`/`Rifle_Base`; решить дефолт силы.
+3. `GetAttachedSuppressor()` возвращает один `ItemSuppressor` (на слот) — для многоствольного
+   оружия это ок (глушитель один).
+4. Различать ли `ImprovisedSuppressor` (ваниль: -0.85 vs -0.93)? Для констант 75/100 можно не
+   различать, но при желании добавить третью градацию — открытый вопрос.
+5. Где именно вычислять силу: в точке генерации (modded `Weapon_Base.OnFire`/`dmBot_Fire`), т.к.
+   `GetAttachedSuppressor()` доступен на `Weapon_Base` (оружии-источнике) — это наиболее чистая точка.
+
+### Источники (раздел «Глушитель и сила шума»)
+
+- ваниль: `4_world/entities/core/inherited/weapon.c:16,30,35,407`; `4_world/entities/core/inherited/inventoryitem.c:2,6`;
+  `4_world/entities/firearms/weapon_base.c:345,2016`; `4_world/entities/firearms/fsm/events.c:326`;
+  `4_world/entities/firearms/pistol_base.c:149`; `4_world/entities/firearms/rifle_base.c:10`;
+  `4_world/entities/firearms/singleshotpistol_base.c:52`; `4_world/entities/firearms/smg/*.c`;
+  `4_world/entities/itembase/suppressorbase/*.c`; `4_world/entities/itembase/inventory_base/*.c`;
+  `4_world/entities/itembase.c:719`; `4_world/classes/emoteclasses/emoteclasses.c:641`;
+  `4_world/classes/useractionscomponent/actions/singleuse/actionturnoffweaponflashlight.c:29`;
+  `3_game/systems/inventory/inventory.c:205,220`; `3_game/entities/entityai.c:1847`; `3_game/dayzgame.c:3656,3663`.
+- ванильный конфиг (данные): `DZ/weapons/pistols/1911/config.cpp:58–62`;
+  `DZ/weapons/firearms/{m4,ak74,mosin9130,svd,pp19,mp5}/config.cpp` (`NoiseShoot strength=…`);
+  `DZ/weapons/attachments/muzzle/config.cpp` (`noiseShootModifier=…`);
+  `DZ/weapons/projectiles/config.cpp:3456–3460` (`NoiseHit strength=2`).
+- Expansion: `DayZExpansion/AI/Scripts/3_Game/DayZExpansion_AI/eAINoiseSystem.c`;
+  `DayZExpansion/AI/Scripts/4_World/DayZExpansion_AI/Entities/Weapons/Firearms/Weapon_Base.c:271,329–344,394–434`;
+  `DayZExpansion/AI/Scripts/4_World/DayZExpansion_AI/Classes/PropertyModifiers.c:9–22`.
+- mod: `core/3_Game/Perception/dmNoiseSystem.c`; `core/3_Game/modded/modded_DayZGame.c`;
+  `reg/4_World/modded_WeaponBase.c:34–93`; `core/4_World/Entities/Bot/dmAISurvivor.c:529–542`; `cons/3_Game/constants.c:12–15`.
