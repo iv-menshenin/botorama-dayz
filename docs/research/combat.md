@@ -1512,3 +1512,133 @@ Expansion-эталон (`eaistate_flank` / `OverrideTargetPosition` в нави�
   Геометрическая видимость кандидата проверяется прямым райкастом (без FOV) — это не ломает выбор
   точки, но «момент Finish» может отставать на время доворота. Если понадобится — проверять LOS
   фланга прямым райкастом «бот → цель» (без FOV-гейта), как `dmVision.HasLOS`, а не `m_HasLOS`.
+
+# Получение урона ботом (зомби → ИИ-бот)
+
+## Цель
+
+Выяснить, почему `dmAISurvivorBase : PlayerBase` (`INSTANCETYPE_AI_SERVER`) не получает урон от
+зомби и нет порезов; где правильная точка перехвата; почему текущий хак в `EEHitBy`/`EEOnDamageCalculated`
+(`core/4_World/Entities/Bot/dmAISurvivorBase.c:896` и `:909`) не работает.
+
+## Путь зомби → урон (подтверждено)
+
+1. `ZombieBase.FightLogic()` (ветка `COMMANDID_ATTACK`) → `attackCommand.WasHit()` →
+   `DamageSystem.CloseCombatDamageName(this, m_ActualTarget, m_ActualTarget.GetHitComponentForAI(),
+   ammo, hitPosWS)` — `zombiebase.c:652/658/664` (light/block/heavy ветки).
+2. `DamageSystem.CloseCombatDamageName` — `proto native` (`damagesystem.c:23`). Натив сам резолвит
+   damage-zone/component, считает `TotalDamageResult` из cfgAmmo и на цели вызывает цепочку:
+   - `EEOnDamageCalculated(...)` — `bool`; `return false` = НЕ применять урон, `return true` = применить
+     (`object.c:1136`, дефолт `true`).
+   - применение Health/Shock/Blood — нативно.
+   - `EEHitBy(...)` — пост-событие (`entityai.c:1111`).
+   - `EEHealthLevelChanged(...)` — при смене уровня здоровья (`entityai.c:1021`).
+   - `EEKilled(...)` — при смерти (`entityai.c:1072`).
+3. `PlayerBase.EEHitBy` (`playerbase.c:1086`) — скриптовые допы: **порезы** через
+   `GetBleedingManagerServer().ProcessHit(dmg, source, component, dmgZone, ammo, modelPos)`
+   (`playerbase.c:1120-1124`, читает `damageResult.GetDamage(dmgZone, "Blood")`); сломанные ноги
+   (`1153-1162`); `m_ShockHandler.CheckValue(true)`.
+4. `PlayerBase.EEKilled` (`playerbase.c:1045`) — corpse-процессинг (`InsertCorpse`), `CharacterKill`
+   через `GetHive()` (у ИИ-бота GetHive() null — поэтому мод и переопределяет `EEKilled`).
+
+Замечания к нативу: `ProcessDirectDamage` — `proto native void` (`object.c:1130`); параметр
+`damageCoef` — **множитель** базового урона ammo, а `componentName` на деле — имя **damage-zone**
+(«NOT a component name» — комментарий `object.c:1124`). Флаги — `ProcessDirectDamageFlags`
+(`object.c:1-7`: `ALL_TRANSFER / NO_ATTACHMENT_TRANSFER / NO_GLOBAL_TRANSFER / NO_TRANSFER`).
+
+## Что гейтится для AI_SERVER (подтверждено)
+
+- `EEHitBy` / `EEOnDamageCalculated` / `EEKilled` / `EEHealthLevelChanged` — **НЕ гейтятся**
+  инстанс-типом и **НЕ** `IsPlayerSelected()`. Это нативные события конвейера урона, зовутся на
+  сервере для любой `EntityAI`-цели, включая `AI_SERVER`. Доказательства: базовые объявления
+  (`entityai.c:1111`, `object.c:1136`); Expansion `eAIBase` (тоже AI_SERVER PlayerBase) получает
+  урон через те же `super`-методы (`eAIBase.c:1307-1343`).
+- `IsPlayerSelected()` (= `m_PlayerSelected`, `dayzplayerimplement.c:3803`) гейтит только тело-тик
+  `OnScheduledTick` (`playerbase.c:2689` → `m_ModifiersManager.OnScheduledTick`,
+  `GetBleedingManagerServer().OnTick`). Для AI_SERVER это `false` → ваниль НЕ тикает модификаторы и
+  порезы. botorama уже тикает их вручную в `CommandHandler` (см. SKILL, «Системы тела»).
+- `HandleDamageHit` (`dayzplayerimplement.c:1367`) — это **анимация реакции** на удар
+  (`COMMANDID_DAMAGE`/`AddCommandModifier_Damage`), а НЕ применение HP. Отдельного метода
+  `HandleDamage` в ванили нет.
+- Цель зомби: `m_TargetableObjects` включает `PlayerBase` (`zombiebase.c:71`) → ИИ-бот — валидная
+  цель зомби (атака до него доходит).
+
+## Почему текущий хак не работает (`dmAISurvivorBase.c:896-920`)
+
+Текущий override:
+- `EEHitBy` → `super` + `RegisterDamageThreat` (это ок: `EEHitBy` у AI_SERVER зовётся).
+- `EEOnDamageCalculated` → для `ZombieBase`-источника: `m_ProcessindDMG = true;`
+  `ProcessDirectDamage(damageType, source, dmgZone, ammo, modelPos,
+  damageResult.GetDamage(dmgZone,"Health") * 0.5);` `AddHealth("","Shock",-shock);`
+  `m_ProcessindDMG = false; return false;`
+
+Проблемы:
+
+1. **Re-entrant `ProcessDirectDamage` внутри `EEOnDamageCalculated` = анти-паттерн
+   «inconsistent damage».** Expansion явно пишет `//! Need to use Call() to avoid inconsistent
+   damage` и применяет модифицированный урон **отложенно** через
+   `g_Game.GetCallQueue(CALL_CATEGORY_SYSTEM).Call(ProcessDamage, ...)` (`eAIDamageHandler.c:493-494`),
+   а в колбэке возвращает `false` только после того, как отложил применение. Синхронный вложенный
+   `ProcessDirectDamage` внутри нативного колбэка урона может не примениться (натив не реентерабелен) →
+   оригинальный урон отменён (`return false`) И вложенный не применился → **ноль урона** — ровно
+   симптом «урон не проходит».
+2. **`damageResult.GetDamage(dmgZone,"Health") * 0.5` передаётся как `damageCoef` (множитель),
+   а это абсолютное значение HP (~20-40).** Если бы вложенный `ProcessDirectDamage` сработал, это дало
+   бы ×10-20 урона (мгновенная смерть), а не 0.5x. Логика коэффициента сломана: нужно передавать
+   чистый множитель (`0.5`), а не абсолютный урон.
+3. `AddHealth("","Shock",-damageShock)` берёт `damageResult.GetDamage("","Shock")` по глобальной
+   зоне `""`; для зомби-хита зона может быть `"Torso"/"Head"`, а не `""` → shock может быть 0
+   (мелочь на фоне п.1-2).
+
+Разбор гипотез из задачи:
+- «`EEOnDamageCalculated` возвращает `false` в не-зомби ветке» — **не подтверждено**: не-зомби
+  ветка возвращает `true`.
+- «`ProcessDirectDamage` зовётся не в том месте» — **подтверждено** как корневая причина
+  (синхронный re-entrant вызов внутри нативного колбэка + неверный коэффициент).
+- «`EEHitBy` не зовётся у AI_SERVER» — **опровергнуто**: `EEHitBy`/`EEKilled` зовутся (не гейтятся
+  инстанс-типом). Порезы «не появляются» потому, что `EEHitBy` вообще не доходит до `ProcessHit` —
+  урон отменён раньше, на уровне `EEOnDamageCalculated`.
+
+## Правильная точка перехвата (рекомендация)
+
+**Вариант A (минимальный фикс).** Убрать override `EEOnDamageCalculated` целиком (или
+`return super.EEOnDamageCalculated(...)` = `true`) → ваниль применит полный зомби-урон;
+`EEHitBy` уже перехватывает `RegisterDamageThreat`; порезы пойдут из `super.EEHitBy`
+(`ProcessHit`), при условии что `BleedingManagerServer` тикает (уже тикается вручную в `CommandHandler`).
+
+**Вариант B (редукция урона, как Expansion).** В `EEOnDamageCalculated` возвращать `false` ТОЛЬКО
+когда реально модифицируем урон, а модифицированный урон применять ОТЛОЖЕННО:
+- сохранить `damageType/source/dmgZone/ammo/modelPos` и чистый множитель (`0.5`);
+- `g_Game.GetCallQueue(CALL_CATEGORY_SYSTEM).Call(ApplyDeferredDamage, damageType, source, dmgZone,
+  ammo, modelPos, coef);`
+- `return false;`
+- `ApplyDeferredDamage`: `m_ProcessindDMG = true; ProcessDirectDamage(damageType, source, dmgZone,
+  ammo, modelPos, coef); m_ProcessindDMG = false;`
+- в `EEOnDamageCalculated` при `m_ProcessindDMG` → `return true` (применить отложенный).
+
+Это ровно паттерн `eAIDamageHandler` (`OnDamageCalculated` + `ProcessDamage`,
+`eAIDamageHandler.c:493-497, 531-556`), включая детект «damage was not processed» (флаг
+`m_ProcessDamage`, который после `ProcessDirectDamage` должен быть сброшен реентрантным колбэком).
+
+## Открытые вопросы / не подтверждено
+
+- Точное нативное поведение вложенного синхронного `ProcessDirectDamage` (реентерабельность) —
+  не подтверждено напрямую (натив). Косвенно — Expansion-паттерн «avoid inconsistent damage».
+- Какой `dmgZone` фактически приходит на зомби-хит по PlayerBase (`""` vs `"Torso"/"Head"`) —
+  влияет на `GetDamage("","Shock")` и `GetDamage(dmgZone,"Health")` в хаке; не проверено логом.
+
+## Источники (файл:строка)
+
+- `3_game/damagesystem.c:22-23` — `CloseCombatDamage` / `CloseCombatDamageName` (proto native).
+- `3_game/entities/object.c:1-7` — `ProcessDirectDamageFlags`; `:1130` — `ProcessDirectDamage`;
+  `:1136` — `EEOnDamageCalculated` (дефолт `return true`).
+- `3_game/entities/entityai.c:1021/1072/1111` — `EEHealthLevelChanged` / `EEKilled` / `EEHitBy`.
+- `4_world/entities/creatures/infected/zombiebase.c:607-674` (атака), `:652/658/664`
+  (`CloseCombatDamageName`), `:71` (`m_TargetableObjects` включает `PlayerBase`).
+- `4_world/entities/manbase/playerbase.c:1045-1084` (`EEKilled`), `:1086-1209` (`EEHitBy`),
+  `:1120-1124` (порезы `ProcessHit`), `:2689` (`OnScheduledTick` гейт `!IsPlayerSelected()`).
+- `4_world/entities/dayzplayerimplement.c:1367` (`HandleDamageHit` — анимация), `:3803`
+  (`IsPlayerSelected()` = `m_PlayerSelected`).
+- `DayZ-Expansion-Scripts/.../eAIBase.c:1307-1343` — `EEOnDamageCalculated`/`EEHitBy` = `super`.
+- `DayZ-Expansion-Scripts/.../eAIDamageHandler.c:493-497, 531-556` — отложенный `ProcessDamage`
+  (`Call()` + `ProcessDirectDamage`, «avoid inconsistent damage»).

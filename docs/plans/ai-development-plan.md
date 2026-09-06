@@ -83,6 +83,18 @@
 ### Группа 6 — интеграция
 17. `[ ]` **Реактивный эскорт** — эскорт → угроза → бой → возврат. Deps: 6, 12.
 
+---
+
+## Статус боевого блока (v3.36–v3.44)
+
+Группа 4 (бой) доведена до стабильного состояния: закрыты краш
+`GetChamberedCartridgeMagazineTypeName` (мультимузл), `Fire` velocity/unit, спам
+`pending event already posted`, ванильный `DropBullet`-шум, NULL-краши
+(`ForgetStaleTargets`/`Shooting.OnUpdate`) и десинк FSM `DoubleBarrel_Base` (B95
+не перезаряжался — фикс `PopCartridgeFromChamber` + `RandomizeFSMState`). Детали —
+`docs/research/combat.md` и `docs/techdebt.md` (секция H). Свежие баги тестов — в
+`docs/techdebt.md`, секция I (по `bugreport.txt`).
+
 ## Первая веха (тестируемая)
 
 Эскорт без боя: **задачи 5–6** (follow + состояние + `/bot follow`). Бот следует за

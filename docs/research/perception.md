@@ -257,3 +257,107 @@ Scan-box (физика) — временно и не масштабируетс�
 - `DayZ Projects/scripts/4_world/classes/useractionscomponent/actions/interact/actionopendoors.c` + `actionclosedoors.c`
 - `DayZ-Expansion-Scripts/DayZExpansion/AI/Scripts/3_Game/DayZExpansion_AI/eAINoiseSystem.c`
 - `DayZ-Expansion-Scripts/DayZExpansion/AI/Scripts/4_World/DayZExpansion_AI/Entities/AI/eAIBase.c` (стр. 563, 1427, 4105–4298)
+
+---
+
+## Слух/шум — маршрутизация выстрелов (баг #15)
+
+Статус: **исследование, гипотеза опровергнута по коду**. Задача — понять, почему
+боты слышат падающие предметы, но не реагируют на выстрелы.
+
+### Вывод (кратко)
+
+Гипотеза «`dmNoiseSystem` эмитит не в тот канал / слух подписан на часть типов» —
+**опровергнута**. В моде ровно один канал `dmNoiseSystem.SI_OnNoiseAdded`, на него
+шлют ВСЕ генераторы шума и на него подписан единственный приёмник `dmHearing.OnNoise`.
+Системы ТИПОВ шума в моде НЕТ (в отличие от Expansion `eAINoiseType`), поэтому
+«подписка на часть типов» неприменима. Сбой не в маршрутизации, а в конкретных
+точках генерации/приёма (см. ниже).
+
+### Текущая реализация боторы (проверено по коду)
+
+Генераторы (все → `dmNoiseSystem.AddNoise` → `SI_OnNoiseAdded`):
+
+| Шум | Файл:строка | source | strength | Примечание |
+|---|---|---|---|---|
+| Шаг игрока | `reg/4_World/modded_DayZPlayerImplement.c:11` (`OnStepEvent`) | `this` (игрок) | 10.0 | рабочий путь |
+| Крик зомби | `reg/4_World/modded_ZombieBase.c:20` (`OnSoundVoiceEvent`) | `this` (зомби) | 30.0 | |
+| Выстрел бота | `reg/4_World/modded_WeaponBase.c:69` (`dmBot_Fire`, серверная ветка) | `pawn` | 100.0 | вызывается из `modded_WeaponFire.c:56` (`WeaponFire.OnEntry` → `dmBot_Fire` → на сервере `Fire()` + `AddNoise`) |
+| Выстрел игрока | `reg/4_World/modded_WeaponBase.c:91` (`OnFire`, сервер) | `owner` | 100.0 | пропускает ИИ-владельца (`modded_WeaponBase.c:88`), чтобы не дублировать с `dmBot_Fire` |
+| Попадание пули | `core/3_Game/modded/modded_DayZGame.c:13` (`FirearmEffects`) | **`null`** | 20.0 | **выпадает на приёме** (см. ниже) |
+
+Приёмник `dmHearing.OnNoise` (`core/4_World/Entities/Bot/Perception/dmHearing.c:15`):
+
+```
+if (!m_Bot || !m_Bot.IsSpawned() || !source) return;   // ← source==null отсекается
+if (d.LengthSq() > strength*strength) return;          // дистанционный фильтр (strength = радиус, м)
+root = source.GetHierarchyRootPlayer(); if (!root) root = source;
+if (root == m_Bot.GetPawn()) return;                   // self-skip
+m_Bot.HearNoise(root, position);                        // → DiscoverTarget(entity, DM_NOISE_THREAT, 0, false)
+```
+
+### Подтверждённые причины «не слышат выстрелы»
+
+1. **Попадание пули теряется (confirmed)**: `FirearmEffects` шлёт `source = null`
+   (`modded_DayZGame.c:13`), а `dmHearing.OnNoise` сразу `return` на `!source`
+   (`dmHearing.c:17`). Т.е. «пуля упала/прилетела рядом» до слуха НЕ доходит вообще.
+   (Расширение обрабатывает этот кейс как noise-пинг в позиции без source-сущности —
+   через `AddNoise(pos, lifetime, ...)` + ветку BULLETIMPACT в `eAI_OnNoiseEvent`.)
+
+2. **Порог реакции (confirmed)**: `DM_NOISE_THREAT = 0.4` (`cons/3_Game/constants.c:9`),
+   а атака требует `DM_ATTACK_THREAT_THRESHOLD = 0.5` (`cons/4_World/constants.c:323`).
+   `HearNoise` кладёт цель с threat 0.4 (`dmAISurvivor.c:1078`) — ниже порога, поэтому
+   услышанный шум НИКОГДА не перерастает в атаку (бот «услышал», но не реагирует).
+   Применяется ко ВСЕМ шумам, не только к выстрелу.
+
+3. **Падение предметов не имеет своего генератора**: в моде НЕТ хука на
+   `ItemBase.EOnContact`/`ProcessImpactSoundEx`. Ваниль падение предмета НЕ генерит
+   `NoiseSystem`-шум (только клиентский звук, см. таблицу TODO выше). Значит наблюдение
+   «слышит падающие предметы» не может идти от `dmNoiseSystem` — это либо зрение
+   (`dmVision` видит упавший предмет), либо чужой шум (шаг). Требует пере-проверки
+   в тесте с логом (`DM_BOT_DEBUG_*`).
+
+### Что НЕ является причиной (опровергнуто)
+
+- «Не тот канал»: все генераторы и приёмник используют один `SI_OnNoiseAdded`; выстрел
+  бота идёт тем же путём, что и рабочий шаг. Канал единственный и согласованный.
+- «Слух подписан на часть типов»: в `dmNoiseSystem.AddNoise(source, position, strength)`
+  нет параметра типа, `dmHearing` не фильтрует по типу — фильтров по типам просто нет.
+
+### Как правильно маршрутизировать (эталон Expansion)
+
+Взять модель Expansion `eAINoiseSystem` (уже описана выше в «Expansion — эталон»):
+
+- Ввести **тип** шума (`dmNoiseType`: SHOT/SOUND/EXPLOSION/BULLETIMPACT) и силу из
+  конфига (`eAINoiseParams`: path → `ConfigGetFloat(path + " strength")`, SHOT ×13.75
+  clamp 1100, BULLETIMPACT ×2).
+- Расширить сигнатуру до `AddNoise(source, [position], [lifetime], path/params, strengthMultiplier, type)`
+  — сигнал `Invoke(source, position, lifetime, params, strengthMultiplier)`.
+- В `dmHearing.OnNoise`:
+  - НЕ отсекать `source == null` — для BULLETIMPACT/взрыва в точке это позиция-пинг
+    (позиционная цель, `lifetime`, как `eAINoiseTargetInformation`), а не сущность.
+  - фильтр `distSq > strength²` оставить, но strength брать `params.m_Strength * multiplier`.
+  - конверсия strength→threat: cap 0.4 (impact 0.2), как `eAIBase.eAI_OnNoiseEvent`
+    (`eAIBase.c:4245`); либо согласовать `DM_NOISE_THREAT` с `DM_ATTACK_THREAT_THRESHOLD`.
+  - задержка = `distance * 2.915452 + 170` (скорость звука + реакция) — опционально.
+- Точки генерации выстрела уже правильные (`dmBot_Fire` для ботов, `OnFire` для игроков);
+  не хватает только позиции/типа. Падение предметов — добавить `modded ItemBase.EOnContact`
+  (по `ProcessImpactSoundEx`/весу/скорости) — ванильной точки нет.
+
+### Открытые вопросы
+
+1. **`OnFire` на сервере для ванильного игрока** — по коду вызывается в
+   `WeaponFire.OnEntry` (`weaponfire.c:66–72`) на обеих сторонах (FSM идёт и на сервере —
+   см. `weaponfire.c:54` `IsServer()`), т.е. `modded Weapon_Base.OnFire` шлёт шум на
+   сервере. Подтвердить логом (`DM_BOT_DEBUG_*` в `OnFire`) не помешает.
+2. **Троттлинг**: Expansion отбрасывает повторные шумы раз в 1 с (`m_eAI_LastNoiseTime`/`m_eAI_LastFiredTime`); в моде — без троттлинга (каждый `AddNoise` доходит до `HearNoise`).
+3. **`GetHierarchyRootPlayer()` vs `GetHierarchyRoot()`**: для source-игрока в транспорте
+   `GetHierarchyRootPlayer()` вернёт игрока, `GetHierarchyRoot()` — транспорт; для базового
+   слуха разницы нет, но при «уже целишься в root» проверках лучше `GetHierarchyRoot()`
+   (как у Expansion, `eAIBase.c:4124`).
+
+### Источники (доп.)
+
+- ваниль: `3_game/noise.c`; `3_game/global/game.c:736`; `4_world/entities/dayzplayerimplement.c:3228,3239,3484,3587`; `3_game/dayzgame.c:3414,3589,3627`; `4_world/entities/firearms/fsm/states/weaponfire.c:66–72`; `4_world/entities/firearms/weapon_base.c:1028`; `3_game/systems/inventory/weaponinventory.c:8`; `4_world/classes/weapons/weaponmanager.c:484–499`; `3_game/entities/entityai.c:869,872`.
+- Expansion: `eAINoiseSystem.c`; `Entities/AI/eAIBase.c:563,1427,4105–4298`; `Entities/DayZPlayerImplement.c:595`; `Entities/Weapons/Firearms/Weapon_Base.c:329,342,394,402`; `3_Game/DayZExpansion_AI/DayZGame.c:72,95`; `Classes/Targets/eAINoiseTargetInformation.c`.
+- mod: `core/3_Game/Perception/dmNoiseSystem.c`; `core/4_World/Entities/Bot/Perception/dmHearing.c`; `core/3_Game/modded/modded_DayZGame.c`; `reg/4_World/modded_WeaponBase.c`; `reg/4_World/modded_WeaponFire.c`; `reg/4_World/modded_DayZPlayerImplement.c`; `reg/4_World/modded_ZombieBase.c`; `cons/3_Game/constants.c`; `cons/4_World/constants.c:323`.

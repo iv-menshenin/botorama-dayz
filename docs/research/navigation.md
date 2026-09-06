@@ -872,3 +872,251 @@ if ((!found || (path.Count() == 2 && !Math.IsPointInCircle(Position, 1.0, path[1
 проведёт по лестнице; (2) прыжок вниз — это **обратный** `FindPath` + проверка высоты, а не
 флаг в нативном пути; (3) fall-защита — проверка только на последнем сегменте пути (чтобы не
 застревать на верхних этажах).
+
+---
+
+# Газ-зоны и опасные места
+
+Статус: баги botorama — бота телепортирует из газ-зоны («Персонаж перемещён из опасной
+зоны»), бот наступает в костёр. Цель — понять, как ваниль детектит газ-зону и урон от
+огня, и как ИИ избегать опасных мест (или освободить ИИ от телепорта). Ведёт
+`dayz-research`.
+
+## Цель
+
+1. Газ-зона: какой ванильный класс детектит нахождение в зоне и телепортирует наружу;
+   есть ли API проверить «позиция в зоне»; можно ли пометить ИИ-бота, чтобы его не
+   телепортировали, или правильнее избегать зон в pathfinding.
+2. Костёр/огонь: как ваниль задаёт урон (класс/радиус/урон), как определить опасную
+   близость для избегания.
+
+## Газ-зоны (contaminated areas)
+
+### Ванильная архитектура (что и где)
+
+- `EffectArea : House` — база зон (`4_world/classes/contaminatedarea/effectarea.c:48`).
+- `ContaminatedArea_Base : EffectArea` (`contaminatedarea.c:1`), наследники
+  `ContaminatedArea_Static` / `ContaminatedArea_Dynamic` (в том же файле /
+  `contaminatedarea_dynamic.c:22`).
+- Каждая зона держит триггер `m_Trigger` (тип из конфига), создаваемый в
+  `EffectArea.CreateTrigger(pos, radius)` (`effectarea.c:482`): `SetCollisionCylinderTwoWay(radius, ...)`
+  (`effectarea.c:497`). Триггер = вертикальный цилиндр (радиус `m_Radius`, высота
+  `m_PositiveHeight`/`m_NegativeHeight`).
+- Классы триггеров: `EffectTrigger : CylinderTrigger` (`effecttrigger.c:3`) →
+  `ContaminatedTrigger` / `ContaminatedTrigger_Dynamic` / `ContaminatedTrigger_Local`
+  (`contaminatedtrigger.c:2/92/176`).
+- Загрузка статических зон: `EffectAreaLoader.CreateZones()` (`contaminatedarealoader.c:6`),
+  файл `cfgeffectarea.json` (миссия, фолбэк `dz/worlds/<world>/ce/cfgeffectarea.json`).
+  Данные — `JsonDataContaminatedAreas` (`EffectAreaLoader.GetData()`, `:109`): массив
+  `Areas[]` (Pos/Radius/PosHeight/NegHeight/…) + `SafePositions` (куда телепортировать).
+- Динамические зоны (артобстрел) — `ContaminatedArea_Dynamic`, радиус 120
+  (`contaminatedarea_dynamic.c:129`), спавнят `Grenade_ChemGas` (`:37-38`).
+
+### Как ваниль решает «в зоне или нет»
+
+`EffectTrigger.CanAddObjectAsInsider(Object)` (`effecttrigger.c:90-107`) — гейт входа в триггер:
+
+```c
+#ifdef SERVER
+DayZCreatureAI creature = DayZCreatureAI.Cast(object);
+if (creature)
+    return !creature.ResistContaminatedEffect();
+else {
+    PlayerBase player = PlayerBase.Cast(object);
+    return player != null;
+}
+#else
+PlayerBase player = PlayerBase.Cast(object);
+return (player && player.IsControlledPlayer());
+#endif
+```
+
+**Важно для botorama**: `dmAISurvivorBase : PlayerBase` (НЕ `DayZCreatureAI` —
+`DayZCreatureAI extends DayZCreature`, `3_game/entities/dayzanimal.c:191`). Поэтому бот
+попадает в ветку `PlayerBase` → возвращает `true` → бот становится инсайдером зоны и
+проходит ПОЛНЫЙ путь игрока (модификатор + телепорт), а НЕ усечённый путь существа.
+
+Цепочка входа (сервер):
+1. `EffectTrigger.OnEnterServerEvent` (`effecttrigger.c:117`) → `m_Manager.OnPlayerEnter(player, this)`.
+2. `TriggerEffectManager.OnPlayerEnter` (`triggereffectmanager.c:41`) при первом входе в
+   тип триггера → `trigger.GetEffectArea().OnPlayerEnterServer(player, trigger)`.
+3. `ContaminatedArea_Base.OnPlayerEnterServer` (`contaminatedarea.c:3`) → `super` (даёт
+   `IncreaseEffectAreaCount()`) + `player.IncreaseContaminatedAreaCount()`.
+4. `PlayerBase.IncreaseContaminatedAreaCount()` (`playerbase.c:807`) при 0→1 →
+   `OnContaminatedAreaEnterServer()` (`playerbase.c:915`) →
+   `GetModifiersManager().ActivateModifier(eModifiers.MDF_AREAEXPOSURE)`.
+5. `AreaExposureMdfr.OnActivate` (`areaexposure.c:39`) → телепорт-чек + химический яд.
+
+### Телепорт из зоны
+
+`MiscGameplayFunctions.TeleportCheck(PlayerBase, safe_positions)` (`miscgameplayfunctions.c:1690`):
+
+```c
+if (player.GetSimulationTimeStamp() < 20 && !player.IsPersistentFlag(PersistentFlag.AREA_PRESENCE))
+{
+    vector player_pos = player.GetPosition();
+    vector closest_safe_pos = GetClosestSafePos(player_pos, safe_positions);
+    if (player_pos != closest_safe_pos) {
+        closest_safe_pos[1] = g_Game.SurfaceY(...);
+        player.SetPosition(closest_safe_pos);            // :1704
+        g_Game.RPCSingleParam(player, ERPCs.RPC_WARNING_TELEPORT, ...); // :1706
+        ...
+    }
+    player.SetPersistentFlag(PersistentFlag.AREA_PRESENCE, false); // :1713
+}
+```
+
+- Срабатывает **только** когда `GetSimulationTimeStamp() < 20` (сущность «недавно
+  заспавнилась») И нет флага `AREA_PRESENCE` (не была в зоне на дисконнекте).
+- `RPC_WARNING_TELEPORT` → клиент открывает `MENU_WARNING_TELEPORT` (=41,
+  `3_game/constants.c:210`) — сообщение «Персонаж перемещён из опасной зоны»
+  (`playerbase.c:5533-5538`, `5_mission/mission/missionbase.c:307`).
+- Точка выноса — `GetClosestSafePos` по `data.SafePositions` (`miscgameplayfunctions.c:1717`).
+
+> **Открытый вопрос**: для `INSTANCETYPE_AI_SERVER`-пешки продвигается ли
+> `GetSimulationTimeStamp()`? Если STS у бота не растёт (или сбрасывается при каждом
+> спавне) — условие `< 20` будет истинным и бот будет телепортироваться при КАЖДОМ входе
+> в зону. Нужно проверить эмпирически (лог STS в `OnContaminatedAreaEnterServer`).
+
+### Урон в газ-зоне (две ветки)
+
+- **`DayZCreatureAI` (зомби/животные)** — прямой урон: `ContaminatedTrigger.OnStayServerEvent`
+  (`contaminatedtrigger.c:74-82`) → `creature.DecreaseHealth("", "", GameConstants.AI_CONTAMINATION_DMG_PER_SEC * m_TimeAccuStay / creature.m_EffectTriggerCount)`;
+  `AI_CONTAMINATION_DMG_PER_SEC = 3` (`3_game/constants.c:1070`); тик раз в
+  `DAMAGE_TICK_RATE = 10 c` (`contaminatedtrigger.c:4`). Счётчики входа/выхода —
+  `DayZCreatureAI.Increase/DecreaseEffectTriggerCount()` (`dayzanimal.c:222/227`).
+- **`PlayerBase` (наш бот)** — не прямой `DecreaseHealth`, а химический яд через
+  `AreaExposureMdfr` (`areaexposure.c`): `TransmitAgents` (`AGT_AIRBOURNE_CHEMICAL` →
+  `eAgents.CHEMICAL_POISON`, `:141-145`), кашель, кровотечения. Тик модификатора у
+  AI-бота — вручную (`GetModifiersManager().OnScheduledTick`, см. skill).
+
+### Есть ли API «позиция в зоне»?
+
+- **Нативного `IsInGasZone(pos)`/`GetGasZoneAt(pos)` в ванили НЕТ.**
+- Статические зоны можно прочитать из JSON: `EffectAreaLoader.GetData()`
+  (`contaminatedarealoader.c:109`) → `Areas[].Data.Pos/Radius/PosHeight/NegHeight`. Минусы:
+  `m_Path` приватный, `GetData()` перечитывает файл; динамические зоны в JSON не входят.
+- Живого реестра зон в ванили нет — каждая зона сама владеет своим `m_Trigger`.
+- `TriggerEffectManager` (`triggereffectmanager.c:3`) хранит только «какой игрок в каком
+  типе триггера» (`m_PlayerInsiderMap`), а НЕ список зон по позициям.
+
+### Способы решить для botorama
+
+1. **Заглушить у ИИ целиком (освободить от телепорта и газа)**: override
+   `OnContaminatedAreaEnterServer()` в `dmAISurvivorBase` как no-op (НЕ звать
+   `ActivateModifier(MDF_AREAEXPOSURE)`). Метод `protected` на `PlayerBase`
+   (`playerbase.c:915`), переопределяется. Убирает И телепорт И химический яд. Минус:
+   бот вообще не чувствует газ (нужно решать, допустимо ли это геймдизайнерски).
+2. **`ResistContaminatedEffect()` — НЕ подходит**: метод есть только на `DayZCreatureAI`
+   (`dayzanimal.c:394`); бот — `PlayerBase`, эта ветка (`effecttrigger.c:93-97`) для него
+   не выполняется.
+3. **Избегание в pathfinding** — правильный вариант, эталон Expansion (см. ниже).
+
+### Expansion AI избегание (эталон для порта)
+
+Файлы: `DayZExpansion/AI/Scripts/4_World/DayZExpansion_AI/Classes/contaminatedarea/*`.
+
+- `modded class EffectArea` (`effectarea.c`): статик `s_Expansion_DangerousAreas`
+  (`Expansion_EffectAreas`) — глобальный список всех опасных зон; опасные типы
+  `{ContaminatedArea_Base, GeyserArea, HotSpringArea, VolcanicArea}` (`:3`); зона
+  добавляется в `InitZoneServer` (`:8-18`) и вычищается в `EEDelete`/`~EffectArea`
+  (`Expansion_RemoveDangerousArea`, `:76`).
+- Точечные проверки на зоне: `Expansion_IsPointInside(vector, tolerance, heightTolerance)`
+  (`effectarea.c:173`), `Expansion_IsOverlapping` (`:117`), `Expansion_Contains` (`:142`).
+- `eAI_IsDangerousToAI(eAIBase)` (`effectarea.c:184`, override `ContaminatedArea_Base`
+  в `contaminatedarea.c:3`): `ai.m_eAI_ProtectionLevels[DEF_CHEMICAL] < 6.0 && !faction.IsInvincible()`.
+- Кластеры пересекающихся зон → один цилиндр: `ExpansionEffectAreaMergedCluster`
+  (`expansioneffectareacluster.c:280`). Константы: `MAX_AVOIDANCE_DISTANCE=30`,
+  `MIN_AVOIDANCE_DISTANCE=3`, `IS_INSIDE_MARGIN=3` (`:282-284`);
+  `GetAvoidanceDistance(radius) = max(min(radius*0.2, 30), 3)` (`:892`).
+- Двигать конечную точку пути за цилиндр: `FindClosestPointOutsideCluster(start, inout end, avoidanceDirection, ignoreHeight, out closestArea)`
+  (`:792`), обёртка `FindClosestPointOutsideAnyCluster` (`:910`); `FindClosestPointOutsideAnyArea` (`:224`).
+- Реактивный вход: `eAIBase.Expansion_OnDangerousAreaEnterServer(area, trigger)`
+  (`eAIBase.c:4654`) выбирает сторону обхода (left/right/random через
+  `FindClosestPointOutsideCluster`); в `OverrideTargetPosition` (`eAIBase.c:4906-4959`)
+  при `m_eAI_IsInDangerByArea` подменяет цель пути на точку за пределами кластера
+  (`m_eAI_IsInDangerByArea` ставится в `eAI_CheckIsInDangerByArea`, `eAIBase.c:5269`).
+- Готовый «no-go» триггер: `ExpansionAINoGoArea`/`ExpansionAINoGoAreaTrigger`
+  (`expansionainogoarea.c:1/55`) — `CylinderTrigger`, инсайдеры только `eAIBase`,
+  зовёт `ai.Expansion_OnDangerousAreaEnterServer`. Паттерн «пометь зону недоступной для ИИ».
+
+**Маппинг на botorama**: у нас `dmBotPathfinder` (обёртка `AIWorld.FindPath`) без
+кластеров. Минимальный порт: (а) реестр статических зон из `EffectAreaLoader.GetData()`
+(плюс динамические — если доступны), (б) `IsPointInside(point)` по цилиндру, (в) при
+`MoveTo` — если сегмент/цель пересекает зону, сдвинуть подцель по
+`FindClosestPointOutsideRadius`-аналогу (ExpansionMath) или, проще, `Fail()`/пере-выбор
+точки. Это дороже, чем вариант 1 (заглушка), поэтому выбор — по приоритету задачи.
+
+## Костёр / огонь (опасные места)
+
+### Ванильный урон от костра
+
+`FireplaceBase : ItemBase` (`4_world/entities/itembase/fireplacebase.c:21`). Урон по площади
+делает `m_AreaDamage` (`AreaDamageManager`), создаётся в `CreateAreaDamage()` (`:2331`):
+
+- `AreaDamageLoopedDeferred` — триггер-**бокс**, `SetExtents("-0.30 0 -0.30", "0.30 0.75 0.30")`
+  (`:2339`) — ~0.6×0.6×0.75 м вокруг центра костра (локально, от `GetPosition()` костра).
+- `SetLoopInterval(0.5)` (`:2340`), `SetDeferDuration(0.5)` (`:2341`),
+  `SetHitZones({Head,Torso,LeftHand,LeftLeg,LeftFoot,RightHand,RightLeg,RightFoot})` (`:2342`),
+  `SetAmmoName("FireDamage")` (`:2343`), `Spawn()`.
+- Создаётся в `StartHeating()` (`:1793`) и по `OnVariablesSynchronized` (`:511-519`),
+  уничтожается в `DestroyAreaDamage()` (`:2347`) при остановке горения / `OnItemLocationChanged`.
+- Навмеш: `StartFire` → `SetAffectPathgraph(false, true)` + `UpdatePathgraphRegionByObject`
+  (`:1763-1768`) — горящий костёр меняет pathgraph-регион (влияет на `FindPath`).
+- Тепло (НЕ урон, комфорт/прогрев): `PARAM_FULL_HEAT_RADIUS = 2.0`, `PARAM_HEAT_RADIUS = 4.0`
+  (`:55-56`) — радиусы `UniversalTemperatureSource`. Не путать с уроном.
+
+### AreaDamage API (как урон применяется)
+
+- `AreaDamageManager` (`4_world/classes/areadamage/areadamagenew/areadamagemanager.c:8`):
+  `SetExtents/GetExtents/GetWorldExtents` (`:233-254`), `SetAmmoName` (`:256`),
+  `SetLoopInterval` (`:331`), `SetDeferDuration` (`:336`), `SetHitZones` (`:341`),
+  `GetParentObject` (`:278`), `GetPosition` (`:292`), `Spawn/Destroy`.
+- `AreaDamageComponent.ShouldDamage(object)` (`damagecomponents/areadamagecomponent.c:46`):
+  `object.IsAlive() && object.IsAnyInherited(m_DamageableTypes)`; дефолт
+  `m_DamageableTypes = {DayZPlayer}` (`:24`) → бот (PlayerBase) под ударом.
+- Применение: `object.ProcessDirectDamage(m_DamageType, parent, hitzone, m_AmmoName, modelpos, damageCoef)`
+  (`:67`); `damageCoef = deltaTime` (`AreaDamageLoopedDeferred.CalculateDamageScale`,
+  `areadamageloopeddeferred.c:12`; базовый — `areadamagemanager.c:224`).
+- Триггер — `AreaDamageTriggerBase : Trigger` (`areadamagetriggerbase.c:13`), серверный
+  бокс-триггер, инсайдеры только на сервере (`:224-248`).
+
+### Другие «горящие» опасные места
+
+- `Misc_TirePile_Burning_DE : BuildingSuper` (`misc_tirepile_burning.c:1`): `SetExtents("-2.0 0 -2.0", "2.0 2.0 2.0")`
+  (`:97`) — бокс **4×4×2 м** (заметно больше костра), `FireDamage`, loop 0.5, defer 0.5 (`:98-101`).
+- `BarrelHoles_ColorBase : FireplaceBase` (`barrelholes_colorbase.c:1`) — бочка с дырками,
+  свой `CreateAreaDamage()` (`:59`), температура `PARAM_OUTDOOR_FIRE_TEMPERATURE`.
+
+### Как определять опасную близость (для избегания)
+
+- Урон по костру — только в боксе `±0.30 м` горизонтально от центра; «наступить в костёр»
+  = `Distance2D(botPos, fireplace.GetPosition())` меньше ~0.5 м (с запасом на корпус бота).
+  Достаточно: `fireplace.IsBurning()` (`fireplacebase.c:1623`, публичный) + дистанция до центра.
+- Более мягкий признак (не только урон, но и «горячо») — `GetTemperature()` / `IsOven()`
+  (`:1654`). Для полного избегания горящего костра брать радиус ≥ 0.5 м (или `PARAM_FULL_HEAT_RADIUS=2.0`,
+  если хотим избегать и теплового дискомфорта).
+
+### Обнаружение костра вокруг точки маршрута
+
+- Ванильного «реестра костров по позиции» НЕТ. Варианты для botorama:
+  1. Box-запрос вокруг waypoint'а (как `dmVision`): `SceneGetEntitiesInBox`/
+     `PhysicsGetEntitiesInBox` → `FireplaceBase.Cast` / `IsInherited(FireplaceBase)` →
+     `IsBurning()`.
+  2. Ограниченный перечень классов: `Fireplace`/`FireplaceIndoor`/`BarrelHoles_ColorBase`
+     (`FireplaceBase`-наследники) + `Misc_TirePile_Burning_DE`.
+- Практичнее совместить с общим «опасным фильтром» в `MoveTo`: перед шагом на подцель —
+  бокс-запрос по радиусу `DM_BOT_DANGER_AVOID_RADIUS` и сдвиг подцели (как у газ-зон).
+
+## Открытые вопросы
+
+1. **STS у AI_SERVER-бота**: продвигается ли `GetSimulationTimeStamp()` — определяет,
+   телепортируется ли бот из зоны всегда или только при спавне внутри зоны. Проверить
+   логом в `OnContaminatedAreaEnterServer`.
+2. **Динамические газ-зоны**: как зарегистрировать их для pathfinding-избегания
+   (в JSON их нет; в Expansion они приходят через `InitZoneServer` мода `EffectArea`).
+3. **Костёр в инвентаре/в руках**: `CreateAreaDamage` создаётся только на ground
+   (`OnItemLocationChanged` → `DestroyAreaDamage` при уходе с ground, `fireplacebase.c:361-369`),
+   т.е. «горящий костёр в руках» урона по площади не даёт — проверить.
+4. **`FireDamage` ammo**: точные цифры урона — в CfgAmmo вне скриптов (в репо не найден),
+   нужен `data/` для точного DPS.
