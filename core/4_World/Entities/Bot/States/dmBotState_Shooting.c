@@ -18,6 +18,7 @@ class dmBotState_Shooting : dmBotState
 	ref dmBotIntent_HoldLook m_Look;
 	ref dmBotIntent_Flank m_Flank;
 
+	float m_InFlanking;
 	float m_RetargetTimer;
 	float m_Elapsed;
 	bool m_NoFirearm;
@@ -110,8 +111,14 @@ class dmBotState_Shooting : dmBotState
 		dmTarget t = bot.FindTarget(m_TargetEntity);
 		bool flankActive = false;
 		if (t && !t.m_HasLOS && t.m_Threat >= DM_ATTACK_THREAT_THRESHOLD && dist > DM_FLANK_MIN_DIST)
+		{
 			flankActive = true;
+			m_InFlanking += pDt;
+		} else {
+			m_InFlanking = 0.0;
+		}
 		m_Flank.m_Active = flankActive;
+		if (m_Aim) m_Aim.m_Active = !flankActive;
 
 		//! Если бот давно не стрелял (напр. цель вне досягаемости/нет LOS) —
 		//! перевыставить предпочтительный режим огня на оружии.
@@ -142,13 +149,19 @@ class dmBotState_Shooting : dmBotState
 			return CONTINUE;
 		}
 
-		if ( dist > HIT_BUTTSTCK_RANGE )
+		#ifdef DM_BOT_DEBUG_FSM
+		if (t)
+			dmBotLog.Debug("[FSM] Shooting: flankActive=" + flankActive + " m_InFlanking=" + m_InFlanking + " dist=" + dist + " m_HasLOS=" + t.m_HasLOS);
+		#endif
+
+		if ( pawn.IsWeaponReady() && dist > HIT_BUTTSTCK_RANGE && !(flankActive && m_InFlanking > 5))
 		{
 			pawn.SetAimMode(SelectAimMode());
 			pawn.RaiseWeapon(true);
 			EnsureAim(bot);
 		} else {
 			pawn.RaiseWeapon(false);
+			if (m_Aim) m_Aim.m_Active = !flankActive;
 		}
 
 		return CONTINUE;
@@ -161,7 +174,7 @@ class dmBotState_Shooting : dmBotState
 		#endif
 
 		if ( m_HitTo ) m_HitTo.Finish();
-		if (m_Aim) m_Aim.Finish();
+		if ( m_Aim ) m_Aim.Finish();
 		if ( m_Look ) m_Look.Finish();
 		if ( m_Flank ) m_Flank.Finish();
 

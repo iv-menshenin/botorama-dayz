@@ -61,16 +61,11 @@ class dmBotIntent
 
 	void OnUpdate(dmAISurvivor bot, float pDt)
 	{
-		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".OnUpdate");
-		#endif
+		// do what you need to do
 	}
 	
 	void OnSkip(dmAISurvivor bot, float pDt)
 	{
-		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".OnSkip");
-		#endif
 		// lost the arbitration
 	}
 

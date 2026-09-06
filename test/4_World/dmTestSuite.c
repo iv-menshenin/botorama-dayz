@@ -119,9 +119,13 @@ class dmTestSuite_TestCase
 	//! (private) Создать объект класса `cls` в `pos` и зарегистрировать враждебным; вернуть или null.
 	private EntityAI SpawnHostile(string cls, vector pos)
 	{
-		EntityAI e = EntityAI.Cast(GetGame().CreateObject(cls, SnapToGroundExactly(pos), false));
+		pos = SnapToGroundExactly(pos);
+		EntityAI e = EntityAI.Cast(GetGame().CreateObject(cls, pos, false));
 		if (e)
-			m_Bot.RegisterHostile(e, 1.0);
+		{
+			dmTarget t = m_Bot.RegisterHostile(e, 1.0);
+			t.m_LastPosition = pos;
+		}
 		return e;
 	}
 

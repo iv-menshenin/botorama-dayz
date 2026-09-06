@@ -1045,10 +1045,10 @@ class dmAISurvivor
 
 	//! Force-add an entity to the target memory as hostile (used by tests/orders).
 	//! Unlike RegisterDamageThreat this is unconditional and takes an explicit threat.
-	void RegisterHostile(EntityAI entity, float threat = 1.0)
+	dmTarget RegisterHostile(EntityAI entity, float threat = 1.0)
 	{
-		if (!entity)
-			return;
+		if (!entity) return null;
+
 		dmTarget t = FindTarget(entity);
 		if (!t)
 		{
@@ -1059,6 +1059,7 @@ class dmAISurvivor
 		}
 		if (threat > t.m_Threat) t.m_Threat = threat;
 		t.m_Friendly = false;
+		return t;
 	}
 
 	//! Слух: обновить/добавить цель по шуму. Цель с HasLOS=false получает свежую
@@ -1079,9 +1080,46 @@ class dmAISurvivor
 			t.m_LastPosition = position;
 	}
 
+	dmTarget m_LastHostileTarget; // текущая цель
+
 	//! Ближайшая враждебная цель (threat >= DM_ATTACK_THREAT_THRESHOLD, не friendly,
 	//! живая). Без ограничения дистанции; ближайшая побеждает (ничья — выше threat).
 	dmTarget GetHostileTarget()
+	{
+		// если ближайшая видимая цель все еще жива и это текущая цель, то пока закрепляемся на ней
+		dmTarget t = GetHostileTargetEx(true);
+		if ( t && m_LastHostileTarget == t && t.m_Entity && t.m_Entity.IsAlive() )
+		{
+			return t;
+		}
+		// проверим ближайшую цель без учета видимости, если она и есть видимая, то идем по ней
+		dmTarget n = GetHostileTargetEx(false);
+		if ( t == n || !n ) return t;
+
+		// единственная цель - вне видимости
+		if ( !t && n )
+		{
+			m_LastHostileTarget = n;
+			return n;
+		}
+
+		// иначе, нам нужно проверить дистанцию и решить какую цель выбрать
+		vector myPos = GetPosition();
+		vector dn = n.m_LastPosition - myPos; // до ближайшей цели
+		vector dt = t.m_LastPosition - myPos; // до ближайшей видимой цели
+		
+		// все таки цель без учета видимости, если она на много ближе видимой цели, остается в фокусе (если она была в фокусе)
+		if ( m_LastHostileTarget == n && n.m_Entity && n.m_Entity.IsAlive() && dn.Length() < dt.Length() / 10 )
+		{
+			return n;
+		}
+
+		// иначе переключаемся на видимую цель
+		m_LastHostileTarget = t;
+		return t;
+	}
+
+	dmTarget GetHostileTargetEx(bool visible)
 	{
 		dmTarget best = null;
 		float bestDist = 0.0;
@@ -1092,6 +1130,7 @@ class dmAISurvivor
 		{
 			dmTarget t = m_Targets[i];
 			if (t.m_Friendly) continue;
+			if (visible && !t.m_HasLOS) continue;
 
 			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
 

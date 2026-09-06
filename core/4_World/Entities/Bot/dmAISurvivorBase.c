@@ -358,9 +358,24 @@ class dmAISurvivorBase : PlayerBase
 		return m_WeaponRaised && m_WeaponRaisedTimer < m_RaiseReadyDuration;
 	}
 
+	bool IsWeaponReady()
+	{
+		if (IsClimbing() || IsFalling() || IsSwimming() || IsClimbingLadder()) return false;
+
+		Weapon_Base wpn = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+		if (!wpn) return false;
+
+		int mi = wpn.GetCurrentMuzzle();
+		if (wpn.IsChamberFiredOut(mi) || wpn.IsJammed() || wpn.IsChamberEmpty(mi)) return false;
+
+		return true;
+	}
+
 	//! Whether the weapon is fully ready to fire (all readiness timings elapsed).
 	bool IsReadyToShoot()
 	{
+		if (IsClimbing() || IsFalling() || IsSwimming() || IsClimbingLadder()) return false;
+		
 		if ( m_WeaponRaised && m_WeaponRaisedTimer >= m_RaiseReadyDuration )
 		{
 			Weapon_Base wpn = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
