@@ -11,4 +11,13 @@ modded class DayZPlayerImplement
 		dmNoiseSystem.AddNoise(this, GetPosition(), DM_NOISE_STEP_STRENGTH);
 		#endif
 	}
+
+	//! Shadow the global native GetHive() so PlayerBase.EEKilled's
+	//! GetHive().CharacterKill() is skipped for AI bots (no character id).
+	Hive GetHive()
+	{
+		if (GetInstanceType() == DayZPlayerInstanceType.INSTANCETYPE_AI_SERVER)
+			return null;
+		return dmBotGlobalGetHive();
+	}
 }

@@ -916,19 +916,14 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
-	//! Death: skip the vanilla PlayerBase.EEKilled chain — its GetHive().
-	//! CharacterKill() prints "Can't kill player with id -1" for an AI bot (no
-	//! character id). Replicate the essential death cleanup + corpse registration
-	//! so the body is created and decays via the CE profile (InsertCorpse).
+	//! Death: run the vanilla PlayerBase.EEKilled chain. Its GetHive().
+	//! CharacterKill() is skipped for AI bots because the modded
+	//! DayZPlayerImplement.GetHive() returns null for INSTANCETYPE_AI_SERVER (no
+	//! character id), so no "Can't kill player with id -1" spam. The vanilla flow
+	//! does the death cleanup + corpse registration + SendDeathJuncture.
 	override void EEKilled(Object killer)
 	{
-		if (GetBleedingManagerServer())
-			delete GetBleedingManagerServer();
-
-		GetSymptomManager().OnPlayerKilled();
-
-		if (GetEconomyProfile() && !m_CorpseProcessing && m_CorpseState == 0 && g_Game.GetMission().InsertCorpse(this))
-			m_CorpseProcessing = true;
+		super.EEKilled(killer);
 
 		#ifdef DM_BOT_DEBUG_BODY
 		dmBotLog.Debug("EEKilled: hasCEProfile=" + (GetEconomyProfile() != null) + " corpseProcessing=" + m_CorpseProcessing + " corpseState=" + m_CorpseState + " lifetime=" + GetLifetime());
