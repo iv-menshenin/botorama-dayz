@@ -973,7 +973,7 @@ class dmAISurvivor
 		// Когда бот не видит цели, он теряет к цели интерес
 		if ( !t.m_HasLOS && now - t.m_LastContact > 45.0 && now - t.m_LastDamage > 120.0 )
 		{
-			t.m_Threat -= 0.005 * ( pDt / 1000.0 );
+			t.m_Threat -= Math.Clamp(0.005 * ( pDt / 1000.0 ), 0.0, 0.01);
 		}
 	}
 
@@ -1055,6 +1055,7 @@ class dmAISurvivor
 			t = new dmTarget();
 			t.m_Type = dmTargetType.DESTROY;
 			t.m_Entity = entity;
+			t.m_Threat = threat;
 			m_Targets.Insert(t);
 		}
 		if (threat > t.m_Threat) t.m_Threat = threat;
