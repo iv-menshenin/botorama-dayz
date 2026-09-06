@@ -42,6 +42,25 @@ modded class Weapon_Base
 		vector velocity;
 		pawn.ComputeShot(this, muzzleIndex, origin, direction, velocity);
 		vector pos = origin + direction * 0.2;
+		if ( pos == vector.Zero ) return false;
+
+		#ifdef DM_WEAPON_DEBUG_FSM
+		dmBotLog.Debug("[Weapon] dmBot_Fire: mi=" + muzzleIndex + " origin=" + origin + " pos=" + pos);
+		dmBotLog.Debug("[Weapon] dmBot_Fire: direction=" + direction + " velocity=" + velocity + " chamberEmpty=" + IsChamberEmpty(muzzleIndex));
+		dmBotLog.Debug("[Weapon] dmBot_Fire: firedOut=" + IsChamberFiredOut(muzzleIndex) + " jammed=" + IsJammed() + " ammo=" + GetChamberedCartridgeMagazineTypeName(muzzleIndex));
+		#endif
+
+		//! x != x is true only for NaN (catches NaN vector components that Length() <= 0.0 misses).
+		bool dirNaN = (direction[0] != direction[0]) || (direction[1] != direction[1]) || (direction[2] != direction[2]);
+		bool velNaN = (velocity[0] != velocity[0]) || (velocity[1] != velocity[1]) || (velocity[2] != velocity[2]);
+		if (dirNaN || velNaN || direction.Length() <= 0.0 || velocity.Length() <= 0.0)
+		{
+			#ifdef DM_WEAPON_DEBUG_FSM
+			dmBotLog.Debug("[Weapon] dmBot_Fire: невалидное направление/скорость (NaN/нуль), пропускаю");
+			#endif
+			return false;
+		}
+
 		bool fired = Fire(muzzleIndex, pos, direction, velocity);
 		if (fired)
 		{

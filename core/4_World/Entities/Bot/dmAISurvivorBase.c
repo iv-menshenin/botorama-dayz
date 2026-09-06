@@ -375,7 +375,7 @@ class dmAISurvivorBase : PlayerBase
 	bool IsReadyToShoot()
 	{
 		if (IsClimbing() || IsFalling() || IsSwimming() || IsClimbingLadder()) return false;
-		
+
 		if ( m_WeaponRaised && m_WeaponRaisedTimer >= m_RaiseReadyDuration )
 		{
 			Weapon_Base wpn = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
@@ -569,9 +569,10 @@ class dmAISurvivorBase : PlayerBase
 		return origin;
 	}
 
-	//! Bullet velocity as a VECTOR. The engine takes the speed magnitude from the
-	//! CfgAmmo initSpeed, so we return the direction; placeholder for future speed
-	//! influence.
+	//! Bullet velocity as a VECTOR. The Fire() native treats its speed argument as
+	//! a UNIT DIRECTION — the magnitude comes from CfgAmmo initSpeed (see the
+	//! Expansion Fire(mi,pos,dir,dir) reference). GetAmmoInitSpeed is only used in
+	//! ComputeBulletTravelTime for the bullet-drop compensation.
 	vector ComputeShotVelocity(Weapon_Base weapon, int mi, vector direction)
 	{
 		return direction;
@@ -606,6 +607,8 @@ class dmAISurvivorBase : PlayerBase
 	//! time (initSpeed from CfgAmmo) -> drop = 0.5*g*t^2 -> tilt the direction up.
 	void CompensateBulletDrop(Weapon_Base weapon, int mi, vector origin, inout vector direction)
 	{
+		if (weapon.IsChamberEmpty(mi) || weapon.IsChamberFiredOut(mi))
+			return;   // нет патрона — дроп-компенсация не нужна
 		vector end = origin + direction * DM_AI_SHOT_MAX_DISTANCE;
 		vector hitPosition;
 		vector hitNormal;
@@ -964,6 +967,7 @@ class dmAISurvivorBase : PlayerBase
 		m_TurnTime = 0.0;
 		m_TurnSharp = false;
 		m_ActualSpeed = 0.0;
+		m_FireRequest = false;
 
 		if (m_VarLook >= 0)
 			AnimSetBool(m_VarLook, false);
@@ -1404,6 +1408,11 @@ class dmAISurvivorBase : PlayerBase
 			return;
 		}
 
+		#ifdef DM_WEAPON_DEBUG_FSM
+		dmBotLog.Debug("[Weapon] TryFireWeapon: weapon=" + weapon + " raised=" + IsRaised() + " raiseDone=" + IsWeaponRaiseCompleted());
+		dmBotLog.Debug("[Weapon] TryFireWeapon: canFire=" + weapon.CanFire() + " wmRunning=" + wm.IsRunning());
+		dmBotLog.Debug("[Weapon] TryFireWeapon: unconscious=" + IsUnconscious() + " alive=" + IsAlive());
+		#endif
 		wm.Fire(weapon);
 		m_LastFireTime = GetGame().GetTickTime();
 		ConsumeFireRequest();

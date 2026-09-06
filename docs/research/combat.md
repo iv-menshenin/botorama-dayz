@@ -1145,6 +1145,26 @@ Expansion (`eAI_Fire` / modded `weaponfire.c`). Все пути — ваниль
   (сдвиг вперёд, как Expansion `Weapon_Base.c:149`), `dir` = итоговое направление. ВАЖНО: не
   пытаться самому умножать `dir` на `initSpeed` — величину скорости движок возьмёт из патрона.
 
+### Готча: натив `GetChamberedCartridgeMagazineTypeName` падает на «полуживом» патроннике
+
+- **Корень**: weapon-FSM **не абортируется** при нокауте/смерти ИИ-бота на сервере. Ваниль на
+  сервере не абортит оружие при нокауте, а модный `EEKilled` (переопределён в `dmAISurvivorBase`)
+  не вызывает ванильный death-путь (`OnCommandDeathStart` → `AbortWeaponEvent`). После выхода из
+  нокаута/смерти патронник остаётся в «полуживом» десинк-состоянии: скриптовый `CanFire()`/`IsReadyToShoot`
+  и натив читают его несогласованно.
+- **Симптом**: стабильный нативный краш в `GetAmmoInitSpeed` → `weapon.GetChamberedCartridgeMagazineTypeName(mi)`
+  (строковый натив, читает аммо-тип патронника) — стек `ComputeShot → CompensateBulletDrop →
+  ComputeBulletTravelTime → GetAmmoInitSpeed`. В логе перед крашем `IsChamberEmpty=true`.
+- **Чем НЕ лечится**: NaN/нуль-гейт направления, поставленный ПОСЛЕ `ComputeShot` — краш происходит
+  раньше, внутри `ComputeShot` (в `CompensateBulletDrop`), поэтому просто «уезжает» из `Fire` в `GetAmmoInitSpeed`.
+- **Фикс (сделано)**: гейт в начале `CompensateBulletDrop` — `if (weapon.IsChamberEmpty(mi) ||
+  weapon.IsChamberFiredOut(mi)) return;` (bool-нативы безопасны, строковый `GetChamberedCartridgeMagazineTypeName`
+  — нет), плюс сброс `m_FireRequest=false` в `ResetActuation` (чтобы после нокаута не стреляло по
+  «висячему» запросу с замороженным направлением).
+- **Открыто (глубже)**: правильный аборт weapon-FSM при нокауте/смерти (`AbortWeaponEvent` /
+  `GetWeaponManager().OnWeaponActionEnd()`), чтобы патронник не оставался десинк-состоянием вовсе —
+  отдельная задача, требует проверки, как корректно абортить модный FSM.
+
 ### 2. Иерархия `WeaponFire*` и какие нужны для AKM / M4A1 / B95
 
 Файл `4_world/entities/firearms/fsm/states/weaponfire.c` (+ `weaponfirelast.c`,
