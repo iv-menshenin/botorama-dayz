@@ -127,6 +127,10 @@ modded class WeaponFireMultiMuzzle
 					m_weapon.SetCurrentMuzzle(0);
 				else
 					m_weapon.SetCurrentMuzzle(mi + 1);
+				#ifdef DM_WEAPON_DEBUG_FSM
+				dmBotLog.Debug("[Weapon] WeaponFireMultiMuzzle: re-sync FSM after double fire");
+				#endif
+				m_weapon.RandomizeFSMState();
 				super.dmBot_Vanilla_OnEntry(e);
 				return;
 			}
