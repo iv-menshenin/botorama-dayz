@@ -1154,16 +1154,21 @@ Expansion (`eAI_Fire` / modded `weaponfire.c`). Все пути — ваниль
   и натив читают его несогласованно.
 - **Симптом**: стабильный нативный краш в `GetAmmoInitSpeed` → `weapon.GetChamberedCartridgeMagazineTypeName(mi)`
   (строковый натив, читает аммо-тип патронника) — стек `ComputeShot → CompensateBulletDrop →
-  ComputeBulletTravelTime → GetAmmoInitSpeed`. В логе перед крашем `IsChamberEmpty=true`.
+  ComputeBulletTravelTime → GetAmmoInitSpeed`. В логе перед первым крашем `IsChamberEmpty=true`.
 - **Чем НЕ лечится**: NaN/нуль-гейт направления, поставленный ПОСЛЕ `ComputeShot` — краш происходит
   раньше, внутри `ComputeShot` (в `CompensateBulletDrop`), поэтому просто «уезжает» из `Fire` в `GetAmmoInitSpeed`.
-- **Фикс (сделано)**: гейт в начале `CompensateBulletDrop` — `if (weapon.IsChamberEmpty(mi) ||
-  weapon.IsChamberFiredOut(mi)) return;` (bool-нативы безопасны, строковый `GetChamberedCartridgeMagazineTypeName`
-  — нет), плюс сброс `m_FireRequest=false` в `ResetActuation` (чтобы после нокаута не стреляло по
-  «висячему» запросу с замороженным направлением).
-- **Открыто (глубже)**: правильный аборт weapon-FSM при нокауте/смерти (`AbortWeaponEvent` /
-  `GetWeaponManager().OnWeaponActionEnd()`), чтобы патронник не оставался десинк-состоянием вовсе —
-  отдельная задача, требует проверки, как корректно абортить модный FSM.
+- **Гейт пустого патронника НЕ достаточен**: `if (IsChamberEmpty(mi) || IsChamberFiredOut(mi)) return;`
+  ловит только «пустой» патронник. Краш повторяется при «фантомном патроне» — `IsChamberEmpty=false`
+  И `IsChamberFiredOut=false` (гейт пропускает), но `GetChamberedCartridgeMagazineTypeName` всё равно
+  падает: патронник в десинк-состоянии «как будто есть патрон, но аммо-тип повреждён».
+- **Глубокий фикс (сделано)**: аборт weapon-FSM в двух местах — (1) при переходе в нокаут в
+  `UpdateUnconsciousBridge` сразу после `StartCommand_Unconscious(0)`, (2) в начале `EEKilled`.
+  Оба зовут унаследованный `AbortWeaponEvent()` (`DayZPlayerImplement` → `GetDayZPlayerInventory().AbortWeaponEvent()`
+  → `weapon.ProcessWeaponAbortEvent(WeaponEventHumanCommandActionAborted)`). Иерархия: `dmAISurvivorBase
+  : PlayerBase : ManBase : DayZPlayerImplement`, поэтому метод доступен напрямую. Ванильный эквивалент —
+  `OnCommandDeathStart` → `AbortWeaponEvent()` (модный `EEKilled` эту цепочку пропускает).
+- **Вспомогательный фикс**: сброс `m_FireRequest=false` в `ResetActuation` (чтобы после нокаута не
+  стреляло по «висячему» запросу с замороженным направлением).
 
 ### 2. Иерархия `WeaponFire*` и какие нужны для AKM / M4A1 / B95
 

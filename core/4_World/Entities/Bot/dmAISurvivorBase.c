@@ -869,6 +869,11 @@ class dmAISurvivorBase : PlayerBase
 			{
 				m_ShouldBeUnconscious = true;
 				StartCommand_Unconscious(0);
+				AbortWeaponEvent();
+
+				#ifdef DM_WEAPON_DEBUG_FSM
+				dmBotLog.Debug("[Weapon] UpdateUnconsciousBridge: AbortWeaponEvent after StartCommand_Unconscious");
+				#endif
 
 				#ifdef DM_BOT_DEBUG_BODY
 				dmBotLog.Debug("UnconsciousBridge: shock=" + shock + " -> StartCommand_Unconscious(0)");
@@ -931,6 +936,12 @@ class dmAISurvivorBase : PlayerBase
 	//! so the body is created and decays via the CE profile (InsertCorpse).
 	override void EEKilled(Object killer)
 	{
+		AbortWeaponEvent();
+
+		#ifdef DM_WEAPON_DEBUG_FSM
+		dmBotLog.Debug("[Weapon] EEKilled: AbortWeaponEvent");
+		#endif
+
 		if (GetBleedingManagerServer())
 			delete GetBleedingManagerServer();
 
