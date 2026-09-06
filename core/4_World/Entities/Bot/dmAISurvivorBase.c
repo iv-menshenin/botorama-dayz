@@ -898,6 +898,16 @@ class dmAISurvivorBase : PlayerBase
 	override void EEHitBy(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
 	{
 		super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+
+		//! Halve the shock dealt by zombies: vanilla already applied full shock,
+		//! add back half so the bot isn't knocked out as easily.
+		if (ZombieBase.Cast(source))
+		{
+			float shock = damageResult.GetDamage("", "Shock");
+			if (shock > 0.0)
+				AddHealth("", "Shock", shock * 0.5);
+		}
+
 		if (source)
 		{
 			dmAISurvivor bot = dmAISurvivor.Find(this);
@@ -905,27 +915,6 @@ class dmAISurvivorBase : PlayerBase
 				bot.RegisterDamageThreat(source, damageResult.GetHighestDamage("Health"));
 		}
 	}
-
-	bool m_ProcessindDMG = false;
-
-	override bool EEOnDamageCalculated(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
-	{
-		if ( m_ProcessindDMG ) return true;
-
-		ZombieBase z = ZombieBase.Cast( source );
-		if ( z )
-		{
-			m_ProcessindDMG = true;
-			ProcessDirectDamage(damageType, source, dmgZone, ammo, modelPos, damageResult.GetDamage(dmgZone, "Health") * 0.5);
-			float damageShock = damageResult.GetDamage("", "Shock");
-			AddHealth("", "Shock", -damageShock);
-			m_ProcessindDMG = false;
-			return false;
-		}
-
-		return true;
-	}
-
 
 	//! Death: skip the vanilla PlayerBase.EEKilled chain — its GetHive().
 	//! CharacterKill() prints "Can't kill player with id -1" for an AI bot (no

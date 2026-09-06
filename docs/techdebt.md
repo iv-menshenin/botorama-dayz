@@ -172,12 +172,11 @@
    целей (`dmVision`/`RegisterDamageThreat`) кладёт в массив целей любую `EntityAI`, а не
    только живых (`IsAlive`/`Man`/`ZombieBase`/`DayZAnimal`). Фикс — фильтр на неживое.
 
-4. `[~]` **Зомби не наносят урон боту, нет порезов (HAK `EEOnDamageCalculated` не работает).**
-   *Подтверждено (research/combat.md)*: хак зовёт `ProcessDirectDamage` **синхронно внутри**
-   `EEOnDamageCalculated` (натив не реентерабелен) и затем `return false` (отменяет оригинал) →
-   ноль урона; плюс `GetDamage(dmgZone,"Health") * 0.5` передаётся как множитель `damageCoef`,
-   а не абсолютное HP. Фикс-подход: убрать override (ваниль применит полный урон) или отложенный
-   `ProcessDirectDamage` через `CallQueue.Call` + guard `m_ProcessindDMG` (паттерн `eAIDamageHandler`).
+4. `[x]` **Зомби не наносят урон боту, нет порезов (HAK `EEOnDamageCalculated` не работает).**
+   *Сделано (v3.45)*: удалён override `EEOnDamageCalculated` (натив `ProcessDirectDamage` не
+   реентерабелен → урон не применялся, `return false` отменял ваниль). Теперь ваниль применяет
+   полный урон, а в `EEHitBy` для `ZombieBase`-источника возвращается половина шока
+   (`AddHealth("","Shock", shock*0.5)`) — Health полный, шок ½. Детали — `docs/research/combat.md`.
 
 5. `[~]` **Прерывистые движения по кругу (доворот) при достижении точки в Follow.**
    *Гипотеза*: доворот корпуса (`ComputeBodyYaw`/`ApplyBodyTurn`/`HeadingModel`) осциллирует
