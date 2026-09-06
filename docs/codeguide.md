@@ -168,6 +168,18 @@
 - `foreach (T x : array)` работает; для `array<ref T>` надёжнее `for (i = 0; i < arr.Count(); i++)`
   с `int i;` один раз в функции.
 - `Class.Cast` / `Class.CastTo(out, instance)` — штатные касты.
+- **NULL-проверка должна оборачивать ВСЕ последующие обращения к ссылке.** Отдельный
+  `if (!ref) { ... }` перед строкой `ref.Method()` НЕ защищает её: если `ref == null`,
+  выполнение дойдёт до `ref.Method()` и упадёт (`NULL pointer to instance`). Объединяй в
+  один `if` с коротким замыканием (`||`/`&&` в Enfusion коротко замыкаются):
+  ```c
+  // ПЛОХО: после удаления по !t.m_Entity строка ниже всё равно упадёт на null
+  if (!t.m_Entity) m_Targets.RemoveItem(t);
+  if (!t.m_Entity.IsAlive()) m_Targets.RemoveItem(t);   // NULL-deref
+  // ХОРОШО: null-проверка первой, IsAlive() вызовется только при не-null
+  if (!t.m_Entity || now - t.m_LastContact > timeout || !t.m_Entity.IsAlive())
+      m_Targets.RemoveItem(t);
+  ```
 - `enum Name { A, B, C }` — int-перечисления (`FileAttr`, `FindFileFlags`, ...).
 - Параметры по умолчанию поддерживаются (`void F(int x = 0)`).
 - **Векторная арифметика — без inline-вызовов методов.** Цепочка вызовов в одном

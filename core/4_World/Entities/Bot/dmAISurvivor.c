@@ -1196,11 +1196,7 @@ class dmAISurvivor
 		for (i = m_Targets.Count() - 1; i >= 0; i--)
 		{
 			dmTarget t = m_Targets[i];
-			if (now - t.m_LastContact > timeout)
-				m_Targets.RemoveItem(t);
-			if (!t.m_Entity)
-				m_Targets.RemoveItem(t);
-			if (!t.m_Entity.IsAlive())
+			if (!t.m_Entity || now - t.m_LastContact > timeout || !t.m_Entity.IsAlive())
 				m_Targets.RemoveItem(t);
 		}
 	}
