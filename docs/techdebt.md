@@ -133,6 +133,15 @@
 - **низкий** — **Самопроверка разброса**: `/test bot aim` теперь гоняет новый путь
   (Shooting + `dmBotIntent_Aim` + `dmAiming` + перезарядка), но явной самопроверки
   разброса (выстрелы-до-убийства как PASS/FAIL) нет — сейчас это наблюдение.
+- **средний** — **Ванильный `DropBullet`-шум при переходе «ствол→кулаки»**: когда бот
+  с двуствольным оружием (B95 = `DoubleBarrel_Base`) посреди доствольного цикла
+  `WeaponChambering_MultiMuzzle` переходит в ближний бой, ванильный `OnCommandMelee2Start`
+  → `AbortWeaponEvent` абортит FSM, и `WeaponChambering_MultiMuzzle.OnAbort` → `DropBullet`
+  кидает `Error("[wpnfsm] ... DropBullet, error - cannot drop Bullet - lost")` (патрон уже
+  съеден в патронник). Это ванильный восстанавливаемый VM Exception (не краш), но шумит
+  в `crash_*.log`. Варианты: переопределить `OnAbort` у `WeaponChambering_MultiMuzzle`
+  (не дропать «потерянный» патрон) или не давать боту уходить в мили, пока оружие
+  достволивает.
 
 ## Сводка по приоритету
 

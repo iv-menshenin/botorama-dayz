@@ -1145,30 +1145,22 @@ Expansion (`eAI_Fire` / modded `weaponfire.c`). Все пути — ваниль
   (сдвиг вперёд, как Expansion `Weapon_Base.c:149`), `dir` = итоговое направление. ВАЖНО: не
   пытаться самому умножать `dir` на `initSpeed` — величину скорости движок возьмёт из патрона.
 
-### Готча: натив `GetChamberedCartridgeMagazineTypeName` падает на «полуживом» патроннике
+### Готча: натив `GetChamberedCartridgeMagazineTypeName` падает на некорректном индексе ствола
 
-- **Корень**: weapon-FSM **не абортируется** при нокауте/смерти ИИ-бота на сервере. Ваниль на
-  сервере не абортит оружие при нокауте, а модный `EEKilled` (переопределён в `dmAISurvivorBase`)
-  не вызывает ванильный death-путь (`OnCommandDeathStart` → `AbortWeaponEvent`). После выхода из
-  нокаута/смерти патронник остаётся в «полуживом» десинк-состоянии: скриптовый `CanFire()`/`IsReadyToShoot`
-  и натив читают его несогласованно.
-- **Симптом**: стабильный нативный краш в `GetAmmoInitSpeed` → `weapon.GetChamberedCartridgeMagazineTypeName(mi)`
+- **Симптом**: нативный краш в `GetAmmoInitSpeed` → `weapon.GetChamberedCartridgeMagazineTypeName(mi)`
   (строковый натив, читает аммо-тип патронника) — стек `ComputeShot → CompensateBulletDrop →
-  ComputeBulletTravelTime → GetAmmoInitSpeed`. В логе перед первым крашем `IsChamberEmpty=true`.
-- **Чем НЕ лечится**: NaN/нуль-гейт направления, поставленный ПОСЛЕ `ComputeShot` — краш происходит
-  раньше, внутри `ComputeShot` (в `CompensateBulletDrop`), поэтому просто «уезжает» из `Fire` в `GetAmmoInitSpeed`.
-- **Гейт пустого патронника НЕ достаточен**: `if (IsChamberEmpty(mi) || IsChamberFiredOut(mi)) return;`
-  ловит только «пустой» патронник. Краш повторяется при «фантомном патроне» — `IsChamberEmpty=false`
-  И `IsChamberFiredOut=false` (гейт пропускает), но `GetChamberedCartridgeMagazineTypeName` всё равно
-  падает: патронник в десинк-состоянии «как будто есть патрон, но аммо-тип повреждён».
-- **Глубокий фикс (сделано)**: аборт weapon-FSM в двух местах — (1) при переходе в нокаут в
-  `UpdateUnconsciousBridge` сразу после `StartCommand_Unconscious(0)`, (2) в начале `EEKilled`.
-  Оба зовут унаследованный `AbortWeaponEvent()` (`DayZPlayerImplement` → `GetDayZPlayerInventory().AbortWeaponEvent()`
-  → `weapon.ProcessWeaponAbortEvent(WeaponEventHumanCommandActionAborted)`). Иерархия: `dmAISurvivorBase
-  : PlayerBase : ManBase : DayZPlayerImplement`, поэтому метод доступен напрямую. Ванильный эквивалент —
-  `OnCommandDeathStart` → `AbortWeaponEvent()` (модный `EEKilled` эту цепочку пропускает).
-- **Вспомогательный фикс**: сброс `m_FireRequest=false` в `ResetActuation` (чтобы после нокаута не
-  стреляло по «висячему» запросу с замороженным направлением).
+  ComputeBulletTravelTime → GetAmmoInitSpeed → dmBot_Fire → WeaponFireMultiMuzzle.OnEntry`. В логе
+  перед крашем `dmBot_Fire: mi=0` и `mi=1` отработали (оба `ammo=Ammo_308Win`), затем краш на `mi=2`.
+- **Реальный корень (см. ниже)**: выход индекса ствола за границы в мультимузл-цикле, а НЕ «десинк
+  патронника после нокаута». Ранняя гипотеза про «полуживой патронник» была ложной.
+- **Ложный путь (откачено)**: аборт weapon-FSM при нокауте/смерти (`AbortWeaponEvent()` в
+  `UpdateUnconsciousBridge` и `EEKilled`) — он ничего не чинил (краш продолжился), зато ловил ванильную
+  ошибку: обрыв `WeaponChambering_MultiMuzzle` посреди цикла кидает `Error("[wpnfsm] ... DropBullet,
+  error - cannot drop Bullet - lost")` (патрон уже съеден в патронник, дропнуть нечего). Урок: при
+  `!CanAct()` (нокаут/смерть) `TryFireWeapon` не вызывается вовсе (ранний `return` в `CommandHandler`),
+  поэтому аборт оружия для защиты от краша не нужен; ваниль при нокауте оружие тоже не абортит.
+- **Вспомогательный фикс (оставлен)**: сброс `m_FireRequest=false` в `ResetActuation` (чтобы после
+  нокаута не стреляло по «висячему» запросу с замороженным направлением).
 
 ### Вторая причина того же краша: мультимузл-цикл `WeaponFireMultiMuzzle` выходит за число стволов
 
