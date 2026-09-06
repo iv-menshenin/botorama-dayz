@@ -25,6 +25,9 @@ class dmAiming
 	//! Last time the debug log was printed (throttle).
 	private float m_LastLogTime;
 
+	//! Есть ли на винтовке оптика с увеличением (не коллиматор).
+	private float m_HasRealOptic;
+
 	//! Recoil pitch offset (degrees, positive = up). Kicks on shot, decays in Update.
 	private float m_RecoilPitch = 0.0;
 
@@ -76,7 +79,7 @@ class dmAiming
 		if (hp < 0.01)
 			hp = 0.01;
 		float rollUD = Math.RandomFloat(0.0, 1.0);
-		float rollLR = Math.RandomFloat(0.0, 2.0) - 1.0;
+		float rollLR = Math.RandomFloat(0.0, 1.0);
 		if (rollLR <= hp)
 			deviationLR = Math.Lerp(0.0, 0.25, rollLR / hp);
 		else
@@ -149,6 +152,8 @@ class dmAiming
 		float angularSpeed;
 		vector aimOrientation;
 
+		m_HasRealOptic = HasRealOptics();
+
 		//! Recoil recovery: the barrel lowers back over time.
 		m_RecoilPitch = m_RecoilPitch - DM_AIM_RECOIL_RECOVERY * pDt;
 		if (m_RecoilPitch < 0.0)
@@ -179,7 +184,7 @@ class dmAiming
 		{
 			human.PhysicsGetVelocity(tv);
 			standing = tv.Length() < DM_AIM_HEADSHOT_SPEED_EPS;
-			if (standing && HasRealOptics())
+			if (standing && m_HasRealOptic)
 			{
 				bone = human.GetBoneIndexByName("Head");
 			}
@@ -257,8 +262,8 @@ class dmAiming
 			}
 		}
 
-		accuracyMin = Math.Clamp(accuracyMin, 0.1, 1.0);
-		accuracyMax = Math.Clamp(accuracyMax, 0.1, 1.0);
+		accuracyMin = Math.Clamp(accuracyMin, 0.01, 1.0);
+		accuracyMax = Math.Clamp(accuracyMax, 0.01, 1.0);
 
 		//! Influence of the target's angular velocity on accuracy (deterministic,
 		//! stored and applied per-shot in GetShotDispersion).
@@ -306,11 +311,15 @@ class dmAiming
 
 	private float GetAccuracyByTrackingTime()
 	{
+		float maxAccuracyMultiplier = 1.0;
+		if ( m_HasRealOptic ) maxAccuracyMultiplier = 2.0;
+		float halfAccuracyMultiplier = maxAccuracyMultiplier / 2.0;
+
 		float growPerc;
-		if (m_TrackingTime >= DM_AIM_MAX_TRACKING_TIME)
-			return 1.0;
+		if (m_TrackingTime >= DM_AIM_MAX_TRACKING_TIME) return maxAccuracyMultiplier;
+
 		growPerc = m_TrackingTime / DM_AIM_MAX_TRACKING_TIME;
-		return 0.5 + 0.5 * (growPerc * growPerc);
+		return halfAccuracyMultiplier + halfAccuracyMultiplier * (growPerc * growPerc);
 	}
 
 	private bool HasRealOptics()

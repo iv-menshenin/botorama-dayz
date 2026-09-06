@@ -896,7 +896,9 @@ class dmAISurvivorBase : PlayerBase
 		if ( z )
 		{
 			m_ProcessindDMG = true;
-			ProcessDirectDamage(damageType, source, dmgZone, ammo, modelPos, speedCoef);
+			ProcessDirectDamage(damageType, source, dmgZone, ammo, modelPos, damageResult.GetDamage(dmgZone, "Health") * 0.5);
+			float damageShock = damageResult.GetDamage("", "Shock");
+			AddHealth("", "Shock", -damageShock);
 			m_ProcessindDMG = false;
 			return false;
 		}
@@ -1652,6 +1654,8 @@ class dmAISurvivorBase : PlayerBase
 
 		GetGame().RemoteObjectTreeDelete(item);
 		bool ok = LocalTakeToDst(src, dst);
+		GetItemAccessor().HideItemInHands(true);
+		GetItemAccessor().HideItemInHands(false);
 		GetGame().RemoteObjectTreeCreate(item);
 		return ok;
 	}

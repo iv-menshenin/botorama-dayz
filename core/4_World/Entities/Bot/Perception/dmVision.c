@@ -154,7 +154,7 @@ class dmVision
 				continue;
 			t.m_NextLOSUpdate = now + GetRefreshTime(t);
 
-			vector targetPos = e.GetPosition();
+			vector targetPos = t.GetAimPosition();
 			vector toTarget = targetPos - botPos;
 			toTarget[1] = 0.0;
 			t.m_LastDistance = toTarget.Length();
@@ -293,17 +293,24 @@ class dmVision
 		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
 			return true;
 
-		Object o = hits[0].obj;
-		Object p = hits[0].parent;
-		bool hasLOS = (o == target) || (p == target);
-		#ifdef DM_BOT_DEBUG_VISION
-		if ( o && p )
-			dmBotLog.Debug("[Vision] Raycast to " + target.GetType() + " hit:" + o.GetType() + " parent=" + p.GetType() + " hasLOS=" + hasLOS);
-		if ( o && !p )
-			dmBotLog.Debug("[Vision] Raycast to " + target.GetType() + " hit:" + o.GetType() + " hasLOS=" + hasLOS);
-		if ( !o && p )
-			dmBotLog.Debug("[Vision] Raycast to " + target.GetType() + " hit:None parent=" + p.GetType() + " hasLOS=" + hasLOS);
-		#endif
+		bool hasLOS = false;
+		foreach(RaycastRVResult hit: hits)
+		{
+			if ( hasLOS ) continue;
+
+			Object o = hit.obj;
+			Object p = hit.parent;
+			hasLOS = hasLOS || (o == target) || (p == target); // maybe for parent we could use o.GetHierarchyRoot or something
+
+			#ifdef DM_BOT_DEBUG_VISION
+			if ( o && p )
+				dmBotLog.Debug("[Vision] Raycast (looking for " + target.GetType() + ") hit at " + hit.pos + " to " + o.GetType() + " parent=" + p.GetType() + " hasLOS=" + hasLOS);
+			if ( o && !p )
+				dmBotLog.Debug("[Vision] Raycast (looking for " + target.GetType() + ") hit at " + hit.pos + " to " + o.GetType() + " hasLOS=" + hasLOS);
+			if ( !o && p )
+				dmBotLog.Debug("[Vision] Raycast (looking for " + target.GetType() + ") hit at " + hit.pos + " to None parent=" + p.GetType() + " hasLOS=" + hasLOS);
+			#endif
+		}
 		return hasLOS;
 	}
 }

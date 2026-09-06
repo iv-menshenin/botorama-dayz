@@ -33,4 +33,17 @@ class dmTarget
 	float m_Threat = 0.0;           // опасность (0..1)
 	float m_Attractiveness = 0.0;   // привлекательность (0..1)
 	bool m_Friendly = false;        // не атаковать
+
+	vector GetAimPosition()
+	{
+		if ( !m_Entity ) return m_LastPosition;
+
+		PlayerBase player;
+		if (Class.CastTo(player, m_Entity))
+		{
+			return player.GetBonePositionWS(player.GetBoneIndexByName( "Head" ));
+		}
+
+		return m_Entity.GetPosition();
+	}
 }

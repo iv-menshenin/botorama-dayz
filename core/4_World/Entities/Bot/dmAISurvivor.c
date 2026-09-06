@@ -946,19 +946,12 @@ class dmAISurvivor
 
 		float now = GetGame().GetTickTime();
 		ZombieBase z = ZombieBase.Cast(t.m_Entity);
-		if ( z )
+		if ( z && z.IsAlive() )
 		{
 			vector tPos = z.GetPosition();
-			if ( z.GetInputController() )
+			if ( z.m_ActualTarget )
 			{
-				EntityAI zTarget = z.GetInputController().GetTargetEntity();
-				if ( zTarget )
-				{
-					tPos = zTarget.GetPosition();
-				} else if ( z.m_ActualTarget )
-				{
-					tPos = z.m_ActualTarget.GetPosition();
-				}
+				tPos = z.m_ActualTarget.GetPosition();
 			}
 			vector myPos = m_Pawn.GetPosition();
 			vector d = tPos - myPos;
@@ -1165,6 +1158,10 @@ class dmAISurvivor
 		{
 			dmTarget t = m_Targets[i];
 			if (now - t.m_LastContact > timeout)
+				m_Targets.RemoveItem(t);
+			if (!t.m_Entity)
+				m_Targets.RemoveItem(t);
+			if (!t.m_Entity.IsAlive())
 				m_Targets.RemoveItem(t);
 		}
 	}

@@ -287,7 +287,7 @@ static const float DM_PERCEPTION_PLAYER_RADIUS = 1000.0;
 
 //! Perception: horizontal field of view (degrees). A target within ±half this angle
 //! from the look direction counts as "in front".
-static const float DM_PERCEPTION_FOV = 120.0;
+static const float DM_PERCEPTION_FOV = 160.0;
 
 //! Perception: discovery scan interval (seconds) — how often the bot opens new
 //! targets from the registry (radius check only; no FOV/LOS here).
