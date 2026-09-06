@@ -142,6 +142,17 @@
   в `crash_*.log`. Варианты: переопределить `OnAbort` у `WeaponChambering_MultiMuzzle`
   (не дропать «потерянный» патрон) или не давать боту уходить в мили, пока оружие
   достволивает.
+- **высокий** — **Десинк FSM `DoubleBarrel_Base` после дабл-выстрела (B95, режим `Double`)**:
+  после выстрела из обоих стволов физически патронник «стреляный» (`IsChamberFiredOut=true`),
+  но FSM-состояние застревает в `DoubleBarrelLoadedLoaded` (не переходит в `FireoutFireout`),
+  поэтому событие перезарядки `LOAD1_BULLET` отклоняется: `failed to perform weaponevent ...
+  in state DoubleBarrelLoadedLoaded ... Chamber_0: B(true) F(true) E(false)`. Как следствие
+  `HasNoAmmo()` всегда true → бот вечно пытается перезарядиться. Спам `pending event already
+  posted` уже заглушён гардом в `dmBotWeaponManager.PostWeaponEvent`, но сам десинк остаётся:
+  вероятно, `WeaponFireMultiMuzzle` не получает `_fin_`/`_rto_` (выход из состояния выстрела)
+  для AI-бота. Нужно разобрать, как Expansion тикает weapon-FSM для `INSTANCETYPE_AI_SERVER`
+  (эталон `eAIWeaponManager` + их `HandleWeaponEvents`/`OnUpdate`), и/или форсить
+  `RandomizeFSMState()` после выстрела.
 
 ## Сводка по приоритету
 

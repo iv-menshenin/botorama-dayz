@@ -121,11 +121,21 @@ class dmBotWeaponManager : WeaponManager
 
 	//! Post a weapon event through the player inventory. The event is picked up
 	//! and processed by the weapon FSM inside the next CommandHandler tick.
+	//! The vanilla PostWeaponEvent throws Error("pending event already posted")
+	//! when a deferred event is still pending, so we guard that here (mirrors
+	//! Expansion eAIWeaponManager.PostWeaponEvent).
 	void PostWeaponEvent(WeaponEventBase e)
 	{
 		DayZPlayerInventory inventory = m_player.GetDayZPlayerInventory();
-		if (inventory)
+		if (inventory && !inventory.m_DeferredWeaponEvent)
+		{
 			inventory.PostWeaponEvent(e);
+			return;
+		}
+
+		#ifdef DM_WEAPON_DEBUG_FSM
+		dmBotLog.Debug("[Weapon] PostWeaponEvent: pending event already posted, skip");
+		#endif
 	}
 
 	override void OnWeaponActionEnd()
