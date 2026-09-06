@@ -1357,3 +1357,97 @@ class dmBotTest_LootingChange : dmTestSuite_TestCase
 		m_Bot.AddCommandIntent(p);
 	}
 }
+
+//! Suppressor noise-strength ladder: no suppressor 3000m, improvised 150m,
+//! rifle/automatic 100m, pistol 75m (via dmBotGunshotNoiseStrength()).
+class dmBotTest_Suppressor : dmTestSuite_TestCase
+{
+	int m_Phase = 0;
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		super.Setup(bot, player);
+		//! Винтовка в руки (без глушителя) — стартовая точка.
+		PlayerBase pawn = bot.GetPawn();
+		if (pawn)
+			pawn.GetHumanInventory().CreateInHands("M4A1");
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Глушитель». 4 фазы силы шума выстрела: без глушителя 3000м, самодельный 150м, автоматный 100м, пистолетный 75м.";
+	}
+
+	override float GetInterval() { return 1.0; }
+
+	override float GetDuration() { return 20.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		Weapon_Base wpn;
+		Weapon_Base pistol;
+		ItemBase sup;
+		ItemSuppressor oldSup;
+		float strength;
+
+		if (m_Phase == 0)
+		{
+			wpn = m_Bot.GetWeaponInHands();
+			if (!wpn)
+				return "FAIL: нет оружия в руках";
+			strength = wpn.dmBotGunshotNoiseStrength();
+			if (strength != DM_NOISE_GUNSHOT_STRENGTH)
+				return "FAIL: без глушителя ожидалось " + Fmt(DM_NOISE_GUNSHOT_STRENGTH) + ", получили " + Fmt(strength);
+			sup = ItemBase.Cast(wpn.GetInventory().CreateAttachment("ImprovisedSuppressor"));
+			if (!sup)
+				return "FAIL: не удалось надеть самодельный глушитель";
+			m_Phase = 1;
+			return "фаза 1 (без): " + Fmt(strength) + " — ок, надел самодельный";
+		}
+		else if (m_Phase == 1)
+		{
+			wpn = m_Bot.GetWeaponInHands();
+			if (!wpn)
+				return "FAIL: нет оружия в руках";
+			strength = wpn.dmBotGunshotNoiseStrength();
+			if (strength != DM_NOISE_GUNSHOT_SILENCED_HOMEMADE)
+				return "FAIL: самодельный ожидалось " + Fmt(DM_NOISE_GUNSHOT_SILENCED_HOMEMADE) + ", получили " + Fmt(strength);
+			oldSup = wpn.GetAttachedSuppressor();
+			if (oldSup)
+				oldSup.Delete();
+			m_Phase = 2;
+			return "фаза 2 (самодельный): " + Fmt(strength) + " — ок, снимаю самодельный";
+		}
+		else if (m_Phase == 2)
+		{
+			wpn = m_Bot.GetWeaponInHands();
+			if (!wpn)
+				return "FAIL: нет оружия в руках";
+			sup = ItemBase.Cast(wpn.GetInventory().CreateAttachment("M4_Suppressor"));
+			if (!sup)
+				return "FAIL: не удалось надеть автоматный глушитель";
+			strength = wpn.dmBotGunshotNoiseStrength();
+			if (strength != DM_NOISE_GUNSHOT_SILENCED_RIFLE)
+				return "FAIL: автоматный ожидалось " + Fmt(DM_NOISE_GUNSHOT_SILENCED_RIFLE) + ", получили " + Fmt(strength);
+			wpn.Delete();
+			m_Phase = 3;
+			return "фаза 3 (автоматный): " + Fmt(strength) + " — ок, меняю на пистолет";
+		}
+		else
+		{
+			pistol = Weapon_Base.Cast(m_Bot.GetPawn().GetHumanInventory().CreateInHands("CZ75"));
+			if (!pistol)
+				return "FAIL: не удалось дать пистолет";
+			sup = ItemBase.Cast(pistol.GetInventory().CreateAttachment("PistolSuppressor"));
+			if (!sup)
+				return "FAIL: не удалось надеть пистолетный глушитель";
+			strength = pistol.dmBotGunshotNoiseStrength();
+			if (strength != DM_NOISE_GUNSHOT_SILENCED_PISTOL)
+				return "FAIL: пистолетный ожидалось " + Fmt(DM_NOISE_GUNSHOT_SILENCED_PISTOL) + ", получили " + Fmt(strength);
+			return "PASS: 3000 / 150 / 100 / 75 — глушители определяются верно";
+		}
+	}
+}

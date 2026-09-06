@@ -147,6 +147,9 @@ static const string DM_CHAT_TEST_LOOTING_CHANGE = "change";
 //! Test scenario "enemy" — spawn an armed bot at distance N and mark the player hostile.
 static const string DM_CHAT_TEST_ENEMY = "enemy";
 
+//! Test scenario "suppressor" — noise-strength ladder by suppressor kind.
+static const string DM_CHAT_TEST_SUPPRESSOR = "suppressor";
+
 //! Aim-observation test: pause (seconds) before/after the shots and shot interval.
 static const float DM_TEST_AIM_HOLD = 10.0;
 static const float DM_TEST_AIM_SHOT_INTERVAL = 2.0;

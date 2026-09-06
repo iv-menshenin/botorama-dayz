@@ -37,6 +37,9 @@
 //!                                пере-таргетинг между волнами.
 //!   /test bot weapon load — зарядка оружия: B95 (пачка .308) и M4 (магазин STANAG).
 //!   /test bot weapon selection — выбор оружия: игрок→огнестрел, зомби→мили.
+//!   /test bot suppressor — глушители: сила шума выстрела по типу глушителя
+//!                                (без 3000м, самодельный 150м, автоматный 100м,
+//!                                пистолетный 75м) через dmBotGunshotNoiseStrength().
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -52,10 +55,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player, parts);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | enemy | emote | fight | weapon load | weapon selection
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | enemy | emote | fight | weapon load | weapon selection | suppressor
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | weapon load | weapon selection");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | weapon load | weapon selection | suppressor");
 			return false;
 		}
 
@@ -90,6 +93,8 @@ class dmTestCommand : dmCommandModule
 			return HandleWeaponTest(player, parts);
 		if (parts[2] == DM_CHAT_TEST_LOOTING)
 			return HandleLootingTest(player, parts);
+		if (parts[2] == DM_CHAT_TEST_SUPPRESSOR)
+			return HandleTestCase(player, new dmBotTest_Suppressor());
 
 		if (parts[2] == DM_CHAT_TEST_ENEMY)
 			return HandleEnemy(player, parts);
