@@ -355,6 +355,30 @@ static const float DM_MELEE_EVADE_SPEED = 2.0;
 //! Melee evasion: seconds between strafe direction flips.
 static const float DM_MELEE_EVADE_SWITCH_TIME = 0.3;
 
+//! Flank (combat movement): start angle (degrees) of the sweep around a target
+//! the bot can't see — the first candidate is this far off the target->bot line.
+static const float DM_FLANK_START_ANGLE = 15.0;
+
+//! Flank: sweep step (degrees) advanced per tick while searching for a candidate.
+static const float DM_FLANK_ANGLE_STEP = 15.0;
+
+//! Flank: sweep limit (degrees, both sides). Exceeding it fails the flank.
+static const float DM_FLANK_MAX_ANGLE = 180.0;
+
+//! Flank: cap (meters) of the flank distance — min(distance, this) is used.
+static const float DM_FLANK_MAX_DIST = 180.0;
+
+//! Flank: minimum distance (meters) to the target below which the bot does not
+//! flank (too close — better to disengage than circle).
+static const float DM_FLANK_MIN_DIST = 5.0;
+
+//! Flank: max vertical delta (meters) between a path point and the terrain
+//! surface — a bigger gap means the candidate is unreachable/wrong height.
+static const float DM_FLANK_MAX_SURFACE_DELTA = 1.5;
+
+//! Flank: whole-attempt timeout (seconds). A stuck/slow MoveTo aborts after this.
+static const float DM_FLANK_STALL_TIMEOUT = 8.0;
+
 //! Weapon selection: distance (meters) below which a pistol is preferred over a
 //! rifle; at/above it a rifle is preferred.
 static const float DM_WEAPON_SEL_FAR = 50.0;

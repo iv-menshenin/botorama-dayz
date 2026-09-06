@@ -1327,3 +1327,53 @@ WeaponStateBase                                  (weaponstatebase.c:10)
   `eAI_Fire` (разброс у них в aiming-профиле `eAIAimingProfile.Update`, `Classes/Weapons/eAIAimingProfile.c:16`).
   Для botorama решение, КУДА добавлять `dispersion` (в `dmAiming` или при `Fire`), — наша конвенция,
   не ванильный контракт.
+
+---
+
+# Боевое движение / фланг (Flank)
+
+Статус: реализовано (`dmBotIntent_Flank` в `dmBotState_Shooting`), фаза 1 плана
+`docs/plans/combat-movement.md`.
+
+## Сводка решения (чем отличается от Expansion)
+
+Expansion-эталон (`eaistate_flank` / `OverrideTargetPosition` в навигации, `eaistate_cover`)
+флангует **одним случайным углом без предпроверки** — бот телепортирует/перекладывает цель пути
+на случайную точку по кругу от цели и идёт, не зная, будет ли оттуда видно. Наш вариант точнее:
+
+- **Свип углом**, а не случайный угол: от `DM_FLANK_START_ANGLE` (15°) шагом `DM_FLANK_ANGLE_STEP`
+  (15°) до `DM_FLANK_MAX_ANGLE` (180°), обе стороны (±). Один кандидат за тик — дёшево.
+- **LOS-предпроверка кандидата**: прежде чем задать точку движения, рейкаст из кандидата
+  (`RaycastRVParams(ObjIntersectView, NEARESTCONTACT)`, точка луча = последняя точка пути, высота =
+  `SurfaceY + neck-кость бота`) до головы цели — как в `dmVision.HasLOS`. Виден → идём, иначе skip.
+- **Гард высоты через `SurfaceY`**: `|pathPoint.y - g_Game.SurfaceY(x,z)| <= DM_FLANK_MAX_SURFACE_DELTA`
+  (1.5 м), иначе кандидат отвергается (навмеш по высоте врёт, точка может висеть в воздухе/под землёй).
+- **Ранняя остановка по LOS**: каждый тик `bot.FindTarget(m_TargetEntity).m_HasLOS` — появилась
+  видимость (цель выглянула/бот дошёл) → `Finish()`, возврат к `Aim` (стрельбе).
+- **Мин. дистанция** `DM_FLANK_MIN_DIST` (5 м): в упор не кружить (перенято у Expansion).
+- **Stall-таймаут** `DM_FLANK_STALL_TIMEOUT` (8 с): если `MoveTo` застрял/не может, вся попытка
+  обрывается `Fail()`; свип до `DM_FLANK_MAX_ANGLE` без результата тоже `Fail()` (стейт пересоздаст
+  фланг на следующем тике — ретрай).
+
+## Детали реализации (готчи)
+
+- `dmBotIntent_Flank : dmBotIntent_MoveTo` — `IsContinuous()=true` (нет мгновенного `Fail()` при
+  отсутствии пути на старте; застрявший MoveTo пере-прокладывает путь, а не падает), `KeepLookAtGoal()=true`,
+  `GetMoveSpeed()=2` (бег). Свип/`RePath` — в `OnUpdate` (до `super`), когда `!m_HasPath`.
+- Направление кандидата — от зафиксированного `m_BaseDir` (yaw направления «цель → бот» на старте),
+  поворот через `Vector(yaw, 0, 0).AnglesToVector()` (без ручного sin/cos и без деления вектора).
+- Точка движения = **последняя точка пути** (`path[path.Count()-1]`), а не сырой кандидат —
+  pathfinder сам снэпнул/поправил высоту; точку луча поднимаем на `SurfaceY + neckHeight`, НЕ на
+  Y навмеш-точки.
+- Активация фланга — флагом `m_Active` в `dmBotState_Shooting.OnUpdate` (как `m_HitTo`/`m_Look`),
+  без пересоздания интентов: `!LOS && dist > DM_FLANK_MIN_DIST && threat >= DM_ATTACK_THREAT_THRESHOLD`.
+  `Finish()` фланга — в `OnExit` и `ResolveTarget` (смена цели).
+
+## Открытый вопрос
+
+- `m_HasLOS` (восприятие) гейтится FOV-конусом по направлению головы; во время фланга голова
+  смотрит на кандидата (`KeepLookAtGoal`), поэтому для больших углов свипа цель может быть вне
+  конуса и ранняя остановка по `m_HasLOS` сработает с задержкой (когда `Aim`/тело довернётся к цели).
+  Геометрическая видимость кандидата проверяется прямым райкастом (без FOV) — это не ломает выбор
+  точки, но «момент Finish» может отставать на время доворота. Если понадобится — проверять LOS
+  фланга прямым райкастом «бот → цель» (без FOV-гейта), как `dmVision.HasLOS`, а не `m_HasLOS`.
