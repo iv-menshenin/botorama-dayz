@@ -27,6 +27,9 @@
 //!                                50,100,... до N (или дистанции взгляда) метров; метрика —
 //!                                выстрелов до убийства; проверяются переходы Idle<->Shooting
 //!                                и перезарядка. {N} — максимальная дистанция в метрах.
+//!   /test bot enemy {N}  — заспавнить вооружённого бота в N метрах перед игроком
+//!                                (лицом к игроку), одетого в горку, с B95 + патронами
+//!                                .308; игрок-отправитель — враг бота.
 //!   /test bot emote {id} — эмоция: бот играет жест по EmoteConstants ID (напр.
 //!                                44=salute, 12=dance, 40=point).
 //!   /test bot fight    — бой: бот с Machete отбивает 3 волны зомби (по одному
@@ -49,10 +52,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player, parts);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | emote | fight | weapon load | weapon selection
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | enemy | emote | fight | weapon load | weapon selection
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | emote {id} | fight | weapon load | weapon selection");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | weapon load | weapon selection");
 			return false;
 		}
 
@@ -87,6 +90,9 @@ class dmTestCommand : dmCommandModule
 			return HandleWeaponTest(player, parts);
 		if (parts[2] == DM_CHAT_TEST_LOOTING)
 			return HandleLootingTest(player, parts);
+
+		if (parts[2] == DM_CHAT_TEST_ENEMY)
+			return HandleEnemy(player, parts);
 
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий: " + parts[2]);
 		return false;
@@ -340,6 +346,67 @@ class dmTestCommand : dmCommandModule
 		bot.SetFSM(fsm);
 
 		dmCommandManager.ChatToPlayer(player, "Тест-сценарий patrol запущен (3 точки, повороты)");
+		return true;
+	}
+
+	//! /test bot enemy {N} — spawn a bot N meters in front of the player (facing
+	//! back at the player), dress it in Gorka gear, arm it with a B95 + .308 ammo,
+	//! give it the Shooting test preset and mark the player hostile.
+	private bool HandleEnemy(PlayerBase player, array<string> parts)
+	{
+		if (parts.Count() < 4)
+		{
+			dmCommandManager.ChatToPlayer(player, "Укажи дистанцию: /test bot enemy {N}");
+			return false;
+		}
+
+		int dist = parts[3].ToInt();
+		if (dist <= 0)
+		{
+			dmCommandManager.ChatToPlayer(player, "Некорректная дистанция: " + parts[3]);
+			return false;
+		}
+
+		vector fwd = player.GetDirection();
+		fwd[1] = 0.0;
+		fwd.Normalize();
+
+		vector playerPos = player.GetPosition();
+		vector spawnPos = SnapToGroundExactly(playerPos + fwd * (float)dist);
+
+		//! Бот спавнится ПЕРЕД игроком — развернуть его лицом к игроку.
+		vector back = -fwd;
+		float yaw = back.VectorToAngles()[0];
+
+		ref dmAISurvivor bot = new dmAISurvivor();
+		PlayerBase pawn = bot.Spawn(spawnPos, Vector(yaw, 0.0, 0.0));
+		if (!pawn)
+		{
+			dmCommandManager.ChatToPlayer(player, "Не удалось заспавнить бота.");
+			return false;
+		}
+
+		dmCommandContext.BindBot(player, bot);
+
+		//! Одежда (слоты одежды/обуви/перчаток).
+		pawn.GetInventory().CreateInInventory("GorkaPants_Autumn");
+		pawn.GetInventory().CreateInInventory("GorkaEJacket_Autumn");
+		pawn.GetInventory().CreateInInventory("TacticalGloves_Black");
+		pawn.GetInventory().CreateInInventory("CombatBoots_Black");
+
+		//! B95 в руках + досыл патрона в патронник/внутренний магазин.
+		Weapon_Base b95 = Weapon_Base.Cast(pawn.GetHumanInventory().CreateInHands("B95"));
+		if (b95)
+			b95.SpawnAmmo("Ammo_308Win", WeaponWithAmmoFlags.CHAMBER);
+
+		//! Запас ~40 патронов (2 пачки .308 в карго одетой одежды).
+		pawn.GetInventory().CreateInInventory("Ammo_308Win");
+		pawn.GetInventory().CreateInInventory("Ammo_308Win");
+
+		bot.SetFSM(dmBotTestPreset_Shooting.Create(bot));
+		bot.RegisterHostile(player, 1.0);
+
+		dmCommandManager.ChatToPlayer(player, "Враг заспавнен в " + dist + " м от тебя (B95 + .308), ты для него враждебен.");
 		return true;
 	}
 }
