@@ -642,6 +642,8 @@ class dmAISurvivorBase : PlayerBase
 	//! CfgAmmo <bullet> initSpeed.
 	float GetAmmoInitSpeed(Weapon_Base weapon, int mi)
 	{
+		if (mi < 0 || mi >= weapon.GetMuzzleCount())
+			return 0.0;
 		string ammoMag = weapon.GetChamberedCartridgeMagazineTypeName(mi);
 		if (ammoMag == "")
 			return 0.0;

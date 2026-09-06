@@ -1170,6 +1170,22 @@ Expansion (`eAI_Fire` / modded `weaponfire.c`). Все пути — ваниль
 - **Вспомогательный фикс**: сброс `m_FireRequest=false` в `ResetActuation` (чтобы после нокаута не
   стреляло по «висячему» запросу с замороженным направлением).
 
+### Вторая причина того же краша: мультимузл-цикл `WeaponFireMultiMuzzle` выходит за число стволов
+
+- **Факт**: B95 — это `DoubleBarrel_Base` (`B95_base : DoubleBarrel_Base`, конфиг `muzzles[]={"this","SecondMuzzle"}`
+  = 2 ствола, `modes[]={"Single","Double"}`). В режиме `Double` FSM-состояние `WeaponFireMultiMuzzle`
+  стреляет циклом `for (i=0; i<GetCurrentModeBurstSize(mi); i++)`, передавая `i` как ИНДЕКС СТВОЛА.
+- **Симптом**: в логе `dmBot_Fire: mi=0` (ok) и `dmBot_Fire: mi=1` (ok, оба `ammo=Ammo_308Win`), затем
+  краш на `mi=2` — `GetChamberedCartridgeMagazineTypeName(2)` падает (ствола 2 нет). Тот же стек
+  `ComputeShot → CompensateBulletDrop → GetAmmoInitSpeed`, но корень ДРУГОЙ: не десинк нокаута, а
+  выход индекса за число стволов (`GetCurrentModeBurstSize` вернул ≥3 при 2 стволах).
+- **Почему ваниль не падает**: ванильный `TryFireWeapon(m_weapon, i)` — натив с проверкой границ;
+  наш `dmBot_Fire(i)` читает `GetChamberedCartridgeMagazineTypeName(i)` напрямую без проверки.
+- **Фикс (сделано)**: (1) ограничить цикл `WeaponFireMultiMuzzle` по `GetMuzzleCount()`
+  (`for (i=0; i<b && i<muzzleCount; i++)`), (2) гард диапазона в `GetAmmoInitSpeed`
+  (`if (mi < 0 || mi >= weapon.GetMuzzleCount()) return 0.0;`). Добавлен диагностический лог
+  `b`/`muzzleCount`/`mi`/`mode`, чтобы зафиксировать реальное значение `GetCurrentModeBurstSize`.
+
 ### 2. Иерархия `WeaponFire*` и какие нужны для AKM / M4A1 / B95
 
 Файл `4_world/entities/firearms/fsm/states/weaponfire.c` (+ `weaponfirelast.c`,

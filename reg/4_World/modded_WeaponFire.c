@@ -102,9 +102,17 @@ modded class WeaponFireMultiMuzzle
 				if (LogManager.IsWeaponLogEnable()) { wpnPrint("[wpnfsm] " + Object.GetDebugName(m_weapon) + " WeaponFire bang bang!"); }
 				int mi = m_weapon.GetCurrentMuzzle();
 				int b = m_weapon.GetCurrentModeBurstSize(mi);
+				int muzzleCount = m_weapon.GetMuzzleCount();
+
+				#ifdef DM_WEAPON_DEBUG_FSM
+				dmBotLog.Debug("[Weapon] WeaponFireMultiMuzzle: b=" + b + " muzzleCount=" + muzzleCount);
+				dmBotLog.Debug("[Weapon] WeaponFireMultiMuzzle: mi=" + mi + " mode=" + m_weapon.GetCurrentMode(mi));
+				#endif
+
 				if (b > 1)
 				{
-					for (int i = 0; i < b; i++)
+					int maxMuzzle = muzzleCount;
+					for (int i = 0; i < b && i < maxMuzzle; i++)
 					{
 						if (m_weapon.dmBot_Fire(i))
 							m_weapon.OnFire(i);
