@@ -6,13 +6,22 @@
 //! impacts, zombie cries) will call AddNoise in Phase 2; receivers subscribe to
 //! SI_OnNoiseAdded (see dmHearing).
 
+enum dmNoiseType
+{
+	OTHER = 0,
+	STEP,
+	SCREAM,
+	BULLETIMPACT,
+	SHOT
+}
+
 class dmNoiseSystem
 {
 	static ref ScriptInvoker SI_OnNoiseAdded = new ScriptInvoker;
 
-	//! Сгенерировать шум (source может быть null — на приёме пока игнорируем, TODO).
-	static void AddNoise(EntityAI source, vector position, float strength)
+	//! Сгенерировать шум (source может быть null — позиционный шум, напр. попадание пули).
+	static void AddNoise(EntityAI source, vector position, float strength, int type = dmNoiseType.OTHER)
 	{
-		SI_OnNoiseAdded.Invoke(source, position, strength);
+		SI_OnNoiseAdded.Invoke(source, position, strength, type);
 	}
 };

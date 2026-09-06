@@ -1064,18 +1064,23 @@ class dmAISurvivor
 	}
 
 	//! Слух: обновить/добавить цель по шуму. Цель с HasLOS=false получает свежую
-	//! последнюю позицию; новая цель добавляется с низким threat (услышал, не видел).
-	void HearNoise(EntityAI entity, vector position)
+	//! последнюю позицию и обновлённую привлекательность; новая цель добавляется с
+	//! низким threat (услышал, не видел) и привлекательностью шума.
+	void HearNoise(EntityAI entity, vector position, float attractiveness)
 	{
 		dmTarget t = FindTarget(entity);
 		if (t)
 		{
 			if (!t.m_HasLOS)
+			{
+				if (attractiveness > t.m_Attractiveness)
+					t.m_Attractiveness = attractiveness;
 				t.m_LastPosition = position;
+			}
 			return;
 		}
 
-		DiscoverTarget(entity, DM_NOISE_THREAT, 0.0, false);
+		DiscoverTarget(entity, DM_NOISE_THREAT, attractiveness, false);
 		t = FindTarget(entity);
 		if (t)
 			t.m_LastPosition = position;

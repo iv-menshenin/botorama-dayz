@@ -8,7 +8,7 @@ modded class DayZPlayerImplement
 	{
 		super.OnStepEvent(pEventType, pUserString, pUserInt);
 		#ifdef SERVER
-		dmNoiseSystem.AddNoise(this, GetPosition(), DM_NOISE_STEP_STRENGTH);
+		dmNoiseSystem.AddNoise(this, GetPosition(), DM_NOISE_STEP_STRENGTH, dmNoiseType.STEP);
 		#endif
 	}
 

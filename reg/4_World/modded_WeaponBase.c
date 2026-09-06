@@ -66,7 +66,7 @@ modded class Weapon_Base
 		{
 			pawn.ApplyRecoil(this);
 			vector ownerPos = pawn.GetPosition();
-			dmNoiseSystem.AddNoise(pawn, ownerPos, DM_NOISE_GUNSHOT_STRENGTH);
+			dmNoiseSystem.AddNoise(pawn, ownerPos, dmBotGunshotNoiseStrength(), dmNoiseType.SHOT);
 		}
 		return fired;
 		#else
@@ -88,7 +88,21 @@ modded class Weapon_Base
 		if (dmAISurvivorBase.Cast(owner))
 			return;
 		vector ownerPos = owner.GetPosition();
-		dmNoiseSystem.AddNoise(owner, ownerPos, DM_NOISE_GUNSHOT_STRENGTH);
+		dmNoiseSystem.AddNoise(owner, ownerPos, dmBotGunshotNoiseStrength(), dmNoiseType.SHOT);
 		#endif
+	}
+
+	//! Gunshot noise strength: no suppressor 3000m; improvised 150m; pistol 75m;
+	//! rifle/automatic (M4/AK/other) 100m.
+	float dmBotGunshotNoiseStrength()
+	{
+		ItemSuppressor suppressor = GetAttachedSuppressor();
+		if (!suppressor)
+			return DM_NOISE_GUNSHOT_STRENGTH;
+		if (suppressor.IsKindOf("ImprovisedSuppressor"))
+			return DM_NOISE_GUNSHOT_SILENCED_HOMEMADE;
+		if (suppressor.IsKindOf("PistolSuppressor"))
+			return DM_NOISE_GUNSHOT_SILENCED_PISTOL;
+		return DM_NOISE_GUNSHOT_SILENCED_RIFLE;
 	}
 }

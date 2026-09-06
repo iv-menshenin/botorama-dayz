@@ -12,14 +12,19 @@ class dmHearing
 	}
 
 	//! Обработчик шума: фильтр дистанции → резолв корня → обновить/добавить цель.
-	void OnNoise(EntityAI source, vector position, float strength)
+	void OnNoise(EntityAI source, vector position, float strength, int type)
 	{
-		if (!m_Bot || !m_Bot.IsSpawned() || !source)
+		if (!m_Bot || !m_Bot.IsSpawned())
 			return;
 
 		vector botPos = m_Bot.GetPosition();
 		vector d = position - botPos;
 		if (d.LengthSq() > strength * strength)
+			return;
+
+		//! Bullet impact / positional noise has no source entity — heard but no
+		//! target to update.
+		if (!source)
 			return;
 
 		EntityAI root = source.GetHierarchyRootPlayer();
@@ -30,6 +35,10 @@ class dmHearing
 		if (root == m_Bot.GetPawn())
 			return;
 
-		m_Bot.HearNoise(root, position);
+		float attractiveness = DM_NOISE_ATTRACTIVENESS_NOISE;
+		if (type == dmNoiseType.SHOT || type == dmNoiseType.BULLETIMPACT)
+			attractiveness = DM_NOISE_ATTRACTIVENESS_SHOT;
+
+		m_Bot.HearNoise(root, position, attractiveness);
 	}
 };

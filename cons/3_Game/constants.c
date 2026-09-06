@@ -3,13 +3,22 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.47";
+static const string DM_BOTORAMA_VERSION = "3.48";
 
 //! Hearing: threat assigned to a target heard but not seen (below attack threshold 0.5).
 static const float DM_NOISE_THREAT = 0.4;
 
 //! Hearing: noise ranges (meters) per source, for the distance filter.
-static const float DM_NOISE_GUNSHOT_STRENGTH = 100.0;
+static const float DM_NOISE_GUNSHOT_STRENGTH = 3000.0;
 static const float DM_NOISE_STEP_STRENGTH = 10.0;
-static const float DM_NOISE_BULLETIMPACT_STRENGTH = 20.0;
+static const float DM_NOISE_BULLETIMPACT_STRENGTH = 15.0;
 static const float DM_NOISE_SCREAM_STRENGTH = 30.0;
+
+//! Hearing: gunshot range (meters) when the weapon has a suppressor, by kind.
+static const float DM_NOISE_GUNSHOT_SILENCED_PISTOL = 75.0;
+static const float DM_NOISE_GUNSHOT_SILENCED_RIFLE = 100.0;
+static const float DM_NOISE_GUNSHOT_SILENCED_HOMEMADE = 150.0;
+
+//! Hearing: attractiveness (0..1) assigned to a heard target, by noise kind.
+static const float DM_NOISE_ATTRACTIVENESS_NOISE = 0.6;
+static const float DM_NOISE_ATTRACTIVENESS_SHOT = 0.9;

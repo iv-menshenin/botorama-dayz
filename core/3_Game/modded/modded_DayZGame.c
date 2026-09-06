@@ -10,7 +10,7 @@ modded class DayZGame
 	{
 		super.FirearmEffects(source, directHit, componentIndex, surface, pos, surfNormal, exitPos, inSpeed, outSpeed, isWater, deflected, ammoType);
 		#ifdef SERVER
-		dmNoiseSystem.AddNoise(null, pos, DM_NOISE_BULLETIMPACT_STRENGTH);
+		dmNoiseSystem.AddNoise(null, pos, DM_NOISE_BULLETIMPACT_STRENGTH, dmNoiseType.BULLETIMPACT);
 		#endif
 	}
 }

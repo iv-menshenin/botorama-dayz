@@ -17,7 +17,7 @@ modded class ZombieBase
 	{
 		super.OnSoundVoiceEvent(event_id, event_user_string);
 		#ifdef SERVER
-		dmNoiseSystem.AddNoise(this, GetPosition(), DM_NOISE_SCREAM_STRENGTH);
+		dmNoiseSystem.AddNoise(this, GetPosition(), DM_NOISE_SCREAM_STRENGTH, dmNoiseType.SCREAM);
 		#endif
 	}
 }
