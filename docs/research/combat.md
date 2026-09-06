@@ -1361,6 +1361,108 @@ WeaponStateBase                                  (weaponstatebase.c:10)
   Для botorama решение, КУДА добавлять `dispersion` (в `dmAiming` или при `Fire`), — наша конвенция,
   не ванильный контракт.
 
+## Патронник после `Fire()`: не становится «стреляным» (дефект перезарядки B95)
+
+Цель: выяснить, почему после `Fire()` (`dmBot_Fire`) `IsChamberFiredOut(mi)` остаётся `false`,
+из-за чего `RandomizeFSMState()` ресинкает `DoubleBarrel_Base` (B95) в `LoadedLoaded` вместо
+`FireoutFireout`, и событие `WeaponEventLoad1Bullet` (LOAD1_BULLET) отклоняется.
+
+### 1. `Fire` vs `TryFireWeapon` — что делает каждый с патронником
+
+- `proto native bool Fire(int muzzleIndex, vector pos, vector dir, vector speed)`
+  (`4_world/entities/core/inherited/weapon.c:58`) — **низкоуровневый натив**: только спавнит пулю
+  из `pos` в направлении `dir` со скоростью `speed`. **НЕ трогает состояние патронника**
+  (не помечает `IsChamberFiredOut`). Доказательство: в ванили он НИГДЕ не используется — во всех
+  fire-состояниях он закомментирован `//m_weapon.Fire();` (`fsm/states/weaponfire.c:64/119/292`),
+  реальный выстрел идёт через `TryFireWeapon`. Эмпирически подтверждено логом botorama:
+  `dmBot_Fire: firedOut=false` до `Fire()`, и после `Fire()` патронник остаётся «полным»
+  (`RandomizeFSMState` ресинкает в `LoadedLoaded`).
+- `proto native bool TryFireWeapon(EntityAI weapon, int muzzleIndex)`
+  (`3_game/systems/inventory/weaponinventory.c:8`) — **полный выстрел**: сам берёт transform дула
+  (`GetCameraPoint(mi, out pos, out dir)`, `weapon.c:413`), читает `initSpeed` патрона, спавнит пулю
+  И **переводит патронник «полный → стреляный»** (`IsChamberFiredOut` становится `true`). Именно его
+  зовут ВСЕ ванильные fire-состояния: `WeaponFire.OnEntry` (`weaponfire.c:66`),
+  `WeaponFireWithEject.OnEntry` (:121), `WeaponFireMultiMuzzle.OnEntry` (:155/:166),
+  `WeaponFireToJam.OnEntry` (:294). Что он обновляет патронник — следует из FSM-переходов с гвардами:
+  напр. `Trigger_L_L → _fin_/rto/abt → F_F, GuardAnd(WeaponGuardChamberFiredOut(First),
+  WeaponGuardChamberFiredOut(Second))` (`doublebarrel_base.c:260-262`) — переход в `FireoutFireout`
+  возможен только если `IsChamberFiredOut` обоих стволов стал `true` сразу после `TryFireWeapon`.
+
+### 2. Что помечает ствол «стреляным» — прямого натива НЕТ
+
+Полный список chamber-нативов в `weapon.c` (все проверены, сеттера «fired out» среди них нет):
+
+- `IsChamberEmpty/FiredOut/Jammed/Full/Ejectable(int mi)` (:74/:79/:84/:96/:90) — только запросы.
+- `EjectCasing(int mi)` (:64) — **выбрасывает стреляную гильзу** (fired-out → empty). НЕ ставит
+  «стреляный»: в ванили его зовут ТОЛЬКО после `TryFireWeapon`, причём под гвардом
+  `IsChamberFiredOut(mi)` (`WeaponFireWithEject` :126; `WeaponEjectCasing.OnEntry`
+  `weaponejectcasingandchamberfromattmag.c:13-16`).
+- `CreateRound(int mi)` (:68, бывший `EjectRound`) — материализует патрон для извлечения
+  (`WeaponEjectAllMuzzles.OnEntry` `weaponcharging.c:158/101/106` перед `ejectBulletAndStoreInMagazine`),
+  не про «fired out».
+- `PushCartridgeToChamber(mi, dmg, type)` (:179) — заталкивает ЖИВОЙ патрон → `IsChamberFull` (L).
+- `PopCartridgeFromChamber(mi, out dmg, out type)` (:174) — извлекает патрон → `IsChamberEmpty` (E).
+- `EjectCartridge(mi, out dmg, out type)` (скрипт, `weapon_base.c:2044-2057`) — обёртка:
+  `IsChamberEjectable(mi) ? PopCartridgeFromChamber : PopCartridgeFromInternalMagazine`; «= GetCartridgeInfo
+  + PopCartridge» (комментарий :2037). Тоже даёт EMPTY, а не FIRED-OUT.
+- `EffectBulletShow/Hide(mi)` (:187/:193) — только визуальная «пуля в патроннике», не логическое состояние.
+- `SetJammed(bool)` (скрипт, `weapon_base.c:409`) — флаг `m_isJammed`, не fired-out.
+- `OnFire(int muzzle_index)` (`weapon_base.c:1028-1054`) — **только `m_BurstCount++`** (плюс у
+  botorama override — шум выстрела). Патронник НЕ трогает.
+
+**Вывод**: единственный script-visible путь «полный → стреляный» — это натив `TryFireWeapon`
+(внутри движка). Отдельного натива/метода «пометить патронник стреляным» в ванили **нет**
+(`grep SetChamberFiredOut/SetChamberState` по всем скриптам — пусто).
+
+### 3. Рекомендация фикса для AI-бота
+
+Поскольку `TryFireWeapon` стреляет от дула (`GetCameraPoint`), которое ИИ не гонит, а `Fire()`
+(явное направление) патронник не обновляет — «правильного» способа получить именно `FireoutFireout`
+через `Fire()` не существует. Практический фикс: после `Fire()` вручную «съесть» патрон, чтобы
+патронник перешёл в корректное «потраченное» состояние, и FSM ресинкался в состояние, принимающее
+`LOAD1_BULLET`:
+
+```c
+// reg/4_World/modded_WeaponBase.c, в dmBot_Fire после `bool fired = Fire(...)`:
+if (fired)
+{
+    float dmg; string ammoType;
+    if (EjectCartridge(muzzleIndex, dmg, ammoType))   // live round -> EMPTY (аналог «выстрелили»)
+        EffectBulletHide(muzzleIndex);                // спрятать модель пули в патроннике
+    pawn.ApplyRecoil(this);
+    // ... шум
+}
+```
+
+- `EjectCartridge(mi, out dmg, out type)` = `IsChamberEjectable ? PopCartridgeFromChamber :
+  PopCartridgeFromInternalMagazine` (`weapon_base.c:2044`). Для B95 (патрон в патроннике) сработает
+  `PopCartridgeFromChamber` → `IsChamberEmpty=true`.
+- После этого `RandomizeFSMState()` (`weapon_base.c:675` → `GetMuzzleStates` :691 → `RandomizeFSMStateEx`
+  `weaponfsm.c:719`) ресинкает B95 в `EmptyEmpty` (E_E), а НЕ `FireoutFireout` (F_F). Разница чисто
+  косметическая: в E_E есть переход `E_E → __L__ → Chamber_E` (`doublebarrel_base.c:210`), т.е.
+  `WeaponEventLoad1Bullet` ПРИНИМАЕТСЯ и перезарядка работает; пропадает лишь шаг «выброс стреляной
+  гильзы» при перезарядке (гильзы нет — патрон сразу извлечён). Для ИИ это допустимо.
+- **Если нужен именно F_F (полный визуальный цикл eject-casing)**: это достижимо ТОЛЬКО через
+  `TryFireWeapon`, который стреляет в неправильном направлении (ИИ не гонит `GetCameraPoint`), —
+  либо надо принимать десинк патронника и перезаряжать ИИ-вручную через `WeaponManager.EjectBullet()`
+  (эталон Expansion: `eAIBase.ReloadWeaponAI` проверяет `IsChamberFiredOut` → `EjectBullet()`,
+  `eAIBase.c:8869/8969`), минуя FSM-событие `LOAD1_BULLET`. Т.е. выбор: (а) пустой патронник +
+  штатный FSM-релоад (рекомендуется, минимальный дифф) или (б) десинк + ручной релоад через
+  `EjectBullet` (как Expansion).
+
+### Открытые вопросы / не подтверждено
+
+- Что именно внутри движка делает `Fire()` с патронником (спавн пули — точно; точный момент/условие,
+  когда движок мог бы «допозже» пометить fired-out) — исходников движка нет. Поведение «не помечает»
+  подтверждено косвенно: ваниль `Fire()` не использует, а `RandomizeFSMState` после `Fire()` ресинкает
+  B95 в `LoadedLoaded` (лог botorama). Стоит проверить в логе с включённым `LogManager.IsWeaponLogEnable()`
+  строку `[wpnfsm] RandomizeFSMState - randomized current state=...` для окончательного подтверждения.
+- У Expansion серверный `eAI_Fire` тоже использует `Fire(...)` (`Weapon_Base.c:157`), т.е. тот же
+  «не-помечает-fired-out» паттерн; как они реально закрывают перезарядку двустволки (Blaze/BK-43)
+  на сервере — релоад через `EjectBullet` + `LoadMultiBullet` (`eAIBase.c:8955-8976`), но источник
+  `IsChamberFiredOut=true` на сервере не разобран до конца (вероятно, клиентский `TryFireWeapon` в
+  `eAI_FireOnClient` + сетевая синхронизация `Synchronize`). Пометить как «не подтверждено из кода».
+
 ---
 
 # Боевое движение / фланг (Flank)
