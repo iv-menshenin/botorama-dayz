@@ -156,12 +156,10 @@
 корня. Статус `[~]` = гипотеза сформулирована, фикс не сделан (по запросу — только анализ).
 
 1. `[~]` **Зараженная зона → телепорт**. Бот заходит в газ-зону, ваниль кидает
-   «Персонаж перемещён из опасной зоны» и телепортирует бота. *Подтверждено (research/navigation.md)*:
-   газ-зона = `EffectArea` + `ContaminatedTrigger`; бот (`PlayerBase`) идёт полным путём игрока →
-   `OnContaminatedAreaEnterServer` → `TeleportCheck` (при `GetSimulationTimeStamp()<20`). Нативного
-   `IsInGasZone(pos)` нет. Фикс-подход: (1) quick — override `OnContaminatedAreaEnterServer()` no-op;
-   (2) правильный — порт избегания из Expansion (`s_Expansion_DangerousAreas` +
-   `FindClosestPointOutsideCluster`).
+   «Персонаж перемещён из опасной зоны» и телепортирует бота. *Сделано (v3.46)*: override
+   `OnContaminatedAreaEnterServer()` no-op в пешке (убирает телепорт и газ). **Осталось (TODO)**:
+   правильное избегание газ-зон в навигации — порт Expansion `s_Expansion_DangerousAreas` +
+   `FindClosestPointOutsideCluster` (детали — `docs/research/navigation.md`).
 
 2. `[~]` **Костёр: наступает + бесконечно атакует.** (а) наступает в костёр (нет избегания
    опасных мест); (б) после этого атакует костёр бесконечно. *Гипотеза*: (а) нет гарда

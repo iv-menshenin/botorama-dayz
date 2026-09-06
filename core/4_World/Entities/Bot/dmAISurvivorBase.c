@@ -935,6 +935,15 @@ class dmAISurvivorBase : PlayerBase
 		#endif
 	}
 
+	//! No-op: don't activate MDF_AREAEXPOSURE on entering a contaminated (gas)
+	//! zone — the vanilla AreaExposureMdfr.OnActivate runs TeleportCheck and
+	//! teleports the AI out of the zone ("Персонаж перемещён из опасной зоны").
+	//! TODO: properly avoid gas zones in navigation (Expansion
+	//! s_Expansion_DangerousAreas + FindClosestPointOutsideCluster).
+	override void OnContaminatedAreaEnterServer()
+	{
+	}
+
 	//! Whether the body may actuate (move/turn/stance/look). False while dead,
 	//! unconscious or restrained — the vanilla body state must win.
 	bool CanAct()
