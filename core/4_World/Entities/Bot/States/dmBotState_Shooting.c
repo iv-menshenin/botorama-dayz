@@ -86,13 +86,20 @@ class dmBotState_Shooting : dmBotState
 	{
 		dmAISurvivor bot = GetOwner();
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
-		if (!pawn)
+		if (!pawn || !m_TargetEntity)
 			return EXIT;
 
 		if (m_NoFirearm)
 		{
 			m_CooldownGameTime = GetGame().GetTickTime() + 15.0;
 			return EXIT;
+		}
+
+		if (!m_TargetEntity || !m_TargetEntity.IsAlive())
+		{
+			ResolveTarget();
+			if (!m_TargetEntity)
+				return EXIT;
 		}
 
 		EnsureLook();

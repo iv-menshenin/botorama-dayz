@@ -109,19 +109,29 @@ modded class WeaponFireMultiMuzzle
 				dmBotLog.Debug("[Weapon] WeaponFireMultiMuzzle: mi=" + mi + " mode=" + m_weapon.GetCurrentMode(mi));
 				#endif
 
+				float dmg;
+				string ammoType;
 				if (b > 1)
 				{
 					int maxMuzzle = muzzleCount;
 					for (int i = 0; i < b && i < maxMuzzle; i++)
 					{
 						if (m_weapon.dmBot_Fire(i))
+						{
+							m_weapon.EjectCartridge(i, dmg, ammoType);
+							m_weapon.EffectBulletHide(i);
 							m_weapon.OnFire(i);
+						}
 					}
 				}
 				else
 				{
 					if (m_weapon.dmBot_Fire(mi))
+					{
+						m_weapon.EjectCartridge(mi, dmg, ammoType);
+						m_weapon.EffectBulletHide(mi);
 						m_weapon.OnFire(mi);
+					}
 				}
 				if (mi >= m_weapon.GetMuzzleCount() - 1)
 					m_weapon.SetCurrentMuzzle(0);

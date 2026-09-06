@@ -143,9 +143,12 @@
   после выстрела из обоих стволов физически патронник «стреляный» (`IsChamberFiredOut=true`),
   но FSM-состояние застревало в `DoubleBarrelLoadedLoaded` (не переходило в `FireoutFireout`),
   из-за чего событие перезарядки `LOAD1_BULLET` отклонялось (`failed to perform weaponevent ...
-  in state DoubleBarrelLoadedLoaded ...`). Фикс (вариант A): в `WeaponFireMultiMuzzle.OnEntry`
-  после дабл-выстрела вызывается `m_weapon.RandomizeFSMState()` — ресинк FSM к физическому
-  состоянию (`FireoutFireout`). Это наш кейс парных стволов; Expansion эту проблему не решает.
+  in state DoubleBarrelLoadedLoaded ...`). Корень: натив `Fire(mi,pos,dir,speed)` (явное направление,
+  `dmBot_Fire`) НЕ помечает ствол «стреляным» (в отличие от `TryFireWeapon`), а натива
+  `SetChamberFiredOut` нет. Фикс: после `Fire()` в `WeaponFireMultiMuzzle.OnEntry` вызываются
+  `EjectCartridge(mi, dmg, type)` (полный → пустой) + `EffectBulletHide(mi)`, затем
+  `RandomizeFSMState()` ресинкает FSM в `EmptyEmpty` → `LOAD1_BULLET` принимается. Это наш кейс
+  парных стволов; Expansion эту проблему не решает (детали — `docs/research/combat.md`).
 
 ## Сводка по приоритету
 
