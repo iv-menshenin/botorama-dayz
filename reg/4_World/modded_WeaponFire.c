@@ -118,7 +118,7 @@ modded class WeaponFireMultiMuzzle
 					{
 						if (m_weapon.dmBot_Fire(i))
 						{
-							m_weapon.EjectCartridge(i, dmg, ammoType);
+							m_weapon.PopCartridgeFromChamber(i, dmg, ammoType);
 							m_weapon.EffectBulletHide(i);
 							m_weapon.OnFire(i);
 						}
@@ -128,11 +128,14 @@ modded class WeaponFireMultiMuzzle
 				{
 					if (m_weapon.dmBot_Fire(mi))
 					{
-						m_weapon.EjectCartridge(mi, dmg, ammoType);
+						m_weapon.PopCartridgeFromChamber(mi, dmg, ammoType);
 						m_weapon.EffectBulletHide(mi);
 						m_weapon.OnFire(mi);
 					}
 				}
+				#ifdef DM_WEAPON_DEBUG_FSM
+				dmBotLog.Debug("[Weapon] WeaponFireMultiMuzzle after pop: ch0 empty=" + m_weapon.IsChamberEmpty(0) + " firedOut=" + m_weapon.IsChamberFiredOut(0) + " ch1 empty=" + m_weapon.IsChamberEmpty(1) + " firedOut=" + m_weapon.IsChamberFiredOut(1));
+				#endif
 				if (mi >= m_weapon.GetMuzzleCount() - 1)
 					m_weapon.SetCurrentMuzzle(0);
 				else
