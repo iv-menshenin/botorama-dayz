@@ -322,6 +322,11 @@ class dmAiming
 		return halfAccuracyMultiplier + halfAccuracyMultiplier * (growPerc * growPerc);
 	}
 
+	float HitProbability()
+	{
+		return m_HitProbability;
+	}
+
 	private bool HasRealOptics()
 	{
 		Weapon_Base weapon = Weapon_Base.Cast(m_Unit.GetHumanInventory().GetEntityInHands());

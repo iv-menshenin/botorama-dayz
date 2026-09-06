@@ -25,9 +25,6 @@ class dmBotIntent_Evasion : dmBotIntent
 	{
 		super.OnUpdate(bot, pDt);
 
-		if (bot.GetMeleeCooldown() <= 0.0)
-			return;
-
 		m_SwitchTimer += pDt;
 		if (m_SwitchTimer >= DM_MELEE_EVADE_SWITCH_TIME)
 		{

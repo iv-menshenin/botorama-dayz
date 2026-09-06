@@ -51,6 +51,7 @@ class dmBotIntent_Aim : dmBotIntent
 			return;
 		}
 
+		float chanceToRequest = 1.0;
 		dmAiming aiming = pawn.GetAiming();
 		if (aiming)
 		{
@@ -58,6 +59,8 @@ class dmBotIntent_Aim : dmBotIntent
 			aiming.Update(pDt);
 			pawn.SetAimDirection(aiming.GetAimDirection());
 			bot.LookAtPoint(aiming.GetAimPosition(), dmBotLookTurn.FULL);
+
+			chanceToRequest = aiming.HitProbability();
 		}
 
 		pawn.RaiseWeapon(true);
@@ -77,7 +80,17 @@ class dmBotIntent_Aim : dmBotIntent
 			return;
 		}
 
+
 		m_FireTimer -= pDt;
+		float chance = Math.RandomFloat(0.0, 1.0);
+		if (chance > chanceToRequest)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] BotIntent: Aim low chance to hit");
+			#endif
+			return;
+		}
+
 		if (m_FireTimer <= 0.0)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
