@@ -1452,14 +1452,19 @@ class dmBotTest_Suppressor : dmTestSuite_TestCase
 	}
 }
 
-//! Ballistic flight-time test: Mosin + 1 round, perfect aim, target at N m
-//! (default 500). Fires a single shot without FSM (SetAimTarget + RaiseWeapon +
-//! RequestFire). The flight-time deltas are read from the [Ballistics] server log.
+//! Ballistic drop-compensation convergence test: Mosin (internal 5-round
+//! magazine) + perfect aim, target at N m (default 500). Fires up to
+//! DM_TRAJECTORY_MAX_SHOTS without the FSM (SetAimTarget + RaiseWeapon +
+//! RequestFire) at a fixed interval. Each miss feeds BallisticFeedback, which
+//! nudges the bullet-drop coefficient; the coefficient trend is read from the
+//! [Ballistics] server log (FEEDBACK) and echoed per-shot in the chat returns.
 class dmBotTest_Trajectory : dmTestSuite_TestCase
 {
 	int m_Phase = 0;
 	EntityAI m_Target;
 	float m_TargetDistance = 0.0;
+	int m_Shots = 0;
+	int m_LastShotTime;
 
 	void SetTargetDistance(float v)
 	{
@@ -1487,12 +1492,12 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 
 	override string GetSummary()
 	{
-		return "Тест «Траектория». Мосинка + 1 патрон, идеальный прицел, цель на 500 м, один выстрел. Дельта времени полёта — в логе [Ballistics] (FIRE → HIT / IMPACT).";
+		return "Тест «Траектория». Мосинка (магазин 5 патронов) + идеальный прицел, цель на 500 м. До 5 выстрелов с паузой 3 с: каждый промах корректирует коэф. компенсации дропа (см. лог [Ballistics] FEEDBACK), коэф печатается в каждом выстреле. PASS — цель убита; DONE — патроны/лимит исчерпаны.";
 	}
 
 	override float GetInterval() { return 0.5; }
 
-	override float GetDuration() { return 30.0; }
+	override float GetDuration() { return 45.0; }
 
 	override string OnCheck(float elapsed)
 	{
@@ -1519,6 +1524,7 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 				return "FAIL: не удалось заспавнить цель на " + Fmt(GetTargetDistance()) + " м";
 			if (pawn)
 				pawn.RaiseWeapon(true);
+			m_Shots = 0;
 			m_Phase = 1;
 			return "цель на " + Fmt(GetTargetDistance()) + " м заспавнена, оружие поднимается";
 		}
@@ -1529,16 +1535,37 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 			if (pawn && pawn.IsReadyToShoot())
 			{
 				pawn.RequestFire();
+				m_Shots = 1;
+				m_LastShotTime = GetGame().GetTime();
 				m_Phase = 2;
-				return "выстрел выполнен — ждём попадания";
+				return "выстрел #1 (coef=" + Fmt(pawn.GetDropCoef()) + ")";
 			}
 			return "";
 		}
 		else
 		{
-			if (m_Target && m_Target.IsAlive())
+			if ((GetGame().GetTime() - m_LastShotTime) / 1000.0 < DM_TRAJECTORY_SHOT_INTERVAL)
 				return "";
-			return "PASS: цель поражена (см. дельту FIRE→HIT/IMPACT в логе [Ballistics])";
+
+			if (m_Target && !m_Target.IsAlive())
+				return "PASS: цель поражена за " + m_Shots + " выстрелов (coef=" + Fmt(pawn.GetDropCoef()) + ")";
+
+			if (m_Shots >= DM_TRAJECTORY_MAX_SHOTS)
+				return "DONE: coef=" + Fmt(pawn.GetDropCoef()) + " после " + m_Shots + " выстрелов (цель жива)";
+
+			if (m_Bot.HasNoAmmo())
+				return "DONE: закончились патроны (coef=" + Fmt(pawn.GetDropCoef()) + " после " + m_Shots + " выстрелов)";
+
+			if (pawn && m_Target)
+				pawn.SetAimTarget(m_Target);
+			if (pawn && pawn.IsReadyToShoot())
+			{
+				pawn.RequestFire();
+				m_Shots = m_Shots + 1;
+				m_LastShotTime = GetGame().GetTime();
+				return "выстрел #" + m_Shots + " (coef=" + Fmt(pawn.GetDropCoef()) + ")";
+			}
+			return "";
 		}
 	}
 }
