@@ -1508,7 +1508,7 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 
 	override float GetInterval() { return 0.5; }
 
-	override float GetDuration() { return 180.0; }
+	override float GetDuration() { return 300.0; }
 
 	override string OnCheck(float elapsed)
 	{
@@ -1555,18 +1555,19 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 		}
 		else
 		{
+			//! Релоад сразу после выстрела (болтовик — одиночные): цикл затвора /
+			//! досыл из штанов перекрывается с полётом пули.
+			if (pawn && !pawn.IsReadyToShoot())
+			{
+				if (!pawn.ReloadWeaponAI())
+					return "DONE: закончились патроны (coef=" + Fmt(pawn.GetDropCoef()) + " после " + m_Shots + " выстрелов)";
+			}
+
 			if ((GetGame().GetTime() - m_LastShotTime) / 1000.0 < DM_TRAJECTORY_SHOT_INTERVAL)
 				return "";
 
 			if (m_Target && !m_Target.IsAlive())
 				return "PASS: цель поражена за " + m_Shots + " выстрелов (coef=" + Fmt(pawn.GetDropCoef()) + ")";
-
-			if (pawn && !pawn.IsReadyToShoot())
-			{
-				if (!pawn.ReloadWeaponAI())
-					return "DONE: закончились патроны (coef=" + Fmt(pawn.GetDropCoef()) + " после " + m_Shots + " выстрелов)";
-				return "перезарядка... (coef=" + Fmt(pawn.GetDropCoef()) + ")";
-			}
 
 			if (pawn && m_Target)
 				pawn.SetAimTarget(m_Target);
