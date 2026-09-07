@@ -435,9 +435,6 @@ static const int DM_AIM_SETTLE_TICKS = 5;
 //! Shot: max hitscan distance (meters) for bullet-drop compensation.
 static const float DM_AI_SHOT_MAX_DISTANCE = 1200.0;
 
-//! Shot: gravity (m/s^2) used for bullet-drop compensation.
-static const float DM_AI_GRAVITY = 9.81;
-
 //! Shot: fallback muzzle velocity (m/s) when the ammo initSpeed can't be read.
 static const float DM_AI_DEFAULT_INIT_SPEED = 800.0;
 
