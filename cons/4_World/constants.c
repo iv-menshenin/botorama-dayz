@@ -428,6 +428,10 @@ static const float DM_AIM_RECOIL_MODIFIER = 1.0;
 //! Aiming recoil: recovery rate (degrees per second) — how fast the barrel lowers.
 static const float DM_AIM_RECOIL_RECOVERY = 5.0;
 
+//! Aiming settle: ticks to wait for the barrel to turn onto the dispersed aim
+//! direction (rolled per-shot) before the shot fires along the barrel.
+static const int DM_AIM_SETTLE_TICKS = 5;
+
 //! Shot: max hitscan distance (meters) for bullet-drop compensation.
 static const float DM_AI_SHOT_MAX_DISTANCE = 1200.0;
 

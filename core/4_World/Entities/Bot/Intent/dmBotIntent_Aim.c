@@ -10,6 +10,7 @@ class dmBotIntent_Aim : dmBotIntent
 	EntityAI m_TargetEntity;
 	float m_FireTimer = 0.0;
 	int m_QueuedShots = 0;
+	int m_SettleTicks = 0;
 
 	void dmBotIntent_Aim()
 	{
@@ -82,6 +83,18 @@ class dmBotIntent_Aim : dmBotIntent
 
 
 		m_FireTimer -= pDt;
+		if (m_SettleTicks > 0)
+		{
+			m_SettleTicks = m_SettleTicks - 1;
+			if (m_SettleTicks == 0)
+			{
+				DoFire(pawn, bot);
+				if (aiming)
+					aiming.ClearShotDispersion();
+			}
+			return;
+		}
+
 		float chance = Math.RandomFloat(0.0, 1.0);
 		if (chance > chanceToRequest)
 		{
@@ -93,19 +106,32 @@ class dmBotIntent_Aim : dmBotIntent
 
 		if (m_FireTimer <= 0.0)
 		{
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] BotIntent: Aim.RequestFire");
-			#endif
-			Weapon_Base weapon = bot.GetWeaponInHands();
-			if (m_QueuedShots <= 0 && weapon)
-				m_QueuedShots = pawn.ComputeQueuedShots(weapon);
-			pawn.RequestFire();
-			if (m_QueuedShots > 0)
-				m_QueuedShots = m_QueuedShots - 1;
-			if (m_QueuedShots > 0 && weapon)
-				m_FireTimer = weapon.GetReloadTime(weapon.GetCurrentMuzzle());
+			if (aiming)
+			{
+				aiming.RollShotDispersion();
+				m_SettleTicks = DM_AIM_SETTLE_TICKS;
+			}
 			else
-				m_FireTimer = DM_BOT_FIRE_INTERVAL;
+			{
+				DoFire(pawn, bot);
+			}
 		}
+	}
+
+	private void DoFire(dmAISurvivorBase pawn, dmAISurvivor bot)
+	{
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] BotIntent: Aim.RequestFire");
+		#endif
+		Weapon_Base weapon = bot.GetWeaponInHands();
+		if (m_QueuedShots <= 0 && weapon)
+			m_QueuedShots = pawn.ComputeQueuedShots(weapon);
+		pawn.RequestFire();
+		if (m_QueuedShots > 0)
+			m_QueuedShots = m_QueuedShots - 1;
+		if (m_QueuedShots > 0 && weapon)
+			m_FireTimer = weapon.GetReloadTime(weapon.GetCurrentMuzzle());
+		else
+			m_FireTimer = DM_BOT_FIRE_INTERVAL;
 	}
 }

@@ -38,6 +38,11 @@ class dmAiming
 	private float m_Dist = 0.0;
 	private float m_TargetSpeedMult = 0.0;
 
+	//! Удержанный per-shot разброс (радианы), применяется к прицелу в Update()
+	//! до следующего ролла.
+	private float m_DispersionLR = 0.0;
+	private float m_DispersionUD = 0.0;
+
 	void dmAiming(dmAISurvivorBase unit)
 	{
 		m_Unit = unit;
@@ -113,6 +118,32 @@ class dmAiming
 		angLR = (devLR / dist) * (1.0 + m_TargetSpeedMult);
 		angUD = (devUD / dist) * (0.5 + m_TargetSpeedMult);
 		return true;
+	}
+
+	//! Ролл разброса НА ОДИН ВЫСТРЕЛ. Вызывается при решении стрелять; удержанные
+	//! смещения применяются к прицелу в Update() и держатся до ClearShotDispersion.
+	void RollShotDispersion()
+	{
+		m_DispersionLR = 0.0;
+		m_DispersionUD = 0.0;
+		if (m_Unit && m_Unit.IsPerfectAim())
+			return;
+		float angLR;
+		float angUD;
+		if (!GetShotDispersion(angLR, angUD))
+			return;
+		m_DispersionLR = angLR;
+		m_DispersionUD = angUD;
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[Aim] dispersion roll lr=" + angLR + " ud=" + angUD);
+		#endif
+	}
+
+	//! Сброс удержанного разброса (после выстрела — прицел возвращается к идеалу).
+	void ClearShotDispersion()
+	{
+		m_DispersionLR = 0.0;
+		m_DispersionUD = 0.0;
 	}
 
 	void Update(float pDt)
@@ -302,6 +333,14 @@ class dmAiming
 
 		direction = aimOrientation.AnglesToVector().Multiply3(transform);
 		direction.Normalize();
+		if (m_DispersionLR != 0.0 || m_DispersionUD != 0.0)
+		{
+			vector dAngles = direction.VectorToAngles();
+			dAngles[0] = dAngles[0] + m_DispersionLR * Math.RAD2DEG;
+			dAngles[1] = dAngles[1] + m_DispersionUD * Math.RAD2DEG;
+			direction = dAngles.AnglesToVector();
+			direction.Normalize();
+		}
 		m_AimDirection = direction;
 
 		#ifdef DM_BOT_DEBUG_FSM

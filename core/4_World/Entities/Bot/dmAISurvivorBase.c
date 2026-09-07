@@ -658,7 +658,6 @@ class dmAISurvivorBase : PlayerBase
 	{
 		origin = GetShotOrigin();
 		direction = GetAimWorldDirection();
-		ApplyPersonalDispersion(direction);
 		CompensateBulletDrop(weapon, mi, origin, direction);
 		ApplyWeaponDispersion(weapon, mi, direction);
 		velocity = ComputeShotVelocity(weapon, mi, direction);
@@ -1726,24 +1725,6 @@ class dmAISurvivorBase : PlayerBase
 			return;
 		if (weapon.GetCurrentMode(weapon.GetCurrentMuzzle()) != preferred.m_Index)
 			SetFireMode(weapon, preferred);
-	}
-
-	//! Личный разброс стрелка (dmAiming) — случайный доворот направления на выстрел.
-	void ApplyPersonalDispersion(inout vector direction)
-	{
-		if (m_PerfectAim)
-			return;
-		if (!m_Aiming)
-			return;
-		float angLR;
-		float angUD;
-		if (!m_Aiming.GetShotDispersion(angLR, angUD))
-			return;
-		vector angles = direction.VectorToAngles();
-		angles[0] = angles[0] + angLR * Math.RAD2DEG;
-		angles[1] = angles[1] + angUD * Math.RAD2DEG;
-		direction = angles.AnglesToVector();
-		direction.Normalize();
 	}
 
 	//! Оружейный разброс: случайный доворот направления в конусе полуугла dispersion
