@@ -546,6 +546,12 @@ class dmAISurvivorBase : PlayerBase
 			eyePos = GetBonePositionWS(neckBone);
 
 		vector aimDir = aimPos - eyePos;
+
+		#ifdef DM_BOT_DEBUG_BALLISTICS
+		dmBotLog.Debug("[Ballistics] AIM bone=" + bone + " aimPos=" + aimPos);
+		dmBotLog.Debug("[Ballistics] AIM eyePos=" + eyePos + " aimDir=" + aimDir);
+		#endif
+
 		SetAimDirection(aimDir);
 	}
 

@@ -1483,14 +1483,6 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 		dmAISurvivorBase base = dmAISurvivorBase.Cast(pawn);
 		if (base)
 			base.SetPerfectAim(true);
-
-		//! Развернуть тело по направлению взгляда игрока.
-		vector dir = player.GetDirection();
-		dir[1] = 0.0;
-		dir.Normalize();
-		float yaw = dir.VectorToAngles()[0];
-		if (base)
-			base.SetTargetBodyYaw(yaw);
 	}
 
 	override string GetSummary()
@@ -1511,6 +1503,16 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 
 		if (m_Phase == 0)
 		{
+			//! Развернуть тело по направлению взгляда игрока.
+			vector dir = m_Player.GetDirection();
+			dir[1] = 0.0;
+			dir.Normalize();
+			float yaw = dir.VectorToAngles()[0];
+			if (pawn)
+				pawn.SetTargetBodyYaw(yaw);
+			if (pawn)
+				pawn.SetOrientation(Vector(yaw, 0.0, 0.0));
+				
 			vector targetPos = ForwardTarget(GetTargetDistance());
 			m_Target = EntityAI.Cast(GetGame().CreateObject("dmAI_SurvivorM_Denis", targetPos, false));
 			if (!m_Target)
