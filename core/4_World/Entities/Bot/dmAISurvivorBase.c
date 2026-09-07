@@ -632,14 +632,45 @@ class dmAISurvivorBase : PlayerBase
 		if (weapon.IsChamberEmpty(mi) || weapon.IsChamberFiredOut(mi))
 			return;   // нет патрона — дроп-компенсация не нужна
 		vector end = origin + direction * DM_AI_SHOT_MAX_DISTANCE;
-		vector hitPosition;
-		vector hitNormal;
-		int contactComponent;
-		if (!DayZPhysics.RaycastRV(origin, end, hitPosition, hitNormal, contactComponent, null, null, this, false, false, ObjIntersectView, 0.01))
+
+		RaycastRVParams rp = new RaycastRVParams(origin, end, this, 0.01);
+		rp.sorted = true;
+		rp.type = ObjIntersectView;
+		rp.flags = CollisionFlags.NEARESTCONTACT;
+
+		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
+		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
 			return;
+
+		RaycastRVResult hit = hits[0];
+		vector hitPosition = hit.pos;
+		int contactComponent = hit.component;
+		Object hitObj = hit.obj;
+		Object hitParent = hit.parent;
+
 		float distance = vector.Distance(origin, hitPosition);
 		float travelTime = ComputeBulletTravelTime(weapon, mi, distance);
 		float drop = 0.5 * DM_AI_GRAVITY * travelTime * travelTime;
+
+		#ifdef DM_BOT_DEBUG_BALLISTICS
+		string objType = "ground";
+		string parentType = "";
+		if (hitObj)
+		{
+			objType = hitObj.GetType();
+			if (hitParent)
+				parentType = hitParent.GetType();
+		}
+		string dmgZone = "";
+		EntityAI hitEnt = EntityAI.Cast(hitObj);
+		if (hitEnt)
+			dmgZone = hitEnt.GetDamageZoneNameByComponentIndex(contactComponent);
+		dmBotLog.Debug("[Ballistics] DROP origin=" + origin + " shotOrigin=" + GetShotOrigin());
+		dmBotLog.Debug("[Ballistics] DROP obj=" + objType + " parent=" + parentType + " zone=" + dmgZone);
+		dmBotLog.Debug("[Ballistics] DROP hitPos=" + hitPosition + " groundO=" + g_Game.SurfaceY(origin[0], origin[2]) + " groundH=" + g_Game.SurfaceY(hitPosition[0], hitPosition[2]));
+		dmBotLog.Debug("[Ballistics] DROP dist=" + distance + " t=" + travelTime + " drop=" + drop + " dir=" + direction);
+		#endif
+
 		if (drop > 0.1)
 		{
 			vector projected = origin + direction * distance;
