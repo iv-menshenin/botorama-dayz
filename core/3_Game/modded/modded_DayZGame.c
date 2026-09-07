@@ -11,6 +11,13 @@ modded class DayZGame
 		super.FirearmEffects(source, directHit, componentIndex, surface, pos, surfNormal, exitPos, inSpeed, outSpeed, isWater, deflected, ammoType);
 		#ifdef SERVER
 		dmNoiseSystem.AddNoise(null, pos, DM_NOISE_BULLETIMPACT_STRENGTH, dmNoiseType.BULLETIMPACT);
+		EntityAI srcEnt = EntityAI.Cast(source);
+		if (srcEnt && !directHit)
+		{
+			Man shooter = srcEnt.GetHierarchyRootPlayer();
+			if (shooter)
+				shooter.BallisticFeedback(pos);
+		}
 		#ifdef DM_BOT_DEBUG_BALLISTICS
 		dmBotLog.Debug("[Ballistics] IMPACT time=" + GetGame().GetTime() + " pos=" + pos + " speed=" + inSpeed.Length());
 		#endif
@@ -18,5 +25,17 @@ modded class DayZGame
 		dmBotLog.Debug("[Noise] FirearmEffects: pos=" + pos);
 		#endif
 		#endif
+	}
+}
+
+//! Base hook for "a fired bullet hit the ground" (no entity hit = a miss). The
+//! AI pawn overrides BallisticFeedback to learn its bullet-drop coefficient.
+//! Declared on Man (a 3_Game type) because the DayZGame.FirearmEffects hook above
+//! lives in the 3_Game module, which cannot reference 4_World types (see
+//! docs/codeguide.md); the 4_World pawn overrides it via virtual dispatch.
+modded class Man
+{
+	void BallisticFeedback(vector impactPos)
+	{
 	}
 }

@@ -69,6 +69,58 @@ class dmAISurvivorBase : PlayerBase
 		return m_PerfectAim;
 	}
 
+	//! Коэффициент компенсации дропа пули (самообучаемый, per-bot).
+	private float m_DropCoef = DM_DROP_COEF_INIT;
+
+	//! Состояние последнего выстрела (для фидбека промаха). Время — GetTime()
+	//! (миллисекунды); это отдельное поле от m_LastFireTime (то — GetTickTime,
+	//! темп серии).
+	private int m_LastShotTime;
+	private vector m_LastFireOrigin;
+	private float m_LastFireTargetDist;
+
+	void SetDropCoef(float v)
+	{
+		m_DropCoef = v;
+	}
+
+	float GetDropCoef()
+	{
+		return m_DropCoef;
+	}
+
+	//! Фидбек промаха: пуля упала в `impactPos` (горизонталь), цель была на
+	//! m_LastFireTargetDist. Корректируем коэффициент пропорционально ошибке.
+	override void BallisticFeedback(vector impactPos)
+	{
+		if (m_LastFireTargetDist <= 0.0)
+			return;
+
+		vector d = impactPos - m_LastFireOrigin;
+		d[1] = 0.0;
+		float hitDist = d.Length();
+		if (hitDist <= 0.0)
+			return;
+
+		float ratio = (m_LastFireTargetDist - hitDist) / hitDist;
+		m_DropCoef = m_DropCoef * (1.0 + DM_DROP_LEARN_RATE * ratio);
+		if (m_DropCoef < DM_DROP_COEF_MIN)
+			m_DropCoef = DM_DROP_COEF_MIN;
+		if (m_DropCoef > DM_DROP_COEF_MAX)
+			m_DropCoef = DM_DROP_COEF_MAX;
+
+		#ifdef DM_BOT_DEBUG_BALLISTICS
+		dmBotLog.Debug("[Ballistics] FEEDBACK targetDist=" + m_LastFireTargetDist + " hitDist=" + hitDist + " coef=" + m_DropCoef);
+		#endif
+	}
+
+	//! Запомнить точку и время выстрела (для фидбека промаха).
+	void RecordShot(vector origin)
+	{
+		m_LastShotTime = GetGame().GetTime();
+		m_LastFireOrigin = origin;
+	}
+
 	//! Smoothed copy of m_AimRelAngleLR/UD, pushed to the animation graph so the
 	//! barrel rotates smoothly. The raw angles stay authoritative for
 	//! GetWeaponAimDirection() (the actual shot direction).
@@ -649,6 +701,7 @@ class dmAISurvivorBase : PlayerBase
 		Object hitParent = hit.parent;
 
 		float distance = vector.Distance(origin, hitPosition);
+		m_LastFireTargetDist = distance;
 		float travelTime = ComputeBulletTravelTime(weapon, mi, distance);
 		float drop = 0.5 * DM_AI_GRAVITY * travelTime * travelTime;
 
@@ -674,7 +727,7 @@ class dmAISurvivorBase : PlayerBase
 		if (drop > 0.1)
 		{
 			vector projected = origin + direction * distance;
-			projected[1] = projected[1] + drop * 0.8;
+			projected[1] = projected[1] + drop * m_DropCoef;
 			vector newDir = vector.Direction(origin, projected);
 			newDir.Normalize();
 			direction = newDir;

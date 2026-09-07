@@ -434,6 +434,14 @@ static const float DM_AI_SHOT_MAX_DISTANCE = 1200.0;
 //! Shot: gravity (m/s^2) used for bullet-drop compensation.
 static const float DM_AI_GRAVITY = 9.81;
 
+//! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.7).
+static const float DM_DROP_COEF_INIT = 0.7;
+//! Bullet-drop compensation: learning rate of the coefficient update per miss.
+static const float DM_DROP_LEARN_RATE = 0.3;
+//! Bullet-drop compensation: clamp bounds of the learned coefficient.
+static const float DM_DROP_COEF_MIN = 0.1;
+static const float DM_DROP_COEF_MAX = 1.5;
+
 //! Shot: fallback muzzle velocity (m/s) when the ammo initSpeed can't be read.
 static const float DM_AI_DEFAULT_INIT_SPEED = 800.0;
 

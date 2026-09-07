@@ -66,6 +66,8 @@ modded class Weapon_Base
 		dmBotLog.Debug("[Ballistics] FIRE origin=" + origin + " dir=" + direction);
 		#endif
 
+		pawn.RecordShot(origin);
+
 		bool fired = Fire(muzzleIndex, pos, direction, velocity);
 		if (fired)
 		{
