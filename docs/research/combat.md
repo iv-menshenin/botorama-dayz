@@ -1350,6 +1350,15 @@ WeaponStateBase                                  (weaponstatebase.c:10)
 - Падение `drop = 0.5 * 9.81 * travelTime^2` (`eAI_CalculateProjectileDrop`, :611-616).
 - Компенсация в `eAI_Fire` (:140-149): если `drop > 0.1` → `projectedPos = pos + dir*distance;
   projectedPos[1] += drop * 0.8; dir = normalize(projectedPos - pos);` затем `pos += dir*0.2`.
+
+**Готча (проверено v3.78)**: самообучение дроп-коэфа ТОЛЬКО по горизонтальному `along`
+(дистанция падения на землю) сходится к «пуля в земле **у ног** цели» (~1.1 м ниже груди), а не к
+«пуля в грудь» — потому что у земли `along ≈ targetDist → ratio ≈ 0`, и обучение застревает в
+локальном минимуме. Фикс: править коэф по **вертикальному** промаху `dY = aimPosY - yAtTarget`,
+где `yAtTarget` = высота пули на дистанции цели, экстраполированная от точки падения по наклону
+снижения `slope = g·travelTime / impactSpeed`. Продольная (попутная/встречная) составляющая ветра
+при этом конфаундится с дропом (меняет время полёта) — при ветре −Z дроп-коэф асимметричен по
+направлению (0.695 попутно vs 0.777 встречно на ~795 м).
 - Коэф. урона (`eAI_CalculateProjectileDamageCoefAtPosition`, :544-575): если
   `typicalSpeed != initSpeed'`, то `dmgCoef = (speed > typicalSpeed ? 1.0 : speed/typicalSpeed)`,
   иначе `dmgCoef = speedCoef` (`typicalSpeed` из `CfgAmmo <ammo> typicalSpeed`, :552).
