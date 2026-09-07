@@ -41,13 +41,16 @@ class dmBallisticsBridge
 
 	static void OnImpact(EntityAI sourceEnt, bool hitEntity, vector pos, float speed)
 	{
-		if (!sourceEnt || hitEntity || speed < DM_DROP_MIN_IMPACT_SPEED)
+		if (!sourceEnt)
 			return;
 		EntityAI shooter = sourceEnt.GetHierarchyRootPlayer();
 		if (!shooter)
 			return;
+		//! Потребляем состояние выстрела на первом ударе (попадание или промах),
+		//! чтобы рикошет (повторный FirearmEffects) не считался вторым промахом.
 		dmBotShotState st = s_LastShot[shooter];
-		if (!st || st.m_TargetDist <= 0.0)
+		s_LastShot.Remove(shooter);
+		if (!st || st.m_TargetDist <= 0.0 || hitEntity || speed < DM_DROP_MIN_IMPACT_SPEED)
 			return;
 		vector d = pos - st.m_Origin;
 		d[1] = 0.0;
