@@ -580,11 +580,11 @@ class dmAISurvivorBase : PlayerBase
 		return angles.AnglesToVector();
 	}
 
-	//! Current world-space aim direction (from dmAiming). Stored directly, not
-	//! reconstructed from body yaw + relative angle (the body may have turned).
+	//! Current world-space aim direction: the barrel axis (see GetBarrelDirection),
+	//! so the aim IS the barrel. Stored directly when the barrel can't be resolved.
 	vector GetAimWorldDirection()
 	{
-		return m_AimWorldDirection;
+		return GetBarrelDirection();
 	}
 
 	//! The shooting accuracy model (used by the fire path in Phase 3).
@@ -630,7 +630,7 @@ class dmAISurvivorBase : PlayerBase
 				return dir;
 			}
 		}
-		return GetAimWorldDirection();
+		return m_AimWorldDirection;
 	}
 
 	//! Bullet spawn point: the barrel muzzle; fallback to the neck bone.
@@ -657,7 +657,7 @@ class dmAISurvivorBase : PlayerBase
 	void ComputeShot(Weapon_Base weapon, int mi, out vector origin, out vector direction, out vector velocity)
 	{
 		origin = GetShotOrigin();
-		direction = GetBarrelDirection();
+		direction = GetAimWorldDirection();
 		ApplyPersonalDispersion(direction);
 		CompensateBulletDrop(weapon, mi, origin, direction);
 		ApplyWeaponDispersion(weapon, mi, direction);
@@ -715,7 +715,7 @@ class dmAISurvivorBase : PlayerBase
 		{
 			vector windForShot = GetGame().GetWeather().GetWind();
 			windForShot[1] = 0.0;
-			dmBallisticsBridge.RecordShot(this, origin, direction, distance, windForShot.Length(), travelTime);
+			dmBallisticsBridge.RecordShot(this, origin, direction, distance, windForShot, travelTime);
 		}
 		else
 			dmBallisticsBridge.ClearShot(this);
@@ -746,7 +746,7 @@ class dmAISurvivorBase : PlayerBase
 			projected[1] = projected[1] + drop * dmBallisticsBridge.GetDropCoef(this);
 			vector wind = GetGame().GetWeather().GetWind();
 			wind[1] = 0.0;
-			projected = projected - wind * dmBallisticsBridge.GetWindCoef(this) * travelTime;
+			projected = projected + wind * dmBallisticsBridge.GetWindCoef(this) * travelTime;
 			vector newDir = vector.Direction(origin, projected);
 			newDir.Normalize();
 			direction = newDir;

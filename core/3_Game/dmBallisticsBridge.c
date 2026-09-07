@@ -4,7 +4,7 @@ class dmBotShotState
 	vector m_Origin;
 	vector m_AimDir;    // горизонтальное направление прицела (нормализовано)
 	float m_TargetDist;
-	float m_WindSpeed;   // скорость ветра на момент выстрела (м/с, горизонталь)
+	float m_WindPerp;    // знаковая поперечная составляющая ветра на момент выстрела
 	float m_TravelTime;  // время полёта (с)
 }
 
@@ -33,16 +33,16 @@ class dmBallisticsBridge
 		return DM_WIND_COEF_INIT;
 	}
 
-	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist, float windSpeed, float travelTime)
+	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist, vector wind, float travelTime)
 	{
 		dmBotShotState st = new dmBotShotState();
 		st.m_Origin = origin;
 		st.m_TargetDist = targetDist;
-		st.m_WindSpeed = windSpeed;
-		st.m_TravelTime = travelTime;
 		aimDir[1] = 0.0;
 		aimDir.Normalize();
 		st.m_AimDir = aimDir;
+		st.m_WindPerp = wind[0] * (-aimDir[2]) + wind[2] * aimDir[0];
+		st.m_TravelTime = travelTime;
 		s_LastShot[pawn] = st;
 	}
 
@@ -83,7 +83,7 @@ class dmBallisticsBridge
 		dmBotLog.Debug("[Ballistics] FEEDBACK targetDist=" + st.m_TargetDist + " along=" + along + " lateral=" + lateral + " coef=" + coef);
 		#endif
 		float latSigned = st.m_AimDir[0] * d[2] - st.m_AimDir[2] * d[0];
-		float scale = st.m_WindSpeed * st.m_TravelTime;
+		float scale = st.m_WindPerp * st.m_TravelTime;
 		if (Math.AbsFloat(scale) > 0.01)
 		{
 			float wc = GetWindCoef(shooter);
@@ -94,7 +94,7 @@ class dmBallisticsBridge
 				wc = DM_WIND_COEF_MAX;
 			s_WindCoef[shooter] = wc;
 			#ifdef DM_BOT_DEBUG_BALLISTICS
-			dmBotLog.Debug("[Ballistics] WIND latSigned=" + latSigned + " windSpeed=" + st.m_WindSpeed + " coef=" + wc);
+			dmBotLog.Debug("[Ballistics] WIND latSigned=" + latSigned + " windPerp=" + st.m_WindPerp + " coef=" + wc);
 			#endif
 		}
 	}
