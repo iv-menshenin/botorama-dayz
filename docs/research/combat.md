@@ -1799,6 +1799,13 @@ Expansion-эталон (`eaistate_flank` / `OverrideTargetPosition` в нави�
 - `core/3_Game/modded/modded_DayZGame.c:8-18` — override `FirearmEffects` добавляет
   BULLETIMPACT-шум (`dmNoiseSystem.AddNoise(null, pos, 15.0, BULLETIMPACT)`). Происходит в момент,
   когда ДВИЖОК вызывает `FirearmEffects` (= момент прилёта), т.е. уже «честно» отложено движком.
+- **Связка fire→impact** (для фидбека промаха, v3.57): в `FirearmEffects` параметр `source` — это
+  **оружие** (не пешка): движок передаёт `Weapon_Base` (Expansion: `Class.CastTo(weapon, source)`).
+  От оружия до стрелка — `EntityAI.GetHierarchyRootPlayer()` (возвращает `Man`, `entityai.c:877`).
+  `directHit` — сущность прилёта: `null` = пуля попала в террейн/землю (промах), персонаж/объект =
+  попадание по сущности. Кросс-модульный диспатч 3_Game→4_World делается через виртуальный хук на
+  типе 3_Game (`modded class Man { void BallisticFeedback(vector){} }`), который пешка-бот
+  перекрывает `override` (3_Game не видит `dmAISurvivorBase`/`Weapon_Base` — codeguide).
 - `dmAISurvivorBase.c:898-917` `EEHitBy` — перехват ПОСЛЕ применения урона (для угрозы), не влияет
   на тайминг.
 
