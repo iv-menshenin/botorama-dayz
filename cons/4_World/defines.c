@@ -31,6 +31,8 @@
 //!
 //!   DM_WEAPON_DEBUG_FSM - debug weapon FSM events
 //!
+//!   DM_PERCEPTION_DEBUG - debug bots perception events
+//!
 //! TRACE — per-frame, verbose:
 //!   DM_BOT_TRACE_LOOK — head look steering (LookAtPoint, UpdateLook).
 //!

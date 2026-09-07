@@ -1068,12 +1068,18 @@ class dmAISurvivor
 	//! низким threat (услышал, не видел) и привлекательностью шума.
 	void HearNoise(EntityAI entity, vector position, float attractiveness)
 	{
+		#ifdef DM_PERCEPTION_DEBUG
+		if ( entity )
+			dmBotLog.Debug("[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness + " [" + entity.GetType() + "]");
+		else
+			dmBotLog.Debug("[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness);
+		#endif
 		dmTarget t = FindTarget(entity);
 		if (t)
 		{
 			if (!t.m_HasLOS)
 			{
-				if (attractiveness > t.m_Attractiveness)
+				if (!t.m_Friendly && attractiveness > t.m_Attractiveness)
 					t.m_Attractiveness = attractiveness;
 				t.m_LastPosition = position;
 			}
