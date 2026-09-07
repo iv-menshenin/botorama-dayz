@@ -1518,15 +1518,14 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 			if (!m_Target)
 				return "FAIL: не удалось заспавнить цель на " + Fmt(GetTargetDistance()) + " м";
 			if (pawn)
-			{
-				pawn.SetAimTarget(m_Target);
 				pawn.RaiseWeapon(true);
-			}
 			m_Phase = 1;
-			return "цель на " + Fmt(GetTargetDistance()) + " м заспавнена, прицел выставлен, оружие поднимается";
+			return "цель на " + Fmt(GetTargetDistance()) + " м заспавнена, оружие поднимается";
 		}
 		else if (m_Phase == 1)
 		{
+			if (pawn && m_Target)
+				pawn.SetAimTarget(m_Target);
 			if (pawn && pawn.IsReadyToShoot())
 			{
 				pawn.RequestFire();
