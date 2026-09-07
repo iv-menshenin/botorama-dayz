@@ -3,13 +3,13 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.78";
+static const string DM_BOTORAMA_VERSION = "3.79";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
-//! Bullet-drop compensation: learning rate of the VERTICAL miss correction
-//! (coef += rateV * dY / drop), additive and damped.
-static const float DM_DROP_LEARN_RATE_V = 0.5;
+//! Bullet-drop compensation: learning rate of the coefficient update per miss
+//! (multiplicative: coef *= 1 + rate * ratio).
+static const float DM_DROP_LEARN_RATE = 0.6;
 //! Bullet-drop compensation: clamp bounds of the learned coefficient.
 static const float DM_DROP_COEF_MIN = 0.1;
 static const float DM_DROP_COEF_MAX = 1.5;
