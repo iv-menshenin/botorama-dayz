@@ -613,6 +613,26 @@ class dmAISurvivorBase : PlayerBase
 		return origin;
 	}
 
+	//! Направление оси ствола (мир): от конца ствола (konec hlavne) к срезу дула
+	//! (usti hlavne), нормализовано. Пуля летит вдоль этой оси (ваниль
+	//! GetProjectedCursorPos3d). Fallback — прицельное направление.
+	vector GetBarrelDirection()
+	{
+		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+		if (weapon)
+		{
+			vector muzzle = weapon.ModelToWorld(weapon.GetSelectionPositionMS("usti hlavne"));
+			vector breech = weapon.ModelToWorld(weapon.GetSelectionPositionMS("konec hlavne"));
+			vector dir = muzzle - breech;
+			if (dir.LengthSq() > 0.001)
+			{
+				dir.Normalize();
+				return dir;
+			}
+		}
+		return GetAimWorldDirection();
+	}
+
 	//! Bullet spawn point: the barrel muzzle; fallback to the neck bone.
 	vector GetShotOrigin()
 	{
@@ -637,7 +657,7 @@ class dmAISurvivorBase : PlayerBase
 	void ComputeShot(Weapon_Base weapon, int mi, out vector origin, out vector direction, out vector velocity)
 	{
 		origin = GetShotOrigin();
-		direction = GetAimWorldDirection();
+		direction = GetBarrelDirection();
 		ApplyPersonalDispersion(direction);
 		CompensateBulletDrop(weapon, mi, origin, direction);
 		ApplyWeaponDispersion(weapon, mi, direction);
