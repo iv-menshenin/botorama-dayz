@@ -1485,7 +1485,10 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 		PlayerBase pawn = bot.GetPawn();
 		Weapon_Base mosin = Weapon_Base.Cast(pawn.GetHumanInventory().CreateInHands("Mosin9130"));
 		if (mosin)
+		{
 			mosin.SpawnAmmo("Ammo_762x54", WeaponWithAmmoFlags.CHAMBER);
+			mosin.GetInventory().CreateAttachment("PUScopeOptic");
+		}
 
 		//! Spare ammo in the pants cargo: 5 loose piles of 7.62x54 (20 rounds
 		//! each = 100), found by FindChamberAmmo for bolt-cycle chamber-loading.
