@@ -1642,3 +1642,224 @@ Expansion-эталон (`eaistate_flank` / `OverrideTargetPosition` в нави�
 - `DayZ-Expansion-Scripts/.../eAIBase.c:1307-1343` — `EEOnDamageCalculated`/`EEHitBy` = `super`.
 - `DayZ-Expansion-Scripts/.../eAIDamageHandler.c:493-497, 531-556` — отложенный `ProcessDamage`
   (`Call()` + `ProcessDirectDamage`, «avoid inconsistent damage»).
+
+# Полёт пули и затухание (air friction / отложенный урон)
+
+## Цель
+
+Выяснить, почему выстрел ИИ-бота через `Weapon_Base.Fire(mi, pos, dir, speed)` выглядит
+«мгновенным» (урон / эффект попадания в землю / шум возникают сразу, без времени полёта), и что
+нужно, чтобы (1) момент урона/прилёта зависел от скорости пули с учётом air friction,
+(2) остаточный урон зависел от дистанции.
+
+## Вывод (кратко)
+
+1. **`Fire()` и `TryFireWeapon` спавнят НАСТОЯЩИЙ баллистический снаряд**, который симулирует
+   ДВИЖОК на сервере (не скрипт). Урон + эффекты прилёта (`DayZGame.FirearmEffects` → NoiseHit)
+   применяются движком **в момент попадания** (с учётом времени полёта), а НЕ при вызове
+   `Fire()`. Т.е. «мгновенного» применения урона в движке нет.
+2. **НО** у натива `Weapon::Fire` есть ванильный баг **T186177** (подтверждён комментарием
+   Expansion): урон выстрела применяется **с опозданием** (в момент СЛЕДУЮЩЕГО выстрела), а
+   первый выстрел по новой сущности может попасть в **предыдущую** цель. Поэтому доверять
+   таймингу/сущности движка нельзя — Expansion полностью пересчитывает время полёта и остаточный
+   урон в скрипте и применяет урон сам через `ProcessDirectDamage`.
+3. «Мгновенность» в botorama, скорее всего, НЕ означает «движок применяет урон сразу» (движок
+   летит с air friction). Наблюдение объясняется либо короткой дистанцией боя (десятки мс полёта),
+   либо тем, что botorama вообще не считает время полёта/затухание (нет travelTime с air friction,
+   нет dmgCoef, нет отложенного урона) — и при T186177 урон/эффект приезжают по непредсказуемому
+   таймингу. Точная первопричина «мгновенности» — **не подтверждена** (см. «Открытые вопросы»).
+
+## 1. Натив `Fire(mi, pos, dir, speed)` vs `TryFireWeapon` — что спавнит движок
+
+- `proto native bool Fire(int muzzleIndex, vector pos, vector dir, vector speed)`
+  (`4_world/entities/core/inherited/weapon.c:58`).
+- `proto native bool TryFireWeapon(EntityAI weapon, int muzzleIndex)`
+  (`3_game/systems/inventory/weaponinventory.c:8`).
+- Оба — нативы. Ванильный weapon-FSM (`WeaponFire.OnEntry` и наследники, `weaponfire.c:66/121/155/
+  166/294`) зовёт `TryFireWeapon`, которая сама берёт transform дула (`GetCameraPoint`,
+  `weapon.c:413`) и спавнит пулю. `Fire()` — низкоуровневый аналог с явными `pos/dir`.
+- **Доказательство, что движок симулирует полёт с air friction** (а не мгновенный hitscan):
+  - `DayZGame.FirearmEffects(..., inSpeed, ...)` (`3_game/dayzgame.c:3540`) получает `inSpeed` =
+    скорость пули **в момент удара** (уже уменьшенную air friction) и считает шум попадания как
+    `inSpeed.Length() / ConfigGetFloat("cfgAmmo " + ammoType + " initSpeed")` (`dayzgame.c:3585`).
+    Значит движок знает скорость пули на каждом участке траектории.
+  - Expansion реимплементирует время полёта с комментарием «In DayZ, max projectile travel time
+    is 6 seconds» (`eAI_CalculateProjectileTravelTime`, AI `Weapon_Base.c:590`) и
+    `speedCoef = e^(airFriction·distance)` (`Weapon_Base.c:519`) — т.е. берёт те же
+    `CfgAmmo`-параметры, которыми пользуется движок.
+  - Комментарий к багу T186177 (`eAIDamageHandler.c:185-189`): «firing over a longer distance
+    (several hundred meters) to ensure the projectile **is in flight for a certain amount of
+    time**» — прямое подтверждение, что снаряд летит.
+- **Семантика `speed`** — направление, не величина: Expansion передаёт `Fire(mi, pos, dir, dir)`
+  (`AI Weapon_Base.c:157`); величину скорости движок берёт из `CfgAmmo <ammo> initSpeed`
+  (× `initSpeedMultiplier` музла). (Уже отражено в секции «AI weapon fire — direction + modes» §1.)
+
+## 2. Как движок/Expansion считают затухание скорости и остаточный урон
+
+Конфиг `CfgAmmo <bullet>` (ваниль `DayZ Projects/DZ/weapons/projectiles/config.cpp`; напр.
+`Bullet_556x45`: `initSpeed=850; typicalSpeed=1000; airFriction=-0.00125`). `airFriction`
+**отрицателен** (затухание). Параметры: `initSpeed`, `typicalSpeed`, `airFriction`,
+`initSpeedMultiplier` (музл, из конфига **оружия** — читается экземплярным `ConfigGetFloat`, не
+`g_Game.ConfigGetFloat`).
+
+Точные формулы Expansion (`AI Weapon_Base.c`):
+
+- **speedCoef** (коэффициент скорости на дистанции `d`), `:506-520`:
+  ```
+  airFriction = g_Game.ConfigGetFloat("CfgAmmo " + ammoType + " airFriction");   // :516
+  distance = vector.Distance(origin, hitPosition);                                // :517
+  speedCoef = Math.Pow(Math.EULER, airFriction * distance);                       // :519  = e^(airFriction·d)
+  ```
+- **initSpeed (эффективная)**, `:546-550`:
+  ```
+  initSpeed = ConfigGetFloat("CfgAmmo " + ammoType + " initSpeed");              // :546
+  initSpeedMultiplier = ConfigGetFloat("initSpeedMultiplier");                    // :547 (музл)
+  if (initSpeedMultiplier) initSpeed *= initSpeedMultiplier;
+  ```
+- **dmgCoef**, `:552-574`:
+  ```
+  typicalSpeed = ConfigGetFloat("CfgAmmo " + ammoType + " typicalSpeed") * damageOverride; // :552-554
+  speed = initSpeed * speedCoef;                                                  // :558
+  if (typicalSpeed != initSpeed)
+      dmgCoef = (speed > typicalSpeed) ? 1.0 : speed / typicalSpeed;              // clamp 1.0
+  else
+      dmgCoef = speedCoef;                                                        // вырожденный случай
+  ```
+- **travelTime** (пошаговое интегрирование, `:580-606`):
+  ```
+  // simulationStep = 0.05, макс 6.0 c
+  while (distanceTraveled < distance && timeTraveled < 6.0) {
+      speed = Math.Pow(Math.EULER, airFriction * distanceTraveled) * initSpeed;   // :595
+      distanceTraveled += speed * simulationStep;                                 // :599
+      timeTraveled += simulationStep;                                             // :594
+  }
+  travelTime = ExpansionMath.LinearConversion(distanceTraveledPrev, distanceTraveled, distance,
+                                              timeTraveledPrev, timeTraveled);    // :603
+  ```
+- **drop** (компенсация дропа, `:611-616`): `drop = 0.5 * 9.81 * travelTime^2`.
+
+## 3. Как Expansion откладывает урон/эффект до «прилёта»
+
+(Источник — `eAIDamageHandler.c`, номера строк оттуда, если не сказано иначе.)
+
+- **Выстрел запоминается**: `Weapon_Base.eAI_Fire` (`AI Weapon_Base.c:60-164`) делает свой hitscan
+  (`Hitscan`, `:37-58`), создаёт `eAIShot(this, mi, pos, dir, hitObject, hitPosition, component)`
+  и кладёт в `ai.m_eAI_FiredShots` (`:124-125`).
+- **`eAIShot`** (`eAIDamageHandler.c:1-63`) хранит: `m_Time` (время выстрела, `g_Game.GetTime()`),
+  `m_Weapon`, `m_Origin`, `m_Direction`, `m_HitObject`/`m_HitObjectRoot` (`GetHierarchyRoot()`),
+  `m_HitPosition`, `m_Component`, `m_Ammo` (`weapon.GetCartridgeInfo(...)`, `:43`), `m_Distance`,
+  `m_SpeedCoef`, `m_DamageCoef` (`eAI_CalculateProjectileDamageCoefAtPosition`, `:48`),
+  `m_TravelTime` (`eAI_CalculateProjectileTravelTime`, `:49`).
+- **Перехват события урона**: на ЦЕЛИ (любой EntityAI — `DayZPlayerImplement`/`ZombieBase`/
+  `AnimalBase`/`ItemBase`/`CarScript`) override `EEOnDamageCalculated(...)` (ванильный хук
+  `object.c:1136`) → `m_eAI_DamageHandler.OnDamageCalculated(...)` (см. `DayZPlayerImplement.c:407-416`).
+- **`OnDamageCalculated`** (`eAIDamageHandler.c:148`): для `DT_FIRE_ARM` сопоставляет входящее
+  событие с записанным `eAIShot` (по `source == shot.m_Weapon && ammo == shot.m_Ammo` и
+  `rootEntity == shot.m_HitObjectRoot`, `:205-231`). Если точного совпадения нет — ищет
+  «кандидатов» (выстрел в эту сущность, ещё не обработан) и:
+  ```
+  elapsed = (time - candidate.m_Time) * 0.001;                   // :251
+  travelTimeRemaining = candidate.m_TravelTime - elapsed;        // :252
+  if (travelTimeRemaining > 0.05)
+      GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(CheckCandidate,
+          travelTimeRemaining * 1000, false, candidate, ai, modelPos, dir, travelTimeRemaining, dmgZone); // :255
+  else if (CheckCandidate(...)) break;                           // :256 — уже «прилетело», сразу
+  ```
+  и возвращает `false` (запрещает движку применить «сырой» урон, `:277`).
+- **`CheckCandidate`** (`:559-664`): по таймеру проверяет, что цель всё ещё там (коллижен-бокс +
+  `Math3D.IntersectRayBox`, `:574-583`), уточняет `dmgZone` (`GetDamageZoneNameByComponentIndex` +
+  редиректы Head/Brain/Torso, `:596-618`), затем применяет **остаточный** урон сам:
+  ```
+  match.m_HitObjectRoot.ProcessDirectDamage(DT_FIRE_ARM, match.m_Weapon, dmgZone,
+      match.m_Ammo, match.m_HitPosition, match.m_DamageCoef);    // :639
+  ```
+- **`ProcessDamage`** (`:531-556`) — обёртка, зовущая `ProcessDirectDamage` через
+  `GetCallQueue(CALL_CATEGORY_SYSTEM).Call(...)` («avoid inconsistent damage», `:493-494`) с
+  `m_ProcessDamage`-флагом для детекта «damage was not processed».
+- **Итого**: движок лишь даёт триггер `EEOnDamageCalculated` (ненадёжный по таймингу/сущности из-за
+  T186177). Expansion сопоставляет его со своим hitscan-рекордом, при необходимости **откладывает**
+  `ProcessDirectDamage` на `travelTimeRemaining` и применяет с `m_DamageCoef` (остаточный урон по
+  дистанции).
+
+## 4. Что уже есть в botorama и что переиспользовать/переписать
+
+Текущее состояние (прочитано):
+- `reg/4_World/modded_WeaponBase.c:34-75` `dmBot_Fire` → `Fire(mi, pos, direction, velocity)`
+  (`velocity` = единичное `direction`, `:64`); после выстрела — `ApplyRecoil` + SHOT-шум
+  (`dmNoiseSystem.AddNoise`, `:69`). `ComputeShot` (`dmAISurvivorBase.c:583-591`) =
+  `GetShotOrigin` + `GetAimWorldDirection` + дисперсия + `CompensateBulletDrop` +
+  `ComputeShotVelocity`.
+- `dmAISurvivorBase.c:608-629` `CompensateBulletDrop` — райкаст → `ComputeBulletTravelTime` →
+  `drop = 0.5·g·t²` → наклон ствола (корректный шаблон, но время полёта без air friction).
+- `dmAISurvivorBase.c:633-639` `ComputeBulletTravelTime` = `distance / initSpeed` (**без air
+  friction** — главное, что переписать).
+- `dmAISurvivorBase.c:643-654` `GetAmmoInitSpeed` — читает `CfgMagazines <mag> ammo` →
+  `CfgAmmo <bullet> initSpeed` (**не учитывает `initSpeedMultiplier`** музла).
+- `ComputeShotVelocity` (`:576-579`) возвращает `direction` (единичный) — ок, оставить.
+- `core/3_Game/modded/modded_DayZGame.c:8-18` — override `FirearmEffects` добавляет
+  BULLETIMPACT-шум (`dmNoiseSystem.AddNoise(null, pos, 15.0, BULLETIMPACT)`). Происходит в момент,
+  когда ДВИЖОК вызывает `FirearmEffects` (= момент прилёта), т.е. уже «честно» отложено движком.
+- `dmAISurvivorBase.c:898-917` `EEHitBy` — перехват ПОСЛЕ применения урона (для угрозы), не влияет
+  на тайминг.
+
+Переиспользовать (не трогать): `GetShotOrigin`, `GetAimWorldDirection`,
+`ApplyPersonalDispersion`/`ApplyWeaponDispersion`, `ComputeShotVelocity` (возвращает `direction`),
+`ApplyRecoil`, обёртку `dmBot_Fire` → `Fire(mi,pos,dir,dir)`, `modded_DayZGame.FirearmEffects`
+(шум прилёта уже в нужной точке).
+
+Переписать/добавить:
+1. **`ComputeBulletTravelTime`** → заменить на пошаговое интегрирование Expansion
+   (`eAI_CalculateProjectileTravelTime`, `AI Weapon_Base.c:580-606`) с `airFriction` и `initSpeed`.
+2. **`GetAmmoInitSpeed`** → добавить `initSpeedMultiplier` (`ConfigGetFloat("initSpeedMultiplier")`,
+   музл) и читать `airFriction`/`typicalSpeed` (нужны для dmgCoef).
+3. **Новые** `ComputeSpeedCoef`/`ComputeDamageCoef` (формулы §2: `speedCoef = e^(airFriction·d)`,
+   `dmgCoef = speed/typicalSpeed` с clamp 1.0).
+4. **`CompensateBulletDrop`** → использовать новый `ComputeBulletTravelTime` (с air friction),
+   иначе компенсация дропа на дальних дистанциях будет чуть неточной (вторично).
+5. **Запись выстрела + отложенный урон**: аналог `eAIShot` (запомнить hitscan-цель,
+   `m_TravelTime`, `m_DamageCoef` на момент выстрела) + перехват `EEOnDamageCalculated` на цели →
+   при `DT_FIRE_ARM` отложить/редиректить `ProcessDirectDamage(DT_FIRE_ARM, weapon, dmgZone,
+   ammo, hitPos, m_DamageCoef)` через `CallLater` на `travelTimeRemaining` (эталон
+   `eAIDamageHandler`). Это даст и (1) время прилёта по air friction, и (2) остаточный урон по
+   дистанции.
+   - Минимальный вариант без полного eAIShot-механизма: если доверять движку (не T186177), то
+     движок УЖЕ применяет урон/шум в момент прилёта — тогда достаточно исправить ТОЛЬКО
+     `ComputeBulletTravelTime`+`ComputeDamageCoef` и передать остаточный урон. **Но** это не
+     решает «мгновенность», если её первопричина — T186177/десинк; надёжный путь — eAIShot.
+
+## Открытые вопросы / не подтверждено
+
+- **Первопричина «мгновенности» не подтверждена** на скриптовом уровне: нативы `Fire`/
+  `TryFireWeapon` — движок. Судя по косвенным признакам движок летит с air friction и применяет
+  урон в момент прилёта (не мгновенно). Нужен натурный тест: выстрел на ~500 м и замер дельты
+  между `dmBot_Fire` и `EEHitBy`/`FirearmEffects` цели (через `GetTickTime` в логах).
+- Точное поведение `Fire(mi,pos,dir,speed)` (явные pos/dir) vs `TryFireWeapon` (camera point) на
+  сервере в части тайминга прилёта — не подтверждено; Expansion использует `Fire(...)` и всё равно
+  городит собственный тайминг (косвенное указание, что нативу верить нельзя).
+- Реентерабельность синхронного `ProcessDirectDamage` из `EEOnDamageCalculated` — не подтверждена
+  (натив); Expansion обходит через `Call()`/`CallLater`.
+
+## Источники (файл:строка)
+
+- `4_world/entities/core/inherited/weapon.c:58` — `Fire` (proto native); `:413` — `GetCameraPoint`.
+- `3_game/systems/inventory/weaponinventory.c:8` — `TryFireWeapon` (proto native).
+- `4_world/entities/firearms/fsm/states/weaponfire.c:66/121/155/166/294` — ваниль: `TryFireWeapon`.
+- `3_game/dayzgame.c:3540-3591` — `FirearmEffects` (`inSpeed` → шум `inSpeed.Length()/initSpeed`).
+- `3_game/entities/object.c:1130` — `ProcessDirectDamage`; `:1136` — `EEOnDamageCalculated`.
+- `3_game/entities/entityai.c:1111` — `EEHitBy`.
+- `DayZ Projects/DZ/weapons/projectiles/config.cpp:3922-3973` — `CfgAmmo Bullet_556x45`
+  (`initSpeed=850, typicalSpeed=1000, airFriction=-0.00125`).
+- `DayZ-Expansion-Scripts/.../AI/.../Entities/Weapons/Firearms/Weapon_Base.c:506-606` —
+  `eAI_CalculateProjectileSpeedCoefAtPosition` / `DamageCoefAtPosition` / `TravelTime` / `Drop`;
+  `:60-164` — `eAI_Fire` (hitscan + `Fire(mi,pos,dir,dir)`).
+- `DayZ-Expansion-Scripts/.../AI/Classes/eAIDamageHandler.c:1-63` (`eAIShot`), `:148-509`
+  (`OnDamageCalculated`), `:255` (`CallLater(CheckCandidate)`), `:559-664` (`CheckCandidate` →
+  `ProcessDirectDamage` `:639`), `:531-556` (`ProcessDamage`).
+- `DayZ-Expansion-Scripts/.../AI/.../Entities/DayZPlayerImplement.c:407-416` — `EEOnDamageCalculated`
+  → `eAIDamageHandler.OnDamageCalculated`.
+- botorama: `reg/4_World/modded_WeaponBase.c:34-75` (`dmBot_Fire`),
+  `core/4_World/Entities/Bot/dmAISurvivorBase.c:576-654` (`ComputeShotVelocity`/`ComputeShot`/
+  `CompensateBulletDrop`/`ComputeBulletTravelTime`/`GetAmmoInitSpeed`),
+  `core/3_Game/modded/modded_DayZGame.c:8-18` (`FirearmEffects` → BULLETIMPACT-шум),
+  `cons/4_World/constants.c:432-438` (`DM_AI_SHOT_MAX_DISTANCE`, `DM_AI_GRAVITY`,
+  `DM_AI_DEFAULT_INIT_SPEED`).
