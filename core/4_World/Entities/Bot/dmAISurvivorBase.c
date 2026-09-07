@@ -716,7 +716,7 @@ class dmAISurvivorBase : PlayerBase
 		{
 			vector windForShot = GetGame().GetWeather().GetWind();
 			windForShot[1] = 0.0;
-			dmBallisticsBridge.RecordShot(this, origin, direction, distance, windForShot, travelTime);
+			dmBallisticsBridge.RecordShot(this, origin, direction, distance, windForShot, travelTime, origin[1] + direction[1] * distance, drop);
 		}
 		else
 			dmBallisticsBridge.ClearShot(this);
