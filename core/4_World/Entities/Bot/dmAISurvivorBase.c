@@ -56,6 +56,13 @@ class dmAISurvivorBase : PlayerBase
 	//! from body yaw + relative angles (the body may have turned since then).
 	private vector m_AimWorldDirection;
 
+	//! Дистанция до точки прицела (кость Spine3), запомненная в SetAimTarget.
+	//! Используется для дропа/фидбека вместо рейкаст-дистанции до поверхности тела.
+	private float m_AimDistance;
+
+	//! Сущность цели прицела (для гейта обучения дропа на одиночных выстрелах).
+	private EntityAI m_AimTargetEntity;
+
 	//! Идеальный прицел для тестов: нулевой разброс (личный и оружейный).
 	private bool m_PerfectAim;
 
@@ -520,8 +527,11 @@ class dmAISurvivorBase : PlayerBase
 		{
 			m_AimRelAngleLR = 0.0;
 			m_AimRelAngleUD = 0.0;
+			m_AimTargetEntity = null;
+			m_AimDistance = 0.0;
 			return;
 		}
+		m_AimTargetEntity = target;
 
 		//! Aim point: center mass for humans (Spine3, like the melee code), head
 		//! for creatures (no Spine3); fallback to the feet + eye height. Bone
@@ -552,6 +562,7 @@ class dmAISurvivorBase : PlayerBase
 			eyePos = GetBonePositionWS(neckBone);
 
 		vector aimDir = aimPos - eyePos;
+		m_AimDistance = vector.Distance(eyePos, aimPos);
 
 		#ifdef DM_BOT_DEBUG_BALLISTICS
 		dmBotLog.Debug("[Ballistics] AIM bone=" + bone + " aimPos=" + aimPos);
@@ -633,7 +644,7 @@ class dmAISurvivorBase : PlayerBase
 	}
 
 	//! Compensate bullet drop: raycast along the aim direction -> distance -> flight
-	//! time (initSpeed from CfgAmmo) -> drop = 0.5*g*t^2 -> tilt the direction up.
+	//! time (initSpeed from CfgAmmo) -> drop (air friction, ComputeBulletDrop) -> tilt the direction up.
 	void CompensateBulletDrop(Weapon_Base weapon, int mi, vector origin, inout vector direction)
 	{
 		if (weapon.IsChamberEmpty(mi) || weapon.IsChamberFiredOut(mi))
@@ -656,9 +667,20 @@ class dmAISurvivorBase : PlayerBase
 		Object hitParent = hit.parent;
 
 		float distance = vector.Distance(origin, hitPosition);
-		dmBallisticsBridge.RecordShot(this, origin, distance);
+		if (m_AimDistance > 0.0)
+			distance = m_AimDistance;
+		dmFireMode mode = GetCurrentFireMode(weapon);
+		bool singleShot = !mode || mode.m_Type == dmFireModeType.SINGLE;
+		bool targetDown = false;
+		DayZPlayer tp = DayZPlayer.Cast(m_AimTargetEntity);
+		if (tp && (!tp.IsAlive() || tp.IsUnconscious()))
+			targetDown = true;
+		if (singleShot && !targetDown)
+			dmBallisticsBridge.RecordShot(this, origin, distance);
+		else
+			dmBallisticsBridge.ClearShot(this);
 		float travelTime = ComputeBulletTravelTime(weapon, mi, distance);
-		float drop = 0.5 * DM_AI_GRAVITY * travelTime * travelTime;
+		float drop = ComputeBulletDrop(weapon, mi, travelTime);
 
 		#ifdef DM_BOT_DEBUG_BALLISTICS
 		string objType = "ground";
@@ -687,6 +709,20 @@ class dmAISurvivorBase : PlayerBase
 			newDir.Normalize();
 			direction = newDir;
 		}
+	}
+
+	//! Дроп пули за время полёта с линейным затуханием скорости (airFriction):
+	//! drop = g * [(e^(k*t) - 1)/k² - t/k], k = airFriction (< 0). При k = 0
+	//! вырождается в вакуум 0.5*g*t². Возвращает ПОЛОЖИТЕЛЬНУЮ величину (вниз).
+	float ComputeBulletDrop(Weapon_Base weapon, int mi, float travelTime)
+	{
+		float k = GetAmmoAirFriction(weapon, mi);
+		if (k < 0.0)
+		{
+			float ek = Math.Pow(Math.EULER, k * travelTime);
+			return DM_AI_GRAVITY * ((ek - 1.0) / (k * k) - travelTime / k);
+		}
+		return 0.5 * DM_AI_GRAVITY * travelTime * travelTime;
 	}
 
 	//! Bullet flight time to a distance: step-wise integration of speed under air

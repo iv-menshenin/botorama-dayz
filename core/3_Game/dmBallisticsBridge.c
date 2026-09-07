@@ -30,6 +30,11 @@ class dmBallisticsBridge
 		s_LastShot[pawn] = st;
 	}
 
+	static void ClearShot(EntityAI pawn)
+	{
+		s_LastShot.Remove(pawn);
+	}
+
 	static void OnImpact(EntityAI sourceEnt, bool hitEntity, vector pos)
 	{
 		if (!sourceEnt || hitEntity)

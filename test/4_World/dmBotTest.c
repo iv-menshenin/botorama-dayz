@@ -1566,8 +1566,11 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 			if ((GetGame().GetTime() - m_LastShotTime) / 1000.0 < DM_TRAJECTORY_SHOT_INTERVAL)
 				return "";
 
+			DayZPlayer tgt = DayZPlayer.Cast(m_Target);
 			if (m_Target && !m_Target.IsAlive())
 				return "PASS: цель поражена за " + m_Shots + " выстрелов (coef=" + Fmt(pawn.GetDropCoef()) + ")";
+			if (tgt && tgt.IsUnconscious())
+				return "PASS: цель без сознания (ранена) за " + m_Shots + " выстрелов (coef=" + Fmt(pawn.GetDropCoef()) + ")";
 
 			if (pawn && m_Target)
 				pawn.SetAimTarget(m_Target);
