@@ -747,7 +747,7 @@ class dmAISurvivorBase : PlayerBase
 			projected[1] = projected[1] + drop * dmBallisticsBridge.GetDropCoef(this);
 			vector wind = GetGame().GetWeather().GetWind();
 			wind[1] = 0.0;
-			projected = projected - wind * dmBallisticsBridge.GetWindCoef(this) * travelTime;
+			projected = projected + wind * dmBallisticsBridge.GetWindCoef(this) * travelTime;
 			vector newDir = vector.Direction(origin, projected);
 			newDir.Normalize();
 			direction = newDir;

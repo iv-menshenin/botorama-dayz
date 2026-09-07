@@ -45,6 +45,13 @@ modded class Weapon_Base
 		if ( pos == vector.Zero ) return false;
 
 		#ifdef DM_WEAPON_DEBUG_FSM
+		vector camPos;
+		vector camDir;
+		GetCameraPoint(muzzleIndex, camPos, camDir);
+		dmBotLog.Debug("[Weapon] dmBot_Fire: camPos=" + camPos + " camDir=" + camDir);
+		#endif
+
+		#ifdef DM_WEAPON_DEBUG_FSM
 		dmBotLog.Debug("[Weapon] dmBot_Fire: mi=" + muzzleIndex + " origin=" + origin + " pos=" + pos);
 		dmBotLog.Debug("[Weapon] dmBot_Fire: direction=" + direction + " velocity=" + velocity + " chamberEmpty=" + IsChamberEmpty(muzzleIndex));
 		dmBotLog.Debug("[Weapon] dmBot_Fire: firedOut=" + IsChamberFiredOut(muzzleIndex) + " jammed=" + IsJammed() + " ammo=" + GetChamberedCartridgeMagazineTypeName(muzzleIndex));
