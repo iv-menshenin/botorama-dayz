@@ -602,7 +602,7 @@ class dmAISurvivorBase : PlayerBase
 		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
 		if (weapon)
 		{
-			vector muzzleLocal = weapon.GetMemoryPointPos("usti hlavne");
+			vector muzzleLocal = weapon.GetSelectionPositionMS("usti hlavne");
 			if (muzzleLocal.LengthSq() > 0.001)
 				return weapon.ModelToWorld(muzzleLocal);
 		}
