@@ -635,7 +635,7 @@ class dmAISurvivorBase : PlayerBase
 		vector hitPosition;
 		vector hitNormal;
 		int contactComponent;
-		if (!DayZPhysics.RaycastRV(origin, end, hitPosition, hitNormal, contactComponent, null, null, this, false, false, ObjIntersectFire, 0.01))
+		if (!DayZPhysics.RaycastRV(origin, end, hitPosition, hitNormal, contactComponent, null, null, this, false, false, ObjIntersectView, 0.01))
 			return;
 		float distance = vector.Distance(origin, hitPosition);
 		float travelTime = ComputeBulletTravelTime(weapon, mi, distance);
