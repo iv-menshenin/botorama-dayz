@@ -4,6 +4,8 @@ class dmBotShotState
 	vector m_Origin;
 	vector m_AimDir;    // горизонтальное направление прицела (нормализовано)
 	float m_TargetDist;
+	float m_WindSpeed;   // скорость ветра на момент выстрела (м/с, горизонталь)
+	float m_TravelTime;  // время полёта (с)
 }
 
 //! Cross-module bridge for the bullet-drop self-learning. DayZGame.FirearmEffects
@@ -14,6 +16,7 @@ class dmBotShotState
 class dmBallisticsBridge
 {
 	static ref map<EntityAI, float> s_DropCoef = new map<EntityAI, float>();
+	static ref map<EntityAI, float> s_WindCoef = new map<EntityAI, float>();
 	static ref map<EntityAI, ref dmBotShotState> s_LastShot = new map<EntityAI, ref dmBotShotState>();
 
 	static float GetDropCoef(EntityAI pawn)
@@ -23,11 +26,20 @@ class dmBallisticsBridge
 		return DM_DROP_COEF_INIT;
 	}
 
-	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist)
+	static float GetWindCoef(EntityAI pawn)
+	{
+		if (s_WindCoef.Contains(pawn))
+			return s_WindCoef[pawn];
+		return DM_WIND_COEF_INIT;
+	}
+
+	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist, float windSpeed, float travelTime)
 	{
 		dmBotShotState st = new dmBotShotState();
 		st.m_Origin = origin;
 		st.m_TargetDist = targetDist;
+		st.m_WindSpeed = windSpeed;
+		st.m_TravelTime = travelTime;
 		aimDir[1] = 0.0;
 		aimDir.Normalize();
 		st.m_AimDir = aimDir;
@@ -70,5 +82,20 @@ class dmBallisticsBridge
 		#ifdef DM_BOT_DEBUG_BALLISTICS
 		dmBotLog.Debug("[Ballistics] FEEDBACK targetDist=" + st.m_TargetDist + " along=" + along + " lateral=" + lateral + " coef=" + coef);
 		#endif
+		float latSigned = st.m_AimDir[0] * d[2] - st.m_AimDir[2] * d[0];
+		float scale = st.m_WindSpeed * st.m_TravelTime;
+		if (Math.AbsFloat(scale) > 0.01)
+		{
+			float wc = GetWindCoef(shooter);
+			wc = wc + DM_WIND_LEARN_RATE * latSigned / scale;
+			if (wc < DM_WIND_COEF_MIN)
+				wc = DM_WIND_COEF_MIN;
+			if (wc > DM_WIND_COEF_MAX)
+				wc = DM_WIND_COEF_MAX;
+			s_WindCoef[shooter] = wc;
+			#ifdef DM_BOT_DEBUG_BALLISTICS
+			dmBotLog.Debug("[Ballistics] WIND latSigned=" + latSigned + " windSpeed=" + st.m_WindSpeed + " coef=" + wc);
+			#endif
+		}
 	}
 }

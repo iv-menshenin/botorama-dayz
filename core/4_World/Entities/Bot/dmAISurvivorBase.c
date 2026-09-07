@@ -678,7 +678,11 @@ class dmAISurvivorBase : PlayerBase
 		if (tp && (!tp.IsAlive() || tp.IsUnconscious()))
 			targetDown = true;
 		if (singleShot && !targetDown)
-			dmBallisticsBridge.RecordShot(this, origin, direction, distance);
+		{
+			vector windForShot = GetGame().GetWeather().GetWind();
+			windForShot[1] = 0.0;
+			dmBallisticsBridge.RecordShot(this, origin, direction, distance, windForShot.Length(), travelTime);
+		}
 		else
 			dmBallisticsBridge.ClearShot(this);
 
@@ -706,14 +710,9 @@ class dmAISurvivorBase : PlayerBase
 		{
 			vector projected = origin + direction * distance;
 			projected[1] = projected[1] + drop * dmBallisticsBridge.GetDropCoef(this);
-			float weight = GetAmmoWeight(weapon, mi);
-			if (weight > 0.0)
-			{
-				vector wind = GetGame().GetWeather().GetWind();
-				wind[1] = 0.0;
-				float windDrift = 0.5 * Math.AbsFloat(GetAmmoAirFriction(weapon, mi)) * travelTime * travelTime / weight;
-				projected = projected - wind * windDrift;
-			}
+			vector wind = GetGame().GetWeather().GetWind();
+			wind[1] = 0.0;
+			projected = projected - wind * dmBallisticsBridge.GetWindCoef(this) * travelTime;
 			vector newDir = vector.Direction(origin, projected);
 			newDir.Normalize();
 			direction = newDir;
