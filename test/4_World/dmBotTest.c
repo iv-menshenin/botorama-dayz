@@ -1453,11 +1453,12 @@ class dmBotTest_Suppressor : dmTestSuite_TestCase
 }
 
 //! Ballistic drop-compensation convergence test: Mosin (internal 5-round
-//! magazine) + perfect aim, target at N m (default 500). Fires up to
-//! DM_TRAJECTORY_MAX_SHOTS without the FSM (SetAimTarget + RaiseWeapon +
-//! RequestFire) at a fixed interval. Each miss feeds BallisticFeedback, which
-//! nudges the bullet-drop coefficient; the coefficient trend is read from the
-//! [Ballistics] server log (FEEDBACK) and echoed per-shot in the chat returns.
+//! magazine) + perfect aim, target at N m (default 500). Fires without the FSM
+//! (SetAimTarget + RaiseWeapon + RequestFire) at a fixed interval, cycling the
+//! bolt / chamber-loading from the pants ammo via ReloadWeaponAI when not ready.
+//! Each miss feeds BallisticFeedback, which nudges the bullet-drop coefficient;
+//! the coefficient trend is read from the [Ballistics] server log (FEEDBACK)
+//! and echoed per-shot in the chat returns. Stops on a hit or when ammo runs out.
 class dmBotTest_Trajectory : dmTestSuite_TestCase
 {
 	int m_Phase = 0;
@@ -1485,6 +1486,16 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 		Weapon_Base mosin = Weapon_Base.Cast(pawn.GetHumanInventory().CreateInHands("Mosin9130"));
 		if (mosin)
 			mosin.SpawnAmmo("Ammo_762x54", WeaponWithAmmoFlags.CHAMBER);
+
+		//! Spare ammo in the pants cargo: 5 loose piles of 7.62x54 (20 rounds
+		//! each = 100), found by FindChamberAmmo for bolt-cycle chamber-loading.
+		EntityAI pants = pawn.GetInventory().CreateInInventory("CargoPants_Beige");
+		if (pants)
+		{
+			for (int i = 0; i < 5; i++)
+				pants.GetInventory().CreateInInventory("Ammo_762x54");
+		}
+
 		dmAISurvivorBase base = dmAISurvivorBase.Cast(pawn);
 		if (base)
 			base.SetPerfectAim(true);
@@ -1492,12 +1503,12 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 
 	override string GetSummary()
 	{
-		return "Тест «Траектория». Мосинка (магазин 5 патронов) + идеальный прицел, цель на 500 м. До 5 выстрелов с паузой 3 с: каждый промах корректирует коэф. компенсации дропа (см. лог [Ballistics] FEEDBACK), коэф печатается в каждом выстреле. PASS — цель убита; DONE — патроны/лимит исчерпаны.";
+		return "Тест «Траектория». Мосинка (магазин 5 патронов + 100 патронов в штанах) + идеальный прицел, цель на 500 м. Выстрелы с паузой 5 с: каждый промах корректирует коэф. компенсации дропа (см. лог [Ballistics] FEEDBACK), коэф печатается в каждом выстреле. Затвор циклируется / досылается из штанов через ReloadWeaponAI. PASS — цель убита; DONE — патроны исчерпаны.";
 	}
 
 	override float GetInterval() { return 0.5; }
 
-	override float GetDuration() { return 45.0; }
+	override float GetDuration() { return 180.0; }
 
 	override string OnCheck(float elapsed)
 	{
@@ -1550,11 +1561,12 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 			if (m_Target && !m_Target.IsAlive())
 				return "PASS: цель поражена за " + m_Shots + " выстрелов (coef=" + Fmt(pawn.GetDropCoef()) + ")";
 
-			if (m_Shots >= DM_TRAJECTORY_MAX_SHOTS)
-				return "DONE: coef=" + Fmt(pawn.GetDropCoef()) + " после " + m_Shots + " выстрелов (цель жива)";
-
-			if (m_Bot.HasNoAmmo())
-				return "DONE: закончились патроны (coef=" + Fmt(pawn.GetDropCoef()) + " после " + m_Shots + " выстрелов)";
+			if (pawn && !pawn.IsReadyToShoot())
+			{
+				if (!pawn.ReloadWeaponAI())
+					return "DONE: закончились патроны (coef=" + Fmt(pawn.GetDropCoef()) + " после " + m_Shots + " выстрелов)";
+				return "перезарядка... (coef=" + Fmt(pawn.GetDropCoef()) + ")";
+			}
 
 			if (pawn && m_Target)
 				pawn.SetAimTarget(m_Target);

@@ -156,14 +156,10 @@ static const string DM_CHAT_TEST_TRAJECTORY = "trajectory";
 //! Trajectory test: default target distance (meters) when no {N} is given.
 static const float DM_TRAJECTORY_TEST_DISTANCE = 500.0;
 
-//! Trajectory test: max shots fired at the target before giving up (Mosin
-//! inner magazine = 5 rounds).
-static const int DM_TRAJECTORY_MAX_SHOTS = 5;
-
 //! Trajectory test: pause (seconds) between shots. Must exceed the bullet
 //! flight time (so the miss feedback is applied before the next shot) plus the
-//! bolt-cycle time. 800 m flight ~1.7 s, bolt ~2 s -> 3 s is safe.
-static const float DM_TRAJECTORY_SHOT_INTERVAL = 3.0;
+//! bolt-cycle/reload time.
+static const float DM_TRAJECTORY_SHOT_INTERVAL = 5.0;
 
 //! Aim-observation test: pause (seconds) before/after the shots and shot interval.
 static const float DM_TEST_AIM_HOLD = 10.0;
