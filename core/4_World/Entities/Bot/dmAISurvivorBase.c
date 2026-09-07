@@ -580,11 +580,13 @@ class dmAISurvivorBase : PlayerBase
 		return angles.AnglesToVector();
 	}
 
-	//! Current world-space aim direction: the barrel axis (see GetBarrelDirection),
-	//! so the aim IS the barrel. Stored directly when the barrel can't be resolved.
+	//! Current world-space aim direction, stored by SetAimDirection/SetAimTarget.
+	//! This is the SCRIPT aim (muzzle/neck → target), NOT the physical barrel axis:
+	//! GetBarrelDirection() reads the weapon's memory points (usti/konec hlavne),
+	//! which are driven by the engine aim model and do NOT follow m_AimRelAngle yet.
 	vector GetAimWorldDirection()
 	{
-		return GetBarrelDirection();
+		return m_AimWorldDirection;
 	}
 
 	//! The shooting accuracy model (used by the fire path in Phase 3).
