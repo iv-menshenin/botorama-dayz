@@ -541,7 +541,7 @@ class dmAISurvivorBase : PlayerBase
 		//! Eye position: the neck bone (how the model holds the gun); fallback to
 		//! feet + eye height.
 		vector eyePos = GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
-		int neckBone = GetBoneIndexByName("neck");
+		int neckBone = GetBoneIndexByName("Neck");
 		if (neckBone >= 0)
 			eyePos = GetBonePositionWS(neckBone);
 
@@ -576,9 +576,12 @@ class dmAISurvivorBase : PlayerBase
 	vector GetShotOrigin()
 	{
 		vector origin = GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
-		int neck = GetBoneIndexByName("neck");
+		int neck = GetBoneIndexByName("Neck");
 		if (neck >= 0)
 			origin = GetBonePositionWS(neck);
+		#ifdef DM_BOT_DEBUG_BALLISTICS
+		dmBotLog.Debug("[Ballistics] SHOTORIGIN neck=" + neck + " origin=" + origin);
+		#endif
 		return origin;
 	}
 

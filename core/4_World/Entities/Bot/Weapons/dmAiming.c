@@ -151,6 +151,7 @@ class dmAiming
 		float vCross;
 		float angularSpeed;
 		vector aimOrientation;
+		int neckIdx;
 
 		m_HasRealOptic = HasRealOptics();
 
@@ -208,7 +209,11 @@ class dmAiming
 		m_Unit.GetTransform(transform);
 		healthModifier = m_Unit.GetHealth01();
 
-		position = m_Unit.GetBonePositionWS(m_Unit.GetBoneIndexByName("neck"));
+		neckIdx = m_Unit.GetBoneIndexByName("Neck");
+		if (neckIdx >= 0)
+			position = m_Unit.GetBonePositionWS(neckIdx);
+		else
+			position = m_Unit.GetPosition() + Vector(0.0, DM_EYE_HEIGHT, 0.0);
 		direction = vector.Direction(position, m_AimPosition);
 
 		//! Model-space aim angles + recoil (pitch up). Applied to both creature

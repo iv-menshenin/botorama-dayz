@@ -68,7 +68,7 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (pawn)
 		{
-			int neck = pawn.GetBoneIndexByName("neck");
+			int neck = pawn.GetBoneIndexByName("Neck");
 			if (neck >= 0)
 			{
 				vector neckPos = pawn.GetBonePositionWS(neck);
