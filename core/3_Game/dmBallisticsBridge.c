@@ -94,7 +94,7 @@ class dmBallisticsBridge
 		if (Math.AbsFloat(scale) > 0.01)
 		{
 			float wc = GetWindCoef(shooter);
-			wc = wc - DM_WIND_LEARN_RATE * latSigned / scale;
+			wc = wc + DM_WIND_LEARN_RATE * latSigned / scale;
 			if (wc < DM_WIND_COEF_MIN)
 				wc = DM_WIND_COEF_MIN;
 			if (wc > DM_WIND_COEF_MAX)
