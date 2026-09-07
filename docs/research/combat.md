@@ -642,6 +642,16 @@ IK-нода активна и читает engine-driven `AimIKX`/`AimY`. У И�
   компенсация падения пули, затем **`return Fire(muzzleIndex, pos, dir, dir)` L157** (pos = кость
   neck + dir*0.2, dir = `ai.GetWeaponAimDirection()`). Клиентский fallback — `eAI_FireOnClient`
   (`TryFireWeapon`) + `eAI_FireWeaponOnClient` (RPC, L1176).
+
+**Готча (проверено на v3.74–v3.77)**: направление выстрела ИИ = **скриптовый прицел**
+(`GetWeaponAimDirection()`/`m_AimWorldDirection`), НЕ ось ствола из memory-points.
+`Weapon_Base.GetSelectionPositionMS("usti hlavne" / "konec hlavne")` + `ModelToWorld` дают
+**фактическую ориентацию ствола**, которую гонит движковая aim-модель (`AimX/AimY`-переменные);
+у ИИ-бота она НЕ следует за скриптовым `m_AimRelAngleLR/UD` (см. раздел «Визуальный прицел» —
+`AnimSetFloat("AimX/AimY")` — no-op, движок перезаписывает). Выстрел по этой оси (v3.74/v3.75)
+закапывал пулю в землю (~22° вниз, `[Ballistics] FIRE dir y≈-0.379`). Возвращать стрельбу по
+`GetBarrelDirection()` можно только после выравнивания визуального ствола кастомными
+`dmAI_AimX/Y`-переменными (см. техдолг H).
 - `eAI_SelectFireMode` L1245, `eAI_SetFireModeAuto` (`Weapon_Base.c:621`).
 
 ### Перезарядка (reload) — API + эталон

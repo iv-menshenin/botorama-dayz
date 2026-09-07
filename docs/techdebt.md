@@ -115,6 +115,14 @@
 
 ## H. Прицеливание (огнестрел, dmAiming)
 
+- **высокий** — **Визуальный ствол не следует за прицелом** (следствие готчи из `combat.md`):
+  фактическая ось ствола (`GetSelectionPositionMS("usti/konec hlavne")` → `GetBarrelDirection()`)
+  гонится движковой aim-моделью и НЕ совпадает со скриптовым `m_AimRelAngleLR/UD`. Поэтому
+  направление выстрела сейчас = скриптовый прицел (`m_AimWorldDirection`), а ствол визуально
+  «вниз». Задача: довести граф анимаций (`Locomotion.agr` `AnimNodePose2`/`AnimNodeWeaponIK`
+  читать `dmAI_AimX/Y` вместо `AimX/Y`) до состояния, когда memory-points реально крутятся за
+  нашим прицелом; затем — вернуть стрельбу по `GetBarrelDirection()` (убрать рассинхрон дуло↔прицел).
+  Рецепт — `docs/research/combat.md` «Минимальный рецепт для botorama».
 - **сделано** — **Отдача на выстрел** (recoil): `dmBot_Fire` → `AddRecoil(DM_AIM_RECOIL_MODIFIER)`,
   `dmAiming.Update` гасит `m_RecoilPitch` и прибавляет к питчу (обе ветки). Осталось:
   реальная формула `recoilModifier` от веса/патрона.
