@@ -61,6 +61,11 @@ modded class Weapon_Base
 			return false;
 		}
 
+		#ifdef DM_BOT_DEBUG_BALLISTICS
+		dmBotLog.Debug("[Ballistics] FIRE time=" + GetGame().GetTime() + " ammo=" + GetChamberedCartridgeMagazineTypeName(muzzleIndex));
+		dmBotLog.Debug("[Ballistics] FIRE origin=" + origin + " dir=" + direction);
+		#endif
+
 		bool fired = Fire(muzzleIndex, pos, direction, velocity);
 		if (fired)
 		{

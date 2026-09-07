@@ -1451,3 +1451,72 @@ class dmBotTest_Suppressor : dmTestSuite_TestCase
 		}
 	}
 }
+
+//! Ballistic flight-time test: Mosin + 1 round, perfect aim, target at 500 m.
+//! Fires a single shot without FSM (SetAimTarget + RaiseWeapon + RequestFire).
+//! The flight-time deltas are read from the [Ballistics] server log.
+class dmBotTest_Trajectory : dmTestSuite_TestCase
+{
+	int m_Phase = 0;
+	EntityAI m_Target;
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		super.Setup(bot, player);
+		PlayerBase pawn = bot.GetPawn();
+		Weapon_Base mosin = Weapon_Base.Cast(pawn.GetHumanInventory().CreateInHands("Mosin9130"));
+		if (mosin)
+			mosin.SpawnAmmo("Ammo_762x54", WeaponWithAmmoFlags.CHAMBER);
+		dmAISurvivorBase base = dmAISurvivorBase.Cast(pawn);
+		if (base)
+			base.SetPerfectAim(true);
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Траектория». Мосинка + 1 патрон, идеальный прицел, цель на 500 м, один выстрел. Дельта времени полёта — в логе [Ballistics] (FIRE → HIT / IMPACT).";
+	}
+
+	override float GetInterval() { return 0.5; }
+
+	override float GetDuration() { return 30.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Bot.GetPawn());
+
+		if (m_Phase == 0)
+		{
+			vector targetPos = ForwardTarget(500.0);
+			m_Target = EntityAI.Cast(GetGame().CreateObject("dmAI_SurvivorM_Denis", targetPos, false));
+			if (!m_Target)
+				return "FAIL: не удалось заспавнить цель на 500 м";
+			if (pawn)
+			{
+				pawn.SetAimTarget(m_Target);
+				pawn.RaiseWeapon(true);
+			}
+			m_Phase = 1;
+			return "цель на 500 м заспавнена, прицел выставлен, оружие поднимается";
+		}
+		else if (m_Phase == 1)
+		{
+			if (pawn && pawn.IsReadyToShoot())
+			{
+				pawn.RequestFire();
+				m_Phase = 2;
+				return "выстрел выполнен — ждём попадания";
+			}
+			return "";
+		}
+		else
+		{
+			if (m_Target && m_Target.IsAlive())
+				return "";
+			return "PASS: цель поражена (см. дельту FIRE→HIT/IMPACT в логе [Ballistics])";
+		}
+	}
+}

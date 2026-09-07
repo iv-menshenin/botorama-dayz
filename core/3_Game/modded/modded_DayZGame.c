@@ -11,6 +11,9 @@ modded class DayZGame
 		super.FirearmEffects(source, directHit, componentIndex, surface, pos, surfNormal, exitPos, inSpeed, outSpeed, isWater, deflected, ammoType);
 		#ifdef SERVER
 		dmNoiseSystem.AddNoise(null, pos, DM_NOISE_BULLETIMPACT_STRENGTH, dmNoiseType.BULLETIMPACT);
+		#ifdef DM_BOT_DEBUG_BALLISTICS
+		dmBotLog.Debug("[Ballistics] IMPACT time=" + GetGame().GetTime() + " pos=" + pos + " speed=" + inSpeed.Length());
+		#endif
 		#ifdef DM_PERCEPTION_DEBUG
 		dmBotLog.Debug("[Noise] FirearmEffects: pos=" + pos);
 		#endif

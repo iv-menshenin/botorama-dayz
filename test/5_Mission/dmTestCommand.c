@@ -40,6 +40,9 @@
 //!   /test bot suppressor — глушители: сила шума выстрела по типу глушителя
 //!                                (без 3000м, самодельный 150м, автоматный 100м,
 //!                                пистолетный 75м) через dmBotGunshotNoiseStrength().
+//!   /test bot trajectory — баллистика: мосинка + 1 патрон, идеальный прицел,
+//!                                цель на 500 м, один выстрел; дельта времени полёта
+//!                                читается из лога [Ballistics] (FIRE → HIT/IMPACT).
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -55,10 +58,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player, parts);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | enemy | emote | fight | weapon load | weapon selection | suppressor
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | enemy | emote | fight | weapon load | weapon selection | suppressor | trajectory
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | weapon load | weapon selection | suppressor");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | weapon load | weapon selection | suppressor | trajectory");
 			return false;
 		}
 
@@ -95,6 +98,8 @@ class dmTestCommand : dmCommandModule
 			return HandleLootingTest(player, parts);
 		if (parts[2] == DM_CHAT_TEST_SUPPRESSOR)
 			return HandleTestCase(player, new dmBotTest_Suppressor());
+		if (parts[2] == DM_CHAT_TEST_TRAJECTORY)
+			return HandleTestCase(player, new dmBotTest_Trajectory());
 
 		if (parts[2] == DM_CHAT_TEST_ENEMY)
 			return HandleEnemy(player, parts);

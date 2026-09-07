@@ -56,6 +56,19 @@ class dmAISurvivorBase : PlayerBase
 	//! from body yaw + relative angles (the body may have turned since then).
 	private vector m_AimWorldDirection;
 
+	//! Идеальный прицел для тестов: нулевой разброс (личный и оружейный).
+	private bool m_PerfectAim;
+
+	void SetPerfectAim(bool v)
+	{
+		m_PerfectAim = v;
+	}
+
+	bool IsPerfectAim()
+	{
+		return m_PerfectAim;
+	}
+
 	//! Smoothed copy of m_AimRelAngleLR/UD, pushed to the animation graph so the
 	//! barrel rotates smoothly. The raw angles stay authoritative for
 	//! GetWeaponAimDirection() (the actual shot direction).
@@ -899,6 +912,11 @@ class dmAISurvivorBase : PlayerBase
 	{
 		super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
 
+		#ifdef DM_BOT_DEBUG_BALLISTICS
+		dmBotLog.Debug("[Ballistics] HIT time=" + GetGame().GetTime() + " ammo=" + ammo);
+		dmBotLog.Debug("[Ballistics] HIT zone=" + dmgZone + " health=" + damageResult.GetDamage(dmgZone, "Health"));
+		#endif
+
 		//! Halve the shock dealt by zombies: vanilla already applied full shock,
 		//! add back half so the bot isn't knocked out as easily.
 		if (ZombieBase.Cast(source))
@@ -1543,6 +1561,8 @@ class dmAISurvivorBase : PlayerBase
 	//! Личный разброс стрелка (dmAiming) — случайный доворот направления на выстрел.
 	void ApplyPersonalDispersion(inout vector direction)
 	{
+		if (m_PerfectAim)
+			return;
 		if (!m_Aiming)
 			return;
 		float angLR;
@@ -1560,6 +1580,8 @@ class dmAISurvivorBase : PlayerBase
 	//! (rad). Кладётся СВЕРХУ личного разброса dmAiming.
 	void ApplyWeaponDispersion(Weapon_Base weapon, int mi, inout vector direction)
 	{
+		if (m_PerfectAim)
+			return;
 		dmFireMode mode = GetCurrentFireMode(weapon);
 		if (!mode || mode.m_Dispersion <= 0.0)
 			return;
