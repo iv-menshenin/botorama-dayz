@@ -699,6 +699,7 @@ class dmAISurvivorBase : PlayerBase
 		dmBotLog.Debug("[Ballistics] DROP obj=" + objType + " parent=" + parentType + " zone=" + dmgZone);
 		dmBotLog.Debug("[Ballistics] DROP hitPos=" + hitPosition + " groundO=" + g_Game.SurfaceY(origin[0], origin[2]) + " groundH=" + g_Game.SurfaceY(hitPosition[0], hitPosition[2]));
 		dmBotLog.Debug("[Ballistics] DROP dist=" + distance + " t=" + travelTime + " drop=" + drop + " dir=" + direction);
+		dmBotLog.Debug("[Ballistics] DROP wind=" + GetGame().GetWeather().GetWind());
 		#endif
 
 		if (drop > 0.1)
