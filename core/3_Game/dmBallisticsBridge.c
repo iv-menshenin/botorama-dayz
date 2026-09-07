@@ -2,6 +2,7 @@
 class dmBotShotState
 {
 	vector m_Origin;
+	vector m_AimDir;    // горизонтальное направление прицела (нормализовано)
 	float m_TargetDist;
 }
 
@@ -22,11 +23,14 @@ class dmBallisticsBridge
 		return DM_DROP_COEF_INIT;
 	}
 
-	static void RecordShot(EntityAI pawn, vector origin, float targetDist)
+	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist)
 	{
 		dmBotShotState st = new dmBotShotState();
 		st.m_Origin = origin;
 		st.m_TargetDist = targetDist;
+		aimDir[1] = 0.0;
+		aimDir.Normalize();
+		st.m_AimDir = aimDir;
 		s_LastShot[pawn] = st;
 	}
 
@@ -47,11 +51,13 @@ class dmBallisticsBridge
 			return;
 		vector d = pos - st.m_Origin;
 		d[1] = 0.0;
-		float hitDist = d.Length();
-		if (hitDist <= 0.0)
+		float along = d[0] * st.m_AimDir[0] + d[2] * st.m_AimDir[2];
+		if (along <= 0.0)
 			return;
+		vector lat = d - st.m_AimDir * along;
+		float lateral = lat.Length();
 		float coef = GetDropCoef(shooter);
-		float ratio = (st.m_TargetDist - hitDist) / hitDist;
+		float ratio = (st.m_TargetDist - along) / along;
 		coef = coef * (1.0 + DM_DROP_LEARN_RATE * ratio);
 		if (coef < DM_DROP_COEF_MIN)
 			coef = DM_DROP_COEF_MIN;
@@ -59,7 +65,7 @@ class dmBallisticsBridge
 			coef = DM_DROP_COEF_MAX;
 		s_DropCoef[shooter] = coef;
 		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] FEEDBACK targetDist=" + st.m_TargetDist + " hitDist=" + hitDist + " coef=" + coef);
+		dmBotLog.Debug("[Ballistics] FEEDBACK targetDist=" + st.m_TargetDist + " along=" + along + " lateral=" + lateral + " coef=" + coef);
 		#endif
 	}
 }
