@@ -153,6 +153,9 @@ static const string DM_CHAT_TEST_SUPPRESSOR = "suppressor";
 //! Test scenario "trajectory" — ballistic flight-time measurement (Mosin + perfect aim).
 static const string DM_CHAT_TEST_TRAJECTORY = "trajectory";
 
+//! Trajectory test: default target distance (meters) when no {N} is given.
+static const float DM_TRAJECTORY_TEST_DISTANCE = 500.0;
+
 //! Aim-observation test: pause (seconds) before/after the shots and shot interval.
 static const float DM_TEST_AIM_HOLD = 10.0;
 static const float DM_TEST_AIM_SHOT_INTERVAL = 2.0;

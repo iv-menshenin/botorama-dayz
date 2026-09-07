@@ -1452,13 +1452,26 @@ class dmBotTest_Suppressor : dmTestSuite_TestCase
 	}
 }
 
-//! Ballistic flight-time test: Mosin + 1 round, perfect aim, target at 500 m.
-//! Fires a single shot without FSM (SetAimTarget + RaiseWeapon + RequestFire).
-//! The flight-time deltas are read from the [Ballistics] server log.
+//! Ballistic flight-time test: Mosin + 1 round, perfect aim, target at N m
+//! (default 500). Fires a single shot without FSM (SetAimTarget + RaiseWeapon +
+//! RequestFire). The flight-time deltas are read from the [Ballistics] server log.
 class dmBotTest_Trajectory : dmTestSuite_TestCase
 {
 	int m_Phase = 0;
 	EntityAI m_Target;
+	float m_TargetDistance = 0.0;
+
+	void SetTargetDistance(float v)
+	{
+		m_TargetDistance = v;
+	}
+
+	float GetTargetDistance()
+	{
+		if (m_TargetDistance > 0.0)
+			return m_TargetDistance;
+		return DM_TRAJECTORY_TEST_DISTANCE;
+	}
 
 	override void Setup(dmAISurvivor bot, PlayerBase player)
 	{
@@ -1470,6 +1483,14 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 		dmAISurvivorBase base = dmAISurvivorBase.Cast(pawn);
 		if (base)
 			base.SetPerfectAim(true);
+
+		//! Развернуть тело по направлению взгляда игрока.
+		vector dir = player.GetDirection();
+		dir[1] = 0.0;
+		dir.Normalize();
+		float yaw = dir.VectorToAngles()[0];
+		if (base)
+			base.SetTargetBodyYaw(yaw);
 	}
 
 	override string GetSummary()
@@ -1490,17 +1511,17 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 
 		if (m_Phase == 0)
 		{
-			vector targetPos = ForwardTarget(500.0);
+			vector targetPos = ForwardTarget(GetTargetDistance());
 			m_Target = EntityAI.Cast(GetGame().CreateObject("dmAI_SurvivorM_Denis", targetPos, false));
 			if (!m_Target)
-				return "FAIL: не удалось заспавнить цель на 500 м";
+				return "FAIL: не удалось заспавнить цель на " + Fmt(GetTargetDistance()) + " м";
 			if (pawn)
 			{
 				pawn.SetAimTarget(m_Target);
 				pawn.RaiseWeapon(true);
 			}
 			m_Phase = 1;
-			return "цель на 500 м заспавнена, прицел выставлен, оружие поднимается";
+			return "цель на " + Fmt(GetTargetDistance()) + " м заспавнена, прицел выставлен, оружие поднимается";
 		}
 		else if (m_Phase == 1)
 		{

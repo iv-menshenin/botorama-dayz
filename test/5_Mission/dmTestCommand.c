@@ -40,9 +40,10 @@
 //!   /test bot suppressor — глушители: сила шума выстрела по типу глушителя
 //!                                (без 3000м, самодельный 150м, автоматный 100м,
 //!                                пистолетный 75м) через dmBotGunshotNoiseStrength().
-//!   /test bot trajectory — баллистика: мосинка + 1 патрон, идеальный прицел,
-//!                                цель на 500 м, один выстрел; дельта времени полёта
-//!                                читается из лога [Ballistics] (FIRE → HIT/IMPACT).
+//!   /test bot trajectory {N} — баллистика: мосинка + 1 патрон, идеальный прицел,
+//!                                цель на N м (по умолчанию 500), один выстрел;
+//!                                дельта времени полёта читается из лога [Ballistics]
+//!                                (FIRE → HIT/IMPACT).
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -58,10 +59,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player, parts);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | enemy | emote | fight | weapon load | weapon selection | suppressor | trajectory
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | enemy | emote | fight | weapon load | weapon selection | suppressor | trajectory {N}
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | weapon load | weapon selection | suppressor | trajectory");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | weapon load | weapon selection | suppressor | trajectory {N}");
 			return false;
 		}
 
@@ -99,7 +100,7 @@ class dmTestCommand : dmCommandModule
 		if (parts[2] == DM_CHAT_TEST_SUPPRESSOR)
 			return HandleTestCase(player, new dmBotTest_Suppressor());
 		if (parts[2] == DM_CHAT_TEST_TRAJECTORY)
-			return HandleTestCase(player, new dmBotTest_Trajectory());
+			return HandleTrajectoryTest(player, parts);
 
 		if (parts[2] == DM_CHAT_TEST_ENEMY)
 			return HandleEnemy(player, parts);
@@ -173,6 +174,20 @@ class dmTestCommand : dmCommandModule
 			int dist = parts[3].ToInt();
 			if (dist > 0)
 				test.SetMaxDistance(dist);
+		}
+		return HandleTestCase(player, test);
+	}
+
+	//! /test bot trajectory {N} — ballistic flight-time test; N (meters) is the
+	//! optional target distance (0/default = DM_TRAJECTORY_TEST_DISTANCE).
+	private bool HandleTrajectoryTest(PlayerBase player, array<string> parts)
+	{
+		dmBotTest_Trajectory test = new dmBotTest_Trajectory();
+		if (parts.Count() >= 4)
+		{
+			int dist = parts[3].ToInt();
+			if (dist > 0)
+				test.SetTargetDistance(dist);
 		}
 		return HandleTestCase(player, test);
 	}

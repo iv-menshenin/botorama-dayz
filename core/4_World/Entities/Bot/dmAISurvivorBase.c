@@ -641,29 +641,59 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
-	//! Bullet flight time to a distance (simplified: distance / initSpeed; air
-	//! resistance ignored — initSpeed from CfgAmmo <bullet> initSpeed).
+	//! Bullet flight time to a distance: step-wise integration of speed under air
+	//! friction (speed = e^(airFriction·d)·initSpeed, 0.05 s step, max 6 s). At
+	//! airFriction = 0 the integration degenerates to distance / initSpeed.
 	float ComputeBulletTravelTime(Weapon_Base weapon, int mi, float distance)
 	{
 		float initSpeed = GetAmmoInitSpeed(weapon, mi);
 		if (initSpeed <= 0.0)
 			initSpeed = DM_AI_DEFAULT_INIT_SPEED;
-		return distance / initSpeed;
+		float airFriction = GetAmmoAirFriction(weapon, mi);
+
+		float distanceTraveled = 0.0;
+		float timeTraveled = 0.0;
+		float simulationStep = 0.05;
+		float speed;
+		while (distanceTraveled < distance && timeTraveled < 6.0)
+		{
+			speed = Math.Pow(Math.EULER, airFriction * distanceTraveled) * initSpeed;
+			if (speed <= 0.0)
+				break;
+			timeTraveled = timeTraveled + simulationStep;
+			distanceTraveled = distanceTraveled + speed * simulationStep;
+		}
+		return timeTraveled;
+	}
+
+	//! Резолв типа пули патронника в CfgAmmo <bullet>; false если нет.
+	bool GetChamberedBulletType(Weapon_Base weapon, int mi, out string bullet)
+	{
+		if (mi < 0 || mi >= weapon.GetMuzzleCount())
+			return false;
+		string ammoMag = weapon.GetChamberedCartridgeMagazineTypeName(mi);
+		if (ammoMag == "")
+			return false;
+		return g_Game.ConfigGetText(CFG_MAGAZINESPATH + " " + ammoMag + " ammo", bullet);
 	}
 
 	//! initSpeed of the chambered cartridge: CfgMagazines <ammoMagazine> ammo ->
 	//! CfgAmmo <bullet> initSpeed.
 	float GetAmmoInitSpeed(Weapon_Base weapon, int mi)
 	{
-		if (mi < 0 || mi >= weapon.GetMuzzleCount())
-			return 0.0;
-		string ammoMag = weapon.GetChamberedCartridgeMagazineTypeName(mi);
-		if (ammoMag == "")
-			return 0.0;
 		string bullet;
-		if (!g_Game.ConfigGetText(CFG_MAGAZINESPATH + " " + ammoMag + " ammo", bullet))
+		if (!GetChamberedBulletType(weapon, mi, bullet))
 			return 0.0;
 		return g_Game.ConfigGetFloat(CFG_AMMO + " " + bullet + " initSpeed");
+	}
+
+	//! airFriction of the chambered cartridge: CfgAmmo <bullet> airFriction.
+	float GetAmmoAirFriction(Weapon_Base weapon, int mi)
+	{
+		string bullet;
+		if (!GetChamberedBulletType(weapon, mi, bullet))
+			return 0.0;
+		return g_Game.ConfigGetFloat(CFG_AMMO + " " + bullet + " airFriction");
 	}
 
 	//! Push the aim angles into the graph. Runs before super. The values written
