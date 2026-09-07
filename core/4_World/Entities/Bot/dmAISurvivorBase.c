@@ -671,16 +671,6 @@ class dmAISurvivorBase : PlayerBase
 			distance = m_AimDistance;
 		float travelTime = ComputeBulletTravelTime(weapon, mi, distance);
 		float drop = ComputeBulletDrop(weapon, mi, travelTime);
-		float bodyBias = 0.0;
-		float vSpeed = DM_AI_GRAVITY * travelTime;
-		if (vSpeed > 0.1)
-		{
-			float initSpeed = GetAmmoInitSpeed(weapon, mi);
-			if (initSpeed <= 0.0)
-				initSpeed = DM_AI_DEFAULT_INIT_SPEED;
-			float hSpeed = initSpeed * Math.Pow(Math.EULER, GetAmmoAirFriction(weapon, mi) * distance);
-			bodyBias = hSpeed * (DM_AIM_BODY_HEIGHT / vSpeed);
-		}
 		dmFireMode mode = GetCurrentFireMode(weapon);
 		bool singleShot = !mode || mode.m_Type == dmFireModeType.SINGLE;
 		bool targetDown = false;
@@ -688,7 +678,7 @@ class dmAISurvivorBase : PlayerBase
 		if (tp && (!tp.IsAlive() || tp.IsUnconscious()))
 			targetDown = true;
 		if (singleShot && !targetDown)
-			dmBallisticsBridge.RecordShot(this, origin, direction, distance, bodyBias);
+			dmBallisticsBridge.RecordShot(this, origin, direction, distance);
 		else
 			dmBallisticsBridge.ClearShot(this);
 

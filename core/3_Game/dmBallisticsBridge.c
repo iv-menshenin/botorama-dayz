@@ -4,7 +4,6 @@ class dmBotShotState
 	vector m_Origin;
 	vector m_AimDir;    // горизонтальное направление прицела (нормализовано)
 	float m_TargetDist;
-	float m_BodyBias;   // доп. горизонтальная дистанция падения с высоты груди
 }
 
 //! Cross-module bridge for the bullet-drop self-learning. DayZGame.FirearmEffects
@@ -24,12 +23,11 @@ class dmBallisticsBridge
 		return DM_DROP_COEF_INIT;
 	}
 
-	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist, float bodyBias)
+	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist)
 	{
 		dmBotShotState st = new dmBotShotState();
 		st.m_Origin = origin;
 		st.m_TargetDist = targetDist;
-		st.m_BodyBias = bodyBias;
 		aimDir[1] = 0.0;
 		aimDir.Normalize();
 		st.m_AimDir = aimDir;
@@ -59,7 +57,7 @@ class dmBallisticsBridge
 		vector lat = d - st.m_AimDir * along;
 		float lateral = lat.Length();
 		float coef = GetDropCoef(shooter);
-		float ratio = (st.m_TargetDist + st.m_BodyBias - along) / along;
+		float ratio = (st.m_TargetDist - along) / along;
 		coef = coef * (1.0 + DM_DROP_LEARN_RATE * ratio);
 		if (coef < DM_DROP_COEF_MIN)
 			coef = DM_DROP_COEF_MIN;
@@ -67,7 +65,7 @@ class dmBallisticsBridge
 			coef = DM_DROP_COEF_MAX;
 		s_DropCoef[shooter] = coef;
 		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] FEEDBACK targetDist=" + st.m_TargetDist + " bias=" + st.m_BodyBias + " along=" + along + " lateral=" + lateral + " coef=" + coef);
+		dmBotLog.Debug("[Ballistics] FEEDBACK targetDist=" + st.m_TargetDist + " along=" + along + " lateral=" + lateral + " coef=" + coef);
 		#endif
 	}
 }
