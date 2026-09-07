@@ -110,4 +110,50 @@ modded class Weapon_Base
 			return DM_NOISE_GUNSHOT_SILENCED_PISTOL;
 		return DM_NOISE_GUNSHOT_SILENCED_RIFLE;
 	}
+
+	//! Кэшированный множитель скорости дула (ConfigGetFloat("initSpeedMultiplier")).
+	private float m_dmInitSpeedMultiplier = 1.0;
+	private bool m_dmAttributesReady = false;
+
+	void dmReadWeaponAttributes()
+	{
+		if (m_dmAttributesReady)
+			return;
+		m_dmInitSpeedMultiplier = ConfigGetFloat("initSpeedMultiplier");
+		if (m_dmInitSpeedMultiplier <= 0.0)
+			m_dmInitSpeedMultiplier = 1.0;
+		m_dmAttributesReady = true;
+	}
+
+	float dmGetInitSpeedMultiplier()
+	{
+		dmReadWeaponAttributes();
+		return m_dmInitSpeedMultiplier;
+	}
+
+	//! Дистанция от плеча до конца ствола (ванильный protected m_ObstructionDistance,
+	//! уже закэширован ванилью в InitObstructionDistance — просто отдаём).
+	float dmGetObstructionDistance()
+	{
+		return m_ObstructionDistance;
+	}
+
+	//! Аттачи могут менять баллистику (будущая отдача от приклада/цевья) — сбрасываем кэш.
+	override void EEItemAttached(EntityAI item, string slot_name)
+	{
+		super.EEItemAttached(item, slot_name);
+		m_dmAttributesReady = false;
+	}
+
+	override void EEItemDetached(EntityAI item, string slot_name)
+	{
+		super.EEItemDetached(item, slot_name);
+		m_dmAttributesReady = false;
+	}
+
+	override void OnAttachmentRuined(EntityAI attachment)
+	{
+		super.OnAttachmentRuined(attachment);
+		m_dmAttributesReady = false;
+	}
 }

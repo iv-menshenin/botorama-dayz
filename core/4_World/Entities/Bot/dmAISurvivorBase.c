@@ -734,7 +734,7 @@ class dmAISurvivorBase : PlayerBase
 	//! airFriction = 0 the integration degenerates to distance / initSpeed.
 	float ComputeBulletTravelTime(Weapon_Base weapon, int mi, float distance)
 	{
-		float initSpeed = GetAmmoInitSpeed(weapon, mi);
+		float initSpeed = GetEffectiveInitSpeed(weapon, mi);
 		if (initSpeed <= 0.0)
 			initSpeed = DM_AI_DEFAULT_INIT_SPEED;
 		float airFriction = GetAmmoAirFriction(weapon, mi);
@@ -754,34 +754,48 @@ class dmAISurvivorBase : PlayerBase
 		return timeTraveled;
 	}
 
-	//! Резолв типа пули патронника в CfgAmmo <bullet>; false если нет.
-	bool GetChamberedBulletType(Weapon_Base weapon, int mi, out string bullet)
+	//! Кэшированная инфа пули патронника (null если нет/не резолвится).
+	dmProjectileInfo GetChamberedProjectileInfo(Weapon_Base weapon, int mi)
 	{
 		if (mi < 0 || mi >= weapon.GetMuzzleCount())
-			return false;
-		string ammoMag = weapon.GetChamberedCartridgeMagazineTypeName(mi);
-		if (ammoMag == "")
-			return false;
-		return g_Game.ConfigGetText(CFG_MAGAZINESPATH + " " + ammoMag + " ammo", bullet);
+			return null;
+		return dmProjectileCache.Get(weapon.GetChamberedCartridgeMagazineTypeName(mi));
 	}
 
-	//! initSpeed of the chambered cartridge: CfgMagazines <ammoMagazine> ammo ->
-	//! CfgAmmo <bullet> initSpeed.
+	//! initSpeed of the chambered cartridge: CfgAmmo <bullet> initSpeed.
 	float GetAmmoInitSpeed(Weapon_Base weapon, int mi)
 	{
-		string bullet;
-		if (!GetChamberedBulletType(weapon, mi, bullet))
-			return 0.0;
-		return g_Game.ConfigGetFloat(CFG_AMMO + " " + bullet + " initSpeed");
+		dmProjectileInfo info = GetChamberedProjectileInfo(weapon, mi);
+		if (info)
+			return info.m_InitSpeed;
+		return 0.0;
 	}
 
 	//! airFriction of the chambered cartridge: CfgAmmo <bullet> airFriction.
 	float GetAmmoAirFriction(Weapon_Base weapon, int mi)
 	{
-		string bullet;
-		if (!GetChamberedBulletType(weapon, mi, bullet))
+		dmProjectileInfo info = GetChamberedProjectileInfo(weapon, mi);
+		if (info)
+			return info.m_AirFriction;
+		return 0.0;
+	}
+
+	//! weight of the chambered bullet (kg): CfgAmmo <bullet> weight.
+	float GetAmmoWeight(Weapon_Base weapon, int mi)
+	{
+		dmProjectileInfo info = GetChamberedProjectileInfo(weapon, mi);
+		if (info)
+			return info.m_Weight;
+		return 0.0;
+	}
+
+	//! Эффективная скорость дула: initSpeed пули × initSpeedMultiplier оружия.
+	float GetEffectiveInitSpeed(Weapon_Base weapon, int mi)
+	{
+		float v = GetAmmoInitSpeed(weapon, mi);
+		if (v <= 0.0)
 			return 0.0;
-		return g_Game.ConfigGetFloat(CFG_AMMO + " " + bullet + " airFriction");
+		return v * weapon.dmGetInitSpeedMultiplier();
 	}
 
 	//! Push the aim angles into the graph. Runs before super. The values written
