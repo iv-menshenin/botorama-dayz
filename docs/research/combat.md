@@ -1359,6 +1359,14 @@ WeaponStateBase                                  (weaponstatebase.c:10)
 снижения `slope = g·travelTime / impactSpeed`. Продольная (попутная/встречная) составляющая ветра
 при этом конфаундится с дропом (меняет время полёта) — при ветре −Z дроп-коэф асимметричен по
 направлению (0.695 попутно vs 0.777 встречно на ~795 м).
+
+**Готча (проверено v3.80) — знак ветра**: `GetWind()` возвращает направление, КУДА дует ветер;
+пуля сносится **вниз по ветру** (в ту же сторону). Компенсация должна целиться **против ветра**:
+`projected -= wind * coef * t`. А обучение ветер-коэфа — `wc += rate * latSigned / scale` (где
+`latSigned` = знаковый поперечный промах, `scale = windPerp * t`). Если поставить `+wind` (вниз по
+ветру) и `wc -=` — оба знака перепутаны, коэф уходит в 0/вверх неверно и остаётся боковой снос
+~0.4 м. Наблюдаемый фактор сноса (коэф при `wind * t`) ~0.21 — потолок `DM_WIND_COEF_MAX` поднят
+до 0.3.
 - Коэф. урона (`eAI_CalculateProjectileDamageCoefAtPosition`, :544-575): если
   `typicalSpeed != initSpeed'`, то `dmgCoef = (speed > typicalSpeed ? 1.0 : speed/typicalSpeed)`,
   иначе `dmgCoef = speedCoef` (`typicalSpeed` из `CfgAmmo <ammo> typicalSpeed`, :552).
