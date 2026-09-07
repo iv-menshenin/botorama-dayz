@@ -519,7 +519,7 @@ class dmAISurvivorBase : PlayerBase
 	}
 
 	//! Compute and store the relative aim angles (left/right, up/down) toward the
-	//! target. The barrel direction is eyePos (neck) -> aimPos (target chest/head);
+	//! target. The barrel direction is eyePos (muzzle) -> aimPos (target chest/head);
 	//! yaw/pitch come from VectorToAngles (same convention as LookAtPoint).
 	void SetAimTarget(EntityAI target)
 	{
@@ -554,12 +554,9 @@ class dmAISurvivorBase : PlayerBase
 		if (bone >= 0)
 			aimPos = target.GetBonePositionWS(bone);
 
-		//! Eye position: the neck bone (how the model holds the gun); fallback to
-		//! feet + eye height.
-		vector eyePos = GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
-		int neckBone = GetBoneIndexByName("Neck");
-		if (neckBone >= 0)
-			eyePos = GetBonePositionWS(neckBone);
+		//! Eye position: the actual barrel muzzle (bullet exit point), so the aim
+		//! line passes through the shot origin; falls back to the neck bone.
+		vector eyePos = GetMuzzlePosition();
 
 		vector aimDir = aimPos - eyePos;
 		m_AimDistance = vector.Distance(eyePos, aimPos);
@@ -596,15 +593,32 @@ class dmAISurvivorBase : PlayerBase
 		return m_Aiming;
 	}
 
-	//! Bullet spawn point: the neck bone; fallback to the feet + eye height.
-	vector GetShotOrigin()
+	//! World-space muzzle position: the weapon's "usti hlavne" memory point
+	//! (vanilla muzzlePos) converted via ModelToWorld, so both the aim line and
+	//! the bullet originate from the actual barrel. Falls back to the neck bone
+	//! when no weapon is in hands or the memory point is not resolvable.
+	vector GetMuzzlePosition()
 	{
+		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+		if (weapon)
+		{
+			vector muzzleLocal = weapon.GetMemoryPointPos("usti hlavne");
+			if (muzzleLocal.LengthSq() > 0.001)
+				return weapon.ModelToWorld(muzzleLocal);
+		}
 		vector origin = GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
 		int neck = GetBoneIndexByName("Neck");
 		if (neck >= 0)
 			origin = GetBonePositionWS(neck);
+		return origin;
+	}
+
+	//! Bullet spawn point: the barrel muzzle; fallback to the neck bone.
+	vector GetShotOrigin()
+	{
+		vector origin = GetMuzzlePosition();
 		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] SHOTORIGIN neck=" + neck + " origin=" + origin);
+		dmBotLog.Debug("[Ballistics] SHOTORIGIN origin=" + origin);
 		#endif
 		return origin;
 	}
