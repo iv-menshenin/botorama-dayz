@@ -1803,9 +1803,12 @@ Expansion-эталон (`eaistate_flank` / `OverrideTargetPosition` в нави�
   **оружие** (не пешка): движок передаёт `Weapon_Base` (Expansion: `Class.CastTo(weapon, source)`).
   От оружия до стрелка — `EntityAI.GetHierarchyRootPlayer()` (возвращает `Man`, `entityai.c:877`).
   `directHit` — сущность прилёта: `null` = пуля попала в террейн/землю (промах), персонаж/объект =
-  попадание по сущности. Кросс-модульный диспатч 3_Game→4_World делается через виртуальный хук на
-  типе 3_Game (`modded class Man { void BallisticFeedback(vector){} }`), который пешка-бот
-  перекрывает `override` (3_Game не видит `dmAISurvivorBase`/`Weapon_Base` — codeguide).
+  попадание по сущности. Кросс-модульный диспатч 3_Game→4_World НЕЛЬЗЯ сделать виртуальным хуком
+  через предка игрока: в цепочке `EntityAI→Man→Human→DayZPlayer` все классы 3_Game — движковые
+  (`modded class X` → «Engine class 'X' cannot be modded»), а первый скриптовый предок
+  `DayZPlayerImplement` живёт в 4_World, невидимом из 3_Game. Поэтому диспатч — через статический
+  мост `dmBallisticsBridge` (3_Game): состояние в `map<EntityAI,...>`, 4_World читает/пишет через
+  статики (4_World видит 3_Game), `FirearmEffects` зовёт `dmBallisticsBridge.OnImpact(...)`.
 - `dmAISurvivorBase.c:898-917` `EEHitBy` — перехват ПОСЛЕ применения урона (для угрозы), не влияет
   на тайминг.
 

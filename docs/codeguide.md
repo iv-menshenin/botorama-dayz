@@ -101,6 +101,15 @@
   3_Game (напр. `DayZGame`) → `core/3_Game`; `X` из 4_World (`Weapon_Base`/`ZombieBase`/
   `DayZPlayerImplement`) → `reg/4_World`/`core/4_World`. Иначе `Unknown type 'X'`
   (модуль не видит класс из соседнего модуля). Модули: `3_Game` → `4_World` → `5_Mission`.
+- **Движковые классы НЕЛЬЗЯ `modded`.** В цепочке персонажа ВСЕ классы 3_Game —
+  движковые: `Object → Entity → EntityAI → Man → Human → DayZPlayer` (все члены
+  `proto native`, нет скриптовой реализации) → `modded class X` даёт
+  `Engine class 'X' cannot be modded`. Первый скриптовый класс — `DayZPlayerImplement`
+  (4_World), далее `ManBase`/`PlayerBase` (4_World). Следствие: **из 3_Game нельзя
+  достучаться до пешки виртуальным хуком через предка** — подходящего скриптового
+  предка в 3_Game нет. Решение — статический мост-класс в 3_Game (хранит состояние в
+  `map` по ключу `EntityAI`, 4_World читает/пишет через его статики): `dmBallisticsBridge`
+  (`core/3_Game/dmBallisticsBridge.c`).
 - **Оверрайд требует ТОЧНОЙ сигнатуры (типы параметров входят).** Метод мода с другим
   типом параметра (напр. `DropItem(EntityAI)` vs ванильный `DropItem(ItemBase)`) НЕ
   оверрайдит ванильный — это оверлоад. При вызове с аргументом базового типа компилятор
