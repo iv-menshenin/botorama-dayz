@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.65";
+static const string DM_BOTORAMA_VERSION = "3.66";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
@@ -16,6 +16,14 @@ static const float DM_DROP_COEF_MAX = 1.5;
 //! Wind drift: fraction of the wind speed the bullet reaches laterally
 //! (drag-limited). Empirically ~0.022 (0.38 m drift at 800 m / 12 m/s wind).
 static const float DM_WIND_DRIFT_COEF = 0.022;
+
+//! Ricochet filter: impacts slower than this (m/s) are ricochets, not the
+//! bullet's first ground hit — ignore them in the feedback.
+static const float DM_DROP_MIN_IMPACT_SPEED = 200.0;
+
+//! Height of the aim point (chest/Spine3) above the ground, used to bias the
+//! drop feedback so the bullet passes through the body instead of the feet.
+static const float DM_AIM_BODY_HEIGHT = 1.2;
 
 //! Hearing: threat assigned to a target heard but not seen (below attack threshold 0.5).
 static const float DM_NOISE_THREAT = 0.4;
