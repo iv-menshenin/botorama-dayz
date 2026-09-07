@@ -714,12 +714,23 @@ class dmAISurvivorBase : PlayerBase
 			targetDown = true;
 		if (singleShot && !targetDown)
 		{
-			vector windForShot = GetGame().GetWeather().GetWind();
-			windForShot[1] = 0.0;
-			dmBallisticsBridge.RecordShot(this, origin, direction, distance, windForShot, travelTime, origin[1] + direction[1] * distance);
+			dmBallisticsBridge.RecordShot(this, origin, direction, distance, travelTime, origin[1] + direction[1] * distance);
 		}
 		else
 			dmBallisticsBridge.ClearShot(this);
+
+		//! Геометрическая боковая коррекция: доворачиваем прицел на накопленный угол
+		//! (против бокового сноса) ПОСЛЕ RecordShot, чтобы st.m_AimDir оставался лучом к цели.
+		float latCorr = dmBallisticsBridge.GetLatCorr(this);
+		if (Math.AbsFloat(latCorr) > 0.0001)
+		{
+			float cosA = Math.Cos(latCorr);
+			float sinA = Math.Sin(latCorr);
+			vector rot = direction;
+			rot[0] = direction[0] * cosA + direction[2] * sinA;
+			rot[2] = direction[2] * cosA - direction[0] * sinA;
+			direction = rot;
+		}
 
 		#ifdef DM_BOT_DEBUG_BALLISTICS
 		string objType = "ground";
@@ -745,9 +756,6 @@ class dmAISurvivorBase : PlayerBase
 		{
 			vector projected = origin + direction * distance;
 			projected[1] = projected[1] + drop * dmBallisticsBridge.GetDropCoef(this);
-			vector wind = GetGame().GetWeather().GetWind();
-			wind[1] = 0.0;
-			projected = projected + wind * dmBallisticsBridge.GetWindCoef(this) * travelTime;
 			vector newDir = vector.Direction(origin, projected);
 			newDir.Normalize();
 			direction = newDir;

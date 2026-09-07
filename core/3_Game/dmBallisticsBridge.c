@@ -4,7 +4,6 @@ class dmBotShotState
 	vector m_Origin;
 	vector m_AimDir;    // горизонтальное направление прицела (нормализовано)
 	float m_TargetDist;
-	float m_WindPerp;    // знаковая поперечная составляющая ветра на момент выстрела
 	float m_TravelTime;  // время полёта (с)
 	float m_AimPosY;    // высота точки прицела (грудь) на момент выстрела
 }
@@ -17,7 +16,7 @@ class dmBotShotState
 class dmBallisticsBridge
 {
 	static ref map<EntityAI, float> s_DropCoef = new map<EntityAI, float>();
-	static ref map<EntityAI, float> s_WindCoef = new map<EntityAI, float>();
+	static ref map<EntityAI, float> s_LatCorr = new map<EntityAI, float>();
 	static ref map<EntityAI, ref dmBotShotState> s_LastShot = new map<EntityAI, ref dmBotShotState>();
 
 	static float GetDropCoef(EntityAI pawn)
@@ -27,14 +26,14 @@ class dmBallisticsBridge
 		return DM_DROP_COEF_INIT;
 	}
 
-	static float GetWindCoef(EntityAI pawn)
+	static float GetLatCorr(EntityAI pawn)
 	{
-		if (s_WindCoef.Contains(pawn))
-			return s_WindCoef[pawn];
-		return DM_WIND_COEF_INIT;
+		if (s_LatCorr.Contains(pawn))
+			return s_LatCorr[pawn];
+		return DM_LAT_COEF_INIT;
 	}
 
-	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist, vector wind, float travelTime, float aimPosY)
+	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist, float travelTime, float aimPosY)
 	{
 		dmBotShotState st = new dmBotShotState();
 		st.m_Origin = origin;
@@ -42,7 +41,6 @@ class dmBallisticsBridge
 		aimDir[1] = 0.0;
 		aimDir.Normalize();
 		st.m_AimDir = aimDir;
-		st.m_WindPerp = wind[0] * (-aimDir[2]) + wind[2] * aimDir[0];
 		st.m_TravelTime = travelTime;
 		st.m_AimPosY = aimPosY;
 		s_LastShot[pawn] = st;
@@ -90,19 +88,16 @@ class dmBallisticsBridge
 		dmBotLog.Debug("[Ballistics] FEEDBACK offset=" + offset + " lateral=" + lateral + " speed=" + speed);
 		#endif
 		float latSigned = st.m_AimDir[0] * d[2] - st.m_AimDir[2] * d[0];
-		float scale = st.m_WindPerp * st.m_TravelTime;
-		if (Math.AbsFloat(scale) > 0.01)
-		{
-			float wc = GetWindCoef(shooter);
-			wc = wc - DM_WIND_LEARN_RATE * latSigned / scale;
-			if (wc < DM_WIND_COEF_MIN)
-				wc = DM_WIND_COEF_MIN;
-			if (wc > DM_WIND_COEF_MAX)
-				wc = DM_WIND_COEF_MAX;
-			s_WindCoef[shooter] = wc;
-			#ifdef DM_BOT_DEBUG_BALLISTICS
-			dmBotLog.Debug("[Ballistics] WIND latSigned=" + latSigned + " windPerp=" + st.m_WindPerp + " coef=" + wc);
-			#endif
-		}
+		float latAngle = latSigned / along;
+		float lc = GetLatCorr(shooter);
+		lc = lc - DM_LAT_LEARN_RATE * latAngle;
+		if (lc < DM_LAT_COEF_MIN)
+			lc = DM_LAT_COEF_MIN;
+		if (lc > DM_LAT_COEF_MAX)
+			lc = DM_LAT_COEF_MAX;
+		s_LatCorr[shooter] = lc;
+		#ifdef DM_BOT_DEBUG_BALLISTICS
+		dmBotLog.Debug("[Ballistics] LAT latSigned=" + latSigned + " latAngle=" + latAngle + " coef=" + lc);
+		#endif
 	}
 }

@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.81";
+static const string DM_BOTORAMA_VERSION = "3.82";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
@@ -16,13 +16,14 @@ static const float DM_DROP_COEF_MAX = 1.5;
 //! Gravity (m/s^2) for the descent-slope estimate in the drop feedback.
 static const float DM_AI_GRAVITY = 9.81;
 
-//! Wind compensation: initial per-bot learnable coefficient (drift = wind * coef * t).
-static const float DM_WIND_COEF_INIT = 0.03;
-//! Wind compensation: learning rate of the coefficient update per shot.
-static const float DM_WIND_LEARN_RATE = 0.6;
-//! Wind compensation: clamp bounds.
-static const float DM_WIND_COEF_MIN = 0.0;
-static const float DM_WIND_COEF_MAX = 0.3;
+//! Lateral (horizontal) aim correction: learned per-bot angular offset (radians)
+//! accumulated from the signed perpendicular miss (geometric, wind-independent).
+static const float DM_LAT_COEF_INIT = 0.0;
+//! Lateral correction: damping of the accumulated offset per miss.
+static const float DM_LAT_LEARN_RATE = 0.5;
+//! Lateral correction: clamp bounds of the learned angle (radians, ~±3°).
+static const float DM_LAT_COEF_MIN = -0.05;
+static const float DM_LAT_COEF_MAX = 0.05;
 
 //! Ricochet filter: impacts slower than this (m/s) are ricochets, not the
 //! bullet's first ground hit — ignore them in the feedback.
