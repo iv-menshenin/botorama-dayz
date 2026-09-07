@@ -727,8 +727,8 @@ class dmAISurvivorBase : PlayerBase
 			float cosA = Math.Cos(latCorr);
 			float sinA = Math.Sin(latCorr);
 			vector rot = direction;
-			rot[0] = direction[0] * cosA + direction[2] * sinA;
-			rot[2] = direction[2] * cosA - direction[0] * sinA;
+			rot[0] = direction[0] * cosA - direction[2] * sinA;
+			rot[2] = direction[2] * cosA + direction[0] * sinA;
 			direction = rot;
 		}
 
