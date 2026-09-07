@@ -1,0 +1,265 @@
+{
+    "nationalities": {
+      "slavic": {
+        "male_first": [
+          "Aleksei", "Andrei", "Anton", "Boris", "Cyril", "Dmitri", "Ivan", "Mirek", "Nikolai", "Oleg",
+          "Pavel", "Sergei", "Vladimir", "Yuri", "Viktor", "Leonid", "Stanislav", "Mikhail", "Roman", "Vasily",
+          "Daniil", "Kirill", "Maxim", "Nikita", "Yegor", "Timofei", "Ilya", "Fedor", "Grigory", "Artyom",
+          "Ruslan", "Semyon", "Stepan", "Taras", "Vitaly", "Zakhar", "Yaroslav", "Bogdan", "Vladislav", "Vyacheslav"
+        ],
+        "female_first": [
+          "Anastasia", "Elena", "Irina", "Irena", "Katerina", "Ludmila", "Maria", "Natalia", "Olga", "Svetlana",
+          "Tatiana", "Vera", "Yulia", "Polina", "Daria", "Alina", "Sofia", "Anna", "Ekaterina", "Valentina",
+          "Galina", "Inna", "Karina", "Lilia", "Marina", "Nadezhda", "Oksana", "Raisa", "Snezhana", "Tamara",
+          "Ulyana", "Viktoria", "Yana", "Zoya", "Alevtina", "Bronislava", "Evgenia", "Lyubov", "Miroslava", "Nelly"
+        ],
+        "last": [
+          "Ivanov", "Petrov", "Sidorov", "Kuznetsov", "Smirnov", "Volkov", "Novak", "Horvat", "Kovac", "Novik",
+          "Sokolov", "Mikhailov", "Fedorov", "Morozov", "Orlov", "Lebedev", "Vinogradov", "Kozlov", "Pavlov", "Semenov",
+          "Tarasov", "Bogdanov", "Titov", "Nikolaev", "Andreev", "Gusev", "Zaitsev", "Sorokin", "Makarov", "Ermakov"
+        ]
+      },
+      "english": {
+        "male_first": [
+          "Lewis", "Oliver", "Peter", "Quinn", "Seth", "Thomas", "James", "Henry", "William", "George",
+          "Edward", "Charles", "Arthur", "Albert", "Harold", "Walter", "Ernest", "Frederick", "Albert", "Ralph",
+          "Edmund", "Cyril", "Reginald", "Norman", "Clifford", "Stanley", "Leonard", "Herbert", "Alfred", "Sidney",
+          "Maurice", "Cecil", "Bernard", "Donald", "Gerald", "Kenneth", "Raymond", "Philip", "Gordon", "Douglas"
+        ],
+        "female_first": [
+          "Linda", "Judy", "Eva", "Mary", "Alice", "Dorothy", "Margaret", "Elizabeth", "Catherine", "Eleanor",
+          "Florence", "Grace", "Helen", "Irene", "Joan", "Kathleen", "Laura", "Mabel", "Nellie", "Ruth",
+          "Sarah", "Theresa", "Vera", "Winifred", "Agnes", "Beatrice", "Clara", "Daisy", "Edith", "Frances",
+          "Gertrude", "Hazel", "Isabella", "Jessie", "Lillian", "Mildred", "Nancy", "Phyllis", "Rose", "Sylvia"
+        ],
+        "last": [
+          "Smith", "Johnson", "Brown", "Taylor", "Wilson", "Davies", "Evans", "Thomas", "Roberts", "Walker",
+          "Wright", "Robinson", "Thompson", "White", "Hughes", "Edwards", "Green", "Hall", "Wood", "Clark",
+          "Lewis", "Harris", "Martin", "Jackson", "Clarke", "King", "Baker", "Morgan", "Scott", "Turner"
+        ]
+      },
+      "german": {
+        "male_first": [
+          "Rolf", "Hans", "Klaus", "Dieter", "Gunther", "Wolfgang", "Manfred", "Jurgen", "Heinrich", "Karl",
+          "Ernst", "Friedrich", "Hermann", "Otto", "Walter", "Wilhelm", "Albert", "Fritz", "Gerhard", "Helmut",
+          "Joachim", "Kurt", "Ludwig", "Martin", "Peter", "Rudolf", "Stefan", "Thomas", "Uwe", "Werner",
+          "Andreas", "Bernd", "Christian", "Dietrich", "Eberhard", "Franz", "Georg", "Hartmut", "Ingo", "Jochen"
+        ],
+        "female_first": [
+          "Frida", "Gabi", "Helga", "Ingrid", "Anna", "Berta", "Charlotte", "Doris", "Elfriede", "Emma",
+          "Erna", "Gertrud", "Hannelore", "Ilse", "Johanna", "Karin", "Lieselotte", "Marta", "Monika", "Renate",
+          "Ruth", "Sabine", "Sigrid", "Sonja", "Ursula", "Waltraud", "Wilma", "Agnes", "Barbara", "Christa",
+          "Edith", "Erika", "Frieda", "Gisela", "Hedwig", "Irmgard", "Jutta", "Käthe", "Luise", "Margarete"
+        ],
+        "last": [
+          "Müller", "Schmidt", "Weber", "Fischer", "Wagner", "Becker", "Hoffmann", "Schulz", "Koch", "Richter",
+          "Bauer", "Klein", "Wolf", "Schröder", "Neumann", "Schwarz", "Zimmermann", "Braun", "Krüger", "Hofmann",
+          "Hartmann", "Lange", "Schmitt", "Werner", "Krause", "Meier", "Lehmann", "Schmid", "Schulze", "Maier"
+        ]
+      },
+      "spanish": {
+        "male_first": [
+          "Jose", "Carlos", "Miguel", "Antonio", "Francisco", "Manuel", "Pedro", "Juan", "Luis", "Javier",
+          "Diego", "Rafael", "Fernando", "Enrique", "Alberto", "Sergio", "Pablo", "Raul", "Emilio", "Andres",
+          "Tomas", "Ignacio", "Ruben", "Salvador", "Vicente", "Oscar", "Guillermo", "Hugo", "Ivan", "Alejandro",
+          "Ricardo", "Domingo", "Esteban", "Federico", "Gonzalo", "Hector", "Joaquin", "Leonardo", "Marcos", "Nicolas"
+        ],
+        "female_first": [
+          "Maria", "Carmen", "Isabel", "Lucia", "Ana", "Teresa", "Dolores", "Pilar", "Josefa", "Rosa",
+          "Antonia", "Elena", "Lourdes", "Mercedes", "Paula", "Sara", "Marta", "Nuria", "Raquel", "Silvia",
+          "Adriana", "Beatriz", "Cristina", "Diana", "Eva", "Gloria", "Ines", "Julia", "Laura", "Natalia",
+          "Patricia", "Sonia", "Victoria", "Alicia", "Blanca", "Claudia", "Emma", "Gabriela", "Irene", "Juana"
+        ],
+        "last": [
+          "Garcia", "Rodriguez", "Lopez", "Martinez", "Sanchez", "Perez", "Gonzalez", "Fernandez", "Moreno", "Jimenez",
+          "Ruiz", "Diaz", "Hernandez", "Torres", "Alvarez", "Romero", "Navarro", "Soler", "Molina", "Vazquez",
+          "Castro", "Ortega", "Rubio", "Serrano", "Mendez", "Iglesias", "Delgado", "Reyes", "Vidal", "Campos"
+        ]
+      },
+      "japanese": {
+        "male_first": [
+          "Kaito", "Taiki", "Haruto", "Yuki", "Sora", "Ren", "Daiki", "Hiroshi", "Kenji", "Makoto",
+          "Naoki", "Riku", "Shota", "Takumi", "Yamato", "Yuto", "Itsuki", "Kazuki", "Kenta", "Masaru",
+          "Noboru", "Osamu", "Ryota", "Satoshi", "Tadashi", "Tsuyoshi", "Yasuhiro", "Yoshio", "Akira", "Fumio",
+          "Goro", "Hayato", "Isamu", "Jun", "Koji", "Masahiro", "Noriyuki", "Ryo", "Shinji", "Takeo"
+        ],
+        "female_first": [
+          "Keiko", "Naomi", "Sakura", "Yumi", "Aiko", "Emi", "Hana", "Haruka", "Kana", "Mai",
+          "Mika", "Nana", "Rina", "Saki", "Tomoko", "Yui", "Akane", "Chie", "Eri", "Fumiko",
+          "Hitomi", "Junko", "Kumiko", "Mami", "Natsumi", "Rei", "Satomi", "Sayuri", "Shiori", "Ayaka",
+          "Chihiro", "Eiko", "Kiyoko", "Madoka", "Miki", "Noriko", "Ritsuko", "Shizuka", "Teruko", "Yoshiko"
+        ],
+        "last": [
+          "Sato", "Tanaka", "Suzuki", "Watanabe", "Takahashi", "Yamamoto", "Nakamura", "Kobayashi", "Kato", "Yoshida",
+          "Yamada", "Sasaki", "Matsumoto", "Inoue", "Kimura", "Hayashi", "Shimizu", "Yamazaki", "Mori", "Abe",
+          "Ikeda", "Hashimoto", "Ogawa", "Ishikawa", "Fujita", "Okada", "Hasegawa", "Murakami", "Kondo", "Otsuka"
+        ]
+      },
+      "chinese": {
+        "male_first": [
+          "Guo", "Wei", "Chen", "Li", "Zhang", "Liu", "Wang", "Yang", "Huang", "Zhao",
+          "Wu", "Zhou", "Xu", "Sun", "Ma", "Zhu", "Hu", "Guo", "He", "Luo",
+          "Gao", "Lin", "Zheng", "Tang", "Feng", "Dong", "Cheng", "Yuan", "Deng", "Jiang",
+          "Shen", "Peng", "Lu", "Su", "Zeng", "Xie", "Han", "Cai", "Jia", "Wei"
+        ],
+        "female_first": [
+          "Mei", "Xia", "Ling", "Fang", "Xiu", "Yan", "Li", "Hua", "Chun", "Ju",
+          "Lan", "Fen", "Hong", "Hui", "Jing", "Juan", "Min", "Na", "Pei", "Qing",
+          "Rong", "Shu", "Ting", "Wen", "Xiang", "Ying", "Zhen", "Ai", "Bi", "Cai",
+          "Dan", "E", "Fu", "Gui", "He", "Jia", "Kun", "Lian", "Mei", "Ning"
+        ],
+        "last": [
+          "Wang", "Zhang", "Liu", "Chen", "Li", "Yang", "Huang", "Zhao", "Wu", "Zhou",
+          "Xu", "Sun", "Ma", "Zhu", "Hu", "Guo", "He", "Luo", "Gao", "Lin",
+          "Zheng", "Tang", "Feng", "Dong", "Cheng", "Yuan", "Deng", "Jiang", "Shen", "Peng"
+        ]
+      },
+      "arabic": {
+        "male_first": [
+          "Hassan", "Omar", "Ali", "Yusuf", "Ahmed", "Mohammed", "Khalid", "Ibrahim", "Mustafa", "Tariq",
+          "Rashid", "Sami", "Nabil", "Faris", "Zaid", "Jamal", "Kareem", "Bilal", "Faisal", "Hussein",
+          "Imad", "Jabir", "Karim", "Malik", "Nadir", "Qasim", "Raed", "Salim", "Walid", "Yasser",
+          "Adil", "Bashir", "Dawud", "Fahad", "Ghassan", "Hamza", "Ismail", "Jalal", "Mazin", "Nasir"
+        ],
+        "female_first": [
+          "Fatima", "Aisha", "Layla", "Zainab", "Mariam", "Khadija", "Nadia", "Salma", "Huda", "Samira",
+          "Amira", "Dina", "Farah", "Hana", "Iman", "Jamila", "Lina", "Maha", "Nour", "Rania",
+          "Sara", "Yasmin", "Amina", "Basma", "Dalia", "Eman", "Ghada", "Hind", "Karima", "Latifa",
+          "Mona", "Nabila", "Rasha", "Safiya", "Thuraya", "Wafa", "Zahra", "Abla", "Bushra", "Fadwa"
+        ],
+        "last": [
+          "Al-Farsi", "Haddad", "Khalil", "Nasser", "Awad", "Aziz", "Darwish", "El-Sayed", "Fahmy", "Ghanem",
+          "Hakim", "Ibrahim", "Jaber", "Kassem", "Mansour", "Naim", "Osman", "Qureshi", "Rahman", "Saeed",
+          "Taleb", "Younis", "Zaki", "Abbas", "Bitar", "Daher", "Fadel", "Habib", "Idris", "Kamel"
+        ]
+      },
+      "indian": {
+        "male_first": [
+          "Indar", "Raj", "Arjun", "Vikram", "Amit", "Rahul", "Sanjay", "Ravi", "Deepak", "Kiran",
+          "Manoj", "Nikhil", "Prakash", "Sunil", "Anand", "Vijay", "Ashok", "Dinesh", "Ganesh", "Hari",
+          "Jitendra", "Kishore", "Mahesh", "Naveen", "Pramod", "Ramesh", "Suresh", "Tarun", "Umesh", "Varun",
+          "Yogesh", "Aakash", "Bhavesh", "Chetan", "Dilip", "Eshwar", "Feroz", "Gaurav", "Harish", "Ishaan"
+        ],
+        "female_first": [
+          "Priya", "Anjali", "Deepa", "Sunita", "Kavita", "Neha", "Pooja", "Rina", "Sita", "Asha",
+          "Bhavna", "Chitra", "Divya", "Esha", "Geeta", "Indira", "Jyoti", "Kiran", "Lakshmi", "Meera",
+          "Nalini", "Padmini", "Radha", "Sangeeta", "Shanti", "Uma", "Vandana", "Vidya", "Anita", "Bina",
+          "Chanda", "Damini", "Farah", "Gauri", "Hema", "Ila", "Jaya", "Kalyani", "Lata", "Madhu"
+        ],
+        "last": [
+          "Sharma", "Patel", "Singh", "Kumar", "Verma", "Gupta", "Reddy", "Nair", "Iyer", "Das",
+          "Joshi", "Chopra", "Malhotra", "Kapoor", "Mehta", "Bose", "Ghosh", "Mukherjee", "Banerjee", "Chowdhury",
+          "Desai", "Rao", "Naidu", "Menon", "Pillai", "Saxena", "Trivedi", "Agarwal", "Bhatt", "Dixit"
+        ]
+      },
+      "polynesian": {
+        "male_first": [
+          "Manua", "Koa", "Lani", "Tane", "Moana", "Keanu", "Maui", "Kai", "Hoku", "Ikaika",
+          "Kekoa", "Makani", "Noa", "Pika", "Rongo", "Tama", "Vaea", "Atamu", "Fetu", "Hiro",
+          "Kainalu", "Lono", "Mana", "Nui", "Ona", "Pono", "Rangi", "Tahi", "Ula", "Vili",
+          "Akamu", "Fetu", "Hale", "Ikaia", "Kaleo", "Liko", "Makoa", "Nakoa", "Oke", "Pekelo"
+        ],
+        "female_first": [
+          "Moana", "Leilani", "Nani", "Kiana", "Alamea", "Halani", "Iolana", "Kalani", "Lani", "Mahina",
+          "Nalani", "Olina", "Pualani", "Raiha", "Tiare", "Vaitiare", "Alani", "Hina", "Kahula", "Lilinoe",
+          "Mele", "Noelani", "Okalani", "Pomaikai", "Ruihi", "Talia", "Uilani", "Wailani", "Anuhea", "Hoku",
+          "Iwalani", "Kailani", "Lokelani", "Malia", "Nani", "Oliana", "Pua", "Roselani", "Teuila", "Vanu"
+        ],
+        "last": [
+          "Tui", "Mara", "Vaka", "Fetu", "Mana", "Ariki", "Heke", "Ioane", "Kai", "Latu",
+          "Mafi", "Niu", "Paulo", "Rangi", "Sione", "Tama", "Unga", "Vaea", "Winiata", "Havili",
+          "Kauvaka", "Lolohea", "Mafi", "Ngaue", "Paea", "Tevita", "Ulukalala", "Vakauta", "Wolfgramm", "Fifita"
+        ]
+      },
+      "mongolian": {
+        "male_first": [
+          "Bat", "Temu", "Gan", "Bold", "Davaa", "Enkh", "Gantulga", "Khulan", "Munkh", "Naran",
+          "Od", "Purev", "Sain", "Tseren", "Ulzii", "Bataar", "Chuluun", "Danzan", "Erdene", "Ganbat",
+          "Khasar", "Lkhagva", "Mergen", "Nergui", "Ochir", "Sukh", "Togtokh", "Uugan", "Yadam", "Zorig",
+          "Altai", "Baatar", "Chingis", "Dorj", "Ganzorig", "Khorloo", "Munkhbat", "Nyam", "Otgon", "Sergelen"
+        ],
+        "female_first": [
+          "Baty", "Sarnai", "Nara", "Od", "Altan", "Bolormaa", "Dulma", "Enkhtuya", "Gerel", "Khaliun",
+          "Munkhtsetseg", "Nomin", "Oyun", "Suvd", "Tsogt", "Uranchimeg", "Yanjin", "Zulaa", "Ariunaa", "Bayarmaa",
+          "Chimeg", "Delgermaa", "Erdenetuya", "Gantumur", "Khongorzul", "Lkhagvadulam", "Munkhzul", "Narantuya", "Otgonjargal", "Purevsuren",
+          "Sarantuya", "Tumen", "Undral", "Yeruul", "Zolzaya", "Altantsetseg", "Battsooj", "Davaasuren", "Enkhjargal", "Ganbold"
+        ],
+        "last": [
+          "Khan", "Bator", "Dorj", "Enkh", "Bat", "Gan", "Tseren", "Munkh", "Naran", "Od",
+          "Purev", "Sukh", "Ulzii", "Zorig", "Altai", "Baatar", "Chuluun", "Davaa", "Erdene", "Gantulga",
+          "Khasar", "Lkhagva", "Mergen", "Nergui", "Ochir", "Sergelen", "Togtokh", "Uugan", "Yadam", "Zolboo"
+        ]
+      },
+      "greek": {
+        "male_first": [
+          "Elias", "Nikolas", "Dimitris", "Alexis", "Andreas", "Antonis", "Christos", "Georgios", "Ioannis", "Kostas",
+          "Marios", "Panagiotis", "Petros", "Spyros", "Stavros", "Theodoros", "Vasilis", "Yannis", "Achilles", "Adonis",
+          "Argiris", "Charalambos", "Damianos", "Evangelos", "Fotios", "Grigoris", "Ilias", "Kyriakos", "Leonidas", "Michalis",
+          "Nektarios", "Orestis", "Pavlos", "Sotiris", "Thanos", "Vangelis", "Xenophon", "Yiorgos", "Zacharias", "Anastasios"
+        ],
+        "female_first": [
+          "Eleni", "Sofia", "Maria", "Katerina", "Anna", "Dimitra", "Georgia", "Ioanna", "Nikolina", "Vasiliki",
+          "Angela", "Chara", "Despina", "Eirini", "Fotini", "Giota", "Ilektra", "Konstantina", "Lambrini", "Melina",
+          "Niki", "Olga", "Panagiota", "Rania", "Stella", "Theodora", "Zoe", "Artemis", "Chrysoula", "Daphne",
+          "Eleftheria", "Evangelia", "Flora", "Galini", "Ifigeneia", "Kalliopi", "Lydia", "Myrto", "Nafsika", "Olympia"
+        ],
+        "last": [
+          "Papadopoulos", "Georgiou", "Nikolaou", "Dimitriou", "Ioannou", "Konstantinou", "Christou", "Petrou", "Vasileiou", "Makris",
+          "Alexiou", "Andreou", "Antoniou", "Athanasiou", "Economou", "Fotopoulos", "Giannopoulos", "Karagiannis", "Kyriakou", "Lazarou",
+          "Mavridis", "Nicolau", "Panagiotou", "Roussos", "Spyropoulos", "Stavrou", "Theodorou", "Vlachos", "Xenakis", "Zervas"
+        ]
+      },
+      "french": {
+        "male_first": [
+          "Francis", "Jean", "Pierre", "Luc", "Michel", "Claude", "Jacques", "Antoine", "Bernard", "Charles",
+          "Daniel", "Etienne", "François", "Gérard", "Henri", "Julien", "Laurent", "Marcel", "Nicolas", "Olivier",
+          "Pascal", "Romain", "Sébastien", "Thierry", "Vincent", "Xavier", "Yves", "Alain", "Benoit", "Christophe",
+          "David", "Emmanuel", "Fabrice", "Gilles", "Hugues", "Ismaël", "Jérôme", "Karim", "Lionel", "Mathieu"
+        ],
+        "female_first": [
+          "Marie", "Claire", "Sophie", "Camille", "Anne", "Béatrice", "Catherine", "Denise", "Émilie", "Florence",
+          "Gabrielle", "Hélène", "Isabelle", "Jeanne", "Karine", "Laurence", "Marguerite", "Nathalie", "Odette", "Patricia",
+          "Renée", "Sylvie", "Thérèse", "Valérie", "Véronique", "Yvette", "Agathe", "Brigitte", "Cécile", "Delphine",
+          "Édith", "Françoise", "Geneviève", "Henriette", "Irène", "Josiane", "Lucie", "Madeleine", "Nicole", "Paulette"
+        ],
+        "last": [
+          "Martin", "Bernard", "Dubois", "Moreau", "Laurent", "Lefebvre", "Michel", "Garcia", "David", "Bertrand",
+          "Roux", "Vincent", "Fournier", "Morel", "Girard", "André", "Lefèvre", "Mercier", "Blanc", "Guérin",
+          "Chevalier", "Boucher", "Clement", "Faure", "Gauthier", "Perrin", "Robin", "Henry", "Marchand", "Masson"
+        ]
+      }
+    },
+    "model_mapping": {
+      "M_Mirek": "slavic",
+      "M_Denis": "slavic",
+      "M_Boris": "slavic",
+      "M_Cyril": "slavic",
+      "M_Elias": "greek",
+      "M_Francis": "french",
+      "M_Guo": "chinese",
+      "M_Hassan": "arabic",
+      "M_Indar": "indian",
+      "M_Jose": "spanish",
+      "M_Kaito": "japanese",
+      "M_Lewis": "english",
+      "M_Manua": "polynesian",
+      "M_Niki": "slavic",
+      "M_Oliver": "english",
+      "M_Peter": "english",
+      "M_Quinn": "english",
+      "M_Rolf": "german",
+      "M_Seth": "english",
+      "M_Taiki": "japanese",
+      "F_Linda": "english",
+      "F_Maria": "spanish",
+      "F_Frida": "german",
+      "F_Gabi": "german",
+      "F_Helga": "german",
+      "F_Irena": "slavic",
+      "F_Judy": "english",
+      "F_Keiko": "japanese",
+      "F_Eva": "english",
+      "F_Naomi": "japanese",
+      "F_Baty": "mongolian"
+    }
+  }
