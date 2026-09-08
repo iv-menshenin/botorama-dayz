@@ -164,7 +164,7 @@ static const float DM_TRAJECTORY_TEST_DISTANCE = 500.0;
 //! Trajectory test: pause (seconds) between shots. Must exceed the bullet
 //! flight time (so the miss feedback is applied before the next shot) plus the
 //! bolt-cycle/reload time.
-static const float DM_TRAJECTORY_SHOT_INTERVAL = 5.0;
+static const float DM_TRAJECTORY_SHOT_INTERVAL = 2.5;
 
 //! Test scenario "leadshoot" — running-target lead observation.
 static const string DM_CHAT_TEST_LEADSHOOT = "leadshoot";

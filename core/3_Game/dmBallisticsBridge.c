@@ -62,7 +62,7 @@ class dmBallisticsBridge
 		s_LastShot.Remove(pawn);
 	}
 
-	static void OnImpact(EntityAI sourceEnt, bool hitEntity, vector pos, float speed)
+	static void OnImpact(EntityAI sourceEnt, Object hitEntity, vector pos, float speed)
 	{
 		if (!sourceEnt)
 			return;
@@ -103,6 +103,8 @@ class dmBallisticsBridge
 			coef = DM_DROP_COEF_MAX;
 		s_DropCoef[shooter] = coef;
 		#ifdef DM_BOT_DEBUG_BALLISTICS
+		if ( hitEntity )
+			dmBotLog.Debug("[Ballistics] FEEDBACK hitEntity=" + hitEntity.GetType());
 		dmBotLog.Debug("[Ballistics] FEEDBACK targetDist=" + st.m_TargetDist + " along=" + along + " coef=" + coef);
 		dmBotLog.Debug("[Ballistics] FEEDBACK offset=" + offset + " lateral=" + lateral + " speed=" + speed);
 		#endif

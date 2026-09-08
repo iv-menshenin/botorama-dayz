@@ -162,6 +162,23 @@ class dmTestSuite_TestCase
 	{
 		return (Math.Round(v * 1000.0) / 1000.0).ToString();
 	}
+
+	void GetPlayerLookDir(PlayerBase player, out vector lookDir)
+	{
+		int headBone = player.GetBoneIndexByName("Head");
+		if (headBone != -1)
+		{
+			vector headTransform[4];
+			player.GetBoneTransformWS(headBone, headTransform);
+			lookDir = headTransform[1];
+		}
+		else
+		{
+			lookDir = MiscGameplayFunctions.GetHeadingVector(player);
+		}
+		lookDir[1] = 0.0;
+		lookDir.Normalize();
+	}
 }
 
 //! Запускает один сценарий (параллельно с другими) и поллит его по таймеру.

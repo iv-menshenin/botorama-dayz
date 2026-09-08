@@ -529,16 +529,16 @@ class dmBotTest_Aim : dmTestSuite_TestCase
 	{
 		super.Setup(bot, player);
 
-		// 1) horizontal look direction only (distance stays as the player set it)
-		GetPlayerLookDir(player, m_LookDir);
 		float maxDist = DM_AIM_TEST_MAX_DIST;
 		if (m_MaxDistMeters > 0)
 			maxDist = m_MaxDistMeters;
 
-		// 2) place + face the bot along the look line
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn)
 			return;
+		// 1) horizontal look direction only (distance stays as the player set it)
+		// 2) place + face the bot along the look line
+		GetPlayerLookDir(player, m_LookDir);
 		vector playerPos = player.GetPosition();
 		vector spawnPos = playerPos + m_LookDir * 0.5;
 		pawn.SetPosition(spawnPos);
@@ -634,23 +634,6 @@ class dmBotTest_Aim : dmTestSuite_TestCase
 			s = s + Fmt(m_Distances[i]) + "м=" + m_Results[i];
 		}
 		return "PASS: " + s;
-	}
-
-	void GetPlayerLookDir(PlayerBase player, out vector lookDir)
-	{
-		int headBone = player.GetBoneIndexByName("Head");
-		if (headBone != -1)
-		{
-			vector headTransform[4];
-			player.GetBoneTransformWS(headBone, headTransform);
-			lookDir = headTransform[1];
-		}
-		else
-		{
-			lookDir = MiscGameplayFunctions.GetHeadingVector(player);
-		}
-		lookDir[1] = 0.0;
-		lookDir.Normalize();
 	}
 
 	void GiveEmptyAKMWithMags(PlayerBase pawn)
@@ -1466,6 +1449,7 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 	float m_TargetDistance = 0.0;
 	int m_Shots = 0;
 	int m_LastShotTime;
+	vector m_LookDir;
 
 	void SetTargetDistance(float v)
 	{
@@ -1498,6 +1482,12 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 			for (int i = 0; i < 5; i++)
 				pants.GetInventory().CreateInInventory("Ammo_762x54");
 		}
+
+		GetPlayerLookDir(player, m_LookDir);
+		vector playerPos = player.GetPosition();
+		vector spawnPos = playerPos + m_LookDir * 0.5;
+		pawn.SetPosition(spawnPos);
+		bot.SetDirection(m_LookDir);
 
 		dmAISurvivorBase base = dmAISurvivorBase.Cast(pawn);
 		if (base)
@@ -1621,6 +1611,7 @@ class dmBotTest_LeadShoot : dmTestSuite_TestCase
 	int m_LastShotTime;
 	ref dmAISurvivor m_TargetBot;
 	vector m_PRight;
+	vector m_LookDir;
 
 	void SetTargetDistance(float v)
 	{
@@ -1652,6 +1643,12 @@ class dmBotTest_LeadShoot : dmTestSuite_TestCase
 			for (int i = 0; i < 5; i++)
 				pants.GetInventory().CreateInInventory("Ammo_762x54");
 		}
+
+		GetPlayerLookDir(player, m_LookDir);
+		vector playerPos = player.GetPosition();
+		vector spawnPos = playerPos + m_LookDir * 0.5;
+		pawn.SetPosition(spawnPos);
+		bot.SetDirection(m_LookDir);
 
 		dmAISurvivorBase base = dmAISurvivorBase.Cast(pawn);
 		if (base)
