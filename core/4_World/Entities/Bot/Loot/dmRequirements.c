@@ -19,12 +19,14 @@ class dmRequirements
 	ref array<ref dmItemIndex> m_Items;    // результат Update (отсортирован по индексу)
 	ref array<EntityAI> m_Ruined;          // разрушенные (выбросить сразу)
 	float m_UsedRatio;                     // занятая доля ёмкости инвентаря (0..1)
+	int m_TotalCapacity;                   // суммарная ёмкость всех cargo (ячеек)
 
 	void dmRequirements()
 	{
 		m_Items = new array<ref dmItemIndex>();
 		m_Ruined = new array<EntityAI>();
 		m_UsedRatio = 0.0;
+		m_TotalCapacity = 0;
 	}
 
 	//! Базовый индекс необходимости по категории (ванильное наследование уже в dmLoot).
@@ -56,6 +58,7 @@ class dmRequirements
 		m_Items.Clear();
 		m_Ruined.Clear();
 		m_UsedRatio = 0.0;
+		m_TotalCapacity = 0;
 
 		if (!bot)
 			return;
@@ -170,7 +173,7 @@ class dmRequirements
 		ComputeUsedRatio(pawn);
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Requirements: items=" + m_Items.Count() + " ruined=" + m_Ruined.Count() + " used=" + m_UsedRatio);
+		dmBotLog.Debug("[Loot] Requirements: items=" + m_Items.Count() + " ruined=" + m_Ruined.Count() + " used=" + m_UsedRatio + " cap=" + m_TotalCapacity);
 		#endif
 	}
 
@@ -256,21 +259,45 @@ class dmRequirements
 		m_Items = sorted;
 	}
 
-	//! Занятая доля главного cargo (CargoGrid): capacity = width*height ячеек,
-	//! занято = сумма размеров предметов (GetItemSize). Нативного GetFreeCapacity
-	//! в GameInventory/CargoBase нет (см. ванильный GUI: GetCargoCapacity =
-	//! сумма GetItemSize, GetMaxCargoCapacity = GetWidth()*GetHeight()).
+	//! Занятая доля ВСЕХ cargo пешки (главный + надетые вещи): capacity =
+	//! width*height ячеек, занято = сумма размеров предметов (GetItemSize).
+	//! Нативного GetFreeCapacity в GameInventory/CargoBase нет (см. ванильный
+	//! GUI: GetCargoCapacity = сумма GetItemSize, GetMaxCargoCapacity =
+	//! GetWidth()*GetHeight()).
 	private void ComputeUsedRatio(PlayerBase pawn)
 	{
-		CargoBase cargo = pawn.GetInventory().GetCargo();
-		if (!cargo)
+		GameInventory inv = pawn.GetInventory();
+		if (!inv)
 			return;
 
-		int total = cargo.GetWidth() * cargo.GetHeight();
+		int total = 0;
+		int used = 0;
+
+		// Главный cargo (сам инвентарь).
+		AccumulateCargo(inv.GetCargo(), total, used);
+
+		// Cargo всех надетых вещей (рюкзак, штаны, куртка, жилет, ...).
+		int i;
+		int slotCount = inv.GetAttachmentSlotsCount();
+		for (i = 0; i < slotCount; i++)
+		{
+			EntityAI att = inv.FindAttachment(inv.GetAttachmentSlotId(i));
+			if (att)
+				AccumulateCargo(att.GetInventory().GetCargo(), total, used);
+		}
+
+		m_TotalCapacity = total;
 		if (total <= 0)
 			return;
+		m_UsedRatio = (float)used / (float)total;
+	}
 
-		int used = 0;
+	//! Прибавить ёмкость и занятые ячейки одного cargo (null → ничего).
+	private void AccumulateCargo(CargoBase cargo, out int total, out int used)
+	{
+		if (!cargo)
+			return;
+		total = total + cargo.GetWidth() * cargo.GetHeight();
 		int i;
 		int w;
 		int h;
@@ -279,8 +306,6 @@ class dmRequirements
 			if (cargo.GetItemSize(i, w, h))
 				used = used + w * h;
 		}
-
-		m_UsedRatio = (float)used / (float)total;
 	}
 
 	int m_foodCount = 0;
