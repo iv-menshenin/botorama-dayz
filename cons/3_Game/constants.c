@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.96";
+static const string DM_BOTORAMA_VERSION = "3.97";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
@@ -13,6 +13,12 @@ static const float DM_DROP_LEARN_RATE = 0.6;
 //! Bullet-drop compensation: clamp bounds of the learned coefficient.
 static const float DM_DROP_COEF_MIN = 0.1;
 static const float DM_DROP_COEF_MAX = 1.5;
+//! Bullet-drop learning: target closer than this (m) — learning disabled (drop/lead
+//! are negligible and the feedback is mostly noise/dispersion).
+static const float DM_DROP_MIN_FEEDBACK_DIST = 50.0;
+//! Bullet-drop learning: ignore a shot whose impact is closer than this fraction of
+//! the target distance (hit a pole/fence/tree near the shooter — not a ballistic miss).
+static const float DM_DROP_MIN_FEEDBACK_FRAC = 0.66;
 //! Gravity (m/s^2) for the descent-slope estimate in the drop feedback.
 static const float DM_AI_GRAVITY = 9.81;
 

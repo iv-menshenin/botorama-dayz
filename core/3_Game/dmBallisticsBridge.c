@@ -80,6 +80,14 @@ class dmBallisticsBridge
 		float along = d[0] * st.m_AimDir[0] + d[2] * st.m_AimDir[2];
 		if (along <= 0.0)
 			return;
+		//! Цель слишком близко — обучение не делаем (дроп/упреждение пренебрежимы,
+		//! фидбек — шум от разброса/препятствий).
+		if (st.m_TargetDist < DM_DROP_MIN_FEEDBACK_DIST)
+			return;
+		//! Пуля попала в препятствие сильно ближе цели (столб/забор/дерево) — это
+		//! не баллистический промах, обучение (дроп/лат-коррекцию) не делаем.
+		if (along < st.m_TargetDist * DM_DROP_MIN_FEEDBACK_FRAC)
+			return;
 		vector lat = d - st.m_AimDir * along;
 		float lateral = lat.Length();
 		float coef = GetDropCoef(shooter);
