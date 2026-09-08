@@ -6,6 +6,8 @@ class dmBotShotState
 	float m_TargetDist;
 	float m_TravelTime;  // время полёта (с)
 	float m_AimPosY;    // высота точки прицела (грудь) на момент выстрела
+	vector m_TargetPos;   // позиция цели на момент выстрела
+	vector m_TargetVel;   // скорость цели на момент выстрела (мир, Y=0)
 }
 
 //! Cross-module bridge for the bullet-drop self-learning. DayZGame.FirearmEffects
@@ -33,7 +35,7 @@ class dmBallisticsBridge
 		return DM_LAT_COEF_INIT;
 	}
 
-	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist, float travelTime, float aimPosY)
+	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist, float travelTime, float aimPosY, vector targetPos, vector targetVel)
 	{
 		dmBotShotState st = new dmBotShotState();
 		st.m_Origin = origin;
@@ -43,6 +45,8 @@ class dmBallisticsBridge
 		st.m_AimDir = aimDir;
 		st.m_TravelTime = travelTime;
 		st.m_AimPosY = aimPosY;
+		st.m_TargetPos = targetPos;
+		st.m_TargetVel = targetVel;
 		s_LastShot[pawn] = st;
 	}
 
@@ -87,17 +91,27 @@ class dmBallisticsBridge
 		dmBotLog.Debug("[Ballistics] FEEDBACK targetDist=" + st.m_TargetDist + " along=" + along + " coef=" + coef);
 		dmBotLog.Debug("[Ballistics] FEEDBACK offset=" + offset + " lateral=" + lateral + " speed=" + speed);
 		#endif
-		float latSigned = st.m_AimDir[0] * d[2] - st.m_AimDir[2] * d[0];
-		float latAngle = latSigned / along;
-		float lc = GetLatCorr(shooter);
-		lc = lc - DM_LAT_LEARN_RATE * latAngle;
-		if (lc < DM_LAT_COEF_MIN)
-			lc = DM_LAT_COEF_MIN;
-		if (lc > DM_LAT_COEF_MAX)
-			lc = DM_LAT_COEF_MAX;
-		s_LatCorr[shooter] = lc;
-		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] LAT latSigned=" + latSigned + " latAngle=" + latAngle + " coef=" + lc);
-		#endif
+		//! Обобщённая поправка (ветер + упреждение): угол между направлением
+		//! (origin → impact) и направлением (origin → P0 + V0·t).
+		vector pExpected = st.m_TargetPos + st.m_TargetVel * st.m_TravelTime;
+		vector expDir = pExpected - st.m_Origin;
+		expDir[1] = 0.0;
+		float dLen = d.Length();
+		float eLen = expDir.Length();
+		if (dLen > 0.01 && eLen > 0.01)
+		{
+			float sinA = (expDir[0] * d[2] - expDir[2] * d[0]) / (dLen * eLen);
+			float missAngle = Math.Asin(Math.Clamp(sinA, -1.0, 1.0));
+			float lc = GetLatCorr(shooter);
+			lc = lc - DM_LAT_LEARN_RATE * missAngle;
+			if (lc < DM_LAT_COEF_MIN)
+				lc = DM_LAT_COEF_MIN;
+			if (lc > DM_LAT_COEF_MAX)
+				lc = DM_LAT_COEF_MAX;
+			s_LatCorr[shooter] = lc;
+			#ifdef DM_BOT_DEBUG_BALLISTICS
+			dmBotLog.Debug("[Ballistics] CORR missAngle=" + missAngle + " coef=" + lc);
+			#endif
+		}
 	}
 }

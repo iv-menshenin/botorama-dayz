@@ -62,6 +62,7 @@ class dmAISurvivorBase : PlayerBase
 
 	//! Сущность цели прицела (для гейта обучения дропа на одиночных выстрелах).
 	private EntityAI m_AimTargetEntity;
+	private vector m_AvgVel = vector.Zero;   // EMA-скорость цели для упреждения
 
 	//! Идеальный прицел для тестов: нулевой разброс (личный и оружейный).
 	private bool m_PerfectAim;
@@ -529,8 +530,10 @@ class dmAISurvivorBase : PlayerBase
 			m_AimRelAngleUD = 0.0;
 			m_AimTargetEntity = null;
 			m_AimDistance = 0.0;
+			m_AvgVel = vector.Zero;
 			return;
 		}
+		bool targetChanged = (target != m_AimTargetEntity);
 		m_AimTargetEntity = target;
 
 		//! Aim point: center mass for humans (Spine3, like the melee code), head
@@ -557,6 +560,29 @@ class dmAISurvivorBase : PlayerBase
 		//! Eye position: the actual barrel muzzle (bullet exit point), so the aim
 		//! line passes through the shot origin; falls back to the neck bone.
 		vector eyePos = GetMuzzlePosition();
+
+		//! Упреждение: EMA-скорость цели, сдвиг точки прицела вперёд.
+		Human humanLead = Human.Cast(target);
+		if (humanLead)
+		{
+			vector leadVel;
+			humanLead.PhysicsGetVelocity(leadVel);
+			leadVel[1] = 0.0;
+			if (targetChanged)
+				m_AvgVel = leadVel;
+			else
+				m_AvgVel = (m_AvgVel + leadVel * 2.0) * (1.0 / 3.0);
+			if (m_AvgVel.Length() > DM_LEAD_SPEED_EPS)
+			{
+				Weapon_Base leadWeapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+				if (leadWeapon)
+				{
+					float leadTime = ComputeBulletTravelTime(leadWeapon, leadWeapon.GetCurrentMuzzle(), vector.Distance(eyePos, aimPos));
+					aimPos[0] = aimPos[0] + m_AvgVel[0] * leadTime;
+					aimPos[2] = aimPos[2] + m_AvgVel[2] * leadTime;
+				}
+			}
+		}
 
 		vector aimDir = aimPos - eyePos;
 		m_AimDistance = vector.Distance(eyePos, aimPos);
@@ -714,7 +740,19 @@ class dmAISurvivorBase : PlayerBase
 			targetDown = true;
 		if (singleShot && !targetDown)
 		{
-			dmBallisticsBridge.RecordShot(this, origin, direction, distance, travelTime, origin[1] + direction[1] * distance);
+			vector targetPos = vector.Zero;
+			vector targetVel = vector.Zero;
+			if (m_AimTargetEntity)
+			{
+				targetPos = m_AimTargetEntity.GetPosition();
+				Human hLead = Human.Cast(m_AimTargetEntity);
+				if (hLead)
+				{
+					hLead.PhysicsGetVelocity(targetVel);
+					targetVel[1] = 0.0;
+				}
+			}
+			dmBallisticsBridge.RecordShot(this, origin, direction, distance, travelTime, origin[1] + direction[1] * distance, targetPos, targetVel);
 		}
 		else
 			dmBallisticsBridge.ClearShot(this);
