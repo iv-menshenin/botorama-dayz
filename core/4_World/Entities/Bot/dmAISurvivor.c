@@ -1569,17 +1569,69 @@ class dmAISurvivor
 
 	bool IsSuitableAmmo(ItemBase item)
 	{
-		// TODO Проверить:
-		//  Есть ли в инвентаре оружие (в том числе в слотах SHOULDER и MELEE), которому подходит этот вид патронов
-		//  Если да, вернуть TRUE
-		return true;
+		if (!item || !item.IsAmmoPile())
+			return false;
+		if (!m_Pawn)
+			return false;
+		Magazine ammo = Magazine.Cast(item);
+		if (!ammo)
+			return false;
+
+		array<EntityAI> items = new array<EntityAI>();
+		m_Pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			Weapon_Base w = Weapon_Base.Cast(items[i]);
+			if (!w || w.IsMeleeWeapon())
+				continue;
+			int mi;
+			for (mi = 0; mi < w.GetMuzzleCount(); mi++)
+			{
+				if (w.CanChamberFromMag(mi, ammo))
+				{
+					#ifdef DM_BOT_DEBUG_LOOTING
+					dmBotLog.Debug("[Loot] IsSuitableAmmo: " + item.GetType() + " подходит к " + w.GetType());
+					#endif
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	bool IsSuitableMagazine(ItemBase item)
 	{
-		// TODO Проверить
-		//  Есть ли в инвентаре (в том числе в слотах SHOULDER и MELEE) оружие, которому подзодит такой магазин
-		//  Если да, вернуть TRUE
-		return true;
+		if (!item || !item.IsMagazine())
+			return false;
+		if (!m_Pawn)
+			return false;
+		Magazine mag = Magazine.Cast(item);
+		if (!mag)
+			return false;
+
+		WeaponManager wm = m_Pawn.GetWeaponManager();
+		if (!wm)
+			return false;
+
+		array<EntityAI> items = new array<EntityAI>();
+		m_Pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			Weapon_Base w = Weapon_Base.Cast(items[i]);
+			if (!w || w.IsMeleeWeapon())
+				continue;
+			if (wm.CanAttachMagazine(w, mag) || wm.CanSwapMagazine(w, mag))
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] IsSuitableMagazine: " + item.GetType() + " подходит к " + w.GetType());
+				#endif
+				return true;
+			}
+		}
+		return false;
 	}
 }
