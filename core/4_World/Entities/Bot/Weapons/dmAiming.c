@@ -181,6 +181,8 @@ class dmAiming
 		Human human;
 		DayZCreature creature;
 		vector tv;
+		vector delta;
+		float deltaSpeed;
 		bool standing;
 		vector transform[4];
 		float healthModifier;
@@ -238,14 +240,22 @@ class dmAiming
 
 		targetEntity = m_Target;
 
-		//! Псевдосредняя скорость цели (EMA, горизонтальная). Только хранится и
-		//! передаётся в пешку; упреждение точки прицела — отдельная будущая задача.
+		//! Псевдосредняя скорость цели (EMA, горизонтальная) для упреждения. При
+		//! резкой смене скорости/траектории — прыжок на новую скорость (иначе EMA
+		//! отстаёт), а при большом скачке — сброс накопленной боковой поправки.
 		human = Human.Cast(targetEntity);
 		if (human)
 		{
 			human.PhysicsGetVelocity(tv);
 			tv[1] = 0.0;
-			m_TargetVelocity = (m_TargetVelocity + tv * 2.0) * (1.0 / 3.0);
+			delta = tv - m_TargetVelocity;
+			deltaSpeed = delta.Length();
+			if (deltaSpeed > DM_LEAD_VEL_CHANGE_EPS)
+				m_TargetVelocity = tv;
+			else
+				m_TargetVelocity = (m_TargetVelocity + tv * 2.0) * (1.0 / 3.0);
+			if (deltaSpeed > DM_LAT_RESET_VEL_EPS)
+				dmBallisticsBridge.ResetLatCorr(m_Unit);
 		}
 
 		//! Aim point: head for a standing target under real optics, center mass

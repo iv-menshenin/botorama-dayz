@@ -35,6 +35,13 @@ class dmBallisticsBridge
 		return DM_LAT_COEF_INIT;
 	}
 
+	//! Сбросить накопленную боковую поправку (лат-коррекцию) пешки: при смене
+	//! скорости/траектории цели старое обученное значение больше не применимо.
+	static void ResetLatCorr(EntityAI pawn)
+	{
+		s_LatCorr.Remove(pawn);
+	}
+
 	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist, float travelTime, float aimPosY, vector targetPos, vector targetVel)
 	{
 		dmBotShotState st = new dmBotShotState();
