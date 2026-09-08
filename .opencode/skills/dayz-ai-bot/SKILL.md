@@ -291,7 +291,11 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   Определение места **категорийно**, НЕ дженерик-скан слотов (готча: сканирование слотов по порядку
   кладёт штаны в карго занятой куртки, не дойдя до пустого LEGS):
   - `FindAttachmentSlot(pawn, item, out slotId)` — WEAPON→`SHOULDER`; MELEE→`MELEE`→`SHOULDER`;
-    CLOTHING→слот из `ConfigGetTextArray("inventorySlot")`. Проверка `CanAddAttachmentEx` + пустой слот.
+    CLOTHING→слот из `ConfigGetTextArray("inventorySlot")`. **Готча**: для CLOTHING проверку
+    «свободен ли слот» делай через `inv.HasAttachmentSlot(slotId)` + `!inv.FindAttachment(slotId)` —
+    НЕ `CanAddAttachmentEx` (тот возвращает `false` для одежды/рюкзака → предмет уходит в карго или
+    «нет места»). `CanAddAttachmentEx` оставлен только для WEAPON/MELEE (различает винтовку/пистолет,
+    нож/топор — там он валиден).
   - `FindCargo(pawn, item, out dst)` — свободное карго ВСЕГО одетого инвентаря (не только рюкзак).
   - `FindDestination(pawn, item, out dst)` = `FindAttachmentSlot` → иначе `FindCargo`. **Каждая
     return-true ветка обязана заполнить `out`** (иначе `LocalTakeToDst` с пустым `dst` → NULL-ptr).
@@ -302,6 +306,9 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   индекса необходимости) → дроп всех предметов на пол → коллект «новая вещь первой, затем order
   с конца» — всё ПАРАЛЛЕЛЬНЫМИ `Enqueue` (НЕ `Then`/`SuccessOnly`: фейл одного шага не прерывает).
   После репака — `IgnoreLeftovers` (выложенное, что не легло обратно — на полу) → игнор.
+- **Сравнение одежды** (`dmAISurvivor.IsBetterClothing`, авторитетно в `CalcDesired`): берём только
+  лучше надетого, строгий лексикографический порядок — cargo (`CargoCapacity` = ширина×высота карго)
+  → `GetHeatIsolation()` → `GetHealth()` → `GetMaxHealth()`; все равны → НЕ брать; пустой слот → брать.
 - **`dmInventoryFrame` — два РАЗНЫХ сигнала завершения** (не путать):
   - `IsAllDone()` — **«всё успех»**: каждый лист выполненной ветки вернул успех
     (листовой фрейм → `m_Success`).
