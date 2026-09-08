@@ -366,9 +366,12 @@ class dmAiming
 		return halfAccuracyMultiplier + halfAccuracyMultiplier * (growPerc * growPerc);
 	}
 
+	// HitProbability - это не зеркало m_HitProbability, это "уверенность" бота в собственных силах.
+	// Влияет непосредственно на его желание нажать на спусковой крючок.
+	// ВНИМАНИЕ: Не следует использовать результат этой функции в расчете траектории!
 	float HitProbability()
 	{
-		return m_HitProbability;
+		return m_HitProbability / (1 + m_RecoilPitch / DM_AIM_RECOIL_DEGREE);
 	}
 
 	private bool HasRealOptics()

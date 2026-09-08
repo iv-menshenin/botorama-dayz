@@ -601,13 +601,13 @@ class dmAISurvivorBase : PlayerBase
 	//! when no weapon is in hands or the memory point is not resolvable.
 	vector GetMuzzlePosition()
 	{
-		Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
-		if (weapon)
-		{
-			vector muzzleLocal = weapon.GetSelectionPositionMS("usti hlavne");
-			if (muzzleLocal.LengthSq() > 0.001)
-				return weapon.ModelToWorld(muzzleLocal);
-		}
+		// Weapon_Base weapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
+		// if (weapon)
+		// {
+		// 	vector muzzleLocal = weapon.GetSelectionPositionMS("usti hlavne");
+		// 	if (muzzleLocal.LengthSq() > 0.001)
+		// 		return weapon.ModelToWorld(muzzleLocal);
+		// }
 		vector origin = GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
 		int neck = GetBoneIndexByName("Neck");
 		if (neck >= 0)

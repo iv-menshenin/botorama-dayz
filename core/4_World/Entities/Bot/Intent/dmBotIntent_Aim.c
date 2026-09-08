@@ -61,7 +61,7 @@ class dmBotIntent_Aim : dmBotIntent
 			pawn.SetAimDirection(aiming.GetAimDirection());
 			bot.LookAtPoint(aiming.GetAimPosition(), dmBotLookTurn.FULL);
 
-			chanceToRequest = aiming.HitProbability();
+			chanceToRequest = aiming.HitProbability() * pDt;
 		}
 
 		pawn.RaiseWeapon(true);
