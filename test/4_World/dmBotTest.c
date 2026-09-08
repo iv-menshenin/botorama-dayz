@@ -1511,7 +1511,7 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 
 	override float GetInterval() { return 0.5; }
 
-	override float GetDuration() { return 300.0; }
+	override float GetDuration() { return 500.0; }
 
 	override string OnCheck(float elapsed)
 	{
