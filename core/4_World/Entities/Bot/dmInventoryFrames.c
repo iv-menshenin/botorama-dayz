@@ -55,8 +55,8 @@ class dmInventoryFrame
 		return m_OnFail;
 	}
 
-	//! Готово ли ВСЁ дерево (выполненная ветка рекурсивно). ВАЖНО: листовой фрейм
-	//! (выполнен, веток нет) готов только при РЕАЛЬНОМ успехе (m_Done && m_Success).
+	//! «Всё успех»: каждый лист выполненной ветки вернул успех (листовой фрейм — m_Success).
+	//! НЕ то же, что «доигралось» (см. IsAllFinished).
 	bool IsAllDone()
 	{
 		if (!m_Done)
@@ -66,6 +66,21 @@ class dmInventoryFrame
 		if (m_OnSuccess && m_OnSuccess.IsAllDone())
 			return true;
 		if (m_OnFail && m_OnFail.IsAllDone())
+			return true;
+		return false;
+	}
+
+	//! «Доигралось»: выполненная ветка доигралась, НЕ важно успех или нет (листовой фрейм —
+	//! m_Done). НЕ то же, что «всё успех» (см. IsAllDone).
+	bool IsAllFinished()
+	{
+		if (!m_Done)
+			return false;
+		if (!m_OnSuccess && !m_OnFail)
+			return m_Done;
+		if (m_OnSuccess && m_OnSuccess.IsAllFinished())
+			return true;
+		if (m_OnFail && m_OnFail.IsAllFinished())
 			return true;
 		return false;
 	}

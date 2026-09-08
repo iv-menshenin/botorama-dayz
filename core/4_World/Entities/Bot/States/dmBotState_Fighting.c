@@ -190,7 +190,7 @@ class dmBotState_Fighting : dmBotState
 	{
 		if (m_EquipRoot)
 		{
-			if (!m_EquipRoot.IsAllDone())
+			if (!m_EquipRoot.IsAllFinished())
 				return;              // цепочка ещё выполняется
 			m_EquipRoot = null;      // цепочка завершена
 		}
