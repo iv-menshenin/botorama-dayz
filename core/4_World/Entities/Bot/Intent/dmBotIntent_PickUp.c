@@ -8,8 +8,9 @@
 class dmBotIntent_PickUp : dmBotIntent_MoveTo
 {
 	EntityAI m_Item;
-	ref dmInventoryFrame m_Root;
 	bool m_PickupQueued = false;
+	bool m_Evacuating = false;
+	ref array<EntityAI> m_EvacOrder;
 
 	void dmBotIntent_PickUp()
 	{
@@ -40,15 +41,10 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 	}
 
 	//! Достигли предмета — поставить цепочку подбора в менеджер инвентаря, не
-	//! завершая интент (ждём IsAllDone() в OnUpdate).
+	//! завершая интент (ждём, пока вещь фактически ляжет, в OnUpdate).
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
 		bot.SetMove(0.0, 0.0);
-
-		//! Уже ждём выполнения цепочки — не перезапускаем.
-		if (m_PickupQueued)
-			return;
-		m_PickupQueued = true;
 
 		if (!m_Item || m_Item.IsDamageDestroyed() || m_Item.IsSetForDeletion())
 		{
@@ -63,28 +59,142 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 			return;
 		}
 
-		m_Root = pawn.InventoryPickUp(ItemBase.Cast(m_Item));
-		if (!m_Root)
+		//! Уже ждём выполнения цепочки — не перезапускаем.
+		if (m_PickupQueued)
+			return;
+		m_PickupQueued = true;
+		m_EvacOrder = null;
+
+		dmInventoryFrame root = pawn.InventoryPickUp(ItemBase.Cast(m_Item));
+		if (!root)
 		{
+			//! Нет места (нет свободного слота/карго) — пробуем репак.
+			if (Evacuate(bot, pawn, ItemBase.Cast(m_Item)))
+			{
+				m_Evacuating = true;
+				return;
+			}
+			bot.GetWishlist().Ignore(m_Item);
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] InventoryPickUp: нет цепочки (нет рюкзака/слота)");
+			dmBotLog.Debug("[Loot] PickUp: нет места и репак невозможен, игнор " + m_Item.GetType());
 			#endif
 			Fail();
 			return;
 		}
-		//! Не завершаем — ждём IsAllDone() в OnUpdate.
+		//! Не завершаем — ждём GetHierarchyRootPlayer() != null в OnUpdate.
+	}
+
+	//! Эвакуация-репак под конкретный предмет: выложить всё ненужное на пол
+	//! (PLACEONGROUND), затем собрать обратно — новую вещь первой, затем остальные
+	//! с конца (TAKEINTOCARGO, to=null → FindDestination). Фреймы ставятся
+	//! параллельными Enqueue — фейл одного шага не прерывает процесс.
+	bool Evacuate(dmAISurvivor bot, dmAISurvivorBase pawn, ItemBase item)
+	{
+		dmRequirements req = bot.GetRequirements();
+		if (!req)
+			return false;
+		ref array<EntityAI> order = req.GetDiscardOrder();
+		if (order.Count() == 0)
+			return false;
+		m_EvacOrder = order;
+		dmInventoryFrames frames = pawn.GetInventoryFrames();
+		if (!frames)
+			return false;
+
+		int i;
+		ItemBase o;
+
+		for (i = 0; i < order.Count(); i++)
+		{
+			o = ItemBase.Cast(order[i]);
+			if (!o || o == item)
+				continue;
+			frames.Enqueue(dmInventoryFrame.Make(dmInventoryDoing.PLACEONGROUND, o, -1, null));
+		}
+
+		frames.Enqueue(dmInventoryFrame.Make(dmInventoryDoing.TAKEINTOCARGO, item, -1, null));
+		for (i = order.Count() - 1; i >= 0; i--)
+		{
+			o = ItemBase.Cast(order[i]);
+			if (!o || o == item)
+				continue;
+			frames.Enqueue(dmInventoryFrame.Make(dmInventoryDoing.TAKEINTOCARGO, o, -1, null));
+		}
+
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] Evacuate: начинаю репак для " + item.GetType() + ", вещей=" + order.Count());
+		#endif
+		return true;
+	}
+
+	//! Игнор выложенных при репаке вещей, что не легли обратно (остались на полу) —
+	//! чтобы не подбирать их заново. Обнуляет сохранённый порядок выброса.
+	void IgnoreLeftovers(dmAISurvivor bot)
+	{
+		if (!m_EvacOrder)
+			return;
+
+		int i;
+		EntityAI o;
+		for (i = 0; i < m_EvacOrder.Count(); i++)
+		{
+			o = m_EvacOrder[i];
+			if (o && o.GetHierarchyRootPlayer() == null)
+				bot.GetWishlist().Ignore(o);
+		}
+		m_EvacOrder = null;
 	}
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
-		super.OnUpdate(bot, pDt);
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 
-		if (m_PickupQueued && m_Root && m_Root.IsAllDone())
+		if (m_PickupQueued && !m_Evacuating && m_Item && m_Item.GetHierarchyRootPlayer() != null)
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] PickUp: цепочка инвентаря завершена");
+			dmBotLog.Debug("[Loot] PickUp: вещь легла " + m_Item.GetType());
 			#endif
 			Finish();
+			return;
 		}
+
+		if (m_Evacuating && pawn && pawn.GetInventoryFrames().IsEmpty())
+		{
+			IgnoreLeftovers(bot);
+			if (m_Item && m_Item.GetHierarchyRootPlayer() != null)
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] Evacuate: репак завершён, вещь легла " + m_Item.GetType());
+				#endif
+				Finish();
+				return;
+			}
+			bot.GetWishlist().Ignore(m_Item);
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Evacuate: репак завершён, вещь не легла — игнор " + m_Item.GetType());
+			#endif
+			Fail();
+			return;
+		}
+
+		if (m_Evacuating)
+			return;
+
+		if (m_PickupQueued && pawn && pawn.GetInventoryFrames().IsEmpty())
+		{
+			bot.GetWishlist().Ignore(m_Item);
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] PickUp: очередь пуста, вещь не легла — игнор " + m_Item.GetType());
+			#endif
+			Fail();
+			return;
+		}
+
+		if (!m_Item || m_Item.IsDamageDestroyed() || m_Item.IsSetForDeletion())
+		{
+			Fail();
+			return;
+		}
+		super.OnUpdate(bot, pDt);
 	}
 };

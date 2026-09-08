@@ -328,7 +328,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if ( m_Distance < 1.0 )
 		{
-			m_TooCloseTime + pDt;
+			m_TooCloseTime += pDt;
 		} else {
 			m_TooCloseTime = 0.0;
 		}

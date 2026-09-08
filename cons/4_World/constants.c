@@ -473,7 +473,7 @@ static const float DM_EXPLORE_EXPLORE_RADIUS = 100.0;
 //! Loot exploration: reach (meters) to a building before marking it visited.
 static const float DM_EXPLORE_BUILDING_REACH = 2.0;
 //! Loot exploration: cooldown (seconds) between drops when the inventory is full.
-static const float DM_EXPLORE_DROP_COOLDOWN = 5.0;
+static const float DM_EXPLORE_DROP_COOLDOWN = 15.0;
 
 //! TidyInventory: cooldown (seconds) between individual ammo/magazine steps.
 static const float DM_TIDY_STEP_INTERVAL = 1.0;

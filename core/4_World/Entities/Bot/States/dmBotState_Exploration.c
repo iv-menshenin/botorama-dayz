@@ -41,6 +41,7 @@ class dmBotState_Exploration : dmBotState
 		m_DropCooldown -= pDt;
 		if (m_DropCooldown > 0.0)
 			return;
+		m_DropCooldown = DM_EXPLORE_DROP_COOLDOWN;
 
 		dmRequirements req = bot.GetRequirements();
 		#ifdef DM_BOT_DEBUG_LOOTING
@@ -68,7 +69,6 @@ class dmBotState_Exploration : dmBotState
 			dmBotLog.Debug("[Loot] Выбрасываю: " + item.GetType());
 			#endif
 			bot.GetWishlist().Ignore(item);
-			m_DropCooldown = DM_EXPLORE_DROP_COOLDOWN;
 		}
 	}
 
@@ -85,7 +85,7 @@ class dmBotState_Exploration : dmBotState
 		if (item)
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[LOOT] Собираюсь залутать " + item.GetType() + " тут " + item.GetPosition());
+			dmBotLog.Debug("[Loot] Собираюсь залутать " + item.GetType() + " тут " + item.GetPosition());
 			#endif
 			m_PickUp = new dmBotIntent_PickUp();
 			m_PickUp.m_Item = item;
@@ -130,7 +130,7 @@ class dmBotState_Exploration : dmBotState
 		if (!best)
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[LOOT] Все хлам");
+			dmBotLog.Debug("[Loot] Все хлам");
 			#endif
 			return null;
 		}
