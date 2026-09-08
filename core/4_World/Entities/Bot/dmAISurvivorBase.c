@@ -239,7 +239,7 @@ class dmAISurvivorBase : PlayerBase
 	}
 
 	//! Сменить одежду: сбросить старую → надеть новую → перенести карго; при неудаче
-	//! надеть старую обратно. Ставит цепочку в очередь, возвращает корень (контроль IsAllDone).
+	//! надеть старую обратно. Ставит цепочку в очередь, возвращает корень (контроль завершения).
 	dmInventoryFrame InventoryChangeClothes(ItemBase newItem)
 	{
 		if (!newItem)
@@ -2134,9 +2134,3 @@ class dmAISurvivorBase : PlayerBase
 		return -1;
 	}
 }
-
-//! Model-specific classes. The config (CfgVehicles) inherits the vanilla
-//! SurvivorM_*/SurvivorF_* classes for the visual model.
-class dmAI_SurvivorM_Denis : dmAISurvivorBase {};
-class dmAI_SurvivorM_Mirek : dmAISurvivorBase {};
-class dmAI_SurvivorF_Eva : dmAISurvivorBase {};

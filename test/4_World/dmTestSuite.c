@@ -80,7 +80,7 @@ class dmTestSuite_TestCase
 		dir[1] = 0.0;
 		dir.Normalize();
 		vector pos = origin + dir * GetTestRange();
-		return SpawnHostile("dmAI_SurvivorM_Denis", pos);
+		return SpawnHostile(dmSurvivor.GetRandom(), pos);
 	}
 
 	//! Спавн болванки-игрока на `distance` метров от бота (по взгляду бота; distance<0 — сзади).
@@ -91,7 +91,7 @@ class dmTestSuite_TestCase
 		dir[1] = 0.0;
 		dir.Normalize();
 		vector pos = origin + dir * distance;
-		return SpawnHostile("dmAI_SurvivorM_Denis", pos);
+		return SpawnHostile(dmSurvivor.GetRandom(), pos);
 	}
 
 	//! Спавн зомби на GetTestRange() от бота (по взгляду игрока), на земле, враждебного.

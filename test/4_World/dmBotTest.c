@@ -1533,7 +1533,7 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 				pawn.SetOrientation(Vector(yaw, 0.0, 0.0));
 				
 			vector targetPos = ForwardTarget(GetTargetDistance());
-			m_Target = EntityAI.Cast(GetGame().CreateObject("dmAI_SurvivorM_Denis", targetPos, false));
+			m_Target = EntityAI.Cast(GetGame().CreateObject(dmSurvivor.GetRandom(), targetPos, false));
 			if (!m_Target)
 				return "FAIL: не удалось заспавнить цель на " + Fmt(GetTargetDistance()) + " м";
 			if (pawn)
