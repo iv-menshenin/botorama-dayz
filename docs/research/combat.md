@@ -716,9 +716,14 @@ return !chamberLive && !magAmmo;
 
 ### Взятие в руки (мили) — занятые руки
 
-- Флаг `isMeleeWeapon` (`InventoryItem.m_IsMeleeWeapon`) НЕнадёжен для классификации мили
-  (ложный `BomberJacket_Brown`). Классификация — `EntityIsMelee` (в `dmAISurvivor`): НЕ
-  `IsWeapon()` (огнестрел) + `inventorySlot`/`itemInfo` содержит Knife/Melee/Shoulder/Axe.
+- Флаг `isMeleeWeapon` (`InventoryItem.m_IsMeleeWeapon`) НЕнадёжен для классификации мили.
+  **Причина (глубже, чем «ложный BomberJacket_Brown»):** базовый класс `Inventory_Base`
+  (`DZ/data/config.cpp:3145`) имеет `isMeleeWeapon=1` (строка 3208) — поэтому
+  `IsMeleeWeapon()` возвращает `true` почти для ЛЮБОГО предмета (кроссовки, SmallStone,
+  рюкзак, еда…), т.к. `ConfigIsExisting("isMeleeWeapon")` читает унаследованный флаг. Отдельные
+  классы переопределяют на `0`/`1`, но полагаться на это нельзя. Классификация — `EntityIsMelee`
+  (делегат в `dmLoot.IsMelee`): НЕ `IsWeapon()` (огнестрел) + `inventorySlot`/`itemInfo`
+  содержит Knife/Melee/Shoulder/Axe.
 - Взятие в ЗАНЯТЫЕ руки сырым `LocalTakeToDst(src, hands)` → `LocationSyncMoveEntity`
   некорректен (вытесняет/теряет предмет, дальше в руки попадает одежда). Правильный путь —
   `dmInventoryFrame`-цепочка: фрейм 1 освобождает руки (stash: сломанное → PLACEONGROUND,
