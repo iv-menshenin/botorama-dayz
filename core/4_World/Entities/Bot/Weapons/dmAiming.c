@@ -1,17 +1,25 @@
-//! dmAiming — AI bot shooting accuracy model (Phase 1).
+//! dmAiming — единый механизм прицеливания/стрельбы AI-бота.
 //!
-//! Computes the real shot direction with dispersion, following the
-//! eAIAimingProfile model from dayz-devaliada. In this phase the class is only
-//! created (by the pawn) and updated; it is NOT yet wired into the fire path
-//! (that is Phase 3, see modded_WeaponFire/dmBot_Fire).
+//! Считает направление выстрела с разбросом/отдачей по цели, дистанцию до точки
+//! прицела и псевдосреднюю скорость цели, и кладёт ВСЁ в пешку через SetAim().
+//! Включается интентом Aim (или тестом) через Enable(); мозг тикает OnUpdate()
+//! каждый кадр, пока включён. Файр-путь (ComputeShot → CompensateBulletDrop →
+//! RecordShot) читает сохранённое в пешке состояние, без собственного рейкаста.
 
 class dmAiming
 {
 	//! The bot pawn this aiming model belongs to (managed, no ref).
 	private dmAISurvivorBase m_Unit;
 
-	//! Current target (dmTarget is a plain class -> ref).
-	private ref dmTarget m_Target;
+	//! Current target entity (EntityAI is managed, no ref).
+	private EntityAI m_Target;
+
+	//! Whether the aim loop is enabled (driven by the Aim intent / tests).
+	private bool m_Enabled;
+
+	//! Псевдосредняя скорость цели (EMA, мир, Y=0). Хранится/передаётся в пешку;
+	//! упреждение к точке прицела НЕ применяется (отдельная будущая задача).
+	private vector m_TargetVelocity = vector.Zero;
 
 	//! Aim point (world space).
 	private vector m_AimPosition;
@@ -28,17 +36,17 @@ class dmAiming
 	//! Есть ли на винтовке оптика с увеличением (не коллиматор).
 	private float m_HasRealOptic;
 
-	//! Recoil pitch offset (degrees, positive = up). Kicks on shot, decays in Update.
+	//! Recoil pitch offset (degrees, positive = up). Kicks on shot, decays in OnUpdate.
 	private float m_RecoilPitch = 0.0;
 
 	//! Детерминированная точность (hitProbability), дистанция до точки прицела и
-	//! угловая скорость цели, сохранённые из Update() для per-shot разброса в
+	//! угловая скорость цели, сохранённые из OnUpdate() для per-shot разброса в
 	//! GetShotDispersion().
 	private float m_HitProbability = 1.0;
 	private float m_Dist = 0.0;
 	private float m_TargetSpeedMult = 0.0;
 
-	//! Удержанный per-shot разброс (радианы), применяется к прицелу в Update()
+	//! Удержанный per-shot разброс (радианы), применяется к прицелу в OnUpdate()
 	//! до следующего ролла.
 	private float m_DispersionLR = 0.0;
 	private float m_DispersionUD = 0.0;
@@ -48,16 +56,34 @@ class dmAiming
 		m_Unit = unit;
 	}
 
-	void SetTarget(dmTarget target)
+	void SetTarget(EntityAI target)
 	{
 		if (target != m_Target)
+		{
 			m_TrackingTime = 0.0;
+			m_TargetVelocity = vector.Zero;
+		}
 		m_Target = target;
 	}
 
-	dmTarget GetTarget()
+	EntityAI GetTarget()
 	{
 		return m_Target;
+	}
+
+	void Enable()
+	{
+		m_Enabled = true;
+	}
+
+	void Disable()
+	{
+		m_Enabled = false;
+	}
+
+	bool IsEnabled()
+	{
+		return m_Enabled;
 	}
 
 	vector GetAimDirection()
@@ -105,9 +131,9 @@ class dmAiming
 	{
 		angLR = 0.0;
 		angUD = 0.0;
-		if (!m_Target || !m_Target.m_Entity || !m_Target.m_Entity.IsAlive())
+		if (!m_Target || !m_Target.IsAlive())
 			return false;
-		if (ZombieBase.Cast(m_Target.m_Entity) || AnimalBase.Cast(m_Target.m_Entity))
+		if (ZombieBase.Cast(m_Target) || AnimalBase.Cast(m_Target))
 			return false;
 		float devLR;
 		float devUD;
@@ -146,7 +172,7 @@ class dmAiming
 		m_DispersionUD = 0.0;
 	}
 
-	void Update(float pDt)
+	void OnUpdate(float pDt)
 	{
 		EntityAI targetEntity;
 		vector targetPos;
@@ -184,6 +210,10 @@ class dmAiming
 		vector aimOrientation;
 		int neckIdx;
 
+		//! Disabled: do nothing.
+		if (!m_Enabled)
+			return;
+
 		m_HasRealOptic = HasRealOptics();
 
 		//! Recoil recovery: the barrel lowers back over time.
@@ -192,7 +222,7 @@ class dmAiming
 			m_RecoilPitch = 0.0;
 
 		//! No valid target: reset and face forward.
-		if (!m_Target || !m_Target.m_Entity || !m_Target.m_Entity.IsAlive())
+		if (!m_Target || !m_Target.IsAlive())
 		{
 			m_AimPosition = vector.Zero;
 			m_AimDirection = m_Unit.GetDirection();
@@ -204,7 +234,17 @@ class dmAiming
 		if (m_TrackingTime > DM_AIM_MAX_TRACKING_TIME)
 			m_TrackingTime = DM_AIM_MAX_TRACKING_TIME;
 
-		targetEntity = m_Target.m_Entity;
+		targetEntity = m_Target;
+
+		//! Псевдосредняя скорость цели (EMA, горизонтальная). Только хранится и
+		//! передаётся в пешку; упреждение точки прицела — отдельная будущая задача.
+		human = Human.Cast(targetEntity);
+		if (human)
+		{
+			human.PhysicsGetVelocity(tv);
+			tv[1] = 0.0;
+			m_TargetVelocity = (m_TargetVelocity + tv * 2.0) * (1.0 / 3.0);
+		}
 
 		//! Aim point: head for a standing target under real optics, center mass
 		//! (Spine3) otherwise; creatures use the head. Fallback to feet + eye height.
@@ -258,6 +298,7 @@ class dmAiming
 			direction = aimOrientation.AnglesToVector().Multiply3(transform);
 			direction.Normalize();
 			m_AimDirection = direction;
+			m_Unit.SetAim(m_AimDirection, targetPos, vector.Distance(m_Unit.GetMuzzlePosition(), m_AimPosition), m_TargetVelocity);
 			return;
 		}
 
@@ -342,6 +383,7 @@ class dmAiming
 			direction.Normalize();
 		}
 		m_AimDirection = direction;
+		m_Unit.SetAim(m_AimDirection, targetPos, vector.Distance(m_Unit.GetMuzzlePosition(), m_AimPosition), m_TargetVelocity);
 
 		#ifdef DM_BOT_DEBUG_FSM
 		if (GetGame().GetTickTime() - m_LastLogTime >= 2.0)

@@ -18,11 +18,6 @@ class dmBotIntentPool
 		m_Intents.Insert(intent);
 	}
 
-	void Remove(dmBotIntent intent)
-	{
-		m_Intents.RemoveItem(intent);
-	}
-
 	//! OnCancel each intent, then drop all (FSM transition).
 	void Clear(dmAISurvivor bot)
 	{

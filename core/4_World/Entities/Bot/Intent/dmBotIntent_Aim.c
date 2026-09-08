@@ -1,10 +1,11 @@
 //! dmBotIntent_Aim — aim, raise and fire at a target (one intent).
 //!
 //! CRITICAL + PARALLEL, LOOK channel. Every tick it feeds the target into the
-//! pawn's dmAiming accuracy model, turns the body toward the aim point, pushes
-//! the dispersed shot direction into the pawn (SetAimDirection), keeps the weapon
-//! raised, and — once ready and with LOS — requests a shot (RequestFire) on a
-//! DM_BOT_FIRE_INTERVAL cadence.
+//! pawn's dmAiming mechanism and enables it (the brain then ticks
+//! dmAiming.OnUpdate, which computes the aim point/direction/distance and pushes
+//! them into the pawn via SetAim), turns the body toward the aim point, keeps the
+//! weapon raised, and — once ready and with LOS — requests a shot (RequestFire)
+//! on a DM_BOT_FIRE_INTERVAL cadence.
 class dmBotIntent_Aim : dmBotIntent
 {
 	EntityAI m_TargetEntity;
@@ -56,9 +57,8 @@ class dmBotIntent_Aim : dmBotIntent
 		dmAiming aiming = pawn.GetAiming();
 		if (aiming)
 		{
-			aiming.SetTarget(t);
-			aiming.Update(pDt);
-			pawn.SetAimDirection(aiming.GetAimDirection());
+			aiming.SetTarget(m_TargetEntity);
+			aiming.Enable();
 			bot.LookAtPoint(aiming.GetAimPosition(), dmBotLookTurn.FULL);
 
 			chanceToRequest = aiming.HitProbability() * pDt;
@@ -115,6 +115,19 @@ class dmBotIntent_Aim : dmBotIntent
 			{
 				DoFire(pawn, bot);
 			}
+		}
+	}
+
+	override void OnCancel(dmAISurvivor bot)
+	{
+		super.OnCancel(bot);
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (pawn)
+		{
+			dmAiming aiming = pawn.GetAiming();
+			if (aiming)
+				aiming.Disable();
 		}
 	}
 

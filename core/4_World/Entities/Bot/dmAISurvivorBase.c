@@ -47,22 +47,22 @@ class dmAISurvivorBase : PlayerBase
 	private int m_VarAimIKX = -1;
 
 	//! Weapon aim direction relative to the body: left/right (yaw) and up/down
-	//! (pitch), degrees. Computed by SetAimTarget, pushed to dmAI_AimX/dmAI_AimY.
+	//! (pitch), degrees. Computed by SetAim, pushed to dmAI_AimX/dmAI_AimY.
 	private float m_AimRelAngleLR = 0.0;
 	private float m_AimRelAngleUD = 0.0;
 
-	//! World-space aim direction (normalized), stored directly by SetAimDirection
+	//! World-space aim direction (normalized), stored directly by SetAim
 	//! and read by ComputeShot. Kept authoritative instead of being reconstructed
 	//! from body yaw + relative angles (the body may have turned since then).
 	private vector m_AimWorldDirection;
 
-	//! Дистанция до точки прицела (кость Spine3), запомненная в SetAimTarget.
+	//! Дистанция до точки прицела (дуло → точка прицела), запомненная в SetAim.
 	//! Используется для дропа/фидбека вместо рейкаст-дистанции до поверхности тела.
 	private float m_AimDistance;
 
-	//! Сущность цели прицела (для гейта обучения дропа на одиночных выстрелах).
-	private EntityAI m_AimTargetEntity;
-	private vector m_AvgVel = vector.Zero;   // EMA-скорость цели для упреждения
+	//! Позиция цели и EMA-скорость цели на момент прицела (фидбек дропа/упреждение).
+	private vector m_TargetPos;
+	private vector m_AvgVel = vector.Zero;
 
 	//! Идеальный прицел для тестов: нулевой разброс (личный и оружейный).
 	private bool m_PerfectAim;
@@ -470,7 +470,7 @@ class dmAISurvivorBase : PlayerBase
 
 	//! Disable the vanilla client aiming model (mouse-driven) — an AI bot has no
 	//! aim input, so it would oscillate the weapon IK / recoil. Aim is driven by
-	//! SetAimTarget/GetWeaponAimDirection instead.
+	//! SetAim/GetWeaponAimDirection instead.
 	override bool AimingModel(float pDt, SDayZPlayerAimingModel pModel)
 	{
 		return false;
@@ -502,113 +502,42 @@ class dmAISurvivorBase : PlayerBase
 		#endif
 	}
 
-	//! Convert a world-space direction into the relative aim angles (left/right,
-	//! up/down), the exact inverse of GetWeaponAimDirection(). Used by SetAimTarget
-	//! and by dmBotIntent_Aim to push dmAiming's dispersed shot direction into the
-	//! fire path.
-	void SetAimDirection(vector worldDir)
+	//! Сохранить состояние прицела, вычисленное dmAiming.OnUpdate: направление
+	//! (нормализуется и конвертируется в относительные углы для анимации), позицию
+	//! цели, дистанцию (дуло → точка прицела) и EMA-скорость цели. Направление —
+	//! точный инверс GetWeaponAimDirection(); относительные углы читаются
+	//! ApplyWeaponAim, дистанция/позиция/скорость — файр-путём (CompensateBulletDrop).
+	void SetAim(vector direction, vector targetPos, float distance, vector targetVelocity)
 	{
-		if (worldDir.Length() < 0.01)
+		if (direction.Length() < 0.01)
 		{
 			m_AimWorldDirection = vector.Zero;
 			m_AimRelAngleLR = 0.0;
 			m_AimRelAngleUD = 0.0;
-			return;
-		}
-
-		worldDir.Normalize();
-		m_AimWorldDirection = worldDir;
-
-		vector angles = worldDir.VectorToAngles();
-		float bodyYaw = GetOrientation()[0];
-		m_AimRelAngleLR = dmAISurvivor.AngleDiff(angles[0], bodyYaw);
-
-		float pitch = angles[1];
-		if (pitch > 180.0)
-			pitch -= 360.0;
-		m_AimRelAngleUD = pitch;
-	}
-
-	//! Compute and store the relative aim angles (left/right, up/down) toward the
-	//! target. The barrel direction is eyePos (muzzle) -> aimPos (target chest/head);
-	//! yaw/pitch come from VectorToAngles (same convention as LookAtPoint).
-	void SetAimTarget(EntityAI target)
-	{
-		if (!target)
-		{
-			m_AimRelAngleLR = 0.0;
-			m_AimRelAngleUD = 0.0;
-			m_AimTargetEntity = null;
-			m_AimDistance = 0.0;
-			m_AvgVel = vector.Zero;
-			return;
-		}
-		bool targetChanged = (target != m_AimTargetEntity);
-		m_AimTargetEntity = target;
-
-		//! Aim point: center mass for humans (Spine3, like the melee code), head
-		//! for creatures (no Spine3); fallback to the feet + eye height. Bone
-		//! lookup lives on Human/DayZCreature, not EntityAI.
-		vector aimPos = target.GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
-		int bone = -1;
-		Human human = Human.Cast(target);
-		if (human)
-		{
-			bone = human.GetBoneIndexByName("Spine3");
-			if (bone < 0)
-				bone = human.GetBoneIndexByName("Head");
 		}
 		else
 		{
-			DayZCreature creature = DayZCreature.Cast(target);
-			if (creature)
-				bone = creature.GetBoneIndexByName("Head");
-		}
-		if (bone >= 0)
-			aimPos = target.GetBonePositionWS(bone);
+			direction.Normalize();
+			m_AimWorldDirection = direction;
 
-		//! Eye position: the actual barrel muzzle (bullet exit point), so the aim
-		//! line passes through the shot origin; falls back to the neck bone.
-		vector eyePos = GetMuzzlePosition();
+			vector angles = direction.VectorToAngles();
+			float bodyYaw = GetOrientation()[0];
+			m_AimRelAngleLR = dmAISurvivor.AngleDiff(angles[0], bodyYaw);
 
-		//! Упреждение: EMA-скорость цели, сдвиг точки прицела вперёд.
-		Human humanLead = Human.Cast(target);
-		if (humanLead)
-		{
-			vector leadVel;
-			humanLead.PhysicsGetVelocity(leadVel);
-			leadVel[1] = 0.0;
-			if (targetChanged)
-				m_AvgVel = leadVel;
-			else
-				m_AvgVel = (m_AvgVel + leadVel * 2.0) * (1.0 / 3.0);
-			if (m_AvgVel.Length() > DM_LEAD_SPEED_EPS)
-			{
-				Weapon_Base leadWeapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
-				if (leadWeapon)
-				{
-					float leadTime = ComputeBulletTravelTime(leadWeapon, leadWeapon.GetCurrentMuzzle(), vector.Distance(eyePos, aimPos));
-					aimPos[0] = aimPos[0] + m_AvgVel[0] * leadTime;
-					aimPos[2] = aimPos[2] + m_AvgVel[2] * leadTime;
-				}
-			}
+			float pitch = angles[1];
+			if (pitch > 180.0)
+				pitch -= 360.0;
+			m_AimRelAngleUD = pitch;
 		}
 
-		vector aimDir = aimPos - eyePos;
-		m_AimDistance = vector.Distance(eyePos, aimPos);
-
-		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] AIM bone=" + bone + " aimPos=" + aimPos);
-		dmBotLog.Debug("[Ballistics] AIM targetPos=" + target.GetPosition());
-		dmBotLog.Debug("[Ballistics] AIM eyePos=" + eyePos + " aimDir=" + aimDir);
-		#endif
-
-		SetAimDirection(aimDir);
+		m_TargetPos = targetPos;
+		m_AimDistance = distance;
+		m_AvgVel = targetVelocity;
 	}
 
 	//! World-space barrel direction from the relative aim angles. Used by the
 	//! Fire() native (A4). Reconstructs the absolute yaw/pitch and converts back
-	//! with AnglesToVector (exact inverse of the VectorToAngles used in SetAimTarget).
+	//! with AnglesToVector (exact inverse of the VectorToAngles used in SetAim).
 	vector GetWeaponAimDirection()
 	{
 		float bodyYaw = GetOrientation()[0];
@@ -616,7 +545,7 @@ class dmAISurvivorBase : PlayerBase
 		return angles.AnglesToVector();
 	}
 
-	//! Current world-space aim direction, stored by SetAimDirection/SetAimTarget.
+	//! Current world-space aim direction, stored by SetAim.
 	//! This is the SCRIPT aim (muzzle/neck → target), NOT the physical barrel axis:
 	//! GetBarrelDirection() reads the weapon's memory points (usti/konec hlavne),
 	//! which are driven by the engine aim model and do NOT follow m_AimRelAngle yet.
@@ -625,7 +554,7 @@ class dmAISurvivorBase : PlayerBase
 		return m_AimWorldDirection;
 	}
 
-	//! The shooting accuracy model (used by the fire path in Phase 3).
+	//! The unified aiming mechanism (dispersion + aim point + shot direction).
 	dmAiming GetAiming()
 	{
 		return m_Aiming;
@@ -714,56 +643,24 @@ class dmAISurvivorBase : PlayerBase
 		KickRecoilVisual(pitch);
 	}
 
-	//! Compensate bullet drop: raycast along the aim direction -> distance -> flight
-	//! time (initSpeed from CfgAmmo) -> drop (air friction, ComputeBulletDrop) -> tilt the direction up.
+	//! Compensate bullet drop: distance (from SetAim's m_AimDistance, no raycast) ->
+	//! flight time (initSpeed from CfgAmmo) -> drop (air friction, ComputeBulletDrop) ->
+	//! tilt the direction up. For single shots, record the shot state for the
+	//! miss-feedback (dmBallisticsBridge.RecordShot) before the correction.
 	void CompensateBulletDrop(Weapon_Base weapon, int mi, vector origin, inout vector direction)
 	{
 		if (weapon.IsChamberEmpty(mi) || weapon.IsChamberFiredOut(mi))
 			return;   // нет патрона — дроп-компенсация не нужна
-		vector end = origin + direction * DM_AI_SHOT_MAX_DISTANCE;
 
-		RaycastRVParams rp = new RaycastRVParams(origin, end, this, 0.01);
-		rp.sorted = true;
-		rp.type = ObjIntersectView;
-		rp.flags = CollisionFlags.NEARESTCONTACT;
-
-		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
+		float distance = m_AimDistance;
+		if (distance <= 0.0)
 			return;
-
-		RaycastRVResult hit = hits[0];
-		vector hitPosition = hit.pos;
-		int contactComponent = hit.component;
-		Object hitObj = hit.obj;
-		Object hitParent = hit.parent;
-
-		float distance = vector.Distance(origin, hitPosition);
-		if (m_AimDistance > 0.0)
-			distance = m_AimDistance;
 		float travelTime = ComputeBulletTravelTime(weapon, mi, distance);
 		float drop = ComputeBulletDrop(weapon, mi, travelTime);
 		dmFireMode mode = GetCurrentFireMode(weapon);
 		bool singleShot = !mode || mode.m_Type == dmFireModeType.SINGLE;
-		bool targetDown = false;
-		DayZPlayer tp = DayZPlayer.Cast(m_AimTargetEntity);
-		if (tp && (!tp.IsAlive() || tp.IsUnconscious()))
-			targetDown = true;
-		if (singleShot && !targetDown)
-		{
-			vector targetPos = vector.Zero;
-			vector targetVel = vector.Zero;
-			if (m_AimTargetEntity)
-			{
-				targetPos = m_AimTargetEntity.GetPosition();
-				Human hLead = Human.Cast(m_AimTargetEntity);
-				if (hLead)
-				{
-					hLead.PhysicsGetVelocity(targetVel);
-					targetVel[1] = 0.0;
-				}
-			}
-			dmBallisticsBridge.RecordShot(this, origin, direction, distance, travelTime, origin[1] + direction[1] * distance, targetPos, targetVel);
-		}
+		if (singleShot)
+			dmBallisticsBridge.RecordShot(this, origin, direction, distance, travelTime, origin[1] + direction[1] * distance, m_TargetPos, m_AvgVel);
 		else
 			dmBallisticsBridge.ClearShot(this);
 
@@ -781,23 +678,8 @@ class dmAISurvivorBase : PlayerBase
 		}
 
 		#ifdef DM_BOT_DEBUG_BALLISTICS
-		string objType = "ground";
-		string parentType = "";
-		if (hitObj)
-		{
-			objType = hitObj.GetType();
-			if (hitParent)
-				parentType = hitParent.GetType();
-		}
-		string dmgZone = "";
-		EntityAI hitEnt = EntityAI.Cast(hitObj);
-		if (hitEnt)
-			dmgZone = hitEnt.GetDamageZoneNameByComponentIndex(contactComponent);
-		dmBotLog.Debug("[Ballistics] DROP origin=" + origin + " shotOrigin=" + GetShotOrigin());
-		dmBotLog.Debug("[Ballistics] DROP obj=" + objType + " parent=" + parentType + " zone=" + dmgZone);
-		dmBotLog.Debug("[Ballistics] DROP hitPos=" + hitPosition + " groundO=" + g_Game.SurfaceY(origin[0], origin[2]) + " groundH=" + g_Game.SurfaceY(hitPosition[0], hitPosition[2]));
-		dmBotLog.Debug("[Ballistics] DROP dist=" + distance + " t=" + travelTime + " drop=" + drop + " dir=" + direction);
-		dmBotLog.Debug("[Ballistics] DROP wind=" + GetGame().GetWeather().GetWind());
+		dmBotLog.Debug("[Ballistics] DROP origin=" + origin + " dist=" + distance + " t=" + travelTime + " drop=" + drop);
+		dmBotLog.Debug("[Ballistics] DROP wind=" + GetGame().GetWeather().GetWind() + " dir=" + direction);
 		#endif
 
 		if (drop > 0.1)
@@ -1604,14 +1486,10 @@ class dmAISurvivorBase : PlayerBase
 		m_MeleeTarget = null;
 	}
 
-	//! Ask for a single shot. With a target, aim is computed immediately
-	//! (SetAimTarget); with null, fire along the direction already set via
-	//! SetAimDirection (used by dmBotIntent_Aim). The shot itself fires next
-	//! CommandHandler in TryFireWeapon.
-	void RequestFire(EntityAI target = null)
+	//! Ask for a single shot along the direction already stored via SetAim. The
+	//! shot itself fires next CommandHandler in TryFireWeapon.
+	void RequestFire()
 	{
-		if (target)
-			SetAimTarget(target);
 		m_FireRequest = true;
 	}
 

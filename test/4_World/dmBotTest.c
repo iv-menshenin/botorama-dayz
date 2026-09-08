@@ -1454,7 +1454,7 @@ class dmBotTest_Suppressor : dmTestSuite_TestCase
 
 //! Ballistic drop-compensation convergence test: Mosin (internal 5-round
 //! magazine) + perfect aim, target at N m (default 500). Fires without the FSM
-//! (SetAimTarget + RaiseWeapon + RequestFire) at a fixed interval, cycling the
+//! (GetAiming().SetTarget + RaiseWeapon + RequestFire) at a fixed interval, cycling the
 //! bolt / chamber-loading from the pants ammo via ReloadWeaponAI when not ready.
 //! Each miss feeds BallisticFeedback, which nudges the bullet-drop coefficient;
 //! the coefficient trend is read from the [Ballistics] server log (FEEDBACK)
@@ -1501,7 +1501,10 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 
 		dmAISurvivorBase base = dmAISurvivorBase.Cast(pawn);
 		if (base)
+		{
 			base.SetPerfectAim(true);
+			base.GetAiming().Enable();
+		}
 	}
 
 	override string GetSummary()
@@ -1519,6 +1522,7 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 			return "FAIL: бот исчез из мира";
 
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Bot.GetPawn());
+		dmAiming aim;
 
 		if (m_Phase == 0)
 		{
@@ -1545,7 +1549,14 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 		else if (m_Phase == 1)
 		{
 			if (pawn && m_Target)
-				pawn.SetAimTarget(m_Target);
+			{
+				aim = pawn.GetAiming();
+				if (aim)
+				{
+					aim.SetTarget(m_Target);
+					aim.Enable();
+				}
+			}
 			if (pawn && pawn.IsReadyToShoot())
 			{
 				pawn.RequestFire();
@@ -1576,7 +1587,14 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 				return "PASS: цель без сознания (ранена) за " + m_Shots + " выстрелов (coef=" + Fmt(pawn.GetDropCoef()) + ")";
 
 			if (pawn && m_Target)
-				pawn.SetAimTarget(m_Target);
+			{
+				aim = pawn.GetAiming();
+				if (aim)
+				{
+					aim.SetTarget(m_Target);
+					aim.Enable();
+				}
+			}
 			if (pawn && pawn.IsReadyToShoot())
 			{
 				pawn.RequestFire();
@@ -1655,6 +1673,7 @@ class dmBotTest_LeadShoot : dmTestSuite_TestCase
 			return "FAIL: бот исчез из мира";
 
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Bot.GetPawn());
+		dmAiming aim;
 
 		if (m_Phase == 0)
 		{
@@ -1712,7 +1731,14 @@ class dmBotTest_LeadShoot : dmTestSuite_TestCase
 		if (m_Phase == 1)
 		{
 			if (pawn && m_TargetBot && m_TargetBot.IsSpawned())
-				pawn.SetAimTarget(m_TargetBot.GetPawn());
+			{
+				aim = pawn.GetAiming();
+				if (aim)
+				{
+					aim.SetTarget(m_TargetBot.GetPawn());
+					aim.Enable();
+				}
+			}
 			if (pawn && pawn.IsReadyToShoot())
 			{
 				pawn.RequestFire();
@@ -1727,7 +1753,14 @@ class dmBotTest_LeadShoot : dmTestSuite_TestCase
 		//! m_Phase == 2: aim follows the running pawn every tick; reload when not
 		//! ready; fire at the shot interval.
 		if (pawn && m_TargetBot && m_TargetBot.IsSpawned())
-			pawn.SetAimTarget(m_TargetBot.GetPawn());
+		{
+			aim = pawn.GetAiming();
+			if (aim)
+			{
+				aim.SetTarget(m_TargetBot.GetPawn());
+				aim.Enable();
+			}
+		}
 
 		if (pawn && !pawn.IsReadyToShoot())
 		{

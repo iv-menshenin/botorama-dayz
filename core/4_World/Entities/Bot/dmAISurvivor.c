@@ -393,6 +393,8 @@ class dmAISurvivor
 
 		UpdateIntents(pDt);
 		m_Pawn.GetInventoryFrames().Tick();
+		if (m_Pawn.GetAiming().IsEnabled())
+			m_Pawn.GetAiming().OnUpdate(pDt);
 		UpdateLook(pDt);
 	}
 
@@ -842,14 +844,6 @@ class dmAISurvivor
 	{
 		pool.Insert(intent);
 		intent.OnStart(this);
-	}
-
-	void RemoveIntent(dmBotIntentPool pool, dmBotIntent intent)
-	{
-		if (!pool.Has(intent))
-			return;
-		intent.OnCancel(this);
-		pool.Remove(intent);
 	}
 
 	//! Drop all FSM intents (called on FSM state transition).
@@ -1303,19 +1297,7 @@ class dmAISurvivor
 
 	private void IntentsTickAges(dmBotIntentPool pool, float pDt)
 	{
-		ref array<ref dmBotIntent> intents = pool.GetIntents();
-		
-		for (int i = 0; i < intents.Count(); i++)
-		{
-			dmBotIntent intent = intents[i];
-			intent.TickAge(pDt);
-			if (intent.IsFinished() || intent.IsExpired())
-			{
-				intent.OnCancel(this);
-				pool.Remove(intent);
-				i--;
-			}
-		}
+		pool.Tick(this, pDt);
 	}
 
 	//! Smoothly steer the head toward the desired look target. If the target is
