@@ -113,6 +113,11 @@ static const string DM_CHAT_CAR_GETOUT = "getout";
 //! Sub-command "deadmans" — report the vanilla corpse-decay state (CorpseData).
 static const string DM_CHAT_DEADMANS = "deadmans";
 
+//! Sub-command "killall" — kill every spawned bot (Health=0).
+static const string DM_CHAT_KILLALL = "killall";
+//! Sub-command "clearall" — remove every spawned bot from the world.
+static const string DM_CHAT_CLEARALL = "clearall";
+
 //! "set" sub-commands ("/bot setX <float>"): each takes a REQUIRED float value.
 static const string DM_CHAT_SETHEALTH = "sethealth";
 static const string DM_CHAT_SETBLOOD = "setblood";

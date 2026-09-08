@@ -19,6 +19,8 @@
 //!   /bot melee                  — ударить враждебную цель (мили-удар).
 //!   /bot combat                 — боевой режим (атакует угрозы в радиусе).
 //!   /bot car sitdown            — сесть в машину с игроком на свободное место.
+//!   /bot killall                — убить всех заспавненных ботов (Health=0).
+//!   /bot clearall               — удалить всех ботов из мира (Despawn → ObjectDelete).
 //!
 //! Интенты добавляются в командный пул (приоритет CRITICAL), поэтому они
 //! перебивают автоматическое поведение; "/bot intent clear" возвращает бота
@@ -62,6 +64,10 @@ class dmBotCommand : dmCommandModule
 			return HandleCombat(player, parts);
 		if (parts[1] == DM_CHAT_CAR)
 			return HandleCar(player, parts);
+		if (parts[1] == DM_CHAT_KILLALL)
+			return HandleKillAll(player);
+		if (parts[1] == DM_CHAT_CLEARALL)
+			return HandleClearAll(player);
 		if (parts[1] == DM_CHAT_SETHEALTH)
 			return HandleSetHealth(player, parts);
 		if (parts[1] == DM_CHAT_SETBLOOD)
@@ -897,6 +903,22 @@ class dmBotCommand : dmCommandModule
 		if (!bot) return true;
 		bot.GetPawn().GetStatWater().Set(value);
 		dmCommandManager.ChatToPlayer(player, "Water = " + value);
+		return true;
+	}
+
+	//! "/bot killall" — kill every spawned bot.
+	private bool HandleKillAll(PlayerBase player)
+	{
+		int killed = dmAISurvivor.KillAll();
+		dmCommandManager.ChatToPlayer(player, "Убито ботов: " + killed + " (всего " + dmAISurvivor.Count() + ")");
+		return true;
+	}
+
+	//! "/bot clearall" — remove every spawned bot from the world.
+	private bool HandleClearAll(PlayerBase player)
+	{
+		int cleared = dmAISurvivor.ClearAll();
+		dmCommandManager.ChatToPlayer(player, "Удалено ботов: " + cleared + " (всего " + dmAISurvivor.Count() + ")");
 		return true;
 	}
 

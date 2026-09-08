@@ -1416,6 +1416,42 @@ class dmAISurvivor
 		return s_All.Count();
 	}
 
+	//! Убить всех заспавненных ботов (Health=0). Трупы остаются движку на протухание.
+	//! Возвращает число убитых. Итерация с конца — безопасна, если смерть снимет из s_All.
+	static int KillAll()
+	{
+		int killed = 0;
+		int i;
+		for (i = s_All.Count() - 1; i >= 0; i--)
+		{
+			dmAISurvivor bot = s_All[i];
+			if (bot && bot.IsSpawned() && bot.GetPawn().IsAlive())
+			{
+				bot.GetPawn().SetHealth("", "Health", 0.0);
+				killed++;
+			}
+		}
+		return killed;
+	}
+
+	//! Удалить всех ботов из мира (Despawn → ObjectDelete) и снять их из реестра.
+	//! Возвращает число удалённых.
+	static int ClearAll()
+	{
+		int cleared = 0;
+		int i;
+		for (i = s_All.Count() - 1; i >= 0; i--)
+		{
+			dmAISurvivor bot = s_All[i];
+			if (bot)
+			{
+				bot.Despawn();
+				cleared++;
+			}
+		}
+		return cleared;
+	}
+
 	//! Override the brain tick interval (seconds). Default DM_BOT_TICK_INTERVAL.
 	static void SetTickInterval(float seconds)
 	{
