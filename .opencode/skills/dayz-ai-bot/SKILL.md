@@ -208,8 +208,10 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   клиента) SERVER-режим не кладёт предмет — руки остаются пустыми (`GetEntityInHands()`=null →
   `HasNoAmmo()`=true → Shooting-фликер/EXIT каждый кадр). Паттерн: `GetCurrentInventoryLocation(src)`
   → `dst.SetHands`/`SetAttachment` → `GetGame().RemoteObjectTreeDelete(item)` → `LocalTakeToDst(src,dst)`
-  → `GetGame().RemoteObjectTreeCreate(item)`. Реализовано в `dmAISurvivorBase.TakeToHands`/`TakeToAttachmentSlot`.
-  **На ревью**: любой `ServerTakeEntityToHands`/`ServerTakeToDst`/`TakeToDst(SERVER)` у ИИ — красный флаг.
+  → `GetGame().RemoteObjectTreeCreate(item)`. Реализовано в статике `dmLoot.TakeToHands`/`TakeToAttachmentSlot`/
+  `TakeIntoCargo`/`TakeIntoDestination` (первый аргумент `PlayerBase pawn`), НЕ на пешке (пешка держит только
+  `override bool DropItem(ItemBase)` — ванильный контракт). **На ревью**: любой `ServerTakeEntityToHands`/
+  `ServerTakeToDst`/`TakeToDst(SERVER)` у ИИ — красный флаг.
 - Формат loadout — `botorama/loadouts.md`; применение — `loadout/4_World/`.
 
 ## Зрение / слух (восприятие)
@@ -284,8 +286,31 @@ description: Живой справочник по ИИ-ботам для DayZ (�
 
 ## Лут
 
-- TODO. Планируется: перцепция предметов → оценка полезности → pickup/drop → состояние
-  `Looting`. Research — `docs/research/loot.md`.
+- **`dmLoot` (статик)** — лутинг-движок: `GetCategory` (FOOD/WEAPON/MELEE/MAGAZINE/AMMO/CLOTHING/
+  REPAIR/MEDICAL/OTHER), `ScanNearbyItems`, категорийное определение места и примитивы (см. Инвентарь).
+  Определение места **категорийно**, НЕ дженерик-скан слотов (готча: сканирование слотов по порядку
+  кладёт штаны в карго занятой куртки, не дойдя до пустого LEGS):
+  - `FindAttachmentSlot(pawn, item, out slotId)` — WEAPON→`SHOULDER`; MELEE→`MELEE`→`SHOULDER`;
+    CLOTHING→слот из `ConfigGetTextArray("inventorySlot")`. Проверка `CanAddAttachmentEx` + пустой слот.
+  - `FindCargo(pawn, item, out dst)` — свободное карго ВСЕГО одетого инвентаря (не только рюкзак).
+  - `FindDestination(pawn, item, out dst)` = `FindAttachmentSlot` → иначе `FindCargo`. **Каждая
+    return-true ветка обязана заполнить `out`** (иначе `LocalTakeToDst` с пустым `dst` → NULL-ptr).
+  - Порядок из спеки: оружие/мили без свободного слота → в карго (инвентарь).
+- **`dmBotIntent_PickUp`** — поток решения: `OnReachedGoal` → `InventoryPickUp` (слот/карго);
+  нет места → `Evacuate` (репак-дефрагментация) → иначе `Wishlist.Ignore`+`Fail`.
+  **`Evacuate`** (в интенте, высокоуровнево): `Requirements.GetDiscardOrder()` (по возрастанию
+  индекса необходимости) → дроп всех предметов на пол → коллект «новая вещь первой, затем order
+  с конца» — всё ПАРАЛЛЕЛЬНЫМИ `Enqueue` (НЕ `Then`/`SuccessOnly`: фейл одного шага не прерывает).
+  После репака — `IgnoreLeftovers` (выложенное, что не легло обратно — на полу) → игнор.
+- **Сигнал успеха подбора — фактический исход, а НЕ «дерево доигралось»** (готча-рефлексия):
+  `dmInventoryFrame.IsAllDone()` возвращает `true`, когда доигралась **любая** ветка дерева —
+  включая фейл-ветку (для одежды `InventoryChangeClothes` «надеть старую обратно» при неудаче
+  новой). Поэтому `IsAllDone()==true` ≠ успех. Успех = `item.GetHierarchyRootPlayer() != null`
+  (вещь попала в иерархию игрока, а не осталась на полу; на полу `GetHierarchyRootPlayer()==null`);
+  неудача = `GetInventoryFrames().IsEmpty() && GetHierarchyRootPlayer()==null` (очередь опустела,
+  а вещь не легла). Поле `m_Done` на дереве — тоже ненадёжно (true уже после первого узла).
+  **Правило**: результат многошаговой фрейм-операции проверяй по фактическому состоянию мира
+  (где лежит предмет), а не по внутренним флагам фреймов.
 
 ## Системы тела (PlayerBase) у AI-бота
 
