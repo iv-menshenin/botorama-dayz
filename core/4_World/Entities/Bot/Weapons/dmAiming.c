@@ -193,6 +193,8 @@ class dmAiming
 		float accTT;
 		DayZPlayerImplement targetPlayer;
 		Weapon_Base weapon;
+		Weapon_Base leadWeapon;
+		float leadTime;
 		ItemOptics optics;
 		float zoomMin;
 		float zoomMax;
@@ -285,6 +287,19 @@ class dmAiming
 			position = m_Unit.GetBonePositionWS(neckIdx);
 		else
 			position = m_Unit.GetPosition() + Vector(0.0, DM_EYE_HEIGHT, 0.0);
+
+		//! Упреждение: сдвинуть точку прицела вперёд по EMA-скорости цели.
+		if (m_TargetVelocity.Length() > DM_LEAD_SPEED_EPS)
+		{
+			leadWeapon = Weapon_Base.Cast(m_Unit.GetHumanInventory().GetEntityInHands());
+			if (leadWeapon)
+			{
+				leadTime = m_Unit.ComputeBulletTravelTime(leadWeapon, leadWeapon.GetCurrentMuzzle(), vector.Distance(m_Unit.GetMuzzlePosition(), m_AimPosition));
+				m_AimPosition[0] = m_AimPosition[0] + m_TargetVelocity[0] * leadTime;
+				m_AimPosition[2] = m_AimPosition[2] + m_TargetVelocity[2] * leadTime;
+			}
+		}
+
 		direction = vector.Direction(position, m_AimPosition);
 
 		//! Model-space aim angles + recoil (pitch up). Applied to both creature
