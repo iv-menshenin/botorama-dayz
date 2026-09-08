@@ -1,9 +1,7 @@
-//! dmLoot — статичная классификация предметов (предмет → категория лута).
-//!
-//! Слой 1 будущего лута: по ItemBase возвращает dmLootCategory через ванильное
-//! класс-наследование и виртуальные методы Object (аналог Expansion
-//! eAIItemTargetInformation.CalculateThreat). Дальше категории питают
-//! dmWishlist/dmRequirements/dmNeeds.
+//! dmLoot — лутинг-движок (статик): классификация предмета → категория, определение
+//! места (категорийно: аттачмент-слот → карго всего одетого инвентаря) и инвентарные
+//! примитивы (ручной ре-синк сети). Дальше категории питают dmWishlist/dmRequirements/
+//! dmNeeds; интенты обращаются к dmLoot, а не к пешке напрямую.
 
 enum dmLootCategory
 {
@@ -82,7 +80,7 @@ class dmLoot
 
 	}
 
-    static ref array<int> m_AttachmentSlots = {
+	static ref array<int> m_AttachmentSlots = {
 		InventorySlots.SHOULDER,
 		InventorySlots.MELEE,
 		InventorySlots.HEADGEAR,
@@ -98,41 +96,111 @@ class dmLoot
 		InventorySlots.FEET
 	};
 
-	//! Куда положить предмет (слот-зависимо): одежда → свободный слот из
-	//! inventorySlot[]; мили → SHOULDER/MELEE, затем руки; оружие → руки;
-	//! остальное → карго. Возвращает true и заполняет dst.
-	static bool FindDestination(PlayerBase pawn, EntityAI item, out InventoryLocation dst)
+	//! Свободный ПОДХОДЯЩИЙ слот для предмета: WEAPON → SHOULDER; MELEE → MELEE, затем
+	//! SHOULDER; CLOTHING → слот из inventorySlot[]; прочие → false. Возвращает true и
+	//! заполняет slotId только если слот свободен и подходит.
+	static bool FindAttachmentSlot(PlayerBase pawn, ItemBase item, out int slotId)
 	{
-		if (!pawn || !item) return false;
+		slotId = InventorySlots.INVALID;
+		if (!pawn || !item)
+			return false;
 		GameInventory inv = pawn.GetInventory();
 		if (!inv)
 			return false;
 
-        foreach(int slot: m_AttachmentSlots)
-        {
-            EntityAI attachment = inv.FindAttachment(slot);
-            if ( !attachment )
+		dmLootCategory cat = GetCategory(item);
+		if (cat == dmLootCategory.WEAPON)
+		{
+			if (inv.CanAddAttachmentEx(item, InventorySlots.SHOULDER) && !inv.FindAttachment(InventorySlots.SHOULDER))
 			{
-				// Attachment candidate?
-				if ( inv.CanAddAttachmentEx(item, slot) )
-				{
-					dst.SetAttachment(pawn, item, slot);
-					#ifdef DM_BOT_DEBUG_LOOTING
-					dmBotLog.Debug("[Loot] Have empty slot " + InventorySlots.GetSlotName( slot ) + " for item");
-					#endif
-					return true;
-				}
-				continue;
+				slotId = InventorySlots.SHOULDER;
+				return true;
 			}
-			GameInventory attInv = attachment.GetInventory();
-			if (attInv.FindFreeLocationFor(item, FindInventoryLocationType.CARGO | FindInventoryLocationType.ATTACHMENT, dst))
+			return false;
+		}
+		if (cat == dmLootCategory.MELEE)
+		{
+			if (inv.CanAddAttachmentEx(item, InventorySlots.MELEE) && !inv.FindAttachment(InventorySlots.MELEE))
 			{
+				slotId = InventorySlots.MELEE;
+				return true;
+			}
+			if (inv.CanAddAttachmentEx(item, InventorySlots.SHOULDER) && !inv.FindAttachment(InventorySlots.SHOULDER))
+			{
+				slotId = InventorySlots.SHOULDER;
+				return true;
+			}
+			return false;
+		}
+		if (cat == dmLootCategory.CLOTHING)
+		{
+			array<string> names = new array<string>();
+			item.ConfigGetTextArray("inventorySlot", names);
+			if (names.Count() > 0)
+			{
+				slotId = InventorySlots.GetSlotIdFromString(names[0]);
+				if (slotId != InventorySlots.INVALID && inv.CanAddAttachmentEx(item, slotId) && !inv.FindAttachment(slotId))
+					return true;
+			}
+			return false;
+		}
+		return false;
+	}
+
+	//! Свободное место в карго ВСЕГО одетого инвентаря (не только рюкзак): перебрать
+	//! m_AttachmentSlots, для каждого занятого слота искать свободное карго.
+	static bool FindCargo(PlayerBase pawn, EntityAI item, out InventoryLocation dst)
+	{
+		if (!pawn || !item)
+			return false;
+		GameInventory inv = pawn.GetInventory();
+		if (!inv)
+			return false;
+
+		int i;
+		for (i = 0; i < m_AttachmentSlots.Count(); i++)
+		{
+			EntityAI att = inv.FindAttachment(m_AttachmentSlots[i]);
+			if (!att)
+				continue;
+			if (att.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, dst))
+				return true;
+		}
+		return false;
+	}
+
+	//! Куда положить предмет (категорийно): аттачмент-слот (оружие/мили/одежда) →
+	//! карго всего одетого инвентаря. Каждая true-ветка заполняет dst.
+	static bool FindDestination(PlayerBase pawn, EntityAI item, out InventoryLocation dst)
+	{
+		if (!pawn || !item)
+			return false;
+
+		ItemBase ib = ItemBase.Cast(item);
+		if (ib)
+		{
+			int slotId;
+			if (FindAttachmentSlot(pawn, ib, slotId))
+			{
+				dst.SetAttachment(pawn, item, slotId);
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] Got empty space " + dst.DumpToString());
+				dmBotLog.Debug("[Loot] FindDestination: слот " + InventorySlots.GetSlotName(slotId) + " для " + item.GetType());
 				#endif
 				return true;
 			}
-        }
+		}
+
+		if (FindCargo(pawn, item, dst))
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] FindDestination: карго для " + item.GetType());
+			#endif
+			return true;
+		}
+
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] FindDestination: нет места для " + item.GetType());
+		#endif
 		return false;
 	}
 
@@ -146,5 +214,95 @@ class dmLoot
 			dst.Reset();
 		}
 		return false;
+	}
+
+	//! Надеть item в руки с ручным ре-синком сети (готча — docs/research/loot.md):
+	//! SERVER-перенос у AI-бота не кладёт оружие в руки сам.
+	static bool TakeToHands(PlayerBase pawn, ItemBase item)
+	{
+		if (!pawn || !item)
+			return false;
+		InventoryLocation src = new InventoryLocation();
+		if (!item.GetInventory().GetCurrentInventoryLocation(src))
+			return false;
+
+		InventoryLocation dst = new InventoryLocation();
+		dst.SetHands(pawn, item);
+
+		GetGame().RemoteObjectTreeDelete(item);
+		bool ok = pawn.LocalTakeToDst(src, dst);
+		pawn.GetItemAccessor().HideItemInHands(true);
+		pawn.GetItemAccessor().HideItemInHands(false);
+		GetGame().RemoteObjectTreeCreate(item);
+		return ok;
+	}
+
+	//! Перенести item в карго контейнера `to`; при to == null — в любое свободное место
+	//! через FindDestination (аттачмент → карго). Ручной ре-синк сети (готча — research/loot.md).
+	static bool TakeIntoCargo(PlayerBase pawn, ItemBase item, EntityAI to = null)
+	{
+		if (!pawn || !item)
+			return false;
+		InventoryLocation src = new InventoryLocation();
+		if (!item.GetInventory().GetCurrentInventoryLocation(src))
+			return false;
+
+		InventoryLocation dst = new InventoryLocation();
+		if (to)
+		{
+			if (!to.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, dst))
+				return false;
+		}
+		else
+		{
+			if (!FindDestination(pawn, item, dst))
+				return false;
+		}
+
+		GetGame().RemoteObjectTreeDelete(item);
+		bool ok = pawn.LocalTakeToDst(src, dst);
+		GetGame().RemoteObjectTreeCreate(item);
+		return ok;
+	}
+
+	//! Надеть item СТРОГО в слот slotId (dst.SetAttachment(pawn, item, slotId)) с ручным
+	//! ре-синком сети: item приходит с земли, а SERVER-перенос у AI-бота не синкается
+	//! сам (готча — docs/research/loot.md). При неудаче возвращает false (предмет
+	//! остаётся на земле). SetAttachment — аналог dst.SetHands(pawn, item) в TakeToHands.
+	static bool TakeToAttachmentSlot(PlayerBase pawn, ItemBase item, int slotId)
+	{
+		if (!pawn || !item)
+			return false;
+		InventoryLocation src = new InventoryLocation();
+		if (!item.GetInventory().GetCurrentInventoryLocation(src))
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] TakeToAttachmentSlot: нет InventoryLocation у " + item.GetType());
+			#endif
+			return false;
+		}
+
+		InventoryLocation dst = new InventoryLocation();
+		dst.SetAttachment(pawn, item, slotId);
+
+		GetGame().RemoteObjectTreeDelete(item);
+		bool ok = pawn.LocalTakeToDst(src, dst);
+		GetGame().RemoteObjectTreeCreate(item);
+		return ok;
+	}
+
+	//! Перенести item прямо в уже заполненное назначение dst с ручным ре-синком сети.
+	static bool TakeIntoDestination(PlayerBase pawn, ItemBase item, InventoryLocation dst)
+	{
+		if (!pawn || !item || !dst)
+			return false;
+		InventoryLocation src = new InventoryLocation();
+		if (!item.GetInventory().GetCurrentInventoryLocation(src))
+			return false;
+
+		GetGame().RemoteObjectTreeDelete(item);
+		bool ok = pawn.LocalTakeToDst(src, dst);
+		GetGame().RemoteObjectTreeCreate(item);
+		return ok;
 	}
 }

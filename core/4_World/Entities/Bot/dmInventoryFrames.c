@@ -8,33 +8,43 @@ enum dmInventoryDoing
 
 class dmInventoryFrame
 {
-	bool m_Done = false;          // выполнялся ли (не важен результат)
+	bool m_Done = false;          // выполнялся ли
+	bool m_Success = false;       // результат последнего Execute
 	dmInventoryDoing m_ToDo;      // глагол
 	ItemBase m_Item;              // предмет операции
 	int m_SlotId = -1;            // слот для ATTACHTOSLOT
 	EntityAI m_To;                // контейнер для TAKEINTOCARGO
+	InventoryLocation m_Loc;      // InventoryLocation для действия
 
 	ref dmInventoryFrame m_OnSuccess;
 	ref dmInventoryFrame m_OnFail;
 
-	//! Выполнить глагол через примитивы пешки. Ставит m_Done=true и возвращает успех.
+	//! Выполнить глагол через примитивы dmLoot. Ставит m_Done=true, записывает m_Success.
 	bool Execute(dmAISurvivorBase pawn)
 	{
 		m_Done = true;
+		m_Success = false;
 		if (!m_Item)
 			return false;
 		switch (m_ToDo)
 		{
 		case dmInventoryDoing.PLACEONGROUND:
-			return pawn.DropItem(m_Item);
+			m_Success = pawn.DropItem(m_Item);
+			break;
 		case dmInventoryDoing.ATTACHTOSLOT:
-			return pawn.TakeToAttachmentSlot(m_Item, m_SlotId);
+			m_Success = dmLoot.TakeToAttachmentSlot(pawn, m_Item, m_SlotId);
+			break;
 		case dmInventoryDoing.TAKEINTOCARGO:
-			return pawn.TakeIntoCargo(m_Item, m_To);
+			if ( m_Loc )
+				m_Success = dmLoot.TakeIntoDestination(pawn, m_Item, m_Loc);
+			else
+				m_Success = dmLoot.TakeIntoCargo(pawn, m_Item, m_To);
+			break;
 		case dmInventoryDoing.PUTINTOHANDS:
-			return pawn.TakeToHands(m_Item);
+			m_Success = dmLoot.TakeToHands(pawn, m_Item);
+			break;
 		}
-		return false;
+		return m_Success;
 	}
 
 	//! Следующий фрейм по результату выполнения.
@@ -46,13 +56,13 @@ class dmInventoryFrame
 	}
 
 	//! Готово ли ВСЁ дерево (выполненная ветка рекурсивно). ВАЖНО: листовой фрейм
-	//! (выполнен, веток нет) — готов.
+	//! (выполнен, веток нет) готов только при РЕАЛЬНОМ успехе (m_Done && m_Success).
 	bool IsAllDone()
 	{
 		if (!m_Done)
 			return false;
 		if (!m_OnSuccess && !m_OnFail)
-			return true;
+			return m_Success;
 		if (m_OnSuccess && m_OnSuccess.IsAllDone())
 			return true;
 		if (m_OnFail && m_OnFail.IsAllDone())

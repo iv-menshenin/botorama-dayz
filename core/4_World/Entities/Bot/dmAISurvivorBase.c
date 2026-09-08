@@ -205,6 +205,14 @@ class dmAISurvivorBase : PlayerBase
 		frame.m_To = to;
 		return frame;
 	}
+	private dmInventoryFrame MakeInventoryActionWithDestination(dmInventoryDoing verb, ItemBase item, InventoryLocation dst)
+	{
+		dmInventoryFrame frame = new dmInventoryFrame();
+		frame.m_ToDo = verb;
+		frame.m_Item = item;
+		frame.m_Loc = dst;
+		return frame;
+	}
 
 	//! Цепочка переноса ВСЕГО карго из `from` в `to` (по предмету за фрейм; не влезло/уничтожен — на пол). Возвращает голову или null.
 	dmInventoryFrame InventoryMoveCargo(ItemBase from, ItemBase to)
@@ -282,11 +290,13 @@ class dmAISurvivorBase : PlayerBase
 		if (item.IsClothing())
 			return InventoryChangeClothes(item);
 
-		EntityAI bag = GetInventory().FindAttachment(InventorySlots.GetSlotIdFromString("Back"));
-		if (!bag)
+		InventoryLocation dst = new InventoryLocation();
+		if ( !dmLoot.FindDestination(this, item, dst) )
+		{
 			return null;
+		}
 
-		dmInventoryFrame frame = MakeInventoryAction(dmInventoryDoing.TAKEINTOCARGO, item, -1, bag);
+		dmInventoryFrame frame = MakeInventoryActionWithDestination(dmInventoryDoing.TAKEINTOCARGO, item, dst);
 		if (m_InventoryFrames)
 			m_InventoryFrames.Enqueue(frame);
 		return frame;
@@ -1881,42 +1891,6 @@ class dmAISurvivorBase : PlayerBase
 		return false;
 	}
 
-	//! Надеть item в руки с ручным ре-синком сети (готча задокументирована в docs/research/loot.md):
-	//! SERVER-перенос у AI-бота не кладёт оружие в руки сам.
-	bool TakeToHands(ItemBase item)
-	{
-		InventoryLocation src = new InventoryLocation();
-		if (!item.GetInventory().GetCurrentInventoryLocation(src))
-			return false;
-
-		InventoryLocation dst = new InventoryLocation();
-		dst.SetHands(this, item);
-
-		GetGame().RemoteObjectTreeDelete(item);
-		bool ok = LocalTakeToDst(src, dst);
-		GetItemAccessor().HideItemInHands(true);
-		GetItemAccessor().HideItemInHands(false);
-		GetGame().RemoteObjectTreeCreate(item);
-		return ok;
-	}
-
-	//! Перенести item в карго контейнера `to` (ручной ре-синк сети, готча — в docs/research/loot.md).
-	bool TakeIntoCargo(ItemBase item, EntityAI to)
-	{
-		if (!item || !to)
-			return false;
-		InventoryLocation src = new InventoryLocation();
-		if (!item.GetInventory().GetCurrentInventoryLocation(src))
-			return false;
-		InventoryLocation dst = new InventoryLocation();
-		if (!to.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, dst))
-			return false;
-		GetGame().RemoteObjectTreeDelete(item);
-		bool ok = LocalTakeToDst(src, dst);
-		GetGame().RemoteObjectTreeCreate(item);
-		return ok;
-	}
-
 	//! Сбросить item на землю (server-side). Это ОВЕРРАЙД ванильного
 	//! PlayerBase.DropItem(ItemBase) — ванильный вызывать нельзя (он делает
 	//! PredictiveDropEntity и валит сервер, см. docs/research/loot.md). Возвращает
@@ -1939,30 +1913,6 @@ class dmAISurvivorBase : PlayerBase
 			return true;
 		}
 		return false;
-	}
-
-	//! Надеть item СТРОГО в слот slotId (dst.SetAttachment(this, item, slotId)) с ручным
-	//! ре-синком сети: item приходит с земли, а SERVER-перенос у AI-бота не синкается
-	//! сам (готча — docs/research/loot.md). При неудаче возвращает false (предмет
-	//! остаётся на земле). SetAttachment — аналог dst.SetHands(this, item) в TakeToHands.
-	bool TakeToAttachmentSlot(ItemBase item, int slotId)
-	{
-		InventoryLocation src = new InventoryLocation();
-		if (!item.GetInventory().GetCurrentInventoryLocation(src))
-		{
-			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] TakeToAttachmentSlot: нет InventoryLocation у " + item.GetType());
-			#endif
-			return false;
-		}
-
-		InventoryLocation dst = new InventoryLocation();
-		dst.SetAttachment(this, item, slotId);
-
-		GetGame().RemoteObjectTreeDelete(item);
-		bool ok = LocalTakeToDst(src, dst);
-		GetGame().RemoteObjectTreeCreate(item);
-		return ok;
 	}
 
 	//! Find a non-empty magazine in the inventory that fits the weapon (prefer an
