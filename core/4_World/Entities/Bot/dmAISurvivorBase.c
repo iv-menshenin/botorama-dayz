@@ -558,26 +558,6 @@ class dmAISurvivorBase : PlayerBase
 		//! line passes through the shot origin; falls back to the neck bone.
 		vector eyePos = GetMuzzlePosition();
 
-		//! Упреждение: для движущейся цели целиться вперёд на V·t·factor.
-		Human humanLead = Human.Cast(target);
-		if (humanLead)
-		{
-			vector leadVel;
-			humanLead.PhysicsGetVelocity(leadVel);
-			leadVel[1] = 0.0;
-			if (leadVel.Length() > DM_LEAD_SPEED_EPS)
-			{
-				Weapon_Base leadWeapon = Weapon_Base.Cast(GetHumanInventory().GetEntityInHands());
-				if (leadWeapon)
-				{
-					float leadTime = ComputeBulletTravelTime(leadWeapon, leadWeapon.GetCurrentMuzzle(), vector.Distance(eyePos, aimPos));
-					float leadFactor = dmBallisticsBridge.GetLeadFactor(this);
-					aimPos[0] = aimPos[0] + leadVel[0] * leadTime * leadFactor;
-					aimPos[2] = aimPos[2] + leadVel[2] * leadTime * leadFactor;
-				}
-			}
-		}
-
 		vector aimDir = aimPos - eyePos;
 		m_AimDistance = vector.Distance(eyePos, aimPos);
 
@@ -734,19 +714,7 @@ class dmAISurvivorBase : PlayerBase
 			targetDown = true;
 		if (singleShot && !targetDown)
 		{
-			vector targetVel = vector.Zero;
-			vector targetPos = vector.Zero;
-			if (m_AimTargetEntity)
-			{
-				targetPos = m_AimTargetEntity.GetPosition();
-				Human hLead = Human.Cast(m_AimTargetEntity);
-				if (hLead)
-				{
-					hLead.PhysicsGetVelocity(targetVel);
-					targetVel[1] = 0.0;
-				}
-			}
-			dmBallisticsBridge.RecordShot(this, origin, direction, distance, travelTime, origin[1] + direction[1] * distance, targetVel, targetPos);
+			dmBallisticsBridge.RecordShot(this, origin, direction, distance, travelTime, origin[1] + direction[1] * distance);
 		}
 		else
 			dmBallisticsBridge.ClearShot(this);
