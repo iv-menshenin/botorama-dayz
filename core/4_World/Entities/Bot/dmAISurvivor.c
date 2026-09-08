@@ -1486,13 +1486,14 @@ class dmAISurvivor
 
 	float CalcDesired(ItemBase item)
 	{
-		float wishIndex = m_Wishlist.CalcDesired( item );
-		if ( wishIndex >= 1.0 ) return 1.0;
-
 		if ( item.IsClothing() )
 		{
-			if ( IsBetterClothing(item) ) wishIndex = 1.0;
+			if ( IsBetterClothing(item) ) return 1.0;
+			return 0.0;   // не лучше надетого — не берём
 		}
+
+		float wishIndex = m_Wishlist.CalcDesired( item );
+		if ( wishIndex >= 1.0 ) return 1.0;
 
 		if (item.IsMagazine())
 		{
@@ -1508,7 +1509,8 @@ class dmAISurvivor
 	}
 
 	//! True when `item` is better clothing than what's worn in its slot: an empty
-	//! slot wins, then greater cargo capacity, then higher heat isolation.
+	//! slot wins, then a strict lexicographic order — cargo capacity, heat isolation,
+	//! health, max health; first difference decides, all equal → not better.
 	bool IsBetterClothing(ItemBase item)
 	{
 		PlayerBase pawn = m_Pawn;
@@ -1536,8 +1538,22 @@ class dmAISurvivor
 			int currentCargo = CargoCapacity(current);
 			if (itemCargo > currentCargo)
 				return true;
-			if (itemCargo == currentCargo && item.GetHeatIsolation() > current.GetHeatIsolation())
+			if (itemCargo < currentCargo)
+				return false;
+
+			if (item.GetHeatIsolation() > current.GetHeatIsolation())
 				return true;
+			if (item.GetHeatIsolation() < current.GetHeatIsolation())
+				return false;
+
+			if (item.GetHealth() > current.GetHealth())
+				return true;
+			if (item.GetHealth() < current.GetHealth())
+				return false;
+
+			if (item.GetMaxHealth() > current.GetMaxHealth())
+				return true;
+			return false;
 		}
 		return false;
 	}

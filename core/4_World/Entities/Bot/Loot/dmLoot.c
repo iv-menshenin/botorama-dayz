@@ -109,11 +109,25 @@ class dmLoot
 			return false;
 
 		dmLootCategory cat = GetCategory(item);
+		#ifdef DM_BOT_DEBUG_LOOTING
+		string catLabel = "прочее";
+		if (cat == dmLootCategory.WEAPON)
+			catLabel = "оружие";
+		else if (cat == dmLootCategory.MELEE)
+			catLabel = "мили";
+		else if (cat == dmLootCategory.CLOTHING)
+			catLabel = "одежда";
+		dmBotLog.Debug("[Loot] FindAttachmentSlot: тип=" + item.GetType() + " " + catLabel);
+		#endif
+
 		if (cat == dmLootCategory.WEAPON)
 		{
 			if (inv.CanAddAttachmentEx(item, InventorySlots.SHOULDER) && !inv.FindAttachment(InventorySlots.SHOULDER))
 			{
 				slotId = InventorySlots.SHOULDER;
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
+				#endif
 				return true;
 			}
 			return false;
@@ -123,11 +137,17 @@ class dmLoot
 			if (inv.CanAddAttachmentEx(item, InventorySlots.MELEE) && !inv.FindAttachment(InventorySlots.MELEE))
 			{
 				slotId = InventorySlots.MELEE;
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
+				#endif
 				return true;
 			}
 			if (inv.CanAddAttachmentEx(item, InventorySlots.SHOULDER) && !inv.FindAttachment(InventorySlots.SHOULDER))
 			{
 				slotId = InventorySlots.SHOULDER;
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
+				#endif
 				return true;
 			}
 			return false;
@@ -136,12 +156,38 @@ class dmLoot
 		{
 			array<string> names = new array<string>();
 			item.ConfigGetTextArray("inventorySlot", names);
-			if (names.Count() > 0)
+			if (names.Count() == 0)
 			{
-				slotId = InventorySlots.GetSlotIdFromString(names[0]);
-				if (slotId != InventorySlots.INVALID && inv.CanAddAttachmentEx(item, slotId) && !inv.FindAttachment(slotId))
-					return true;
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] FindAttachmentSlot: " + item.GetType() + " пустой inventorySlot");
+				#endif
+				return false;
 			}
+			slotId = InventorySlots.GetSlotIdFromString(names[0]);
+			if (slotId == InventorySlots.INVALID)
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] FindAttachmentSlot: " + item.GetType() + " нет слота");
+				#endif
+				return false;
+			}
+			if (!inv.HasAttachmentSlot(slotId))
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] FindAttachmentSlot: " + item.GetType() + " нет слота");
+				#endif
+				return false;
+			}
+			if (!inv.FindAttachment(slotId))
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
+				#endif
+				return true;
+			}
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] FindAttachmentSlot: " + item.GetType() + " слот занят");
+			#endif
 			return false;
 		}
 		return false;
