@@ -288,6 +288,10 @@ description: Живой справочник по ИИ-ботам для DayZ (�
 
 - **`dmLoot` (статик)** — лутинг-движок: `GetCategory` (FOOD/WEAPON/MELEE/MAGAZINE/AMMO/CLOTHING/
   REPAIR/MEDICAL/OTHER), `ScanNearbyItems`, категорийное определение места и примитивы (см. Инвентарь).
+  **Готча мили**: НЕ используй `IsMeleeWeapon()` (флаг `isMeleeWeapon`/`m_IsMeleeWeapon` даёт ложные
+  срабатывания — `BomberJacket_Brown`, и рюкзаки уходили в MELEE вместо CLOTHING). Надёжная
+  классификация — `dmLoot.IsMelee(item)` (статик): НЕ `IsWeapon()` + `inventorySlot`/`itemInfo`
+  содержит Knife/Melee/Shoulder/Axe. `dmAISurvivor.EntityIsMelee` — делегат в `dmLoot.IsMelee`.
   Определение места **категорийно**, НЕ дженерик-скан слотов (готча: сканирование слотов по порядку
   кладёт штаны в карго занятой куртки, не дойдя до пустого LEGS):
   - `FindAttachmentSlot(pawn, item, out slotId)` — WEAPON→`SHOULDER`; MELEE→`MELEE`→`SHOULDER`;
