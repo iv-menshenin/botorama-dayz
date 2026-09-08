@@ -1818,13 +1818,21 @@ Expansion-эталон (`eaistate_flank` / `OverrideTargetPosition` в нави�
 ## 4. Что уже есть в botorama и что переиспользовать/переписать
 
 Текущее состояние (прочитано):
+- **Прицел — единый механизм `dmAiming`** (как `dmLoot` для лута): интент `Aim` (или тест
+  `trajectory`) зовёт `aiming.SetTarget(EntityAI)` + `Enable()`; мозг тикает `aiming.OnUpdate(pDt)`
+  после интентов при `IsEnabled()`. `OnUpdate` считает точку прицела / направление (с личным
+  разбросом) / дистанцию / EMA-скорость цели и кладёт в пешку `SetAim(direction, targetPos,
+  distance, targetVelocity)`. Файр-путь читает сохранённое состояние (без райкаста);
+  `RequestFire()` — без аргумента.
 - `reg/4_World/modded_WeaponBase.c:34-75` `dmBot_Fire` → `Fire(mi, pos, direction, velocity)`
   (`velocity` = единичное `direction`, `:64`); после выстрела — `ApplyRecoil` + SHOT-шум
   (`dmNoiseSystem.AddNoise`, `:69`). `ComputeShot` (`dmAISurvivorBase.c:583-591`) =
   `GetShotOrigin` + `GetAimWorldDirection` + дисперсия + `CompensateBulletDrop` +
   `ComputeShotVelocity`.
-- `dmAISurvivorBase.c:608-629` `CompensateBulletDrop` — райкаст → `ComputeBulletTravelTime` →
-  `drop = 0.5·g·t²` → наклон ствола (корректный шаблон, но время полёта без air friction).
+- `dmAISurvivorBase.c` `CompensateBulletDrop` — **без райкаста**: дистанция из `m_AimDistance`
+  (выставленной `dmAiming` через `SetAim`; раньше рейкаст вдоль aim, который мог попасть в
+  дерево/землю за целью) → `ComputeBulletTravelTime` → `drop` → наклон ствола (время полёта
+  без air friction — главное, что переписать, см. ниже).
 - `dmAISurvivorBase.c:633-639` `ComputeBulletTravelTime` = `distance / initSpeed` (**без air
   friction** — главное, что переписать).
 - `dmAISurvivorBase.c:643-654` `GetAmmoInitSpeed` — читает `CfgMagazines <mag> ammo` →

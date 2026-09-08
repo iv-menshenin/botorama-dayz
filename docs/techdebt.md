@@ -124,7 +124,7 @@
   нашим прицелом; затем — вернуть стрельбу по `GetBarrelDirection()` (убрать рассинхрон дуло↔прицел).
   Рецепт — `docs/research/combat.md` «Минимальный рецепт для botorama».
 - **сделано** — **Отдача на выстрел** (recoil): `dmBot_Fire` → `AddRecoil(DM_AIM_RECOIL_MODIFIER)`,
-  `dmAiming.Update` гасит `m_RecoilPitch` и прибавляет к питчу (обе ветки). Осталось:
+  `dmAiming.OnUpdate` гасит `m_RecoilPitch` и прибавляет к питчу (обе ветки). Осталось:
   реальная формула `recoilModifier` от веса/патрона.
 - **средний** — **Strafe-factor пропущен**: `eAIAimingProfile` штрафует точность за
   «хаотичный стрейф» цели через `DayZPlayerImplement.GetStrafeFactor()` — это кастомный
@@ -132,12 +132,11 @@
   (`strafeFactor = 0`). Ввести свой аналог или отказаться.
 - **средний** — **Видимость — заглушка 100%**: `eAI_GetVisibility` в `dmAiming` заменена
   константой `1.0` (ночь/туман/дым не снижают точность). Ввести свою модель видимости.
-- **низкий** — **Выстрел через round-trip**: `dmBot_Fire` берёт направление из
-  `GetWeaponAimDirection()` (пересборка из `m_AimRelAngleLR/UD`), а `dmBotIntent_Aim` пишет
-  эти углы из `m_Aiming.GetAimDirection()` через `SetAimDirection`. Между «выставил углы» и
-  «выстрелил» корпус может довернуться (`ApplyBodyTurn` в CommandHandler), давая малую
-  ошибку. Чище — стрелять сразу мировым `m_Aiming.GetAimDirection()` (минуя round-trip);
-  визуальный ствол оставить на сглаженных углах.
+- **сделано** — **Выстрел без round-trip**: `dmAiming.OnUpdate` кладёт в пешку сразу мировое
+  направление через `SetAim(...)`; `ComputeShot` берёт `GetAimWorldDirection()` напрямую
+  (раньше — пересборка из `m_AimRelAngleLR/UD` через `GetWeaponAimDirection()`, а интент
+  писал углы через `SetAimDirection` → малый рассинхрон при довороте корпуса). Визуальный
+  ствол по-прежнему на сглаженных углах.
 - **низкий** — **Самопроверка разброса**: `/test bot aim` теперь гоняет новый путь
   (Shooting + `dmBotIntent_Aim` + `dmAiming` + перезарядка), но явной самопроверки
   разброса (выстрелы-до-убийства как PASS/FAIL) нет — сейчас это наблюдение.

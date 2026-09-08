@@ -34,15 +34,18 @@
 ## Компоненты
 
 ### 1. `dmAiming` (новый класс, атрибут пешки `dmAISurvivorBase.m_Aiming`)
-- `SetTarget(dmTarget)` — дать цель при «собираемся прицелиться».
-- `Update()`: точка прицеливания → база `neck→aimPoint` → разброс → `m_AimDirection`.
+- `SetTarget(EntityAI)` — дать цель при «собираемся прицелиться» (сброс EMA-скорости/трекинга
+  при смене цели); `Enable()`/`Disable()`/`IsEnabled()` — вкл/выкл тика.
+- `OnUpdate(pDt)`: тик зовётся мозгом (после тиков интентов) при `IsEnabled()`. Точка
+  прицеливания → база `neck→aimPoint` → разброс → `m_AimDirection`; затем кладёт всё в пешку:
+  `SetAim(m_AimDirection, targetPos, dist, m_TargetVelocity)`.
 - `vector GetAimDirection()` — геттер (аналог `m_AimDirection` у Expansion).
 - **Точка прицеливания**: цель **стоит** (velocity ≈ 0) **И** «реальная оптика»
   (`optic.GetZoomMax() > 0`) → **голова** (`GetBonePositionWS("Head")`); иначе/движется →
   **грудь** (`Spine3`). Источник позиции — LOS-позиция жертвы.
 
 ### 2. `dmBotIntent_Aim` (новый интент, CRITICAL + PARALLEL, атрибут — пешка)
-- выбор цели (`GetHostileTarget`, как у Fighting) → `m_Aiming.SetTarget(dmTarget)`;
+- выбор цели (`GetHostileTarget`, как у Fighting) → `m_Aiming.SetTarget(entity)` + `Enable()`;
 - `LookAtPoint` по `m_Aiming.GetAimDirection()`;
 - `RaiseWeapon(true)`;
 - если `IsRaised()` (все задержки прошли) **и** `m_HasLOS` → `RequestFire` вдоль `AimDirection`.

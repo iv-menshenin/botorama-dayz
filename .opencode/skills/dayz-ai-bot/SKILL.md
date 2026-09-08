@@ -277,8 +277,13 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   в Fighting при `GetHostileTarget() != null`). `/bot combat` переключает боевой пресет.
 - **Огнестрел (T11)** — `dmBotState_Shooting` (PREEMPTIVE: Raise→aim→fire по кулдауну→EXIT при пустом магазине) + примитивы пешки:
   - **подъём** — кастомная граф-переменная `dmAI_Raised` + `AnimSetBool` (вшита в граф), НЕ raised-стойка;
-  - **прицел** — `SetAimTarget(EntityAI)` (кость `neck`→цель → `m_AimRelAngleLR/UD`) + кастомные `dmAI_AimX/AimY` + `SetADS`;
-  - **выстрел** — `dmBot_Fire(mi)` → `Fire(mi, pos, dir, dir)` с явным `dir` (`GetWeaponAimDirection()`), через `modded WeaponFire` (ванильный `TryFireWeapon` берёт `GetCameraPoint` — внутренний прицел, у ИИ не задан);
+  - **прицел** — единый механизм `dmAiming` (интент/тест: `aiming.SetTarget(entity)` + `Enable()`,
+    мозг тикает `OnUpdate` после интентов; `OnUpdate` кладёт направление/дистанцию/EMA-скорость
+    цели в пешку через `SetAim(direction, targetPos, distance, targetVelocity)`) + кастомные
+    `dmAI_AimX/AimY` + `SetADS`;
+  - **выстрел** — `dmBot_Fire(mi)` → `ComputeShot` (aim + дроп без рейкаста + оружейный
+    dispersion) → `Fire(mi, pos, dir, dir)` с явным `dir`, через `modded WeaponFire` (ванильный
+    `TryFireWeapon` берёт `GetCameraPoint` — внутренний прицел, у ИИ не задан);
   - **перезарядка** — `dmBotWeaponManager : WeaponManager` (серверный `StartAction`/`OnWeaponActionEnd`) + `ReloadWeaponAI()`;
   - **звук** — `modded Weapon_Base.SyncEventToRemote` (шлёт `INPUT_UDT_WEAPON_REMOTE_EVENT` для `INSTANCETYPE_AI_SERVER`);
   - **`HasNoAmmo()`** — реальная инспекция магазина (`IsChamberEmpty/FiredOut` + `Magazine.GetAmmoCount()`).

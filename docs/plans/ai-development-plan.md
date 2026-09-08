@@ -60,11 +60,11 @@
 ### Группа 4 — бой
 10. `[x]` **Мили против заражённых** — реальная атака. Deps: 3, 4. Research: `combat.md`.
 11. `[x]` **Огнестрельный бой** — прицел/стрельба/перезарядка + точность (dmAiming). Deps: 3, 4, 2. Research: `combat.md`.
-    — сделано: `dmAISurvivorBase` (RaiseWeapon/SetAimTarget/GetWeaponAimDirection/dmBot_Fire/
+    — сделано: `dmAISurvivorBase` (RaiseWeapon/SetAim/GetWeaponAimDirection/dmBot_Fire/
     `modded WeaponFire`/`dmBotWeaponManager`+ReloadWeaponAI), `dmBotState_Shooting`, `HasNoAmmo`;
-    режимы HIP/ADS (`dmBotAimMode`); точность — `dmAiming` (спред/точка прицеливания) + readiness
-    (`IsReadyToShoot`/`IsRaising`) + `dmBotIntent_Aim` + выбор режима по дистанции/грейсу
-    (см. `docs/plans/aiming-design.md`).
+    режимы HIP/ADS (`dmBotAimMode`); точность/прицел — `dmAiming` (SetTarget/Enable/OnUpdate →
+    SetAim: спред/точка прицеливания/дистанция/скорость) + readiness (`IsReadyToShoot`/`IsRaising`)
+    + `dmBotIntent_Aim` + выбор режима по дистанции/грейсу (см. `docs/plans/aiming-design.md`).
 12. `[x]` **Состояние `Fighting` + реакция на угрозу**. Deps: 10, 11.
     — сделано: мили-Fighting (тонкий координатор + Approach/Evasion/HitTo/HoldLook), реактивная
     угроза (`GetHostileTarget`/`RegisterDamageThreat`, порог `DM_ATTACK_THREAT_THRESHOLD`).

@@ -127,8 +127,8 @@
   Проверяет, что сила выстрела определяется по типу глушителя, а не по типу оружия.
 - `/test bot trajectory` — траектория пули: мосинка (`Mosin9130`) + 1 патрон в патроннике,
   идеальный прицел (`SetPerfectAim`), цель-болванка на 500 м по взгляду игрока, один выстрел
-  без FSM (`SetAimTarget` → `RaiseWeapon` → `RequestFire`). Время полёта — дельта в логе
-  `[Ballistics]` (FIRE → HIT / IMPACT, домен `DM_BOT_DEBUG_BALLISTICS`).
+  без FSM (`GetAiming().SetTarget` + `Enable` → `RaiseWeapon` → `RequestFire`). Время полёта —
+  дельта в логе `[Ballistics]` (FIRE → HIT / IMPACT, домен `DM_BOT_DEBUG_BALLISTICS`).
 
 ### Ручные сценарии `/test`
 
