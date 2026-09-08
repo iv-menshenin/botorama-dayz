@@ -6,6 +6,8 @@ class dmBotShotState
 	float m_TargetDist;
 	float m_TravelTime;  // время полёта (с)
 	float m_AimPosY;    // высота точки прицела (грудь) на момент выстрела
+	vector m_TargetVel;   // скорость цели на момент выстрела (мир, Y=0)
+	vector m_TargetPos;   // позиция цели на момент выстрела
 }
 
 //! Cross-module bridge for the bullet-drop self-learning. DayZGame.FirearmEffects
@@ -17,6 +19,7 @@ class dmBallisticsBridge
 {
 	static ref map<EntityAI, float> s_DropCoef = new map<EntityAI, float>();
 	static ref map<EntityAI, float> s_LatCorr = new map<EntityAI, float>();
+	static ref map<EntityAI, float> s_LeadFactor = new map<EntityAI, float>();
 	static ref map<EntityAI, ref dmBotShotState> s_LastShot = new map<EntityAI, ref dmBotShotState>();
 
 	static float GetDropCoef(EntityAI pawn)
@@ -33,7 +36,14 @@ class dmBallisticsBridge
 		return DM_LAT_COEF_INIT;
 	}
 
-	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist, float travelTime, float aimPosY)
+	static float GetLeadFactor(EntityAI pawn)
+	{
+		if (s_LeadFactor.Contains(pawn))
+			return s_LeadFactor[pawn];
+		return DM_LEAD_FACTOR_INIT;
+	}
+
+	static void RecordShot(EntityAI pawn, vector origin, vector aimDir, float targetDist, float travelTime, float aimPosY, vector targetVel, vector targetPos)
 	{
 		dmBotShotState st = new dmBotShotState();
 		st.m_Origin = origin;
@@ -43,6 +53,8 @@ class dmBallisticsBridge
 		st.m_AimDir = aimDir;
 		st.m_TravelTime = travelTime;
 		st.m_AimPosY = aimPosY;
+		st.m_TargetVel = targetVel;
+		st.m_TargetPos = targetPos;
 		s_LastShot[pawn] = st;
 	}
 
@@ -88,16 +100,39 @@ class dmBallisticsBridge
 		dmBotLog.Debug("[Ballistics] FEEDBACK offset=" + offset + " lateral=" + lateral + " speed=" + speed);
 		#endif
 		float latSigned = st.m_AimDir[0] * d[2] - st.m_AimDir[2] * d[0];
-		float latAngle = latSigned / along;
-		float lc = GetLatCorr(shooter);
-		lc = lc - DM_LAT_LEARN_RATE * latAngle;
-		if (lc < DM_LAT_COEF_MIN)
-			lc = DM_LAT_COEF_MIN;
-		if (lc > DM_LAT_COEF_MAX)
-			lc = DM_LAT_COEF_MAX;
-		s_LatCorr[shooter] = lc;
-		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] LAT latSigned=" + latSigned + " latAngle=" + latAngle + " coef=" + lc);
-		#endif
+		bool moving = st.m_TargetVel.LengthSq() > DM_LEAD_SPEED_EPS * DM_LEAD_SPEED_EPS;
+		if (!moving)
+		{
+			float latAngle = latSigned / along;
+			float lc = GetLatCorr(shooter);
+			lc = lc - DM_LAT_LEARN_RATE * latAngle;
+			if (lc < DM_LAT_COEF_MIN)
+				lc = DM_LAT_COEF_MIN;
+			if (lc > DM_LAT_COEF_MAX)
+				lc = DM_LAT_COEF_MAX;
+			s_LatCorr[shooter] = lc;
+			#ifdef DM_BOT_DEBUG_BALLISTICS
+			dmBotLog.Debug("[Ballistics] LAT latSigned=" + latSigned + " latAngle=" + latAngle + " coef=" + lc);
+			#endif
+		}
+		else
+		{
+			vector vDir = st.m_TargetVel.Normalized();
+			float targetTravel = st.m_TargetVel.Length() * st.m_TravelTime;
+			float leadError = d[0] * vDir[0] + d[2] * vDir[2] - targetTravel;
+			if (Math.AbsFloat(targetTravel) > 0.01)
+			{
+				float lf = GetLeadFactor(shooter);
+				lf = lf - DM_LEAD_LEARN_RATE * leadError / targetTravel;
+				if (lf < DM_LEAD_FACTOR_MIN)
+					lf = DM_LEAD_FACTOR_MIN;
+				if (lf > DM_LEAD_FACTOR_MAX)
+					lf = DM_LEAD_FACTOR_MAX;
+				s_LeadFactor[shooter] = lf;
+				#ifdef DM_BOT_DEBUG_BALLISTICS
+				dmBotLog.Debug("[Ballistics] LEAD leadError=" + leadError + " targetTravel=" + targetTravel + " factor=" + lf);
+				#endif
+			}
+		}
 	}
 }
