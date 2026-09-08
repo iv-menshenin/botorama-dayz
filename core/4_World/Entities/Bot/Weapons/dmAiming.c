@@ -248,6 +248,10 @@ class dmAiming
 		{
 			human.PhysicsGetVelocity(tv);
 			tv[1] = 0.0;
+			//! Цель остановилась (скорость упала ниже порога движения) — накопленная
+			//! боковая поправка (ветер+лид) больше не применима, сбрасываем.
+			if (tv.Length() < DM_LEAD_SPEED_EPS && m_TargetVelocity.Length() > DM_LEAD_SPEED_EPS)
+				dmBallisticsBridge.ResetLatCorr(m_Unit);
 			delta = tv - m_TargetVelocity;
 			deltaSpeed = delta.Length();
 			if (deltaSpeed > DM_LEAD_VEL_CHANGE_EPS)
