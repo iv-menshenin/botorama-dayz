@@ -18,6 +18,30 @@ enum dmLootCategory
 
 class dmLoot
 {
+	//! Надёжная классификация мили (НЕ флаг isMeleeWeapon, который даёт ложные
+	//! срабатывания — см. research/combat.md): огнестрел — не мили; мили — по
+	//! inventorySlot (Knife/Melee/Shoulder) или itemInfo (Knife/Axe).
+	static bool IsMelee(EntityAI item)
+	{
+		if (!item)
+			return false;
+		if (item.IsWeapon())
+			return false;
+
+		array<string> inventorySlot = new array<string>();
+		item.ConfigGetTextArray("inventorySlot", inventorySlot);
+		if (inventorySlot.Find("Knife") > -1) return true;
+		if (inventorySlot.Find("Melee") > -1) return true;
+		if (inventorySlot.Find("Shoulder") > -1) return true;
+
+		array<string> itemInfo = new array<string>();
+		item.ConfigGetTextArray("itemInfo", itemInfo);
+		if (itemInfo.Find("Knife") > -1) return true;
+		if (itemInfo.Find("Axe") > -1) return true;
+
+		return false;
+	}
+
 	//! Категория лута для предмета (ванильное наследование). null → OTHER.
 	static dmLootCategory GetCategory(ItemBase item)
 	{
@@ -30,7 +54,7 @@ class dmLoot
 		if (item.IsWeapon())
 			return dmLootCategory.WEAPON;
 
-		if (item.IsMeleeWeapon())
+		if (IsMelee(item))
 			return dmLootCategory.MELEE;
 
 		if (item.IsMagazine())

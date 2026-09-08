@@ -626,21 +626,7 @@ class dmAISurvivor
 
 	bool EntityIsMelee(EntityAI item)
 	{
-		if (item.IsWeapon()) return false; // FireArms
-
-		array<string> inventorySlot = new array<string>();
-		item.ConfigGetTextArray("inventorySlot", inventorySlot);
-
-		if ( inventorySlot.Find("Knife") > -1 ) return true;
-		if ( inventorySlot.Find("Melee") > -1 ) return true;
-		if ( inventorySlot.Find("Shoulder") > -1 ) return true;
-
-		array<string> itemInfo = new array<string>();
-		item.ConfigGetTextArray("itemInfo", itemInfo);
-		if ( itemInfo.Find("Knife") > -1 ) return true;
-		if ( itemInfo.Find("Axe") > -1 ) return true;
-
-		return false;
+		return dmLoot.IsMelee(item);
 	}
 
 	//! (Phase 4) Perceives player signs nearby (killed zombie, campfire, items).
@@ -1584,7 +1570,7 @@ class dmAISurvivor
 		for (i = 0; i < items.Count(); i++)
 		{
 			Weapon_Base w = Weapon_Base.Cast(items[i]);
-			if (!w || w.IsMeleeWeapon())
+			if (!w || EntityIsMelee(w))
 				continue;
 			int mi;
 			for (mi = 0; mi < w.GetMuzzleCount(); mi++)
@@ -1622,7 +1608,7 @@ class dmAISurvivor
 		for (i = 0; i < items.Count(); i++)
 		{
 			Weapon_Base w = Weapon_Base.Cast(items[i]);
-			if (!w || w.IsMeleeWeapon())
+			if (!w || EntityIsMelee(w))
 				continue;
 			if (wm.CanAttachMagazine(w, mag) || wm.CanSwapMagazine(w, mag))
 			{

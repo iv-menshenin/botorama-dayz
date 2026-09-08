@@ -207,7 +207,7 @@ class dmRequirements
 		int i;
 		for (i = 0; i < m_Items.Count(); i++)
 		{
-			if (m_Items[i].m_Item.IsInherited(ToolBase) && m_Items[i].m_Item.IsMeleeWeapon())
+			if (m_Items[i].m_Item.IsInherited(ToolBase) && dmLoot.IsMelee(m_Items[i].m_Item))
 				return true;
 		}
 		return false;
