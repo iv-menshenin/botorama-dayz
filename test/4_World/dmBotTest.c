@@ -1588,3 +1588,199 @@ class dmBotTest_Trajectory : dmTestSuite_TestCase
 		}
 	}
 }
+
+//! Lead-observation diagnostic: the test bot (Mosin + optic + perfect aim) shoots
+//! at a FULL running target bot that sprints 200 m across the sight line (from
+//! P_left to P_right through P0 at N m). There is NO lead in the aiming code — the
+//! sight tracks the target's CURRENT position — so the shots are expected to miss.
+//! The metric is hits; the test reports DONE when the target finishes its run (or
+//! ammo runs out), PASS only if a shot lands.
+class dmBotTest_LeadShoot : dmTestSuite_TestCase
+{
+	int m_Phase = 0;
+	float m_TargetDistance = 0.0;
+	int m_Shots = 0;
+	int m_LastShotTime;
+	ref dmAISurvivor m_TargetBot;
+	vector m_PRight;
+
+	void SetTargetDistance(float v)
+	{
+		m_TargetDistance = v;
+	}
+
+	float GetTargetDistance()
+	{
+		if (m_TargetDistance > 0.0)
+			return m_TargetDistance;
+		return DM_LEADSHOOT_TEST_DISTANCE;
+	}
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		super.Setup(bot, player);
+		PlayerBase pawn = bot.GetPawn();
+		Weapon_Base mosin = Weapon_Base.Cast(pawn.GetHumanInventory().CreateInHands("Mosin9130"));
+		if (mosin)
+		{
+			mosin.SpawnAmmo("Ammo_762x54", WeaponWithAmmoFlags.CHAMBER);
+			mosin.GetInventory().CreateAttachment("PUScopeOptic");
+		}
+
+		//! Spare ammo in the pants cargo: 5 loose piles of 7.62x54 (20 rounds each).
+		EntityAI pants = pawn.GetInventory().CreateInInventory("CargoPants_Beige");
+		if (pants)
+		{
+			for (int i = 0; i < 5; i++)
+				pants.GetInventory().CreateInInventory("Ammo_762x54");
+		}
+
+		dmAISurvivorBase base = dmAISurvivorBase.Cast(pawn);
+		if (base)
+			base.SetPerfectAim(true);
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Упреждение». Мосинка + оптика + идеальный прицел; цель (полный бот) бежит спринтом 200 м поперёк прицела на " + Fmt(GetTargetDistance()) + " м. Метрика — попадания; ожидается промах (упреждения в коде нет).";
+	}
+
+	override float GetInterval() { return 0.5; }
+
+	override float GetDuration() { return 500.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Bot.GetPawn());
+
+		if (m_Phase == 0)
+		{
+			//! Развернуть тело по направлению взгляда игрока.
+			vector dir = m_Player.GetDirection();
+			dir[1] = 0.0;
+			dir.Normalize();
+			float yaw = dir.VectorToAngles()[0];
+			if (pawn)
+				pawn.SetTargetBodyYaw(yaw);
+			if (pawn)
+				pawn.SetOrientation(Vector(yaw, 0.0, 0.0));
+
+			//! Геометрия: P0 на взгляде, перпендикуляр, точки старта/финиша пробега.
+			vector p0 = ForwardTarget(GetTargetDistance());
+			vector perp = Vector(dir[2], 0.0, -dir[0]);
+			vector pLeft = p0 + perp * DM_LEADSHOOT_RUN_OFFSET;
+			vector pRight = p0 - perp * DM_LEADSHOOT_RUN_OFFSET;
+			pLeft = SnapToGroundExactly(pLeft);
+			pRight = SnapToGroundExactly(pRight);
+			m_PRight = pRight;
+
+			//! Цель — ПОЛНЫЙ бот, бегущий спринтом от P_left к P_right.
+			m_TargetBot = new dmAISurvivor();
+			PlayerBase tpawn = m_TargetBot.Spawn(pLeft, Vector(0, 0, 0));
+			if (!tpawn)
+			{
+				m_TargetBot = null;
+				return "FAIL: не удалось заспавнить цель";
+			}
+			m_TargetBot.SetPreferredSpeed(DM_LEADSHOOT_TARGET_SPEED);
+
+			dmBotIntent_MoveTo move = new dmBotIntent_MoveTo();
+			move.m_Goal = pRight;
+			move.m_Priority = dmBotIntentPriority.CRITICAL;
+			move.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+			m_TargetBot.AddCommandIntent(move);
+
+			if (pawn)
+				pawn.RaiseWeapon(true);
+			m_Shots = 0;
+			m_Phase = 1;
+			return "цель (бегущий бот) заспавнена на " + Fmt(GetTargetDistance()) + " м, бежит спринтом поперёк прицела";
+		}
+
+		if (m_Phase == 3)
+			return "";
+
+		//! Terminal checks (every tick): target dead -> PASS; target reached P_right
+		//! -> DONE (no lead, hits 0).
+		string verdict = CheckTermination();
+		if (verdict != "")
+			return verdict;
+
+		if (m_Phase == 1)
+		{
+			if (pawn && m_TargetBot && m_TargetBot.IsSpawned())
+				pawn.SetAimTarget(m_TargetBot.GetPawn());
+			if (pawn && pawn.IsReadyToShoot())
+			{
+				pawn.RequestFire();
+				m_Shots = 1;
+				m_LastShotTime = GetGame().GetTime();
+				m_Phase = 2;
+				return "выстрел #1";
+			}
+			return "";
+		}
+
+		//! m_Phase == 2: aim follows the running pawn every tick; reload when not
+		//! ready; fire at the shot interval.
+		if (pawn && m_TargetBot && m_TargetBot.IsSpawned())
+			pawn.SetAimTarget(m_TargetBot.GetPawn());
+
+		if (pawn && !pawn.IsReadyToShoot())
+		{
+			if (!pawn.ReloadWeaponAI())
+			{
+				CleanupTarget();
+				m_Phase = 3;
+				return "DONE: закончились патроны после " + m_Shots + " выстрелов";
+			}
+		}
+
+		if ((GetGame().GetTime() - m_LastShotTime) / 1000.0 < DM_TRAJECTORY_SHOT_INTERVAL)
+			return "";
+
+		if (pawn && pawn.IsReadyToShoot())
+		{
+			pawn.RequestFire();
+			m_Shots = m_Shots + 1;
+			m_LastShotTime = GetGame().GetTime();
+			return "выстрел #" + m_Shots;
+		}
+		return "";
+	}
+
+	//! Returns "" while the target is still running alive; otherwise cleans up and
+	//! returns the verdict (PASS on a kill, DONE on finishing the run).
+	string CheckTermination()
+	{
+		if (!m_TargetBot)
+			return "";
+		PlayerBase tpawn = m_TargetBot.GetPawn();
+		if (!tpawn || !tpawn.IsAlive())
+		{
+			//! Natural death: OnDeath() already unregistered from s_All and nulled
+			//! the pawn; the corpse is left to the engine.
+			m_TargetBot = null;
+			m_Phase = 3;
+			return "PASS: цель убита за " + m_Shots + " выстрелов";
+		}
+		if (HorizontalMove(m_TargetBot.GetPosition(), m_PRight) < 2.0)
+		{
+			CleanupTarget();
+			m_Phase = 3;
+			return "DONE: цель пробежала 200 м, попаданий 0 (упреждения нет), " + m_Shots + " выстрелов";
+		}
+		return "";
+	}
+
+	//! Remove the running target bot from the world (no leak in s_All).
+	void CleanupTarget()
+	{
+		if (m_TargetBot && m_TargetBot.IsSpawned())
+			m_TargetBot.Despawn();
+		m_TargetBot = null;
+	}
+}

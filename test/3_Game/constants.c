@@ -161,6 +161,15 @@ static const float DM_TRAJECTORY_TEST_DISTANCE = 500.0;
 //! bolt-cycle/reload time.
 static const float DM_TRAJECTORY_SHOT_INTERVAL = 5.0;
 
+//! Test scenario "leadshoot" — running-target lead observation.
+static const string DM_CHAT_TEST_LEADSHOOT = "leadshoot";
+//! Leadshoot test: default crossing distance (meters) when no {N} given.
+static const float DM_LEADSHOOT_TEST_DISTANCE = 500.0;
+//! Leadshoot test: lateral offset (meters) of the run start/end from P0.
+static const float DM_LEADSHOOT_RUN_OFFSET = 100.0;
+//! Leadshoot test: target sprint speed (preferred speed 3.0).
+static const float DM_LEADSHOOT_TARGET_SPEED = 3.0;
+
 //! Aim-observation test: pause (seconds) before/after the shots and shot interval.
 static const float DM_TEST_AIM_HOLD = 10.0;
 static const float DM_TEST_AIM_SHOT_INTERVAL = 2.0;

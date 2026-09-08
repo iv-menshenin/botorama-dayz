@@ -44,6 +44,10 @@
 //!                                цель на N м (по умолчанию 500), один выстрел;
 //!                                дельта времени полёта читается из лога [Ballistics]
 //!                                (FIRE → HIT/IMPACT).
+//!   /test bot leadshoot {N} — диагностика упреждения: мосинка + оптика, цель
+//!                                (полный бот) бежит спринтом 200 м поперёк прицела
+//!                                на N м; прицел ведётся в текущую позицию (упреждения
+//!                                нет) — ожидается промах; метрика — попадания.
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -59,10 +63,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player, parts);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | enemy | emote | fight | weapon load | weapon selection | suppressor | trajectory {N}
+		//! /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot | aim | enemy | emote | fight | weapon load | weapon selection | suppressor | trajectory {N} | leadshoot {N}
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | weapon load | weapon selection | suppressor | trajectory {N}");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | weapon load | weapon selection | suppressor | trajectory {N} | leadshoot {N}");
 			return false;
 		}
 
@@ -101,6 +105,8 @@ class dmTestCommand : dmCommandModule
 			return HandleTestCase(player, new dmBotTest_Suppressor());
 		if (parts[2] == DM_CHAT_TEST_TRAJECTORY)
 			return HandleTrajectoryTest(player, parts);
+		if (parts[2] == DM_CHAT_TEST_LEADSHOOT)
+			return HandleLeadShootTest(player, parts);
 
 		if (parts[2] == DM_CHAT_TEST_ENEMY)
 			return HandleEnemy(player, parts);
@@ -183,6 +189,20 @@ class dmTestCommand : dmCommandModule
 	private bool HandleTrajectoryTest(PlayerBase player, array<string> parts)
 	{
 		dmBotTest_Trajectory test = new dmBotTest_Trajectory();
+		if (parts.Count() >= 4)
+		{
+			int dist = parts[3].ToInt();
+			if (dist > 0)
+				test.SetTargetDistance(dist);
+		}
+		return HandleTestCase(player, test);
+	}
+
+	//! /test bot leadshoot {N} — running-target lead observation; N (meters) is the
+	//! optional crossing distance (0/default = DM_LEADSHOOT_TEST_DISTANCE).
+	private bool HandleLeadShootTest(PlayerBase player, array<string> parts)
+	{
+		dmBotTest_LeadShoot test = new dmBotTest_LeadShoot();
 		if (parts.Count() >= 4)
 		{
 			int dist = parts[3].ToInt();
