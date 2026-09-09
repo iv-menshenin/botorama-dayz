@@ -21,6 +21,7 @@ class dmTarget
 	string m_ClassEntity;           // класс для поиска/лута, если m_Entity == null (ACQUIRE)
 
 	vector m_LastPosition;          // последняя известная позиция
+	float m_LastPositionSpread = 0.0; // радиус вероятной позиции цели (центр m_LastPosition); 0 при видимости, растёт по шуму
 	float m_LastDistance;           // последнее известное расстояние до цели
 	bool m_HasLOS = false;          // видна в последнем скане
 	float m_LastContact = 0.0;      // GetGame().GetTickTime() последнего контакта

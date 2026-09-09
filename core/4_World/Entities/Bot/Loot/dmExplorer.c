@@ -120,6 +120,48 @@ class dmExplorer
 			eb.m_Visited = true;
 	}
 
+	//! Ближайшее НЕпосещённое здание с дверьми (BuildingBase + GetDoorCount() > 0)
+	//! в радиусе radius, или null. Для охоты — искать цель внутри строений.
+	Building GetNearestBuildingWithDoors(dmAISurvivor bot, float radius)
+	{
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return null;
+
+		vector botPos = pawn.GetPosition();
+		Building best = null;
+		float bestDist = 0.0;
+		int i;
+		for (i = 0; i < m_Buildings.Count(); i++)
+		{
+			dmExploredBuilding eb = m_Buildings[i];
+			if (eb.m_Visited || !eb.m_Building)
+				continue;
+			BuildingBase base = BuildingBase.Cast(eb.m_Building);
+			if (!base || base.GetDoorCount() == 0)
+				continue;
+			vector bPos = eb.m_Building.GetPosition();
+			vector d = bPos - botPos;
+			d[1] = 0.0;
+			float dist = d.Length();
+			if (dist > radius)
+				continue;
+			if (!best || dist < bestDist)
+			{
+				best = eb.m_Building;
+				bestDist = dist;
+			}
+		}
+
+		if ( best )
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Рядом здание с дверьми: " + best.GetType() + " на " + best.GetPosition());
+			#endif
+		}
+		return best;
+	}
+
 	//! Найти запись здания (или null).
 	dmExploredBuilding FindBuilding(Building building)
 	{

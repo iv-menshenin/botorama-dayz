@@ -194,6 +194,7 @@ class dmVision
 			if (t.m_HasLOS)
 			{
 				t.m_LastPosition = targetPos;
+				t.m_LastPositionSpread = 0.0;
 				t.m_LastContact = now;
 			}
 		}

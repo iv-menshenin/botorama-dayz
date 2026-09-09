@@ -1062,6 +1062,18 @@ class dmAISurvivor
 			{
 				if (!t.m_Friendly && attractiveness > t.m_Attractiveness)
 					t.m_Attractiveness = attractiveness;
+
+				vector botPos = GetPosition();
+				float L1 = vector.Distance(botPos, position);       // бот → шум
+				// facing: угол между направлением тела бота и направлением на шум (0..180)
+				vector toNoise = position - botPos;
+				float noiseYaw = toNoise.VectorToAngles()[0];
+				vector bodyDir = GetDirection();
+				float lookYaw = bodyDir.VectorToAngles()[0];
+				float facing = Math.AbsFloat(dmAISurvivor.AngleDiff(noiseYaw, lookYaw));
+				float facingFactor = DM_HUNT_FACING_MIN + (facing / 180.0) * (DM_HUNT_FACING_MAX - DM_HUNT_FACING_MIN);
+				t.m_LastPositionSpread = Math.Clamp(L1 * facingFactor, DM_HUNT_SPREAD_MIN, DM_HUNT_SPREAD_MAX);
+
 				t.m_LastPosition = position;
 			}
 			return;
@@ -1147,6 +1159,29 @@ class dmAISurvivor
 			}
 		}
 		return best;
+	}
+
+	//! Первая цель, пригодная для охоты: невидимая (!m_HasLOS), не дружественная,
+	//! живая, и либо враждебная с неточной позицией, либо достаточно привлекательная.
+	dmTarget GetHuntTarget()
+	{
+		int i;
+		for (i = 0; i < m_Targets.Count(); i++)
+		{
+			dmTarget t = m_Targets[i];
+			if (t.m_Friendly)
+				continue;
+			if (t.m_HasLOS)
+				continue;
+			EntityAI e = t.m_Entity;
+			if (e && !e.IsAlive())
+				continue;
+			bool hostileSpread = t.m_Threat >= DM_ATTACK_THREAT_THRESHOLD && t.m_LastPositionSpread > DM_FLANK_MAX_SPREAD;
+			bool attractive = t.m_Attractiveness > DM_HUNT_MIN_ATTRACTIVENESS;
+			if (hostileSpread || attractive)
+				return t;
+		}
+		return null;
 	}
 
 	//! Start a scan pass: mark every remembered target as not-seen; RememberTarget
