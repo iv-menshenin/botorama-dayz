@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.102";
+static const string DM_BOTORAMA_VERSION = "3.103";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
@@ -26,10 +26,13 @@ static const float DM_AI_GRAVITY = 9.81;
 //! accumulated from the signed perpendicular miss (geometric, wind-independent).
 static const float DM_LAT_COEF_INIT = 0.0;
 //! Lateral correction: damping of the accumulated offset per miss.
-static const float DM_LAT_LEARN_RATE = 0.5;
+static const float DM_LAT_LEARN_RATE = 0.2;
 //! Lateral correction: clamp bounds of the learned angle (radians, ~±3°).
 static const float DM_LAT_COEF_MIN = -0.05;
 static const float DM_LAT_COEF_MAX = 0.05;
+//! Lateral feedback: miss angle (radians, ≈1.7°) above which the impact is an
+//! outlier (target changed speed/trajectory, bad lead) — skip the whole feedback.
+static const float DM_FEEDBACK_MAX_MISS_ANGLE = 0.03;
 
 //! Lead: min target speed (m/s) to consider the target moving (walking speed).
 static const float DM_LEAD_SPEED_EPS = 2.0;

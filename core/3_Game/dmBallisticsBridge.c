@@ -88,6 +88,22 @@ class dmBallisticsBridge
 		//! не баллистический промах, обучение (дроп/лат-коррекцию) не делаем.
 		if (along < st.m_TargetDist * DM_DROP_MIN_FEEDBACK_FRAC)
 			return;
+		//! Обобщённая поправка (ветер + упреждение): угол между направлением
+		//! (origin → impact) и направлением (origin → P0 + V0·t).
+		vector pExpected = st.m_TargetPos + st.m_TargetVel * st.m_TravelTime;
+		vector expDir = pExpected - st.m_Origin;
+		expDir[1] = 0.0;
+		float dLen = d.Length();
+		float eLen = expDir.Length();
+		if (dLen <= 0.01 || eLen <= 0.01)
+			return;
+		float sinA = (expDir[0] * d[2] - expDir[2] * d[0]) / (dLen * eLen);
+		float missAngle = Math.Asin(Math.Clamp(sinA, -1.0, 1.0));
+		//! Выброс — цель сменила скорость/траекторию, лид неверен; данные не учим.
+		if (Math.AbsFloat(missAngle) > DM_FEEDBACK_MAX_MISS_ANGLE)
+			return;
+		// TODO: на покатом рельефе при перелёте (along > targetDist) знак offset-терма
+		// задирает coef вместо уменьшения — отдельная задача.
 		vector lat = d - st.m_AimDir * along;
 		float lateral = lat.Length();
 		float coef = GetDropCoef(shooter);
@@ -108,27 +124,15 @@ class dmBallisticsBridge
 		dmBotLog.Debug("[Ballistics] FEEDBACK targetDist=" + st.m_TargetDist + " along=" + along + " coef=" + coef);
 		dmBotLog.Debug("[Ballistics] FEEDBACK offset=" + offset + " lateral=" + lateral + " speed=" + speed);
 		#endif
-		//! Обобщённая поправка (ветер + упреждение): угол между направлением
-		//! (origin → impact) и направлением (origin → P0 + V0·t).
-		vector pExpected = st.m_TargetPos + st.m_TargetVel * st.m_TravelTime;
-		vector expDir = pExpected - st.m_Origin;
-		expDir[1] = 0.0;
-		float dLen = d.Length();
-		float eLen = expDir.Length();
-		if (dLen > 0.01 && eLen > 0.01)
-		{
-			float sinA = (expDir[0] * d[2] - expDir[2] * d[0]) / (dLen * eLen);
-			float missAngle = Math.Asin(Math.Clamp(sinA, -1.0, 1.0));
-			float lc = GetLatCorr(shooter);
-			lc = lc - DM_LAT_LEARN_RATE * missAngle;
-			if (lc < DM_LAT_COEF_MIN)
-				lc = DM_LAT_COEF_MIN;
-			if (lc > DM_LAT_COEF_MAX)
-				lc = DM_LAT_COEF_MAX;
-			s_LatCorr[shooter] = lc;
-			#ifdef DM_BOT_DEBUG_BALLISTICS
-			dmBotLog.Debug("[Ballistics] CORR missAngle=" + missAngle + " coef=" + lc);
-			#endif
-		}
+		float lc = GetLatCorr(shooter);
+		lc = lc - DM_LAT_LEARN_RATE * missAngle;
+		if (lc < DM_LAT_COEF_MIN)
+			lc = DM_LAT_COEF_MIN;
+		if (lc > DM_LAT_COEF_MAX)
+			lc = DM_LAT_COEF_MAX;
+		s_LatCorr[shooter] = lc;
+		#ifdef DM_BOT_DEBUG_BALLISTICS
+		dmBotLog.Debug("[Ballistics] CORR missAngle=" + missAngle + " coef=" + lc);
+		#endif
 	}
 }
