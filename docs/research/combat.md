@@ -1679,6 +1679,8 @@ Expansion-эталон (`eaistate_flank` / `OverrideTargetPosition` в нави�
 
 # Полёт пули и затухание (air friction / отложенный урон)
 
+> **BI bugtracker:** https://report.bistudio.com/issues/DZG-700 (зарегистрировано; см. `bugreport-instant-bullet.md`)
+
 ## Цель
 
 Выяснить, почему выстрел ИИ-бота через `Weapon_Base.Fire(mi, pos, dir, speed)` выглядит
