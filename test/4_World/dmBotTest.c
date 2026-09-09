@@ -2082,8 +2082,14 @@ class dmBotTest_Flytime : dmTestSuite_TestCase
 		fired = false;
 		if (!pawn.IsReadyToShoot())
 		{
-			if (!pawn.ReloadWeaponAI())
-				return "DONE";
+			//! Перезаряжаем только после реального выстрела (ствол/магазин потрачены).
+			//! Иначе бот ещё поднимает оружие — просто ждём, не трогаем ReloadWeaponAI
+			//! (тот на заряженном стволе без отъёмного магазина вернёт false «нет магазина»).
+			if (m_SubPhase > 0)
+			{
+				if (!pawn.ReloadWeaponAI())
+					return "DONE";
+			}
 			return "";
 		}
 		if ((GetGame().GetTime() - m_LastShotTime) / 1000.0 < DM_TRAJECTORY_SHOT_INTERVAL)
