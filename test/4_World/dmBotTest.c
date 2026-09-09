@@ -1814,3 +1814,308 @@ class dmBotTest_LeadShoot : dmTestSuite_TestCase
 		m_TargetBot = null;
 	}
 }
+
+//! Bullet flight-time diagnostic: two bots (Mosin + optic, no perfect aim) take
+//! turns shooting at a small ground marker (Ammo_762x54, N m) and a standing dummy
+//! (full survivor, N+2 m). The metric is the FIRE->IMPACT time delta in the
+//! [Ballistics] server log (all FirearmEffects arguments are now logged); the goal
+//! is to reveal whether an "instant" impact comes from hitting the ground
+//! (directHit=null) or a target (directHit=dummy). No PASS/FAIL: the verdict is
+//! DONE (or FAIL if a spawn failed).
+class dmBotTest_Flytime : dmTestSuite_TestCase
+{
+	int m_Phase = 0;          // main step: 0=init, 1=ground-10, 2=dummy, 3=ground-5,
+	                          // 4=respawn bot2, 5=dummy2, 6=ground-10, 7=DONE
+	int m_SubPhase = 0;       // shots fired in the current firing step
+	int m_LastShotTime = 0;   // GetGame().GetTime() of the last shot
+	float m_TargetDistance = 0.0;
+	EntityAI m_Target;        // standing dummy (full survivor)
+	EntityAI m_AmmoMarker;    // ground aim marker (Ammo_762x54)
+	vector m_LookDir;         // horizontal look direction of the player
+	vector m_GroundPoint;     // aim point on the ground (N meters from the player)
+
+	void SetTargetDistance(float v)
+	{
+		m_TargetDistance = v;
+	}
+
+	float GetTargetDistance()
+	{
+		if (m_TargetDistance > 0.0)
+			return m_TargetDistance;
+		return DM_FLYTIME_TEST_DISTANCE;
+	}
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		super.Setup(bot, player);
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return;
+
+		Weapon_Base mosin = Weapon_Base.Cast(pawn.GetHumanInventory().CreateInHands("Mosin9130"));
+		if (mosin)
+		{
+			mosin.SpawnAmmo("Ammo_762x54", WeaponWithAmmoFlags.CHAMBER);
+			mosin.GetInventory().CreateAttachment("PUScopeOptic");
+		}
+
+		//! Spare ammo in the pants cargo: 5 loose piles of 7.62x54 (20 rounds each).
+		EntityAI pants = pawn.GetInventory().CreateInInventory("CargoPants_Beige");
+		if (pants)
+		{
+			int i;
+			for (i = 0; i < 5; i++)
+				pants.GetInventory().CreateInInventory("Ammo_762x54");
+		}
+
+		GetPlayerLookDir(player, m_LookDir);
+		vector playerPos = player.GetPosition();
+		vector spawnPos = playerPos + m_LookDir * 0.5;
+		pawn.SetPosition(spawnPos);
+		bot.SetDirection(m_LookDir);
+
+		m_Phase = 0;
+		m_SubPhase = 0;
+		m_LastShotTime = 0;
+		m_Target = null;
+		m_AmmoMarker = null;
+	}
+
+	override string GetSummary()
+	{
+		return "Тест «Время полёта пули». Два бота по очереди стреляют в маркер на земле (N=" + Fmt(GetTargetDistance()) + " м) и в болванку (N+2 м). Метрика — дельта FIRE→IMPACT в логе [Ballistics]; выявляем «мгновенное» попадание (земля или цель).";
+	}
+
+	override float GetInterval() { return 0.5; }
+
+	override float GetDuration() { return 600.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Bot.GetPawn());
+		if (!pawn)
+			return "FAIL: нет пешки бота";
+
+		if (m_Phase == 0)
+			return Phase0Init(pawn);
+		if (m_Phase == 1)
+			return FireAtGround(pawn, 10, "фаза 1, земля");
+		if (m_Phase == 2)
+			return FireAtDummy(pawn, "фаза 1, болванка");
+		if (m_Phase == 3)
+			return FireAtGround(pawn, 5, "фаза 1, земля");
+		if (m_Phase == 4)
+			return Phase4Respawn();
+		if (m_Phase == 5)
+			return FireAtDummy(pawn, "фаза 2, болванка");
+		if (m_Phase == 6)
+			return FireAtGround(pawn, 10, "фаза 2, земля");
+		if (m_Phase == 7)
+		{
+			m_Phase = 8;
+			return "DONE: обе фазы завершены — смотри лог [Ballistics] FIRE/IMPACT";
+		}
+
+		return "";
+	}
+
+	//! Orient the body, raise the weapon, spawn the dummy and the ground marker.
+	string Phase0Init(dmAISurvivorBase pawn)
+	{
+		vector dir = m_Player.GetDirection();
+		dir[1] = 0.0;
+		dir.Normalize();
+		float yaw = dir.VectorToAngles()[0];
+		pawn.SetTargetBodyYaw(yaw);
+		pawn.SetOrientation(Vector(yaw, 0.0, 0.0));
+		pawn.RaiseWeapon(true);
+
+		float dist = GetTargetDistance();
+		m_Target = SpawnEnemyNearBot(dist + 2.0);
+		if (!m_Target)
+			return "FAIL: не удалось заспавнить болванку";
+
+		vector playerPos = m_Player.GetPosition();
+		vector ground = playerPos + m_LookDir * dist;
+		m_GroundPoint = SnapToGroundExactly(ground);
+		m_AmmoMarker = EntityAI.Cast(GetGame().CreateObject("Ammo_762x54", m_GroundPoint, false));
+		if (!m_AmmoMarker)
+			return "FAIL: не удалось заспавнить маркер";
+
+		m_Phase = 1;
+		m_SubPhase = 0;
+		return "фаза 1: болванка " + Fmt(dist + 2.0) + " м, маркер " + Fmt(dist) + " м";
+	}
+
+	//! Despawn bot #1, spawn bot #2 (same equip), recreate dummy + marker.
+	string Phase4Respawn()
+	{
+		CleanupDummy();
+		CleanupMarker();
+
+		vector pos = m_Bot.GetPosition();
+		m_Bot.Despawn();
+
+		ref dmAISurvivor bot2 = new dmAISurvivor();
+		PlayerBase pawn2 = bot2.Spawn(pos, Vector(0, 0, 0));
+		if (!pawn2)
+		{
+			m_Runner.ReplaceBot(null);
+			return "FAIL: не удалось заспавнить второго бота";
+		}
+
+		m_Runner.ReplaceBot(bot2);
+		dmCommandContext.BindBot(m_Player, bot2);
+
+		Weapon_Base mosin = Weapon_Base.Cast(pawn2.GetHumanInventory().CreateInHands("Mosin9130"));
+		if (mosin)
+		{
+			mosin.SpawnAmmo("Ammo_762x54", WeaponWithAmmoFlags.CHAMBER);
+			mosin.GetInventory().CreateAttachment("PUScopeOptic");
+		}
+		EntityAI pants = pawn2.GetInventory().CreateInInventory("CargoPants_Beige");
+		if (pants)
+		{
+			int i;
+			for (i = 0; i < 5; i++)
+				pants.GetInventory().CreateInInventory("Ammo_762x54");
+		}
+
+		bot2.SetDirection(m_LookDir);
+		dmAISurvivorBase pawn2b = dmAISurvivorBase.Cast(pawn2);
+		if (pawn2b)
+			pawn2b.RaiseWeapon(true);
+
+		float dist = GetTargetDistance();
+		m_Target = SpawnEnemyNearBot(dist + 2.0);
+		if (!m_Target)
+			return "FAIL: не удалось заспавнить болванку (фаза 2)";
+
+		vector playerPos = m_Player.GetPosition();
+		vector ground = playerPos + m_LookDir * dist;
+		m_GroundPoint = SnapToGroundExactly(ground);
+		m_AmmoMarker = EntityAI.Cast(GetGame().CreateObject("Ammo_762x54", m_GroundPoint, false));
+		if (!m_AmmoMarker)
+			return "FAIL: не удалось заспавнить маркер (фаза 2)";
+
+		m_Phase = 5;
+		m_SubPhase = 0;
+		return "фаза 2: второй бот заспавнен, болванка и маркер пересозданы";
+	}
+
+	//! Fire maxShots at the ground marker, then advance to the next step.
+	string FireAtGround(dmAISurvivorBase pawn, int maxShots, string label)
+	{
+		EnsureMarker();
+		if (!m_AmmoMarker)
+			return "FAIL: маркер не создался";
+
+		dmAiming aim = pawn.GetAiming();
+		if (aim)
+		{
+			aim.SetTarget(m_AmmoMarker);
+			aim.Enable();
+		}
+
+		bool fired;
+		string res = FireCadence(pawn, fired);
+		if (res == "DONE")
+		{
+			m_Phase = 8;
+			return "DONE: закончились патроны после " + m_SubPhase + " выстрелов";
+		}
+		if (fired)
+			return label + " " + m_SubPhase + "/" + maxShots;
+
+		if (m_SubPhase >= maxShots)
+		{
+			m_Phase = m_Phase + 1;
+			m_SubPhase = 0;
+			return label + " завершён (" + maxShots + " выстрелов)";
+		}
+		return "";
+	}
+
+	//! Fire at the dummy until its health drops below 1.0 (first hit), then advance.
+	string FireAtDummy(dmAISurvivorBase pawn, string label)
+	{
+		PlayerBase dummy = PlayerBase.Cast(m_Target);
+		if (!dummy || !dummy.IsAlive())
+		{
+			m_Phase = m_Phase + 1;
+			m_SubPhase = 0;
+			return label + ": болванка неактивна, следующий шаг";
+		}
+		if (dummy.GetHealth01() < 1.0)
+		{
+			m_Phase = m_Phase + 1;
+			m_SubPhase = 0;
+			return label + ": первое попадание (health=" + Fmt(dummy.GetHealth01()) + ")";
+		}
+
+		dmAiming aim = pawn.GetAiming();
+		if (aim)
+		{
+			aim.SetTarget(m_Target);
+			aim.Enable();
+		}
+
+		bool fired;
+		string res = FireCadence(pawn, fired);
+		if (res == "DONE")
+		{
+			m_Phase = 8;
+			return "DONE: закончились патроны после " + m_SubPhase + " выстрелов";
+		}
+		if (fired)
+			return label + " " + m_SubPhase + " выстрелов";
+		return "";
+	}
+
+	//! Fire one shot when ready and the interval elapsed; "DONE" if out of ammo.
+	string FireCadence(dmAISurvivorBase pawn, out bool fired)
+	{
+		fired = false;
+		if (!pawn.IsReadyToShoot())
+		{
+			if (!pawn.ReloadWeaponAI())
+				return "DONE";
+			return "";
+		}
+		if ((GetGame().GetTime() - m_LastShotTime) / 1000.0 < DM_TRAJECTORY_SHOT_INTERVAL)
+			return "";
+		pawn.RequestFire();
+		m_SubPhase = m_SubPhase + 1;
+		m_LastShotTime = GetGame().GetTime();
+		fired = true;
+		return "";
+	}
+
+	//! Recreate the ground marker if it was destroyed/deleted.
+	void EnsureMarker()
+	{
+		if (m_AmmoMarker && !m_AmmoMarker.IsDamageDestroyed() && !m_AmmoMarker.IsSetForDeletion())
+			return;
+		m_AmmoMarker = EntityAI.Cast(GetGame().CreateObject("Ammo_762x54", m_GroundPoint, false));
+	}
+
+	//! Remove the dummy from the world (between bots).
+	void CleanupDummy()
+	{
+		if (m_Target)
+			GetGame().ObjectDelete(m_Target);
+		m_Target = null;
+	}
+
+	//! Remove the marker from the world (between bots).
+	void CleanupMarker()
+	{
+		if (m_AmmoMarker)
+			GetGame().ObjectDelete(m_AmmoMarker);
+		m_AmmoMarker = null;
+	}
+}

@@ -13,7 +13,19 @@ modded class DayZGame
 		dmNoiseSystem.AddNoise(null, pos, DM_NOISE_BULLETIMPACT_STRENGTH, dmNoiseType.BULLETIMPACT);
 		dmBallisticsBridge.OnImpact(EntityAI.Cast(source), directHit, pos, inSpeed.Length());
 		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] IMPACT time=" + GetGame().GetTime() + " pos=" + pos + " speed=" + inSpeed.Length());
+		string src = "null";
+		EntityAI srcEnt = EntityAI.Cast(source);
+		if (srcEnt)
+			src = srcEnt.GetType();
+		string hit = "null";
+		EntityAI hitEnt = EntityAI.Cast(directHit);
+		if (hitEnt)
+			hit = hitEnt.GetType();
+		dmBotLog.Debug("[Ballistics] IMPACT time=" + GetGame().GetTime() + " source=" + src + " directHit=" + hit);
+		dmBotLog.Debug("[Ballistics] IMPACT componentIndex=" + componentIndex + " surface=" + surface);
+		dmBotLog.Debug("[Ballistics] IMPACT pos=" + pos + " surfNormal=" + surfNormal + " exitPos=" + exitPos);
+		dmBotLog.Debug("[Ballistics] IMPACT inSpeed=" + inSpeed + " outSpeed=" + outSpeed);
+		dmBotLog.Debug("[Ballistics] IMPACT isWater=" + isWater + " deflected=" + deflected + " ammoType=" + ammoType);
 		#endif
 		#ifdef DM_PERCEPTION_DEBUG
 		dmBotLog.Debug("[Noise] FirearmEffects: pos=" + pos);

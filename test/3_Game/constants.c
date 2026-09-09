@@ -175,6 +175,11 @@ static const float DM_LEADSHOOT_RUN_OFFSET = 100.0;
 //! Leadshoot test: target sprint speed (preferred speed 3.0).
 static const float DM_LEADSHOOT_TARGET_SPEED = 3.0;
 
+//! Test scenario "flytime" — bullet flight-time diagnostic (ground marker vs dummy).
+static const string DM_CHAT_TEST_FLYTIME = "flytime";
+//! Flytime test: default aim distance (meters) on the ground when no {N} given.
+static const float DM_FLYTIME_TEST_DISTANCE = 50.0;
+
 //! Aim-observation test: pause (seconds) before/after the shots and shot interval.
 static const float DM_TEST_AIM_HOLD = 10.0;
 static const float DM_TEST_AIM_SHOT_INTERVAL = 2.0;
