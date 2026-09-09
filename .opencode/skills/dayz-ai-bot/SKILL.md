@@ -287,6 +287,17 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   - **перезарядка** — `dmBotWeaponManager : WeaponManager` (серверный `StartAction`/`OnWeaponActionEnd`) + `ReloadWeaponAI()`;
   - **звук** — `modded Weapon_Base.SyncEventToRemote` (шлёт `INPUT_UDT_WEAPON_REMOTE_EVENT` для `INSTANCETYPE_AI_SERVER`);
   - **`HasNoAmmo()`** — реальная инспекция магазина (`IsChamberEmpty/FiredOut` + `Magazine.GetAmmoCount()`).
+- **Готовность оружия — ДВЕ разные проверки, не путать** (готча-рефлексия из flytime):
+  - `IsReadyToShoot()` = **поднято** (`m_WeaponRaised && timer >= m_RaiseReadyDuration`) **И** ствол
+    заряжен. Возвращает `false` МОЛЧА (без лога `[Weapon] IsReadyToShoot`) на ранней ветке «не поднято» —
+    лог `[Weapon] IsReadyToShoot: ...` печатается ТОЛЬКО когда поднято, а ствол пуст/стрелян/заклинил.
+    Т.е. отсутствие этого лога ≠ «кончились патроны», а «ещё поднимаю».
+  - `IsWeaponReady()` = ствол заряжен **независимо от подъёма** (`!IsChamberFiredOut && !IsJammed && !IsChamberEmpty`).
+    Разница `IsWeaponReady() && !IsReadyToShoot()` = «поднимаю»; `!IsWeaponReady()` = «ствол пуст/стрелян».
+  - `ReloadWeaponAI()` возвращает `false` в ДВУХ случаях: «перезаряжать нечего» (ствол заряжен — бот ещё
+    поднимает) И «реально кончились патроны». Поэтому зови его только под гейтом `!IsWeaponReady()`:
+    тогда `false` = точно «патроны кончились». Не гейть перезарядку по счётчику фазы (`m_SubPhase > 0`) —
+    тот сбрасывается при переходе фазы и оставит стреляный ствол без перезарядки (бесконечное ожидание).
 - **Ванильные «конкуренты» прицела**: `HandleWeapons`/`HandleADS`/`HandleOptic` (все зовутся из `CommandHandler`, каждый может `ExitSights()→SetADS(false)`) + `AimingModel` — переопределить no-op'ом/false, иначе наш `SetADS` топчется и ствол трясётся/не поднимается. `HasPlayerSigns()` — заглушка `false`.
 
 ## Лут
