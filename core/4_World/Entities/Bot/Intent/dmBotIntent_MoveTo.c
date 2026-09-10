@@ -51,6 +51,12 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! Accumulator for the proactive door check (throttled by DM_DOOR_CHECK_INTERVAL).
 	float m_DoorCheckAccum = 0.0;
 
+	//! Accumulator for the proactive campfire scan (throttled by DM_DANGER_CHECK_INTERVAL).
+	float m_DangerAccum = 0.0;
+
+	//! Accumulator for the periodic re-path (throttled by DM_MOVE_REPATH_INTERVAL).
+	float m_RepathAccum = 0.0;
+
 	//! Proactive vision (ProbeAhead): climb/door candidates with a cooldown/timeout,
 	//! and whether walkable ground is ahead (fall safety).
 	bool m_ClimbCandidate = false;
@@ -120,6 +126,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_NoProgressTime = 0.0;
 		m_PathIdx = 0;
 		m_DoorCheckAccum = 0.0;
+		m_DangerAccum = 0.0;
+		m_RepathAccum = 0.0;
 
 		m_Recovering = false;
 		m_RecoverTimer = 0.0;
@@ -301,6 +309,16 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		UpdateGoal(bot, pDt);
 
+		//! Периодический ре-патинг: маршрут устаревает (двери, костры, препятствия).
+		//! Только для НЕ-непрерывных интентов — FollowTo ре-патит сам по дрейфу якоря.
+		m_RepathAccum += pDt;
+		if (!IsContinuous() && m_RepathAccum >= DM_MOVE_REPATH_INTERVAL)
+		{
+			m_RepathAccum = 0.0;
+			RePath(bot);
+			return;
+		}
+
 		vector subGoal = m_Goal;
 		if (m_HasPath && m_Path.Count() > 0)
 			subGoal = m_Path[m_PathIdx];
@@ -310,6 +328,37 @@ class dmBotIntent_MoveTo : dmBotIntent
 			reach = DM_PATH_WAYPOINT_REACH;
 
 		vector pos = bot.GetPosition();
+
+		//! Проактивное избегание костра: детектим горящий костёр у подцели,
+		//! запоминаем в красную зону и сдвигаем подцель вбок от костра.
+		m_DangerAccum += pDt;
+		if (m_DangerAccum >= DM_DANGER_CHECK_INTERVAL)
+		{
+			m_DangerAccum = 0.0;
+			FireplaceBase fire = dmRedZone.ScanFireplace(subGoal, DM_BOT_DANGER_AVOID_RADIUS * 2.0);
+			if (fire)
+				dmRedZone.Add(fire.GetPosition(), DM_BOT_DANGER_AVOID_RADIUS, DM_BOT_DANGER_TIMEOUT);
+		}
+
+		vector avoidCenter;
+		float avoidRadius;
+		if (dmRedZone.FindNearest(subGoal, avoidCenter, avoidRadius))
+		{
+			vector toCenter = subGoal - avoidCenter;
+			toCenter[1] = 0.0;
+			float dc = toCenter.Length();
+			if (dc < avoidRadius + DM_BOT_DANGER_MARGIN)
+			{
+				vector away = toCenter;
+				if (away.Length() < 0.01)
+					away = pos - avoidCenter;   // дегенеративный случай: от костра относительно бота
+				away[1] = 0.0;
+				away.Normalize();
+				subGoal = avoidCenter + away * (avoidRadius + DM_BOT_DANGER_MARGIN);
+				subGoal[1] = pos[1];
+			}
+		}
+
 		vector dir = subGoal - pos;
 		dir[1] = 0.0;
 		float dist = dir.Length();

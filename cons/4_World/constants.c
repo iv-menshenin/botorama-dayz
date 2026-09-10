@@ -285,6 +285,15 @@ static const float DM_BOT_DANGER_AVOID_RADIUS = 0.6;
 //! Danger (red zone): lifetime (seconds) of a remembered dangerous position.
 static const float DM_BOT_DANGER_TIMEOUT     = 300.0;
 
+//! Danger: extra margin (meters) added to a red-zone radius when offsetting the sub-goal.
+static const float DM_BOT_DANGER_MARGIN      = 0.4;
+
+//! Danger: throttle interval (seconds) for the proactive campfire scan in MoveTo.
+static const float DM_DANGER_CHECK_INTERVAL  = 0.5;
+
+//! MoveTo: periodic re-path interval (seconds) for non-continuous intents.
+static const float DM_MOVE_REPATH_INTERVAL   = 5.0;
+
 //! Scan: random interval (seconds) between idle direction changes.
 static const float DM_SCAN_INTERVAL_MIN = 10.0;
 static const float DM_SCAN_INTERVAL_MAX = 30.0;

@@ -64,6 +64,33 @@ class dmRedZone
 		return false;
 	}
 
+	//! Ближайшая зона к pos. Возвращает true и заполняет center/radius, или false.
+	static bool FindNearest(vector pos, out vector center, out float radius)
+	{
+		Prune();
+		vector p = pos;
+		p[1] = 0.0;
+		dmRedZoneEntry nearest = null;
+		float best = -1.0;
+		int i;
+		for (i = 0; i < s_Zones.Count(); i++)
+		{
+			vector c = s_Zones[i].m_Position;
+			c[1] = 0.0;
+			float d = vector.Distance(p, c);
+			if (!nearest || d < best)
+			{
+				nearest = s_Zones[i];
+				best = d;
+			}
+		}
+		if (!nearest)
+			return false;
+		center = nearest.m_Position;
+		radius = nearest.m_Radius;
+		return true;
+	}
+
 	//! Ближайший горящий костёр в радиусе radius вокруг pos, или null.
 	static FireplaceBase ScanFireplace(vector pos, float radius)
 	{
