@@ -170,6 +170,30 @@ vehicle-local `(0,0,0)`, тогда как `GetWorldPosition()` уже/ещё к
 - Точный кадр detach'а на сервере (когда `GetParent()` становится `null`) — проверить
   пер-фрейм логом `GetParent() == null` vs `GetWorldPosition()`.
 
+## Двери автомобиля
+
+Дверь машины = **анимационная фаза** на `CarScript` (`4_world/entities/vehicles/carscript.c`).
+Отдельного «открыть/закрыть дверь» натива нет — дверь гоняется через `SetAnimationPhase`
+(натив `Entity`), а имя анимации получается по месту (`seat`) через цепочку:
+
+```c
+CarScript car = CarScript.Cast(transport);
+string sel  = car.GetDoorSelectionNameFromSeatPos(seat);  // имя селекшена двери
+string slot = car.GetDoorInvSlotNameFromSeatPos(seat);    // имя инвентарного слота
+if (car.GetCarDoorsState(slot) == CarDoorState.DOORS_MISSING) // двери нет/снята
+    return;
+string anim = car.GetAnimSourceFromSelection(sel);         // имя анимации
+car.SetAnimationPhase(anim, 1.0);                          // 1.0 = открыта, 0.0 = закрыта
+```
+
+- `CarDoorState` — `enum { DOORS_MISSING, DOORS_OPEN, DOORS_CLOSED }`.
+- Текущая фаза — `car.GetAnimationPhase(anim)` (0..1, интерполируется).
+- Ванильный порог «открыта» — `GetAnimationPhase(anim) > 0.5`
+  (см. `CarScript.TranslateAnimationPhaseToCarDoorState`).
+- Снап на землю — `GetGame().SurfaceY(x, z)` (натив `Game`, `game.c:1152`): возвращает
+  высоту поверхности по горизонтальным координатам:
+  `pos[1] = GetGame().SurfaceY(pos[0], pos[2]);` (ванильный идиом, напр. `actionrepacktent.c:21`).
+
 ## Готчи / замечания
 
 - `StartCommand_Vehicle` требует близость к двери (ванильный гейт `CanReachSeatFromDoors <= 1.0`),

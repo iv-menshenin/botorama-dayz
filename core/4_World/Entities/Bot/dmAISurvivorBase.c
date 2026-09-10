@@ -1532,19 +1532,15 @@ class dmAISurvivorBase : PlayerBase
 		return true;
 	}
 
-	//! True while the bot is seated in a vehicle (the vanilla vehicle command owns
-	//! the body). Used to block motor + weapon actuation in the CommandHandler.
-	bool IsInVehicle()
-	{
-		return GetCommand_Vehicle() != null;
-	}
-
 	bool TickVehicle()
 	{
 		if (m_VehiclePendingExit)
 		{
 			if (GetCommand_Vehicle()) return true;
 
+			//! Snap the exit point to the terrain surface so the bot can't be left
+			//! in the air / under the ground after detach (fall-death bug).
+			m_VehicleSitPos[1] = GetGame().SurfaceY(m_VehicleSitPos[0], m_VehicleSitPos[2]);
 			SetPosition(m_VehicleSitPos);
 			SetOrientation(Vector(m_VehicleSitDir.VectorToAngles()[0], 0.0, 0.0));
 			m_VehiclePendingExit = false;

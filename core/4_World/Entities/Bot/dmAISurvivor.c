@@ -221,7 +221,7 @@ class dmAISurvivor
 	vector GetPosition()
 	{
 		if (m_Pawn)
-			return m_Pawn.GetPosition();
+			return m_Pawn.GetWorldPosition();
 		return vector.Zero;
 	}
 

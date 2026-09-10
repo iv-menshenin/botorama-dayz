@@ -275,16 +275,22 @@ class dmBotState_Follow : dmBotState
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] GetOutVehicle: player is null");
 			#endif
-			m_IntentGetInVehicle.Finish();
-			m_IntentGetInVehicle = null;
+			if ( m_IntentGetInVehicle )
+			{
+				m_IntentGetInVehicle.Finish();
+				m_IntentGetInVehicle = null;
+			}
 		}
 		if ( !bot || !pawn )
 		{
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] GetOutVehicle: pawn is null");
 			#endif
-			m_IntentGetInVehicle.Finish();
-			m_IntentGetInVehicle = null;
+			if ( m_IntentGetInVehicle )
+			{
+				m_IntentGetInVehicle.Finish();
+				m_IntentGetInVehicle = null;
+			}
 		}
 
 		Transport playerCar = Transport.Cast( player.GetParent() );

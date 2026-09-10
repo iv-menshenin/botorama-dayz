@@ -428,6 +428,15 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   плюс опустить оружие в `else`-ветке). `TickVehicle()` ранний-return покрывает только
   переходы get-in/get-out, а НЕ устоявшееся сидение — это и была причина бага.
 
+- **Дверь машины** → анимационная фаза на `CarScript`, а не отдельный натив:
+  `seat → GetDoorSelectionNameFromSeatPos(seat) → GetAnimSourceFromSelection(sel)` даёт имя
+  анимации; есть ли дверь — `GetDoorInvSlotNameFromSeatPos(seat) + GetCarDoorsState(slot)`
+  (`CarDoorState.DOORS_MISSING`). Открыть/закрыть — `car.SetAnimationPhase(anim, 1.0/0.0)`;
+  ждать — ПОЛЛИНГ `car.GetAnimationPhase(anim)` по порогам (ваниль: открыта > 0.5), не
+  фикс-таймер. Позицию в кадр detach'а выхода читать через `GetWorldPosition()` (а не
+  `GetPosition()` — тот на один кадр отдаёт vehicle-local `(0,0,0)`), а после выхода
+  снапнуть на землю `GetGame().SurfaceY(x, z)` (натив `Game`): `pos[1] = GetGame().SurfaceY(pos[0], pos[2])`.
+
 ## Ключевые файлы
 
 - `botorama/core/4_World/Entities/Bot/dmAISurvivor.c` — мозг (спавн, look, движение, FSM, интенты, патруль, цели).

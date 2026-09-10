@@ -22,6 +22,21 @@ static const float DM_PATROL_REACH_DISTANCE = 1.0;
 //! counts as reached and the bot starts boarding the vehicle.
 static const float DM_GETIN_REACH = 1.0;
 
+//! Car door: animation phase at which a door counts as "open".
+static const float DM_CAR_DOOR_OPEN_PHASE   = 0.9;
+
+//! Car door: animation phase at which a door counts as "closed".
+static const float DM_CAR_DOOR_CLOSED_PHASE = 0.1;
+
+//! Car door: safety timeout (seconds) for the open/close poll — the poll normally
+//! finishes earlier via GetAnimationPhase.
+static const float DM_CAR_DOOR_TIMEOUT      = 0.75;
+
+//! Car door: safety timeout (seconds) for the get-in/get-out ANIMATION itself
+//! (the door phase polls use DM_CAR_DOOR_TIMEOUT). The poll normally finishes
+//! earlier via GetCommand_Vehicle()/IsGettingIn().
+static const float DM_CAR_DOOR_ANIM_TIMEOUT = 3.0;
+
 //! Grace period (seconds) after starting GetOutVehicle before the intent checks
 //! completion — gives the get-out command a moment to become active.
 static const float DM_GETOUT_GRACE = 0.5;
