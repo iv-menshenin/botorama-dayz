@@ -98,6 +98,9 @@ class dmAISurvivorBase : PlayerBase
 	//! Last time (GetGame().GetTickTime()) the ADS/aim-mode debug log was printed.
 	private float m_LastADSLogTime = 0.0;
 
+	//! Last time (GetGame().GetTickTime()) the vehicle-seated debug log was printed.
+	private float m_LastVehicleLogTime = 0.0;
+
 	//! Shooting accuracy model (dispersion). Created here, wired into the fire
 	//! path in Phase 3. dmAiming is a plain class -> ref.
 	private ref dmAiming m_Aiming;
@@ -913,12 +916,28 @@ class dmAISurvivorBase : PlayerBase
 			TickBodySystems(pDt);
 
 		bool canAct = CanAct();
+		bool inVehicle = canAct && IsInVehicle();
 
 		if (canAct)
 		{
 			ApplyLookVars();
-			ApplyWeaponRaise(pDt);
-			ApplyWeaponAim();
+			if (!inVehicle)
+			{
+				ApplyWeaponRaise(pDt);
+				ApplyWeaponAim();
+			}
+			else
+			{
+				//! Seated: the vanilla vehicle command owns the body — lower the
+				//! weapon and drop ADS so it can't be raised/aimed from the seat.
+				m_WeaponRaised = false;
+				if (m_VarRaised >= 0)
+					AnimSetBool(m_VarRaised, false);
+				HumanCommandWeapons hcw = GetCommandModifier_Weapons();
+				if (hcw)
+					hcw.SetADS(false);
+				m_FireRequest = false;
+			}
 		}
 
 		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);
@@ -936,7 +955,27 @@ class dmAISurvivorBase : PlayerBase
 		}
 
 		if ( TickVehicle() ) return;
-			
+
+		if (inVehicle)
+		{
+			ResetMotorActuation();
+
+			#ifdef DM_BOT_DEBUG_FSM
+			if (GetGame().GetTickTime() - m_LastVehicleLogTime >= 2.0)
+			{
+				m_LastVehicleLogTime = GetGame().GetTickTime();
+				HumanCommandVehicle hcv = GetCommand_Vehicle();
+				int seat = -1;
+				if (hcv)
+					seat = hcv.GetVehicleSeat();
+				dmBotLog.Debug("[Bot] InVehicle: seat=" + seat + " motor blocked");
+				dmBotLog.Debug("[Bot] InVehicle: motor reset, head look unaffected");
+			}
+			#endif
+
+			return;
+		}
+
 		ApplyWeaponADS();
 		ApplyBodyTurn(pDt);
 		ApplyMovement(pDt);
@@ -1108,6 +1147,26 @@ class dmAISurvivorBase : PlayerBase
 
 		if (m_VarLook >= 0)
 			AnimSetBool(m_VarLook, false);
+	}
+
+	//! Stop any in-progress motor actuation (body turn / movement / fire) WITHOUT
+	//! touching the head look. Called every frame while the bot is seated in a
+	//! vehicle, so the vanilla vehicle command owns the body.
+	void ResetMotorActuation()
+	{
+		if (m_TurnState != 0)
+		{
+			if (m_CmdStopTurn >= 0)
+				AnimCallCommand(m_CmdStopTurn, 0, 0.0);
+			if (m_VarTurnAmount >= 0)
+				AnimSetFloat(m_VarTurnAmount, 0.0);
+		}
+		m_TurnState = 0;
+		m_TurnTime = 0.0;
+		m_TurnSharp = false;
+		m_ActualSpeed = 0.0;
+		m_IsMoving = false;
+		m_FireRequest = false;
 	}
 
 	//! Disable the vanilla body-turn (HeadingModel::RotateOrient) for the MOVE
@@ -1471,6 +1530,13 @@ class dmAISurvivorBase : PlayerBase
 		dmBotLog.Debug("[Bot] GetOutVehicle: start");
 		#endif
 		return true;
+	}
+
+	//! True while the bot is seated in a vehicle (the vanilla vehicle command owns
+	//! the body). Used to block motor + weapon actuation in the CommandHandler.
+	bool IsInVehicle()
+	{
+		return GetCommand_Vehicle() != null;
 	}
 
 	bool TickVehicle()

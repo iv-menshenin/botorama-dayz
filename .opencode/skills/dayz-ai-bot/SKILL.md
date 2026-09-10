@@ -418,6 +418,15 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   НЕ raised-стойка и НЕ ванильные `Raised`/`AimX/Y` (engine-driven, см. DayZ-готчи).
   Граф: добавить `#Var` в `player_main.agr` + заменить токен в `Locomotion.agr`/`Actions.agr`.
   Выстрел — явный `dir` в `Fire(mi,pos,dir,dir)`, не ванильный `TryFireWeapon` (`GetCameraPoint`).
+- **Моторика/оружие в машине**: пока бот сидит в транспорте (`GetCommand_Vehicle() != null`,
+  см. `dmAISurvivorBase.IsInVehicle()`), `CommandHandler` обязан НЕ звать `ApplyBodyTurn`/
+  `ApplyMovement`/`ApplyStance` и оружейные `ApplyWeaponRaise`/`ApplyWeaponAim`/`ApplyWeaponADS`/
+  `TryFireWeapon` — иначе Look-интент крутит корпус через `ApplyBodyTurn` (SetOrientation/
+  foot-step) прямо в кресле, и бот «вращается в сторону». Голову (`ApplyLookVars`) НЕ
+  блокировать. Мозг при этом может продолжать писать move/look интенты — пешка авторитетно
+  игнорирует (`if (inVehicle) { ResetMotorActuation(); return; }` после `TickVehicle()`,
+  плюс опустить оружие в `else`-ветке). `TickVehicle()` ранний-return покрывает только
+  переходы get-in/get-out, а НЕ устоявшееся сидение — это и была причина бага.
 
 ## Ключевые файлы
 
