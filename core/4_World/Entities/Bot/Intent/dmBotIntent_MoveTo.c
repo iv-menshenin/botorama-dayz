@@ -757,6 +757,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			m_Path = newPath;
 			m_PathIdx = 0;
 			m_HasPath = true;
+			RoundPath();
 			return;
 		}
 
@@ -775,6 +776,111 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		m_HasPath = false;
 		m_Path = null;
+	}
+
+	//! Post-process a freshly computed path: round sharp corners (>= DM_PATH_ROUND_ANGLE_LOW)
+	//! by inserting intermediate waypoints (overshoot + 90° stair-steps) so the bot
+	//! doesn't jam into fence corners or vault them. Only the first
+	//! DM_PATH_ROUND_LOOKAHEAD meters are rounded; the rest is copied as-is.
+	void RoundPath()
+	{
+		if (!m_Path || m_Path.Count() < 3)
+			return;
+
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] RoundPath: count=" + m_Path.Count());
+		#endif
+
+		ref array<vector> rounded = new array<vector>();
+		vector prev = m_Path[0];
+		rounded.Insert(prev);
+
+		float accum = 0.0;
+		int i;
+		int count = m_Path.Count();
+		for (i = 1; i < count - 1; i++)
+		{
+			vector B = m_Path[i];
+			vector C = m_Path[i + 1];
+
+			vector seg = B - prev;
+			seg[1] = 0.0;
+			accum += seg.Length();
+			if (accum > DM_PATH_ROUND_LOOKAHEAD)
+			{
+				int j;
+				for (j = i; j < count; j++)
+					rounded.Insert(m_Path[j]);
+				m_Path = rounded;
+				return;
+			}
+
+			vector dirIn = B - prev;
+			dirIn[1] = 0.0;
+			vector dirOut = C - B;
+			dirOut[1] = 0.0;
+			if (dirIn.Length() < 0.001 || dirOut.Length() < 0.001)
+			{
+				rounded.Insert(B);
+				prev = B;
+				continue;
+			}
+			dirIn.Normalize();
+			dirOut.Normalize();
+
+			float yawIn = dirIn.VectorToAngles()[0];
+			float yawOut = dirOut.VectorToAngles()[0];
+			float turn = Math.AbsFloat(dmAISurvivor.AngleDiff(yawOut, yawIn));
+
+			if (turn < DM_PATH_ROUND_ANGLE_LOW)
+			{
+				rounded.Insert(B);
+				prev = B;
+				continue;
+			}
+
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] RoundPath: turn=" + turn);
+			#endif
+
+			vector P1 = B + dirIn * DM_PATH_ROUND_STEP;
+			if (turn <= DM_PATH_ROUND_ANGLE_HIGH)
+			{
+				InsertRounded(rounded, P1, B);
+				prev = rounded[rounded.Count() - 1];
+				continue;
+			}
+
+			vector dir90 = Rotate90Toward(dirIn, dirOut);
+			vector P2 = P1 + dir90 * DM_PATH_ROUND_STEP;
+			InsertRounded(rounded, P1, B);
+			InsertRounded(rounded, P2, B);
+			prev = rounded[rounded.Count() - 1];
+		}
+
+		rounded.Insert(m_Path[count - 1]);
+		m_Path = rounded;
+	}
+
+	//! Rotate a horizontal unit vector ±90° in the XZ plane, picking the side that
+	//! points toward dirOut (the perpendicular with a non-negative dot product).
+	vector Rotate90Toward(vector dirIn, vector dirOut)
+	{
+		vector rPlus = Vector(-dirIn[2], 0.0, dirIn[0]);
+		float dotPlus = rPlus[0] * dirOut[0] + rPlus[2] * dirOut[2];
+		if (dotPlus >= 0.0)
+			return rPlus;
+		return Vector(dirIn[2], 0.0, -dirIn[0]);
+	}
+
+	//! Insert a rounded point, falling back to the original corner when the rounded
+	//! point is not walkable (off-navmesh).
+	void InsertRounded(inout array<vector> dest, vector point, vector fallback)
+	{
+		if (IsPointOnNavMesh(point))
+			dest.Insert(point);
+		else
+			dest.Insert(fallback);
 	}
 
 	//! Try to step off a ledge ("leap of faith") when there is no navmesh path

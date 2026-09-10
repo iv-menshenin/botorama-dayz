@@ -130,6 +130,15 @@ static const float DM_PATH_SAMPLE_RADIUS = 2.0;
 //! Reach radius (meters) for an intermediate path waypoint.
 static const float DM_PATH_WAYPOINT_REACH = 0.15;
 
+//! Path rounding: turn angle (degrees) below which a corner is left unchanged.
+static const float DM_PATH_ROUND_ANGLE_LOW   = 75.0;
+//! Path rounding: turn angle (degrees) above which a corner is stair-stepped (90°).
+static const float DM_PATH_ROUND_ANGLE_HIGH  = 120.0;
+//! Path rounding: step length (meters) for overshoot / 90° stair-steps.
+static const float DM_PATH_ROUND_STEP        = 0.25;
+//! Path rounding: lookahead distance (meters) from the bot for corner rounding.
+static const float DM_PATH_ROUND_LOOKAHEAD   = 25.0;
+
 //! Raycast distance (meters) straight ahead at eye level to detect a closed door.
 static const float DM_DOOR_OPEN_DIST = 2.0;
 
