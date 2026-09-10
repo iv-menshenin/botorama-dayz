@@ -168,13 +168,18 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 		m_FlankAngle += DM_FLANK_ANGLE_STEP;
 		if (m_FlankAngle > DM_FLANK_MAX_ANGLE)
 		{
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] Flank: свип исчерпан angle=" + m_FlankAngle);
-			#endif
-			dmBotLog.Error("Flank: свип исчерпан, abort");
-			bot.SetMove(0.0, 0.0);
-			Fail();
-			return;
+			if ( m_Dist <= DM_FLANK_MIN_DIST * 2 )
+			{
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug("[FSM] Flank: свип исчерпан angle=" + m_FlankAngle);
+				#endif
+				dmBotLog.Error("Flank: свип исчерпан, abort");
+				bot.SetMove(0.0, 0.0);
+				Fail();
+				return;	
+			}
+			m_Dist = m_Dist / 1.5;
+			m_FlankAngle = DM_FLANK_START_ANGLE;
 		}
 
 		vector candidate;

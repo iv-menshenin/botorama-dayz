@@ -189,6 +189,21 @@ class dmAISurvivorBase : PlayerBase
 		m_InventoryFrames = new dmInventoryFrames(this);
 	}
 
+	// GetLookDirection угол зрения (в мире)
+	float GetLookDirection()
+	{
+		return GetDirection().VectorToAngles()[0] + m_LookYawDeg;
+	}
+
+	// GetLookDiffAngle возвращае угол доворота головы, необходимый для того, чтобы нацелиться на точку.
+	float GetLookDiffAngle(vector position)
+	{
+		vector toTarget = position - GetPosition();
+		toTarget[1] = 0.0; // не учитывая высоту
+		float targetYaw = toTarget.VectorToAngles()[0];
+		return AngleDiff(targetYaw, GetLookDirection());
+	}
+
 	//! The inventory frame-sequence manager (Phase 2 builders enqueue into it).
 	dmInventoryFrames GetInventoryFrames()
 	{

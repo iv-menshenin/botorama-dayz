@@ -45,18 +45,38 @@ class dmBotState_Hunting : dmBotState
 		dmAISurvivor bot = GetOwner();
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (!pawn)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] Hunting нет пешки");
+			#endif
 			return EXIT;
-
-		// Враг обнаружен — бой вытесняет охоту.
-		if (bot.GetHostileTarget() != null)
-			return EXIT;
+		}
 
 		if (!ResolveTarget(bot))
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] Hunting нет цели");
+			#endif
 			return EXIT;
+		}
+
+		dmTarget hostile = bot.GetHostileTarget();
+		if ( hostile && hostile != m_Target )
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] Hunting Враг обнаружен — бой вытесняет охоту");
+			#endif
+			return EXIT;
+		}
 
 		// Цель стала видимой — охота кончилась.
 		if (m_Target.m_HasLOS)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] Hunting цель видима, охота окончена");
+			#endif
 			return EXIT;
+		}
 
 		// Новая позиция цели (новый шум) — искать заново.
 		if (m_SearchCenter != m_Target.m_LastPosition)

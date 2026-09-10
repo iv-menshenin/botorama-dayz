@@ -27,11 +27,26 @@ class dmBotConditions
 
 	static dmBotCondition HasHostile()
 	{
-		return new dmBotCondition_HasHostile();
+		return new dmBotCondition_HasTarget(false, true);
+	}
+
+	static dmBotCondition HasUnknownTarget()
+	{
+		return new dmBotCondition_HasTarget(true, false);
 	}
 
 	static dmBotCondition CanShoot()
 	{
 		return new dmBotCondition_CanShoot();
+	}
+
+	static dmBotCondition LastPositionSpreadLessOrEqual(float spread)
+	{
+		return new dmBotCondition_LastPositionSpread(spread, true);
+	}
+
+	static dmBotCondition LastPositionSpreadGreatOrEqual(float spread)
+	{
+		return new dmBotCondition_LastPositionSpread(spread, false);
 	}
 }

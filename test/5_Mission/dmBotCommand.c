@@ -414,6 +414,8 @@ class dmBotCommand : dmCommandModule
 			dmCommandManager.ChatToPlayer(player, "У бота нет пешки");
 			return false;
 		}
+		vector botPosition = bot.GetPosition();
+		vector playerPosition = player.GetPosition();
 
 		StaminaHandler sh = pawn.GetStaminaHandler();
 
@@ -436,6 +438,8 @@ class dmBotCommand : dmCommandModule
 		statusLine += " | Health=" + Fmt(pawn.GetHealth01());
 		statusLine += " Blood=" + Fmt(pawn.GetHealth("", "Blood"));
 		statusLine += " Shock=" + Fmt(pawn.GetHealth("", "Shock"));
+		statusLine += " [" + Fmt(botPosition[0]) +" " + Fmt(botPosition[2]) + "]";
+		statusLine += " " + Fmt(vector.Distance(botPosition, playerPosition)) + " метров от тебя";
 		dmCommandManager.ChatToPlayer(player, statusLine);
 
 		string stamina = "n/a";

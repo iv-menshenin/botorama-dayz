@@ -468,8 +468,8 @@ class dmTestCommand : dmCommandModule
 		pawn.GetInventory().CreateInInventory("Ammo_308Win");
 		pawn.GetInventory().CreateInInventory("Ammo_308Win");
 
-		bot.SetFSM(dmBotTestPreset_Shooting.Create(bot));
-		bot.RegisterHostile(player, 1.0);
+		bot.SetFSM(dmBotTestPreset_Hunting.Create(bot));
+		bot.RegisterHostile(player, 1.0, 50.0);
 
 		dmCommandManager.ChatToPlayer(player, "Враг заспавнен в " + dist + " м от тебя (B95 + .308), ты для него враждебен.");
 		return true;

@@ -35,3 +35,23 @@ class dmBotTestPreset_Shooting
 		return fsm;
 	}
 }
+
+class dmBotTestPreset_Hunting
+{
+	static dmBotFSM Create(dmAISurvivor owner)
+	{
+		dmBotFSM fsm = new dmBotFSM(owner);
+		dmBotState idle = new dmBotState_Idle();
+		dmBotState shoot = new dmBotState_Shooting();
+		dmBotState hunt = new dmBotState_Hunting();
+		fsm.AddState(idle, "Idle");
+		fsm.AddState(shoot, "Shooting");
+		fsm.AddState(hunt, "Hunting");
+		idle.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.LastPositionSpreadLessOrEqual(15.0)));
+		idle.AddTransition(hunt, 2.0).Require(dmBotConditions.HasUnknownTarget().And(dmBotConditions.LastPositionSpreadGreatOrEqual(15.0)));
+		shoot.AddTransition(idle, 1.0);
+		fsm.SetDefaultState("Idle");
+		fsm.Start();
+		return fsm;
+	}
+}

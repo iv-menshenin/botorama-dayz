@@ -133,7 +133,7 @@ class dmVision
 		dmBotSpan _span = dmBotProfiler.Start("Vision.LOS.Loop");
 		#endif
 
-		PlayerBase pawn = bot.GetPawn();
+		dmAISurvivorBase pawn = bot.GetPawn();
 		if (!pawn)
 			return;
 
@@ -190,6 +190,16 @@ class dmVision
 				continue;
 			}
 
+			// TODO угол уже рассчитан!
+			if ( !ProbabilityOfDetection(pawn, targetPos, GetVelocity(e), t.m_LastContact) )
+			{
+				#ifdef DM_BOT_DEBUG_VISION
+				dmBotLog.Debug("[Vision] Цель " + e.GetType() + " не замечена!");
+				#endif
+				t.m_HasLOS = false;
+				continue;
+			}
+
 			t.m_HasLOS = HasLOS(pawn, e, botPos, targetPos);
 			if (t.m_HasLOS)
 			{
@@ -205,7 +215,7 @@ class dmVision
 	//! World-space look direction (body + head turn). Prefers the head-bone forward
 	//! (includes the head turn); falls back to the body direction when the bone can't
 	//! resolve. Horizontal only (pitch zeroed) and normalized.
-	private vector GetLookDir(PlayerBase pawn)
+	private vector GetLookDir(dmAISurvivorBase pawn)
 	{
 		int hb = m_HeadBone;
 		if (hb < 0)
@@ -255,7 +265,7 @@ class dmVision
 
 	//! Line-of-sight from the bot's eye to the target's head (fallback: feet + eye
 	//! height). Visible when the closest raycast hit is the target itself.
-	bool HasLOS(PlayerBase pawn, EntityAI target, vector botPos, vector targetPos)
+	bool HasLOS(dmAISurvivorBase pawn, EntityAI target, vector botPos, vector targetPos)
 	{
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Vision.LOS");
@@ -313,5 +323,32 @@ class dmVision
 			#endif
 		}
 		return hasLOS;
+	}
+
+	// ProbabilityOfDetection - вероятность обнаружить цель зрением
+	bool ProbabilityOfDetection(dmAISurvivorBase pawn, vector position, vector velocity, float lastContact)
+	{
+		float forgettingTime = GetGame().GetTickTime() - lastContact;
+		if ( forgettingTime < 30.0 ) return true;
+		float probForg = 1.1 - Math.Clamp( forgettingTime / 60, 0.1, 0.6 );						// 50-100%
+
+		vector botPos = pawn.GetPosition();
+		float distSq = vector.DistanceSq(botPos, position);
+
+		float dAng = Math.AbsFloat( pawn.GetLookDiffAngle(position) );
+		float probAng = 1.1 - Math.Clamp( ((1.0 + dAng) * 2 * distSq) / 1000.0, 0.1, 1.0 ); 	// 10-100%
+
+		float probVel = 1.0;
+		float speed = velocity.LengthSq();
+		if ( distSq > 10000.0 ) // actual more than 100 meters far
+		{
+			probVel = Math.Clamp( 1000000 / (distSq * Math.Max(45 - speed, 0.0000001)), 0.01, 1.0 );	// 1-100%
+		}
+
+		#ifdef DM_PERCEPTION_DEBUG
+		dmBotLog.Debug("[Vision] Chance: " + ( probAng * probVel * probForg ) + " probAng=" + probAng + " probVel=" + probVel + " probForg=" + probForg + " [" + speed +"]");
+		#endif
+
+		return Math.RandomFloat(0.0, 1.0) < ( probAng * probVel * probForg );
 	}
 }

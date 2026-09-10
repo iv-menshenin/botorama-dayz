@@ -117,7 +117,7 @@ class dmBotState_Shooting : dmBotState
 		//! Фланг: цель враждебна, но не видна и далеко — обходим укрытие по дуге.
 		dmTarget t = bot.FindTarget(m_TargetEntity);
 		bool flankActive = false;
-		if (t && !t.m_HasLOS && t.m_Threat >= DM_ATTACK_THREAT_THRESHOLD && dist > DM_FLANK_MIN_DIST && t.m_LastPositionSpread <= DM_FLANK_MAX_SPREAD)
+		if (t && !t.m_HasLOS && t.m_Threat >= DM_ATTACK_THREAT_THRESHOLD && dist > DM_FLANK_MIN_DIST)
 		{
 			flankActive = true;
 			m_InFlanking += pDt;

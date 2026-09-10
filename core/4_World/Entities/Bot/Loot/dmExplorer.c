@@ -17,10 +17,36 @@ class dmExplorer
 	ref array<ref dmExploredBuilding> m_Buildings;
 	float m_TickAccum;   // троттлинг скана
 
+    ref TStringArray excludedBuildings = new TStringArray;
+
 	void dmExplorer()
 	{
 		m_Buildings = new array<ref dmExploredBuilding>();
 		m_TickAccum = 0.0;
+
+        excludedBuildings.Insert("Land_Boat_");
+        excludedBuildings.Insert("Land_CementWorks_Hall2_Grey");
+        excludedBuildings.Insert("Land_Factory_Small");
+        excludedBuildings.Insert("Land_House_1W09");
+        excludedBuildings.Insert("Land_House_2W03");
+        excludedBuildings.Insert("Land_HouseBlock_1F4");
+        excludedBuildings.Insert("Land_Boathouse");
+        excludedBuildings.Insert("Land_Mine_Building");
+        excludedBuildings.Insert("Land_Shed_W2");
+        excludedBuildings.Insert("Land_Tenement_Big");
+        excludedBuildings.Insert("Land_Misc_Toilet_Mobile");
+        excludedBuildings.Insert("Land_Ship_Medium2");
+        excludedBuildings.Insert("Land_Train_Wagon_Box");
+	}
+
+	bool IsExcludedBuilding(Building building)
+	{
+		string buildingType = building.GetType();
+		foreach(string prefix: excludedBuildings)
+		{
+			if (buildingType.IndexOf(prefix) == 0) return true;
+		}
+		return false;
 	}
 
 	//! Тик из Update бота: раз в DM_EXPLORE_TICK_INTERVAL сканирует здания вокруг
@@ -54,6 +80,7 @@ class dmExplorer
 		{
 			Building building = Building.Cast(entities[i]);
 			if (!building) continue;
+			if ( IsExcludedBuilding(building) ) continue;
 			
 			if (!FindBuilding(building))
 			{

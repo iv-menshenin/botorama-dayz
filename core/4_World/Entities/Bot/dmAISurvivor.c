@@ -213,7 +213,7 @@ class dmAISurvivor
 		return m_Pawn != null;
 	}
 
-	PlayerBase GetPawn()
+	dmAISurvivorBase GetPawn()
 	{
 		return m_Pawn;
 	}
@@ -1025,7 +1025,7 @@ class dmAISurvivor
 
 	//! Force-add an entity to the target memory as hostile (used by tests/orders).
 	//! Unlike RegisterDamageThreat this is unconditional and takes an explicit threat.
-	dmTarget RegisterHostile(EntityAI entity, float threat = 1.0)
+	dmTarget RegisterHostile(EntityAI entity, float threat = 1.0, float spread = 0.0)
 	{
 		if (!entity) return null;
 
@@ -1037,6 +1037,8 @@ class dmAISurvivor
 			t.m_Entity = entity;
 			t.m_Threat = threat;
 			t.m_LastContact = GetGame().GetTickTime();
+			t.m_LastPosition = entity.GetPosition();
+			t.m_LastPositionSpread = spread;
 			m_Targets.Insert(t);
 		}
 		if (threat > t.m_Threat) t.m_Threat = threat;
@@ -1176,7 +1178,7 @@ class dmAISurvivor
 			EntityAI e = t.m_Entity;
 			if (e && !e.IsAlive())
 				continue;
-			bool hostileSpread = t.m_Threat >= DM_ATTACK_THREAT_THRESHOLD && t.m_LastPositionSpread > DM_FLANK_MAX_SPREAD;
+			bool hostileSpread = t.m_Threat >= DM_ATTACK_THREAT_THRESHOLD;
 			bool attractive = t.m_Attractiveness > DM_HUNT_MIN_ATTRACTIVENESS;
 			if (hostileSpread || attractive)
 				return t;

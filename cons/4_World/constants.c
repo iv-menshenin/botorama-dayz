@@ -379,10 +379,6 @@ static const float DM_FLANK_MAX_SURFACE_DELTA = 1.5;
 //! Flank: whole-attempt timeout (seconds). A stuck/slow MoveTo aborts after this.
 static const float DM_FLANK_STALL_TIMEOUT = 8.0;
 
-//! Flank: max target-position spread (meters) for a flank — a target the bot
-//! pinpoints well enough to circle. Above this the bot hunts instead.
-static const float DM_FLANK_MAX_SPREAD = 15.0;
-
 //! Hunting: min attractiveness (0..1) to search for a target it can't see.
 static const float DM_HUNT_MIN_ATTRACTIVENESS = 0.5;
 
