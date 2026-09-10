@@ -279,6 +279,12 @@ static const float DM_FOLLOW_VISIBLE_RECENT = 5.0;
 //! while following. A stationary anchor must not re-path every second.
 static const float DM_FOLLOW_REPATH_DIST = 2.0;
 
+//! Danger (red zone): avoid radius (meters) around a burning fireplace.
+static const float DM_BOT_DANGER_AVOID_RADIUS = 0.6;
+
+//! Danger (red zone): lifetime (seconds) of a remembered dangerous position.
+static const float DM_BOT_DANGER_TIMEOUT     = 300.0;
+
 //! Scan: random interval (seconds) between idle direction changes.
 static const float DM_SCAN_INTERVAL_MIN = 10.0;
 static const float DM_SCAN_INTERVAL_MAX = 30.0;
