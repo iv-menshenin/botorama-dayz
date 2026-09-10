@@ -865,7 +865,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_UseLadder.m_Building = building;
 		m_UseLadder.m_Ladder = best;
 		m_UseLadder.m_Direction = dirSign;
-		bot.AddFSMIntent(m_UseLadder);
+		//! Personality (не FSM): переживает ClearFSMIntents() при переходе FSM, иначе
+		//! бот отменяется посреди подъёма и зависает на лестнице. Эталон — OpenDoor.
+		bot.AddPersonalityIntent(m_UseLadder);
+		m_Laddering = true;
 
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] MoveTo: ladder building=" + building + " dir=" + dirSign + " index=" + best.m_Index);
