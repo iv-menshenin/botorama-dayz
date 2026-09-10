@@ -34,7 +34,7 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 		m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		m_Priority = dmBotIntentPriority.CRITICAL;
 		m_Manage = dmBotIntentsChannel.MOVE;
-		m_ReachDistance = DM_FOLLOW_REACH;
+		m_ReachDistance = DM_FOLLOW_ANCHOR_REACH;
 	}
 
 	override string GetIntentName()

@@ -378,10 +378,12 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if ( m_Distance < 1.0 )
 		{
 			m_TooCloseTime += pDt;
+			if ( m_TooCloseTime > DM_MOVE_TOO_CLOSE_MAX )
+				m_TooCloseTime = DM_MOVE_TOO_CLOSE_MAX;
 		} else {
 			m_TooCloseTime = 0.0;
 		}
-		bool reached = IsWaypointReachedOnce(pos, subGoal, m_ReachDistance * (1.0 + m_TooCloseTime / 2.0));
+		bool reached = IsWaypointReachedOnce(pos, subGoal, reach * (1.0 + m_TooCloseTime / 2.0));
 		#ifdef DM_BOT_DEBUG_PATHFINDER
 		dmBotLog.Debug("[PATH] Иду к точке: subGoal=" + subGoal + " pos=" + pos + " reached=" + reached);
 		#endif

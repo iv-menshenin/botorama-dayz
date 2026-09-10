@@ -98,6 +98,10 @@ static const float DM_MOVE_STUCK_TIME = 0.5;
 //! Min distance decrease (meters) that counts as "progress" (resets the stuck timer).
 static const float DM_MOVE_PROGRESS_EPS = 0.25;
 
+//! MoveTo: cap (seconds) for m_TooCloseTime — bounds the reach-radius expansion
+//! while the bot oscillates close to a waypoint (prevents stopping ever-farther).
+static const float DM_MOVE_TOO_CLOSE_MAX = 1.0;
+
 //! Min distance (meters) to the goal at which the stuck detector still resolves
 //! (closer than this the bot is at the goal, not stuck).
 static const float DM_MOVE_STUCK_MIN_DIST = 0.5;
@@ -231,6 +235,10 @@ static const float DM_FOLLOW_THRESHOLD_OTHER = 1.0;
 //! Follow: distance to the target at which the bot counts as "in place" (anchor —
 //! stops this far short of the target instead of colliding with it).
 static const float DM_FOLLOW_REACH = 1.0;
+
+//! Follow (FollowTo): reach radius (meters) to the escort ANCHOR (the shoulder
+//! point is already DM_FOLLOW_SIDE_DISTANCE from the target).
+static const float DM_FOLLOW_ANCHOR_REACH = 0.5;
 
 //! Follow: lateral offset (meters) of the escort anchor from the target — the
 //! shoulder for a player/bot (±, by m_SideSign), or this far short of an item
