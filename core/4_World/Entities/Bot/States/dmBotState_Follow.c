@@ -19,6 +19,7 @@ class dmBotState_Follow : dmBotState
 	ref dmBotIntent_HoldLook m_IntentLookAtTarget;
 	ref dmBotIntent_LookAround m_Scan;
 	ref dmBotIntent_GetInVehicle m_IntentGetInVehicle;
+	bool m_ExitRequested = false;   // Finish() уже вызван — ждём завершения выхода
 
 	float m_SideSign = 1.0;
 	float m_SideDistance = 2.0;
@@ -75,6 +76,7 @@ class dmBotState_Follow : dmBotState
 		m_DecisionInit = false;
 		m_SwitchDwell = 0.0;
 		m_UseFollow = false;
+		m_ExitRequested = false;
 		if (m_TargetEntity)
 			m_ExitRefPos = m_TargetEntity.GetPosition();
 		m_SideSign = 1.0;
@@ -275,10 +277,10 @@ class dmBotState_Follow : dmBotState
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] GetOutVehicle: player is null");
 			#endif
-			if ( m_IntentGetInVehicle )
+			if ( m_IntentGetInVehicle && !m_ExitRequested )
 			{
 				m_IntentGetInVehicle.Finish();
-				m_IntentGetInVehicle = null;
+				m_ExitRequested = true;
 			}
 		}
 		if ( !bot || !pawn )
@@ -286,14 +288,17 @@ class dmBotState_Follow : dmBotState
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] GetOutVehicle: pawn is null");
 			#endif
-			if ( m_IntentGetInVehicle )
+			if ( m_IntentGetInVehicle && !m_ExitRequested )
 			{
 				m_IntentGetInVehicle.Finish();
-				m_IntentGetInVehicle = null;
+				m_ExitRequested = true;
 			}
 		}
 
-		Transport playerCar = Transport.Cast( player.GetParent() );
+		Transport playerCar = null;
+		if ( player )
+			playerCar = Transport.Cast( player.GetParent() );
+
 		if ( playerCar && !m_IntentGetInVehicle )
 		{
 			int seatId = -1;
@@ -310,19 +315,26 @@ class dmBotState_Follow : dmBotState
 				m_IntentGetInVehicle.m_Transport = playerCar;
 				m_IntentGetInVehicle.m_Seat = seatId;
 				bot.AddFSMIntent(m_IntentGetInVehicle);
+				m_ExitRequested = false;
 				#ifdef DM_BOT_DEBUG_FSM
 				dmBotLog.Debug("[FSM] GetInVehicle m_Seat=" + m_IntentGetInVehicle.m_Seat);
 				#endif
 			}
 		}
-		if ( !playerCar && m_IntentGetInVehicle )
+		if ( !playerCar && m_IntentGetInVehicle && !m_ExitRequested )
 		{
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] GetOutVehicle");
 			#endif
 			m_IntentGetInVehicle.Finish();
-			m_IntentGetInVehicle = null;
+			m_ExitRequested = true;
 		}
+
+		//! Снять ссылку только когда выход реально завершился (интент держит
+		//! IsFinished()==false на всё время выхода). Пока ссылка не-null, CanExit()
+		//! возвращает false, и FSM не перейдёт (и не отменит интент) посреди выхода.
+		if ( m_IntentGetInVehicle && m_IntentGetInVehicle.IsFinished() )
+			m_IntentGetInVehicle = null;
 	}
 
 	override bool CanExit()
