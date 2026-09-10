@@ -1095,6 +1095,17 @@ class dmAISurvivorBase : PlayerBase
 			if (bot)
 				bot.RegisterDamageThreat(source, damageResult.GetHighestDamage("Health"));
 		}
+
+		//! Fire damage — remember the hazard as a red zone so the bot avoids it
+		//! (and stops stepping into the campfire / attacking it repeatedly).
+		if (ammo == "FireDamage" && source)
+		{
+			dmRedZone.Add(source.GetPosition(), DM_BOT_DANGER_AVOID_RADIUS, DM_BOT_DANGER_TIMEOUT);
+
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[RedZone] fire damage at " + source.GetPosition());
+			#endif
+		}
 	}
 
 	//! Death: run the vanilla PlayerBase.EEKilled chain. Its GetHive().
