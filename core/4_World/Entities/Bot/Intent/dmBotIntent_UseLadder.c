@@ -18,6 +18,8 @@ class dmBotIntent_UseLadder : dmBotIntent
 	//! Grace period after attaching before IsClimbingLadder() is trusted — gives
 	//! the ladder command a moment to become the active movement command.
 	float m_AttachGrace = 0.0;
+	float m_ClimbTime = 0.0;      // время в фазе подъёма (stuck-детект)
+	int m_StuckReversals = 0;     // сколько раз уже развернулись
 
 	void dmBotIntent_UseLadder()
 	{
@@ -31,12 +33,22 @@ class dmBotIntent_UseLadder : dmBotIntent
 		return "UseLadder";
 	}
 
+	void UpdateEntry()
+	{
+		vector modelEntry = m_Ladder.m_Bottom;
+		if (m_Direction < 0)
+			modelEntry = m_Ladder.m_Top;
+		m_Entry = m_Building.ModelToWorld(modelEntry);
+	}
+
 	override void OnStart(dmAISurvivor bot)
 	{
 		super.OnStart(bot);
 
 		m_Phase = 0;
 		m_AttachGrace = 0.0;
+		m_ClimbTime = 0.0;
+		m_StuckReversals = 0;
 
 		if (!m_Building || !m_Ladder)
 		{
@@ -44,10 +56,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 			return;
 		}
 
-		vector modelEntry = m_Ladder.m_Bottom;
-		if (m_Direction < 0)
-			modelEntry = m_Ladder.m_Top;
-		m_Entry = m_Building.ModelToWorld(modelEntry);
+		UpdateEntry();
 
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[Ladder] UseLadder.start building=" + m_Building + " dir=" + m_Direction + " entry=" + m_Entry);
@@ -106,6 +115,8 @@ class dmBotIntent_UseLadder : dmBotIntent
 			return;
 		}
 
+		m_ClimbTime += pDt;
+
 		if (!pawn.IsClimbingLadder())
 		{
 			Finish();
@@ -114,7 +125,39 @@ class dmBotIntent_UseLadder : dmBotIntent
 
 		HumanCommandLadder hcl = pawn.GetCommand_Ladder();
 		if (hcl && hcl.CanExit())
+		{
 			hcl.Exit();
+			return;
+		}
+
+		//! Stuck: дольше порога не дошли до точки выхода. Разворачиваемся один раз
+		//! (слезаем обратно и подходим с другого конца), при повторном — сдаёмся.
+		if (m_ClimbTime > DM_LADDER_STUCK_TIME)
+		{
+			if (hcl)
+				hcl.Exit();
+
+			if (m_StuckReversals == 0)
+			{
+				m_Direction = -m_Direction;
+				UpdateEntry();
+				m_Phase = 0;
+				m_ClimbTime = 0.0;
+				m_AttachGrace = 0.0;
+				m_StuckReversals = 1;
+
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug("[Ladder] UseLadder: stuck — reversing dir=" + m_Direction + " entry=" + m_Entry);
+				#endif
+			}
+			else
+			{
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug("[Ladder] UseLadder: stuck again — giving up");
+				#endif
+				Fail();
+			}
+		}
 	}
 
 	override void OnCancel(dmAISurvivor bot)

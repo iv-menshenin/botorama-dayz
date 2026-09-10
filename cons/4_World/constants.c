@@ -157,6 +157,10 @@ static const float DM_LADDER_ATTACH_DIST = 2.0;
 //! trusts IsClimbingLadder() — gives the ladder command time to become active.
 static const float DM_LADDER_ATTACH_GRACE = 0.5;
 
+//! Time (seconds) on the ladder without reaching an exit before the bot is
+//! considered stuck (then it reverses the climb direction once, then gives up).
+static const float DM_LADDER_STUCK_TIME = 8.0;
+
 //! Grace period (seconds) after starting a vault/climb before MoveTo checks
 //! IsClimbing() — gives the climb command time to become active.
 static const float DM_VAULT_GRACE = 1.0;
