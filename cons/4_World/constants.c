@@ -305,6 +305,9 @@ static const float DM_BOT_DANGER_TIMEOUT     = 300.0;
 //! Danger: extra margin (meters) added to a red-zone radius when offsetting the sub-goal.
 static const float DM_BOT_DANGER_MARGIN      = 0.4;
 
+//! Danger escape: distance (meters) the bot backs away from a burning fireplace.
+static const float DM_DANGER_ESCAPE_DIST = 1.5;
+
 //! Danger: throttle interval (seconds) for the proactive campfire scan in MoveTo.
 static const float DM_DANGER_CHECK_INTERVAL  = 0.5;
 

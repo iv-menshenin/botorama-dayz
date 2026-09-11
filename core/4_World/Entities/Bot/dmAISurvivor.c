@@ -83,6 +83,10 @@ class dmAISurvivor
 	//! magazines while out of combat). Recreated when it expires (auto-deadline).
 	private ref dmBotIntent_TidyInventory m_TidyIntent;
 
+	//! Reactive escape from a burning fireplace: personal CRITICAL+EXCLUSIVE move
+	//! intent that walks DM_DANGER_ESCAPE_DIST away from the danger. null when idle.
+	ref dmBotIntent_EscapeDanger m_EscapeIntent;
+
 	//! Patrol points (world positions visited in order).
 	private ref array<vector> m_PatrolPoints;
 
@@ -833,6 +837,17 @@ class dmAISurvivor
 	void AddPersonalityIntent(dmBotIntent intent)
 	{
 		AddIntent(m_PersonalityIntents, intent);
+	}
+
+	//! Сбежать от опасности: персональный CRITICAL-интент, цель — на DM_DANGER_ESCAPE_DIST
+	//! от dangerPos. Повторный вызов игнорируется, пока побег активен.
+	void EscapeDanger(vector dangerPos)
+	{
+		if (m_EscapeIntent && !m_EscapeIntent.IsFinished() && !m_EscapeIntent.IsExpired())
+			return;
+		m_EscapeIntent = new dmBotIntent_EscapeDanger();
+		m_EscapeIntent.m_DangerPos = dangerPos;
+		AddPersonalityIntent(m_EscapeIntent);
 	}
 
 	void AddCommandIntent(dmBotIntent intent)

@@ -1096,11 +1096,15 @@ class dmAISurvivorBase : PlayerBase
 				bot.RegisterDamageThreat(source, damageResult.GetHighestDamage("Health"));
 		}
 
-		//! Fire damage — remember the hazard as a red zone so the bot avoids it
-		//! (and stops stepping into the campfire / attacking it repeatedly).
-		if (ammo == "FireDamage" && source)
+		//! Fire damage from a fireplace/barrel — remember the hazard and escape it.
+		//! (FireplaceBase.Cast, а не ammo=="FireDamage": не реагируем на покрышки и
+		//! стационарные бочки, которые не являются FireplaceBase.)
+		if (FireplaceBase.Cast(source))
 		{
 			dmRedZone.Add(source.GetPosition(), DM_BOT_DANGER_AVOID_RADIUS, DM_BOT_DANGER_TIMEOUT);
+
+			if (bot)
+				bot.EscapeDanger(source.GetPosition());
 
 			#ifdef DM_BOT_DEBUG_PATHFINDER
 			dmBotLog.Debug("[RedZone] fire damage at " + source.GetPosition());
