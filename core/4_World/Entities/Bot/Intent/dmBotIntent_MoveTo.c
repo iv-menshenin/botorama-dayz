@@ -1122,55 +1122,54 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 	vector m_LastPassedPoint;
 
-	bool IsWaypointReachedOnce(vector pos, vector wp, float reachDistance)
+	bool IsWaypointReachedOnce(vector pos, vector waypoint, float reachDistance)
 	{
-		vector A = m_LastPassedPoint;
-		vector B = pos;
-		vector P = wp;
+		vector lastPos = m_LastPassedPoint;
+		vector curPos = pos;
 
 		// Обнуление высоты нужно, потому что высота Path и точка на которой стоит бот никогда не сходятся!
 		// Но для того, чтобы не было ошибки на разных этажах, заранее сравним высоту цели и высоту позиции.
-		// if ( Math.AbsFloat( B[1] - P[1] ) > 1.8 )
+		// if ( Math.AbsFloat( curPos[1] - waypoint[1] ) > 1.8 )
 		// {
 		// 	#ifdef DM_BOT_DEBUG_PATHFINDER
-		// 	dmBotLog.Debug("[PATH] Разность высоты dH=" + Math.AbsFloat( B[1] - P[1] ));
+		// 	dmBotLog.Debug("[PATH] Разность высоты dH=" + Math.AbsFloat( curPos[1] - waypoint[1] ));
 		// 	#endif
 		// 	m_LastPassedPoint = pos;
 		// 	return false;
 		// } - Все бы ничего, но иногда путь строится по воздуху. Нужно каждый вейпоинт проверять по навмеш
-		A[1] = 0;
-		B[1] = 0;
-		P[1] = 0;
+		lastPos[1] = 0;
+		curPos[1] = 0;
+		waypoint[1] = 0;
 
 		m_LastPassedPoint = pos;
 
-		// Направляющий вектор отрезка: d = B - A
-		float dx = B[0] - A[0];
-		float dy = B[1] - A[1];
-		float dz = B[2] - A[2];
+		// Направляющий вектор отрезка: d = curPos - lastPos
+		float dx = curPos[0] - lastPos[0];
+		float dy = curPos[1] - lastPos[1];
+		float dz = curPos[2] - lastPos[2];
 
 		// Квадрат длины направляющего вектора
 		float dd = dx * dx + dy * dy + dz * dz;
 
-		// Вектор от A к P: v = P - A
-		float vx = P[0] - A[0];
-		float vy = P[1] - A[1];
-		float vz = P[2] - A[2];
+		// Вектор от lastPos к waypoint: v = waypoint - lastPos
+		float vx = waypoint[0] - lastPos[0];
+		float vy = waypoint[1] - lastPos[1];
+		float vz = waypoint[2] - lastPos[2];
 
-		// Вырожденный случай: A и B совпадают
+		// Вырожденный случай: lastPos и curPos совпадают
 		if (dd < 0.0001 ) {
-			float distSq = vector.DistanceSq(B, P);
+			float distSq = vector.DistanceSq(curPos, waypoint);
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] Вырожденный случай: A и B совпадают distSq=" + distSq + " reachDistanceSq=" + (reachDistance * reachDistance));
+			dmBotLog.Debug("[PATH] Вырожденный случай: lastPos и curPos совпадают distSq=" + distSq + " reachDistanceSq=" + (reachDistance * reachDistance));
 			#endif
 			return distSq <= reachDistance * reachDistance;
 		}
 
-		// Параметр проекции t = (v · d) / (d · d)
-		float t = (vx * dx + vy * dy + vz * dz) / dd;
+		// Параметр проекции proj = (v · d) / (d · d)
+		float proj = (vx * dx + vy * dy + vz * dz) / dd;
 
 		// Если проекция не попадает на отрезок — точка не на отрезке
-		if (t < 0.0 || t > 1.0) return false;
+		if (proj < 0.0 || proj > 1.0) return false;
 
 		// Перпендикулярное расстояние: |d × v| / |d|
 		float cross_x = dy * vz - dz * vy;
