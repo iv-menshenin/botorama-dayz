@@ -63,7 +63,11 @@ class dmBotState_Idle : dmBotState
 				if (fire.IsBaseFireplace() || fire.IsBarrelWithHoles())
 				{
 					m_SitIntent.m_SitDist = DM_SIT_BY_FIRE_DIST_CLOSE;
-					m_SitIntent.m_EmoteID = EmoteConstants.ID_EMOTE_CAMPFIRE;
+					dmAISurvivorBase pawn = GetOwner().GetPawn();
+					if (pawn && pawn.GetItemInHands())
+						m_SitIntent.m_EmoteID = EmoteConstants.ID_EMOTE_SITA;      // «Привал» — с оружием
+					else
+						m_SitIntent.m_EmoteID = EmoteConstants.ID_EMOTE_CAMPFIRE;  // «Сесть прямо» — пустые руки
 				}
 				else
 				{

@@ -46,8 +46,8 @@ static const float DM_SIT_BY_FIRE_RADIUS = 3.0;
 
 //! Idle sit-by-fire: sit distance (meters) from the fireplace — close for a
 //! campfire/barrel, farther for an indoor stove (so the bot doesn't block the player).
-static const float DM_SIT_BY_FIRE_DIST_CLOSE = 1.2;
-static const float DM_SIT_BY_FIRE_DIST_FAR = 2.5;
+static const float DM_SIT_BY_FIRE_DIST_CLOSE = 2.5;
+static const float DM_SIT_BY_FIRE_DIST_FAR = 3.0;
 
 //! Idle sit-by-fire: reach radius (meters) for the sit point (MoveTo target).
 static const float DM_SIT_BY_FIRE_REACH = 0.3;
