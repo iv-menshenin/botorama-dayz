@@ -513,6 +513,6 @@ class dmLoadoutApplier
 		if (!ib || !ib.HasQuantity())
 			return;
 
-		ib.SetQuantity(Math.Lerp(ib.GetQuantityMin(), ib.GetQuantityMax(), RollRange(quantity)));
+		ib.SetQuantity(Math.Round(Math.Lerp(ib.GetQuantityMin(), ib.GetQuantityMax(), RollRange(quantity))));
 	}
 }

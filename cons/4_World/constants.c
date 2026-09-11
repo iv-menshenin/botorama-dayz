@@ -154,7 +154,7 @@ static const float DM_DOOR_CHECK_INTERVAL = 0.5;
 static const float DM_DOOR_STEP_BACK_DIST = 0.5;
 
 //! Max time (seconds) the bot backs away before opening the door anyway.
-static const float DM_DOOR_STEP_BACK_TIMEOUT = 3.0;
+static const float DM_DOOR_STEP_BACK_TIMEOUT = 0.1;
 
 //! Max time (seconds) to wait for the door to fully open before giving up.
 static const float DM_DOOR_OPEN_TIMEOUT = 3.0;

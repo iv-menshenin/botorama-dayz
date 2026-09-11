@@ -1159,6 +1159,8 @@ class dmAISurvivorBase : PlayerBase
 		m_TurnSharp = false;
 		m_ActualSpeed = 0.0;
 		m_FireRequest = false;
+		m_MeleeAttackRequest = false;
+		m_MeleeTarget = null;
 
 		if (m_VarLook >= 0)
 			AnimSetBool(m_VarLook, false);

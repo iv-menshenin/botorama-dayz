@@ -68,6 +68,7 @@ class dmBotIntent_OpenDoor : dmBotIntent
 			if (dist >= DM_DOOR_STEP_BACK_DIST || m_PhaseTimer <= 0.0)
 			{
 				m_Building.OpenDoor(m_DoorIdx);
+				bot.SetMove(0.0, 0.0);   // стоп: не пятиться, пока дверь открывается
 
 				//! Hand animation: additive upper-body modifier over MOVE
 				//! (CMD_ACTIONMOD_OPENDOORFW). Gate: skip if a full-body action or
