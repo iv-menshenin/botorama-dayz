@@ -854,18 +854,18 @@ class dmBotIntent_MoveTo : dmBotIntent
 			dmBotLog.Debug("[PATH] RoundPath: turn=" + turn);
 			#endif
 
-			vector P1 = B + dirIn * DM_PATH_ROUND_STEP;
+			vector extPoint = B + dirIn * DM_PATH_ROUND_STEP;
 			if (turn <= DM_PATH_ROUND_ANGLE_HIGH)
 			{
-				InsertRounded(rounded, P1, B);
+				InsertRounded(rounded, extPoint, B);
 				prev = rounded[rounded.Count() - 1];
 				continue;
 			}
 
 			vector dir90 = Rotate90Toward(dirIn, dirOut);
-			vector P2 = P1 + dir90 * DM_PATH_ROUND_STEP;
-			InsertRounded(rounded, P1, B);
-			InsertRounded(rounded, P2, B);
+			vector sidePoint = extPoint + dir90 * DM_PATH_ROUND_STEP;
+			InsertRounded(rounded, extPoint, B);
+			InsertRounded(rounded, sidePoint, B);
 			prev = rounded[rounded.Count() - 1];
 		}
 
