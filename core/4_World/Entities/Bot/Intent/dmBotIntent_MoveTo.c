@@ -329,32 +329,41 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		vector pos = bot.GetPosition();
 
-		//! Проактивное избегание костра: детектим горящий костёр у подцели,
-		//! запоминаем в красную зону и сдвигаем подцель вбок от костра.
+		//! Проактивное избегание костра: детектим горящий костёр у бота и у подцели,
+		//! запоминаем в красную зону и сдвигаем подцель ВБОК от костра.
 		m_DangerAccum += pDt;
 		if (m_DangerAccum >= DM_DANGER_CHECK_INTERVAL)
 		{
 			m_DangerAccum = 0.0;
 			FireplaceBase fire = dmRedZone.ScanFireplace(subGoal, DM_BOT_DANGER_AVOID_RADIUS * 2.0);
+			if (!fire)
+				fire = dmRedZone.ScanFireplace(pos, DM_BOT_DANGER_AVOID_RADIUS * 2.0);
 			if (fire)
 				dmRedZone.Add(fire.GetPosition(), DM_BOT_DANGER_AVOID_RADIUS, DM_BOT_DANGER_TIMEOUT);
 		}
 
-		vector avoidCenter;
-		float avoidRadius;
-		if (dmRedZone.FindNearest(subGoal, avoidCenter, avoidRadius))
+		//! Если подцель внутри зоны ИЛИ отрезок pos->subGoal пересекает зону — сдвинуть
+		//! подцель ВБОК от ближайшего костра (перпендикулярно бот->костёр), а не «за» него.
+		if (dmRedZone.IsPointInside(subGoal) || dmRedZone.IsSegmentCrossing(pos, subGoal))
 		{
-			vector toCenter = subGoal - avoidCenter;
-			toCenter[1] = 0.0;
-			float dc = toCenter.Length();
-			if (dc < avoidRadius + DM_BOT_DANGER_MARGIN)
+			vector avoidCenter;
+			float avoidRadius;
+			if (dmRedZone.FindNearest(pos, avoidCenter, avoidRadius))
 			{
-				vector away = toCenter;
-				if (away.Length() < 0.01)
-					away = pos - avoidCenter;   // дегенеративный случай: от костра относительно бота
-				away[1] = 0.0;
-				away.Normalize();
-				subGoal = avoidCenter + away * (avoidRadius + DM_BOT_DANGER_MARGIN);
+				vector toFire = avoidCenter - pos;
+				toFire[1] = 0.0;
+				if (toFire.Length() < 0.01)
+					toFire = Vector(1.0, 0.0, 0.0);
+				toFire.Normalize();
+
+				vector side = Vector(-toFire[2], 0.0, toFire[0]);   // перпендикуляр +90
+				vector toSub = subGoal - avoidCenter;
+				toSub[1] = 0.0;
+				float dot = side[0] * toSub[0] + side[2] * toSub[2];
+				if (dot < 0.0)
+					side = Vector(toFire[2], 0.0, -toFire[0]);      // -90 (ближе к исходной подцели)
+
+				subGoal = avoidCenter + side * (avoidRadius + DM_BOT_DANGER_MARGIN);
 				subGoal[1] = pos[1];
 			}
 		}
