@@ -997,6 +997,10 @@ class dmAISurvivor
 			return;
 		if (attacker == m_FollowTarget)
 			return;
+		//! Регистрируем угрозой только ЖИВЫХ (люди/зомби/животные) — предметы и
+		//! здания (костёр, автомобиль) не должны попадать в цели боя.
+		if (!attacker.IsInherited(Man) && !attacker.IsInherited(DayZCreature))
+			return;
 
 		float threat = DM_DAMAGE_THREAT_HIGH;
 		if (damage < DM_DAMAGE_THREAT_HP_THRESHOLD)
