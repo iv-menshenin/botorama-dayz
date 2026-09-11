@@ -101,6 +101,9 @@ class dmAISurvivorBase : PlayerBase
 	//! Last time (GetGame().GetTickTime()) the vehicle-seated debug log was printed.
 	private float m_LastVehicleLogTime = 0.0;
 
+	//! Last time (GetGame().GetTickTime()) the body-turn debug log was printed.
+	private float m_LastTurnLogTime = 0.0;
+
 	//! Shooting accuracy model (dispersion). Created here, wired into the fire
 	//! path in Phase 3. dmAiming is a plain class -> ref.
 	private ref dmAiming m_Aiming;
@@ -1224,6 +1227,15 @@ class dmAISurvivorBase : PlayerBase
 		float dBody = AngleDiff(m_TargetBodyYaw, bodyYaw);
 
 		bool moving = m_IsMoving;
+
+		#ifdef DM_BOT_DEBUG_BODY
+		if (GetGame().GetTickTime() - m_LastTurnLogTime >= 2.0)
+		{
+			m_LastTurnLogTime = GetGame().GetTickTime();
+			dmBotLog.Debug("Turn: targetYaw=" + m_TargetBodyYaw + " bodyYaw=" + bodyYaw + " dBody=" + dBody);
+			dmBotLog.Debug("Turn: moving=" + moving + " state=" + m_TurnState);
+		}
+		#endif
 
 		//! Slide-turn (SetOrientation) while moving (vanilla HeadingModel disabled,
 		//! so SetOrientation is authoritative).

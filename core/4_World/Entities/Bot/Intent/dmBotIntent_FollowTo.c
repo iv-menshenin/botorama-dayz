@@ -29,6 +29,8 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 	vector m_LastPathGoal = vector.Zero;
 	bool m_PathGoalValid = false;
 
+	float m_AnchorDebugAccum = 0.0;
+
 	void dmBotIntent_FollowTo()
 	{
 		m_Concurrency = dmBotIntentConcurrency.PARALLEL;
@@ -169,6 +171,15 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 				RePath(bot);
 			}
 		}
+
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		m_AnchorDebugAccum += pDt;
+		if (m_AnchorDebugAccum >= 1.0)
+		{
+			m_AnchorDebugAccum = 0.0;
+			dmBotLog.Debug("[PATH] FollowTo: anchor=" + m_Goal + " distToAnchor=" + m_DistToAnchor + " targetSpeed=" + m_TargetSpeed);
+		}
+		#endif
 	}
 
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
