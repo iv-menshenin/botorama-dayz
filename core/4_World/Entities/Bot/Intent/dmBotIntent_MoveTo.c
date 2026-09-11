@@ -811,10 +811,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 		int count = m_Path.Count();
 		for (i = 1; i < count - 1; i++)
 		{
-			vector B = m_Path[i];
-			vector C = m_Path[i + 1];
+			vector wp = m_Path[i];
+			vector nextWp = m_Path[i + 1];
 
-			vector seg = B - prev;
+			vector seg = wp - prev;
 			seg[1] = 0.0;
 			accum += seg.Length();
 			if (accum > DM_PATH_ROUND_LOOKAHEAD)
@@ -826,14 +826,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 				return;
 			}
 
-			vector dirIn = B - prev;
+			vector dirIn = wp - prev;
 			dirIn[1] = 0.0;
-			vector dirOut = C - B;
+			vector dirOut = nextWp - wp;
 			dirOut[1] = 0.0;
 			if (dirIn.Length() < 0.001 || dirOut.Length() < 0.001)
 			{
-				rounded.Insert(B);
-				prev = B;
+				rounded.Insert(wp);
+				prev = wp;
 				continue;
 			}
 			dirIn.Normalize();
@@ -845,8 +845,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 			if (turn < DM_PATH_ROUND_ANGLE_LOW)
 			{
-				rounded.Insert(B);
-				prev = B;
+				rounded.Insert(wp);
+				prev = wp;
 				continue;
 			}
 
@@ -854,18 +854,18 @@ class dmBotIntent_MoveTo : dmBotIntent
 			dmBotLog.Debug("[PATH] RoundPath: turn=" + turn);
 			#endif
 
-			vector extPoint = B + dirIn * DM_PATH_ROUND_STEP;
+			vector extPoint = wp + dirIn * DM_PATH_ROUND_STEP;
 			if (turn <= DM_PATH_ROUND_ANGLE_HIGH)
 			{
-				InsertRounded(rounded, extPoint, B);
+				InsertRounded(rounded, extPoint, wp);
 				prev = rounded[rounded.Count() - 1];
 				continue;
 			}
 
 			vector dir90 = Rotate90Toward(dirIn, dirOut);
 			vector sidePoint = extPoint + dir90 * DM_PATH_ROUND_STEP;
-			InsertRounded(rounded, extPoint, B);
-			InsertRounded(rounded, sidePoint, B);
+			InsertRounded(rounded, extPoint, wp);
+			InsertRounded(rounded, sidePoint, wp);
 			prev = rounded[rounded.Count() - 1];
 		}
 
