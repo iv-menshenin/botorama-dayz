@@ -30,6 +30,7 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 	bool m_PathGoalValid = false;
 
 	float m_AnchorDebugAccum = 0.0;
+	bool m_IsReached = false;
 
 	void dmBotIntent_FollowTo()
 	{
@@ -67,6 +68,10 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 		m_TargetPosKnown = false;
 		m_TargetVel = vector.Zero;
 		m_DoorCheckAccum = 0.0;
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] FollowTo.OnStart");
+		#endif
 	}
 
 	//! Re-derive the dynamic escort anchor into m_Goal and re-path at most once per
@@ -182,10 +187,28 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 		#endif
 	}
 
+	override void OnUpdate(dmAISurvivor bot, float pDt)
+	{
+		if ( m_IsReached )
+		{
+			vector targetPos = m_Target.GetPosition();
+			vector botPos = bot.GetPosition();
+			if ( vector.Distance(targetPos, botPos) < DM_FOLLOW_SIDE_DISTANCE_MAX ) return;
+
+			m_IsReached = false;
+		}
+		super.OnUpdate(bot, pDt);
+	}
+
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
 		// super.OnReachedGoal(bot, pos);
 		bot.SetMove(0.0, 0.0);
+		m_IsReached = true;
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[FSM] FollowTo.OnReachedGoal");
+		#endif
 	}
 
 	//! Speed (0..3) from the distance to the anchor, never slower than the target.
