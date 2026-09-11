@@ -12,6 +12,7 @@ class dmBotState_Shooting : dmBotState
 {
 	EntityAI m_TargetEntity;
 	ref dmTarget m_Target;
+	float m_PreferredSpeed;
 
 	ref dmBotIntent_Aim m_Aim;
 	ref dmBotIntent_HitTo m_HitTo;
@@ -45,6 +46,9 @@ class dmBotState_Shooting : dmBotState
 		ResolveTarget();
 
 		dmAISurvivor bot = GetOwner();
+		m_PreferredSpeed = bot.GetPreferredSpeed();
+		bot.SetPreferredSpeed(3.0);
+
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (pawn && m_TargetEntity)
 		{
@@ -161,7 +165,7 @@ class dmBotState_Shooting : dmBotState
 			dmBotLog.Debug("[FSM] Shooting: flankActive=" + flankActive + " m_InFlanking=" + m_InFlanking + " dist=" + dist + " m_HasLOS=" + t.m_HasLOS);
 		#endif
 
-		if ( pawn.IsWeaponReady() && dist > HIT_BUTTSTCK_RANGE && !(flankActive && m_InFlanking > 5))
+		if ( pawn.IsWeaponReady() && dist > HIT_BUTTSTCK_RANGE && !(flankActive && m_InFlanking > DM_FLANK_LOW_WEAPON_TIMING))
 		{
 			pawn.SetAimMode(SelectAimMode());
 			pawn.RaiseWeapon(true);
@@ -180,12 +184,15 @@ class dmBotState_Shooting : dmBotState
 		dmBotLog.Debug("[FSM] Shooting.exit");
 		#endif
 
+		dmAISurvivor bot = GetOwner();
+		bot.SetPreferredSpeed(m_PreferredSpeed);
+
 		if ( m_HitTo ) m_HitTo.Finish();
 		if ( m_Aim ) m_Aim.Finish();
 		if ( m_Look ) m_Look.Finish();
 		if ( m_Flank ) m_Flank.Finish();
 
-		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(GetOwner().GetPawn());
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (pawn)
 			pawn.RaiseWeapon(false);
 	}

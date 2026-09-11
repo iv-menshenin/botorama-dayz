@@ -12,6 +12,7 @@ class dmBotState_Hunting : dmBotState
 	Building m_CurrentBuilding;
 	vector m_SearchCenter;
 	bool m_WantBuilding;
+	float m_PreferredSpeed;
 
 	override dmBotStateKind GetKind()
 	{
@@ -33,7 +34,10 @@ class dmBotState_Hunting : dmBotState
 		m_SearchCenter = vector.Zero;
 		m_WantBuilding = false;
 
-		ResolveTarget(GetOwner());
+		dmAISurvivor bot = GetOwner();
+		m_PreferredSpeed = bot.GetPreferredSpeed();
+		bot.SetPreferredSpeed(3.0);
+		ResolveTarget(bot);
 
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Hunting.entry");
@@ -92,6 +96,9 @@ class dmBotState_Hunting : dmBotState
 
 	override void OnExit(dmBotState to)
 	{
+		dmAISurvivor bot = GetOwner();
+		bot.SetPreferredSpeed(m_PreferredSpeed);
+		
 		if (m_Move) { m_Move.Finish(); m_Move = null; }
 		m_CurrentBuilding = null;
 

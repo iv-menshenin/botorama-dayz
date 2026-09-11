@@ -426,6 +426,8 @@ static const float DM_FLANK_MAX_DIST = 180.0;
 //! flank (too close — better to disengage than circle).
 static const float DM_FLANK_MIN_DIST = 5.0;
 
+static const float DM_FLANK_LOW_WEAPON_TIMING = 2.5;
+
 //! Flank: max vertical delta (meters) between a path point and the terrain
 //! surface — a bigger gap means the candidate is unreachable/wrong height.
 static const float DM_FLANK_MAX_SURFACE_DELTA = 1.5;
