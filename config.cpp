@@ -8,7 +8,8 @@ class CfgPatches
 		requiredAddons[]= {
 			"DZ_Characters",
 			"DZ_Anims_Anm_Player",
-			"DZ_Anims_Cfg"
+			"DZ_Anims_Cfg",
+			"DZ_Sounds_Effects"
 		};
 	};
 };
@@ -337,6 +338,34 @@ class CfgVehicles
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "botorama\Animations\player_main.agr";
+		};
+	};
+};
+
+class CfgSoundShaders
+{
+	class baseCharacter_SoundShader;
+	class dmBotVoice_test_SoundShader : baseCharacter_SoundShader
+	{
+		samples[]=
+		{
+			{
+				"botorama\voices\test",
+				1
+			}
+		};
+		volume=1;
+	};
+};
+
+class CfgSoundSets
+{
+	class baseCharacter_SoundSet;
+	class dmBotVoice_test_SoundSet : baseCharacter_SoundSet
+	{
+		soundShaders[]=
+		{
+			"dmBotVoice_test_SoundShader"
 		};
 	};
 };

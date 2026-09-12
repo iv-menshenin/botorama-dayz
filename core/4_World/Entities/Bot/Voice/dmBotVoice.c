@@ -1,14 +1,14 @@
-//! dmBotVoice — маппинг голосовых реплик бота: id -> путь к аудио-файлу и
-//! длительность анимации рта. Файлы лежат в $profile:dmBotorama/voices/.
+//! dmBotVoice — маппинг голосовых реплик бота: id -> имя CfgSoundSets-звукового
+//! сета (см. config.cpp) и длительность анимации рта.
 class dmBotVoice
 {
-	//! Полный путь к .ogg реплики (рантайм, $profile:). Пустая строка = нет реплики.
-	static string GetSoundPath(int lineId)
+	//! Имя CfgSoundSets-сета реплики. Пустая строка = нет реплики.
+	static string GetSoundSetName(int lineId)
 	{
 		switch (lineId)
 		{
 		case dmVoiceLine.DM_VOICE_TEST:
-			return DM_VOICE_DIR + "test.ogg";
+			return "dmBotVoice_test_SoundSet";
 		}
 		return "";
 	}

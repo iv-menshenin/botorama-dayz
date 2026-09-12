@@ -909,17 +909,17 @@ class dmAISurvivorBase : PlayerBase
 	//! Звук играет каждый клиент сам (звуки не реплицируются).
 	void PlayVoiceLineClient(int lineId)
 	{
-		string path = dmBotVoice.GetSoundPath(lineId);
-		if (path == "")
+		string soundSet = dmBotVoice.GetSoundSetName(lineId);
+		if (soundSet == "")
 		{
 			dmBotLog.Error("dmAISurvivorBase.PlayVoiceLineClient() unknown lineId=" + lineId);
 			return;
 		}
 
-		SoundParams params = new SoundParams(path);
+		SoundParams params = new SoundParams(soundSet);
 		if (!params.IsValid())
 		{
-			dmBotLog.Error("dmAISurvivorBase.PlayVoiceLineClient() SoundParams invalid: " + path);
+			dmBotLog.Error("dmAISurvivorBase.PlayVoiceLineClient() SoundParams invalid: " + soundSet);
 			return;
 		}
 
@@ -927,7 +927,7 @@ class dmAISurvivorBase : PlayerBase
 		SoundObject soundObject = builder.BuildSoundObject();
 		if (!soundObject)
 		{
-			dmBotLog.Error("dmAISurvivorBase.PlayVoiceLineClient() BuildSoundObject() null: " + path);
+			dmBotLog.Error("dmAISurvivorBase.PlayVoiceLineClient() BuildSoundObject() null: " + soundSet);
 			return;
 		}
 
@@ -935,7 +935,7 @@ class dmAISurvivorBase : PlayerBase
 		GetGame().GetSoundScene().Play3D(soundObject, builder);
 
 		#ifdef DM_BOT_DEBUG_VOICE
-		dmBotLog.Debug("dmAISurvivorBase.PlayVoiceLineClient() lineId=" + lineId + " path=" + path + " instType=" + GetInstanceType());
+		dmBotLog.Debug("dmAISurvivorBase.PlayVoiceLineClient() lineId=" + lineId + " soundSet=" + soundSet + " instType=" + GetInstanceType());
 		#endif
 	}
 #endif
