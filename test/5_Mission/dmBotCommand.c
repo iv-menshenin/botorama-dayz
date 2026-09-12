@@ -17,6 +17,7 @@
 //!   /bot vision                — показать видимые цели бота.
 //!   /bot give {item}            — выдать предмет в руки бота.
 //!   /bot melee                  — ударить враждебную цель (мили-удар).
+//!   /bot say {id}               — бот произносит голосовую реплику (0=тест).
 //!   /bot combat                 — боевой режим (атакует угрозы в радиусе).
 //!   /bot car sitdown            — сесть в машину с игроком на свободное место.
 //!   /bot killall                — убить всех заспавненных ботов (Health=0).
@@ -60,6 +61,8 @@ class dmBotCommand : dmCommandModule
 			return HandleGive(player, parts);
 		if (parts[1] == DM_CHAT_MELEE)
 			return HandleMelee(player, parts);
+		if (parts[1] == DM_CHAT_SAY)
+			return HandleSay(player, parts);
 		if (parts[1] == DM_CHAT_COMBAT)
 			return HandleCombat(player, parts);
 		if (parts[1] == DM_CHAT_CAR)
@@ -697,6 +700,32 @@ class dmBotCommand : dmCommandModule
 
 		pawn.RequestMeleeAttack(t.m_Entity);
 		dmCommandManager.ChatToPlayer(player, "Удар по " + t.m_Entity.GetType());
+		return true;
+	}
+
+	//! "/bot say {id}" — бот произносит голосовую реплику (0=тест). См. dmBotVoice.
+	private bool HandleSay(PlayerBase player, array<string> parts)
+	{
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
+			return true;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет пешки");
+			return true;
+		}
+
+		int lineId = 0;
+		if (parts.Count() >= 3)
+			lineId = parts[2].ToInt();
+
+		pawn.SpeakLine(lineId);
+		dmCommandManager.ChatToPlayer(player, "Бот говорит реплику " + lineId);
 		return true;
 	}
 

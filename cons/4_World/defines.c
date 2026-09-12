@@ -29,6 +29,7 @@
 //!   DM_BOT_DEBUG_EVADE   — уворот от прицела (EvadeAim): триггер, свип укрытия, додж, конец.
 //!   DM_BOT_DEBUG_MEDICAL — ИИ-лечение (MedicalCare): вход в состояние, шаги очереди,
 //!                          применение эффекта, ошибки.
+//!   DM_BOT_DEBUG_VOICE   — голосовые реплики бота (SpeakLine/TickTalking/PlayVoiceLineClient).
 //!   DM_BOT_DEBUG_PATHFINDER — pathfinding (moving to goal)
 //!   DM_BOT_DEBUG_PERFRAME_MOVING_LOG — per-frame movement speed/angle (ApplyMovement).
 //!

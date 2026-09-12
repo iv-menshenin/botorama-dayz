@@ -171,12 +171,25 @@ class dmAISurvivorBase : PlayerBase
 	//! burst/auto series pacing and the proactive fire-mode refresh.
 	private float m_LastFireTime = 0.0;
 
+	//! Голосовая реплика: id текущей реплики и монотонный nonce (инкремент на
+	//! каждом SpeakLine — чтобы повтор той же реплики снова триггерил клиент).
+	private int m_VoiceLineId = 0;
+	private int m_VoiceLineNonce = 0;
+	//! Серверная анимация рта (SetTalking): оставшееся время и накопленный dt.
+	private float m_TalkDuration = 0.0;
+	private float m_TalkDelta = 0.0;
+	//! Клиент: последний обработанный nonce (для edge-детекта смены реплики).
+	private int m_LastVoiceNonce = -1;
+
 	void dmAISurvivorBase()
 	{
 		m_DesiredStance = DayZPlayerConstants.STANCEIDX_ERECT;
 
 		RegisterNetSyncVariableFloat("m_LookYawDeg", -DM_LOOK_MAX_YAW, DM_LOOK_MAX_YAW, 1);
 		RegisterNetSyncVariableFloat("m_LookPitchDeg", -DM_LOOK_MAX_PITCH, DM_LOOK_MAX_PITCH, 1);
+
+		RegisterNetSyncVariableInt("m_VoiceLineId", 0, dmVoiceLine.DM_VOICE_COUNT + 8);
+		RegisterNetSyncVariableInt("m_VoiceLineNonce", 0, 65535);
 
 		//! Replace the vanilla melee combat + fight logic. The vanilla
 		//! DayZPlayerMeleeFightLogic_LightHeavy.HandleFightLogic null-derefs hcm
@@ -870,6 +883,15 @@ class dmAISurvivorBase : PlayerBase
 	{
 		super.OnVariablesSynchronized();
 
+		//! Голосовая реплика: сервер поднял nonce — играем 3D-звук у позиции бота.
+		if (m_VoiceLineNonce != m_LastVoiceNonce)
+		{
+			bool firstSync = m_LastVoiceNonce < 0; // подавить ложный триггер при первом синке
+			m_LastVoiceNonce = m_VoiceLineNonce;
+			if (!firstSync)
+				PlayVoiceLineClient(m_VoiceLineId);
+		}
+
 		if (Math.AbsFloat(m_LookYawDeg - m_LastLogLookYaw) > 0.5 || Math.AbsFloat(m_LookPitchDeg - m_LastLogLookPitch) > 0.5)
 		{
 			m_LastLogLookYaw = m_LookYawDeg;
@@ -879,6 +901,42 @@ class dmAISurvivorBase : PlayerBase
 			dmBotLog.Debug("dmAISurvivorBase.OnVariablesSynchronized() lookYaw=" + m_LookYawDeg + " lookPitch=" + m_LookPitchDeg + " instType=" + GetInstanceType());
 			#endif
 		}
+	}
+#endif
+
+#ifndef SERVER
+	//! Проиграть голосовую реплику как позиционный 3D-звук у позиции бота.
+	//! Звук играет каждый клиент сам (звуки не реплицируются).
+	void PlayVoiceLineClient(int lineId)
+	{
+		string path = dmBotVoice.GetSoundPath(lineId);
+		if (path == "")
+		{
+			dmBotLog.Error("dmAISurvivorBase.PlayVoiceLineClient() unknown lineId=" + lineId);
+			return;
+		}
+
+		SoundParams params = new SoundParams(path);
+		if (!params.IsValid())
+		{
+			dmBotLog.Error("dmAISurvivorBase.PlayVoiceLineClient() SoundParams invalid: " + path);
+			return;
+		}
+
+		SoundObjectBuilder builder = new SoundObjectBuilder(params);
+		SoundObject soundObject = builder.BuildSoundObject();
+		if (!soundObject)
+		{
+			dmBotLog.Error("dmAISurvivorBase.PlayVoiceLineClient() BuildSoundObject() null: " + path);
+			return;
+		}
+
+		soundObject.SetPosition(GetPosition());
+		GetGame().GetSoundScene().Play3D(soundObject, builder);
+
+		#ifdef DM_BOT_DEBUG_VOICE
+		dmBotLog.Debug("dmAISurvivorBase.PlayVoiceLineClient() lineId=" + lineId + " path=" + path + " instType=" + GetInstanceType());
+		#endif
 	}
 #endif
 
@@ -945,6 +1003,10 @@ class dmAISurvivorBase : PlayerBase
 
 		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);
 
+		#ifdef SERVER
+		TickTalking(pDt);
+		#endif
+
 		//! Transition to/from unconscious AFTER super: the vanilla command logic
 		//! (melee fight etc.) reads HumanCommandMove inside super, so starting the
 		//! unconscious command before it would null hcm and throw a VM exception.
@@ -998,6 +1060,32 @@ class dmAISurvivorBase : PlayerBase
 			#endif
 		}
 	}
+
+#ifdef SERVER
+	//! Анимация рта на сервере: держит HumanCommandAdditives.SetTalking(true),
+	//! пока идёт m_TalkDuration; иначе закрывает рот. Реплицируется клиентам как
+	//! часть синхронизируемого additive-команда (см. ZenExpansionAudioAI).
+	void TickTalking(float pDt)
+	{
+		HumanCommandAdditives ad = GetCommandModifier_Additives();
+		if (!ad)
+			return;
+		if (!CanAct() || m_TalkDuration <= 0.0)
+		{
+			m_TalkDuration = 0.0;
+			m_TalkDelta = 0.0;
+			ad.SetTalking(false);
+			return;
+		}
+		ad.SetTalking(true);
+		m_TalkDelta += pDt;
+		if (m_TalkDelta >= m_TalkDuration)
+		{
+			m_TalkDuration = 0.0;
+			m_TalkDelta = 0.0;
+		}
+	}
+#endif
 
 	//! Vanilla ticks body systems in OnScheduledTick, gated on IsPlayerSelected()
 	//! and m_AllowModifierTick (enabled only in OnSelectPlayer) — neither happens
@@ -1470,6 +1558,24 @@ class dmAISurvivorBase : PlayerBase
 	float GetLookPitch()
 	{
 		return m_LookPitchDeg;
+	}
+
+	//! Запустить голосовую реплику (сервер): ставит id+nonce, синхронизирует
+	//! клиентам и стартует анимацию рта на фиксированную длительность.
+	void SpeakLine(int lineId)
+	{
+		if (lineId < 0 || lineId >= dmVoiceLine.DM_VOICE_COUNT)
+			return;
+		if (m_VoiceLineNonce >= 65535)
+			m_VoiceLineNonce = 0;
+		m_VoiceLineId = lineId;
+		m_VoiceLineNonce++;
+		m_TalkDuration = dmBotVoice.GetTalkDuration(lineId);
+		m_TalkDelta = 0.0;
+		SetSynchDirty();
+		#ifdef DM_BOT_DEBUG_VOICE
+		dmBotLog.Debug("dmAISurvivorBase.SpeakLine() lineId=" + lineId + " nonce=" + m_VoiceLineNonce + " instType=" + GetInstanceType());
+		#endif
 	}
 
 	//! Ask the fight logic to perform one melee strike against the given target.

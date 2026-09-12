@@ -99,6 +99,9 @@ static const string DM_CHAT_GIVE = "give";
 //! Sub-command "melee" — order the bound bot to strike its hostile target.
 static const string DM_CHAT_MELEE = "melee";
 
+//! Sub-command "say" — make the bound bot speak a voice line ("/bot say {id}").
+static const string DM_CHAT_SAY = "say";
+
 //! Sub-command "combat" — switch the bound bot to the combat preset.
 static const string DM_CHAT_COMBAT = "combat";
 
