@@ -130,6 +130,20 @@
   без FSM (`GetAiming().SetTarget` + `Enable` → `RaiseWeapon` → `RequestFire`). Время полёта —
   дельта в логе `[Ballistics]` (FIRE → HIT / IMPACT, домен `DM_BOT_DEBUG_BALLISTICS`).
 
+### Лечение (MedicalCare) — `/test bot ...`
+
+Каждый сценарий выдаёт боту полную аптечку (штаны со всеми медикаментами), запускает чистый
+пресет Idle + MedicalCare, накладывает эффект и ждёт, пока бот сам вылечится (с анимацией).
+Логи — домен `DM_BOT_DEBUG_MEDICAL` (включи в `config.cpp` `defines[]`, если нужно видеть шаги очереди).
+
+- `/test bot bandaging` — рана (Pelvis): бот перевязывается → `IsBleeding()==false`.
+- `/test bot splinting` — перелом ноги: бот накладывает шину → `GetBrokenLegs()==BROKEN_LEGS_SPLINT`.
+- `/test bot painkiller` — перелом + обезбол: после шины бот пьёт обезболивающее → `MDF_PAINKILLERS` активен.
+- `/test bot painkillerbandage` — рана + низкое HP (30): после перевязки (HP<75%) обезбол → `MDF_PAINKILLERS` активен.
+- `/test bot charcoal` — отравление: бот принимает активированный уголь → `MDF_CHARCOAL` активен.
+- `/test bot tetracycline` — грипп: бот принимает тетрациклин → `MDF_ANTIBIOTICS` активен.
+- `/test bot vitamins` — холод (HeatComfort≤-0.15): бот принимает витамины → `MDF_IMMUNITYBOOST` активен.
+
 ### Ручные сценарии `/test`
 
 - `/test bot patrol` — бот с маршрутом из трёх точек (повороты: назад 50 м, вправо 90° 50 м, вправо 135° 100 м).

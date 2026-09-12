@@ -27,6 +27,8 @@
 //!   DM_BOT_DEBUG_LOADOUT — loadout application (dmLoadoutApplier).
 //!   DM_BOT_DEBUG_VISION  — perception scan (candidates, FOV/LOS results).
 //!   DM_BOT_DEBUG_EVADE   — уворот от прицела (EvadeAim): триггер, свип укрытия, додж, конец.
+//!   DM_BOT_DEBUG_MEDICAL — ИИ-лечение (MedicalCare): вход в состояние, шаги очереди,
+//!                          применение эффекта, ошибки.
 //!   DM_BOT_DEBUG_PATHFINDER — pathfinding (moving to goal)
 //!   DM_BOT_DEBUG_PERFRAME_MOVING_LOG — per-frame movement speed/angle (ApplyMovement).
 //!

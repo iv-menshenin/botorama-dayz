@@ -40,6 +40,11 @@ class dmBotConditions
 		return new dmBotCondition_CanShoot();
 	}
 
+	static dmBotCondition MedicalCare()
+	{
+		return new dmBotCondition_MedicalCare();
+	}
+
 	static dmBotCondition LastPositionSpreadLessOrEqual(float spread)
 	{
 		return new dmBotCondition_LastPositionSpread(spread, true);

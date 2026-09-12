@@ -456,6 +456,14 @@ class dmBotCommand : dmCommandModule
 		statsLine += " Water=" + Fmt(pawn.GetStatWater().Get());
 		dmCommandManager.ChatToPlayer(player, statsLine);
 
+		string agentsLine = "Агенты: Грипп=" + pawn.GetSingleAgentCount(eAgents.INFLUENZA);
+		agentsLine += " Сальмонелла=" + pawn.GetSingleAgentCount(eAgents.SALMONELLA);
+		agentsLine += " Тухляк=" + pawn.GetSingleAgentCount(eAgents.FOOD_POISON);
+		agentsLine += " Холера=" + pawn.GetSingleAgentCount(eAgents.CHOLERA);
+		agentsLine += " Рана=" + pawn.GetSingleAgentCount(eAgents.WOUND_AGENT);
+		agentsLine += " Хим=" + pawn.GetSingleAgentCount(eAgents.CHEMICAL_POISON);
+		dmCommandManager.ChatToPlayer(player, agentsLine);
+
 		dmBotFSM fsm = bot.GetFSM();
 		string fsmName = "нет FSM";
 		if (fsm && fsm.GetCurrentState())

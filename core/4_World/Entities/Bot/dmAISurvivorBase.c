@@ -1033,6 +1033,9 @@ class dmAISurvivorBase : PlayerBase
 		BleedingSourcesManagerServer bsm = GetBleedingManagerServer();
 		if (bsm)
 			bsm.OnTick(dt);
+
+		if (m_Environment)
+			m_Environment.Update(dt);
 	}
 
 	//! Bridge the vanilla unconscious command from the shock value. The vanilla

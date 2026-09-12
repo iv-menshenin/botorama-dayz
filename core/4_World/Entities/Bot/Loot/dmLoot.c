@@ -16,6 +16,17 @@ enum dmLootCategory
 	OTHER      // прочее
 };
 
+//! Вид лечебного предмета (для ИИ-лечения dmBotState_MedicalCare).
+enum dmMedicalItemKind
+{
+	BANDAGE,       // перевязочное (BandageDressing/Rag/Bandana_ColorBase)
+	SPLINT,        // шина (Splint)
+	PAINKILLER,    // болеутоляющее (PainkillerTablets)
+	CHARCOAL,      // активированный уголь (CharcoalTablets)
+	TETRACYCLINE,  // антибиотик (TetracyclineAntibiotics)
+	VITAMINS       // мультивитамины (VitaminBottle)
+};
+
 class dmLoot
 {
 	//! Надёжная классификация мили (НЕ флаг isMeleeWeapon, который даёт ложные
@@ -73,6 +84,123 @@ class dmLoot
 			return dmLootCategory.MEDICAL;
 
 		return dmLootCategory.OTHER;
+	}
+
+	//! Перевязочное: бинт, тряпка или бандана (ванильное наследование).
+	static bool IsBandage(ItemBase item)
+	{
+		if (!item)
+			return false;
+		if (item.IsInherited(BandageDressing))
+			return true;
+		if (item.IsInherited(Rag))
+			return true;
+		if (item.IsInherited(Bandana_ColorBase))
+			return true;
+		return false;
+	}
+
+	//! Подходит ли предмет под заданный вид лечебного (не разрушенный, живой).
+	static bool MatchesMedicalKind(ItemBase item, dmMedicalItemKind kind)
+	{
+		if (kind == dmMedicalItemKind.BANDAGE)
+			return IsBandage(item);
+		if (kind == dmMedicalItemKind.SPLINT)
+			return Splint.Cast(item) != null;
+		if (kind == dmMedicalItemKind.PAINKILLER)
+			return PainkillerTablets.Cast(item) != null;
+		if (kind == dmMedicalItemKind.CHARCOAL)
+			return CharcoalTablets.Cast(item) != null;
+		if (kind == dmMedicalItemKind.TETRACYCLINE)
+			return TetracyclineAntibiotics.Cast(item) != null;
+		if (kind == dmMedicalItemKind.VITAMINS)
+			return VitaminBottle.Cast(item) != null;
+		return false;
+	}
+
+	//! Первый подходящий предмет заданного вида в инвентаре пешки (INORDER),
+	//! пропуская разрушенные/мёртвые. null — нет.
+	static ItemBase FindMedicalItem(PlayerBase pawn, dmMedicalItemKind kind)
+	{
+		if (!pawn)
+			return null;
+
+		array<EntityAI> items = new array<EntityAI>();
+		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			ItemBase item = ItemBase.Cast(items[i]);
+			if (!item)
+				continue;
+			if (item.IsDamageDestroyed() || item.GetHealth01() <= 0.0)
+				continue;
+			if (MatchesMedicalKind(item, kind))
+				return item;
+		}
+		return null;
+	}
+
+	//! Плата за спавн шины (когда её нет в инвентаре): сначала 1 бинт (BandageDressing),
+	//! иначе до DM_MEDICAL_SPLINT_RAG_COST тряпок (сколько есть), иначе false — бесплатно.
+	//! Бандана в плату не идёт. Расход через AddQuantity(-n, true).
+	static bool PayForSplint(PlayerBase pawn)
+	{
+		if (!pawn)
+			return false;
+
+		array<EntityAI> items = new array<EntityAI>();
+		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+
+		int i;
+		ItemBase item;
+		ItemBase bandage = null;
+		float need;
+		float qty;
+
+		for (i = 0; i < items.Count(); i++)
+		{
+			item = ItemBase.Cast(items[i]);
+			if (!item)
+				continue;
+			if (item.IsDamageDestroyed() || item.GetHealth01() <= 0.0)
+				continue;
+			if (item.IsInherited(BandageDressing))
+			{
+				bandage = item;
+				break;
+			}
+		}
+
+		if (bandage)
+		{
+			bandage.AddQuantity(-1, true);
+			return true;
+		}
+
+		need = DM_MEDICAL_SPLINT_RAG_COST;
+		for (i = 0; i < items.Count(); i++)
+		{
+			item = ItemBase.Cast(items[i]);
+			if (!item)
+				continue;
+			if (item.IsDamageDestroyed() || item.GetHealth01() <= 0.0)
+				continue;
+			if (!item.IsInherited(Rag))
+				continue;
+			qty = item.GetQuantity();
+			if (qty >= need)
+			{
+				item.AddQuantity(-need, true);
+				return true;
+			}
+			item.AddQuantity(-qty, true);
+			need = need - qty;
+			if (need <= 0.0)
+				return true;
+		}
+		return false;
 	}
 
 	//! Предметы-на-земле (ItemBase вне чьего-либо инвентаря) в кубе radius вокруг пешки.

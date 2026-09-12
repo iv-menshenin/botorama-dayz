@@ -9,13 +9,18 @@ class dmBotPreset_Combat
 		dmBotState idle = new dmBotState_Idle();
 		dmBotState fight = new dmBotState_Fighting();
 		dmBotState shoot = new dmBotState_Shooting();
+		dmBotState medical = new dmBotState_MedicalCare();
 		fsm.AddState(idle, "Idle");
 		fsm.AddState(fight, "Fighting");
 		fsm.AddState(shoot, "Shooting");
+		fsm.AddState(medical, "MedicalCare");
 		idle.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		idle.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
+		idle.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		shoot.AddTransition(idle, 1.0);
 		fight.AddTransition(idle, 1.0);
+		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
+		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		fsm.SetDefaultState("Idle");
 		fsm.Start();
 		return fsm;

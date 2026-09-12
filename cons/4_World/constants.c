@@ -585,3 +585,13 @@ static const float DM_TIDY_STEP_INTERVAL = 1.0;
 
 //! TidyInventory: rescan interval (seconds) when there is nothing to do.
 static const float DM_TIDY_SCAN_INTERVAL = 3.0;
+
+//! MedicalCare: порог здоровья (0..1), ниже которого после перевязки бот принимает
+//! бонус-обезболивающее.
+static const float DM_MEDICAL_PAINKILLER_HEALTH_THRESHOLD = 0.75;
+//! MedicalCare: число тряпок (Rag), списываемых за спавн шины (если нет бинта).
+static const int   DM_MEDICAL_SPLINT_RAG_COST = 4;
+//! MedicalCare: порог «холодно» (HeatComfort) — ниже него бот пьёт витамины.
+static const float DM_MEDICAL_COLD_HC = -0.15;
+//! MedicalCare: таймаут (секунды) ожидания завершения full-body анимации (фолбэк).
+static const float DM_MEDICAL_ANIM_TIMEOUT = 4.0;

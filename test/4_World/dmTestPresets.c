@@ -36,6 +36,23 @@ class dmBotTestPreset_Shooting
 	}
 }
 
+class dmBotTestPreset_Medical
+{
+	static dmBotFSM Create(dmAISurvivor owner)
+	{
+		dmBotFSM fsm = new dmBotFSM(owner);
+		dmBotState idle = new dmBotState_Idle();
+		dmBotState medical = new dmBotState_MedicalCare();
+		fsm.AddState(idle, "Idle");
+		fsm.AddState(medical, "MedicalCare");
+		idle.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+		medical.AddTransition(idle, 1.0);
+		fsm.SetDefaultState("Idle");
+		fsm.Start();
+		return fsm;
+	}
+}
+
 class dmBotTestPreset_Hunting
 {
 	static dmBotFSM Create(dmAISurvivor owner)

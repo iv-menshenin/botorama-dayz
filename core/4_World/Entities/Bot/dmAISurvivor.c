@@ -472,6 +472,64 @@ class dmAISurvivor
 		return m_Pawn.GetHealth01() < 0.35;
 	}
 
+	//! Нужна ли медпомощь (по здоровью + действующим препаратам, БЕЗ учёта инвентаря).
+	//! Триггеры: рана, перелом, отравление, грипп/простуда, холод. Шина всегда доступна
+	//! (спавн), поэтому в AreNecessaryMedicationsAvailable её наличие не проверяется.
+	bool IsMedicalAttentionRequired()
+	{
+		if (!m_Pawn)
+			return false;
+
+		if (m_Pawn.IsBleeding())
+			return true;
+
+		if (m_Pawn.GetBrokenLegs() == eBrokenLegs.BROKEN_LEGS)
+			return true;
+
+		ModifiersManager mngr = m_Pawn.GetModifiersManager();
+		if (mngr)
+		{
+			if (mngr.IsModifierActive(eModifiers.MDF_SALMONELLA) && !mngr.IsModifierActive(eModifiers.MDF_CHARCOAL))
+				return true;
+			if ((mngr.IsModifierActive(eModifiers.MDF_INFLUENZA) || mngr.IsModifierActive(eModifiers.MDF_COMMON_COLD)) && !mngr.IsModifierActive(eModifiers.MDF_ANTIBIOTICS))
+				return true;
+			PlayerStat<float> hc = m_Pawn.GetStatHeatComfort();
+			if (hc && hc.Get() <= DM_MEDICAL_COLD_HC && !mngr.IsModifierActive(eModifiers.MDF_IMMUNITYBOOST))
+				return true;
+		}
+		return false;
+	}
+
+	//! Нужна ли медпомощь И есть ли нужное лекарство в инвентаре. Шина не проверяется
+	//! (спавн в руки). Вход в состояние MedicalCare гейтится этим методом.
+	bool AreNecessaryMedicationsAvailable()
+	{
+		if (!m_Pawn)
+			return false;
+
+		if (m_Pawn.IsBleeding() && dmLoot.FindMedicalItem(m_Pawn, dmMedicalItemKind.BANDAGE))
+			return true;
+
+		if (m_Pawn.GetBrokenLegs() == eBrokenLegs.BROKEN_LEGS)
+			return true;
+
+		ModifiersManager mngr = m_Pawn.GetModifiersManager();
+		if (!mngr)
+			return false;
+
+		if (mngr.IsModifierActive(eModifiers.MDF_SALMONELLA) && !mngr.IsModifierActive(eModifiers.MDF_CHARCOAL) && dmLoot.FindMedicalItem(m_Pawn, dmMedicalItemKind.CHARCOAL))
+			return true;
+
+		if ((mngr.IsModifierActive(eModifiers.MDF_INFLUENZA) || mngr.IsModifierActive(eModifiers.MDF_COMMON_COLD)) && !mngr.IsModifierActive(eModifiers.MDF_ANTIBIOTICS) && dmLoot.FindMedicalItem(m_Pawn, dmMedicalItemKind.TETRACYCLINE))
+			return true;
+
+		PlayerStat<float> hc = m_Pawn.GetStatHeatComfort();
+		if (hc && hc.Get() <= DM_MEDICAL_COLD_HC && !mngr.IsModifierActive(eModifiers.MDF_IMMUNITYBOOST) && dmLoot.FindMedicalItem(m_Pawn, dmMedicalItemKind.VITAMINS))
+			return true;
+
+		return false;
+	}
+
 	//! Firearm (Weapon_Base) currently in the bot's hands, or null.
 	Weapon_Base GetWeaponInHands()
 	{

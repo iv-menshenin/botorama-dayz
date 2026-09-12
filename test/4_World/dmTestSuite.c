@@ -72,6 +72,22 @@ class dmTestSuite_TestCase
 			bagInv.CreateInInventory( itemClass );
 	}
 
+	//! Создать штаны со всеми медикаментами (бинт, тряпка, шина, обезбол, уголь, тетрациклин, витамины).
+	void GiveMedicalPants()
+	{
+		EntityAI pants = m_Bot.GetPawn().GetInventory().CreateInInventory("CargoPants_Beige");
+		if (!pants)
+			return;
+		GameInventory pantsInv = pants.GetInventory();
+		pantsInv.CreateInInventory("BandageDressing");
+		// pantsInv.CreateInInventory("Rag");  // если это дать,то витамины не влазят
+		pantsInv.CreateInInventory("Splint");
+		pantsInv.CreateInInventory("PainkillerTablets");
+		pantsInv.CreateInInventory("CharcoalTablets");
+		pantsInv.CreateInInventory("TetracyclineAntibiotics");
+		pantsInv.CreateInInventory("VitaminBottle");
+	}
+
 	//! Спавн вражеской болванки-игрока на GetTestRange() от бота (по направлению взгляда игрока), на земле, враждебной.
 	EntityAI SpawnEnemy()
 	{
