@@ -147,6 +147,7 @@ static const string DM_CHAT_TEST_EMOTE = "emote";
 static const string DM_CHAT_TEST_FIGHT = "fight";
 static const string DM_CHAT_TEST_EAT = "eat";
 static const string DM_CHAT_TEST_DRINK = "drink";
+static const string DM_CHAT_TEST_EATCAN = "eatcan";
 
 //! Test scenario sub-command "weapon" and its actions ("/test bot weapon ...").
 static const string DM_CHAT_TEST_WEAPON = "weapon";

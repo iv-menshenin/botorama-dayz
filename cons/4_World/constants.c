@@ -602,7 +602,9 @@ static const float DM_EAT_DRINK_ENERGY        = 2500.0;
 static const float DM_EAT_DRINK_WATER         = 2500.0;
 //! EatDrink: радиус (метры), в котором враг блокирует еду/питьё.
 static const float DM_EAT_DRINK_ENEMY_RADIUS  = 250.0;
-//! EatDrink: время (секунды) проигрывания additive-анимации еды/питья.
-static const float DM_EAT_DRINK_ANIM_TIME     = 2.0;
+//! EatDrink: полный предмет съедается за это время (секунды) — portion = GetQuantityMax()/X*dt.
+static const float DM_EAT_DRINK_FULL_TIME     = 10.0;
+//! EatDrink: таймаут (секунды) ожидания замены закрытой консервы на X_Opened.
+static const float DM_EAT_DRINK_OPEN_TIMEOUT  = 3.0;
 //! EatDrink: интервал (секунды) пересканирования, когда есть/пить нечего.
 static const float DM_EAT_DRINK_SCAN_INTERVAL = 2.0;
