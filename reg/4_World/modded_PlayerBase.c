@@ -9,4 +9,11 @@ modded class PlayerBase
 	{
 		dmEntityRegistry.UnregisterPlayer(this);
 	}
+	
+	override bool Save()
+	{
+		if ( !GetHive() ) return false;
+
+		return super.Save();
+	}
 }
