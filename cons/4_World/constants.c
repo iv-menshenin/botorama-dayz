@@ -384,6 +384,24 @@ static const float DM_TARGET_ATTRACT_ANIMAL = 0.5;
 //! Target memory: seconds without contact before a remembered target is forgotten.
 static const float DM_TARGET_FORGET_TIME = 300.0;
 
+//! Aggro через прицеливание: бот считает игрока враждебным, если тот целится
+//! в него (IsRaised + огнестрел в руках + прицел в силуэт бота). Угловое окно —
+//! угловой размер бота (ширина/высота) с запасом DM_AGGRO_AIM_ENLARGE.
+static const float DM_AGGRO_AIM_RATE          = 0.25;   // threat/с, накапливается потиково пока прицел в силуэте
+static const float DM_AGGRO_AIM_TARGET_WIDTH  = 0.5;    // ширина силуэта бота (плечи), м
+static const float DM_AGGRO_AIM_TARGET_HEIGHT = 1.8;    // высота силуэта бота (рост), м
+static const float DM_AGGRO_AIM_ENLARGE       = 1.07;   // запас +7% к угловому размеру
+
+//! Поправка кости головы: на сервере голова не следует стволу (эталон —
+//! Expansion.Expansion_GetAimDirection: +5° яу, +12.5° питч).
+static const float DM_AGGRO_AIM_HEAD_YAW   = 5.0;    // поправка яу (градусы)
+static const float DM_AGGRO_AIM_HEAD_PITCH = 12.5;   // поправка питча (градусы) — главная
+
+//! Пол окна прицеливания (градусы): серверный прицел — аппроксимация + sway,
+//! окно не должно схлопываться в 1-2° на дистанции.
+static const float DM_AGGRO_AIM_MIN_HALF_W = 5.0;    // пол по яу
+static const float DM_AGGRO_AIM_MIN_HALF_H = 10.0;   // пол по питчу
+
 //! Melee: cooldown (seconds) between the bot's strikes.
 static const float DM_MELEE_COOLDOWN = 0.6;
 

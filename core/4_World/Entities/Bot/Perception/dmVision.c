@@ -27,6 +27,7 @@ class dmVision
 		if (m_BoxAccum >= DM_PERCEPTION_BOX_INTERVAL) { m_BoxAccum = 0.0; Scan(bot); }
 
 		UpdateLOS(bot);
+		UpdateAggro(bot, pDt);
 		
 		float now = GetGame().GetTickTime();
 		ref array<ref dmTarget> targets = bot.GetTargets();
@@ -212,6 +213,82 @@ class dmVision
 		bot.ForgetStaleTargets(DM_TARGET_FORGET_TIME);
 	}
 
+	//! Детект враждебного намерения: игрок с поднятым огнестрелом целится в силуэт
+	//! бота (угловая ширина/высота с запасом DM_AGGRO_AIM_ENLARGE) → бот копит threat.
+	//! «Промах рядом» (пуля в землю рядом) — отдельный, будущий шаг.
+	private void UpdateAggro(dmAISurvivor bot, float pDt)
+	{
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return;
+
+		vector botPos = pawn.GetPosition();
+
+		ref array<ref dmTarget> targets = bot.GetTargets();
+		int i;
+		for (i = 0; i < targets.Count(); i++)
+		{
+			dmTarget t = targets[i];
+			if (!t.m_HasLOS || t.m_Friendly)
+				continue;
+			PlayerBase p = PlayerBase.Cast(t.m_Entity);
+			if (!p || !p.IsAlive())
+				continue;
+			if (!p.IsRaised())
+				continue;
+
+			EntityAI inHands = p.GetHumanInventory().GetEntityInHands();
+			if (!inHands || !Weapon_Base.Cast(inHands) || dmLoot.IsMelee(inHands))
+				continue;
+
+			vector playerPos = p.GetPosition();
+			float dist = vector.Distance(playerPos, botPos);
+			if (dist < 0.01)
+				continue;
+
+			// origin — голова игрока (целится из глаз, а не из ног)
+			vector headPos = playerPos;
+			int userHead = p.GetBoneIndexByName("Head");
+			if (userHead >= 0)
+				headPos = p.GetBonePositionWS(userHead);
+
+			vector aimDir = GetPlayerAimDir(p);
+
+			// target — центр масс бота (Spine3), фолбэк — грудь 1.2 м
+			vector botTarget = botPos + Vector(0, 1.2, 0);
+			int botSpine = pawn.GetBoneIndexByName("Spine3");
+			if (botSpine >= 0)
+				botTarget = pawn.GetBonePositionWS(botSpine);
+
+			vector toBot = botTarget - headPos;
+			toBot.Normalize();
+
+			vector aimAngles = aimDir.VectorToAngles();
+			float aimYaw = aimAngles[0];
+			float aimPitch = aimAngles[1];
+			if (aimPitch > 180.0) aimPitch -= 360.0;
+			vector toAngles = toBot.VectorToAngles();
+			float toYaw = toAngles[0];
+			float toPitch = toAngles[1];
+			if (toPitch > 180.0) toPitch -= 360.0;
+			float yawDiff = Math.AbsFloat(dmAISurvivor.AngleDiff(toYaw, aimYaw));
+			float pitchDiff = Math.AbsFloat(dmAISurvivor.AngleDiff(toPitch, aimPitch));
+
+			float halfW = Math.Atan(DM_AGGRO_AIM_TARGET_WIDTH * DM_AGGRO_AIM_ENLARGE / (2.0 * dist)) * Math.RAD2DEG;
+			float halfH = Math.Atan(DM_AGGRO_AIM_TARGET_HEIGHT * DM_AGGRO_AIM_ENLARGE / (2.0 * dist)) * Math.RAD2DEG;
+			if (halfW < DM_AGGRO_AIM_MIN_HALF_W) halfW = DM_AGGRO_AIM_MIN_HALF_W;
+			if (halfH < DM_AGGRO_AIM_MIN_HALF_H) halfH = DM_AGGRO_AIM_MIN_HALF_H;
+
+			#ifdef DM_BOT_DEBUG_VISION
+			dmBotLog.Debug("[Aggro] " + p.GetType() + " dist=" + dist + " yaw=" + yawDiff + " halfW=" + halfW);
+			dmBotLog.Debug("[Aggro] pitch=" + pitchDiff + " halfH=" + halfH + " threat=" + t.m_Threat);
+			#endif
+
+			if (yawDiff <= halfW && pitchDiff <= halfH)
+				bot.AddThreat(p, DM_AGGRO_AIM_RATE * pDt);
+		}
+	}
+
 	//! World-space look direction (body + head turn). Prefers the head-bone forward
 	//! (includes the head turn); falls back to the body direction when the bone can't
 	//! resolve. Horizontal only (pitch zeroed) and normalized.
@@ -237,6 +314,36 @@ class dmVision
 		lookDir[1] = 0.0;
 		lookDir.Normalize();
 		return lookDir;
+	}
+
+	//! Направление прицела игрока: кость головы (forward, с питчем). Fallback —
+	//! направление корпуса. В отличие от GetLookDir питч НЕ зануляется (нужен для
+	//! сравнения с угловой высотой силуэта бота).
+	private vector GetPlayerAimDir(PlayerBase player)
+	{
+		int hb = player.GetBoneIndexByName("Head");
+		vector aim;
+		if (hb >= 0)
+		{
+			vector transform[4];
+			player.GetBoneTransformWS(hb, transform);
+			aim = transform[1];
+
+			// Кость головы отклонена от ствола: на сервере прицел = голова + поправка
+			// (эталон — Expansion.Expansion_GetAimDirection: +5° яу, +12.5° питч).
+			vector angles = aim.VectorToAngles();
+			angles[0] = angles[0] + DM_AGGRO_AIM_HEAD_YAW;
+			if (angles[0] > 360.0) angles[0] = angles[0] - 360.0;
+			angles[1] = angles[1] + DM_AGGRO_AIM_HEAD_PITCH;
+			if (angles[1] > 360.0) angles[1] = angles[1] - 360.0;
+			aim = angles.AnglesToVector();
+		}
+		else
+		{
+			aim = player.GetDirection();
+		}
+		aim.Normalize();
+		return aim;
 	}
 
 	//! Per-target LOS refresh interval (seconds). Creatures/friendly targets are cheap

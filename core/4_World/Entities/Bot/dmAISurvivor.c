@@ -1042,6 +1042,37 @@ class dmAISurvivor
 		t.m_LastDamage = GetGame().GetTickTime();
 	}
 
+	//! Аддитивно повысить угрозу цели (используется детектом прицеливания: игрок
+	//! целится в бота). Создаёт цель при её отсутствии; только живые существа;
+	//! friendly-цели не трогает. Угроза ограничена сверху 1.0.
+	void AddThreat(EntityAI entity, float amount)
+	{
+		if (!entity || amount <= 0.0)
+			return;
+		if (entity == m_Pawn || entity == m_FollowTarget)
+			return;
+		if (!entity.IsInherited(Man) && !entity.IsInherited(DayZCreature))
+			return;
+
+		dmTarget t = FindTarget(entity);
+		if (!t)
+		{
+			t = new dmTarget();
+			t.m_Type = dmTargetType.DESTROY;
+			t.m_Entity = entity;
+			t.m_LastContact = GetGame().GetTickTime();
+			m_Targets.Insert(t);
+		}
+		if (t.m_Friendly)
+			return;
+
+		float newThreat = t.m_Threat + amount;
+		if (newThreat > 1.0)
+			newThreat = 1.0;
+		t.m_Threat = newThreat;
+		t.m_LastContact = GetGame().GetTickTime();
+	}
+
 	//! Force-add an entity to the target memory as hostile (used by tests/orders).
 	//! Unlike RegisterDamageThreat this is unconditional and takes an explicit threat.
 	dmTarget RegisterHostile(EntityAI entity, float threat = 1.0, float spread = 0.0)
