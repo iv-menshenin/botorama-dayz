@@ -23,6 +23,12 @@
   `SoundVoice` (id + soundLookupTable + аудио) + кастомная net-var на боте + на клиенте в
   `OnVariablesSynchronized` прямой вызов `ProcessVoiceEvent("", "", <config_id>)`. Полностью
   в рамках уже принятого в моде паттерна (net-var + клиентский `OnVariablesSynchronized`).
+- **Реализовано (итог, `feature/bot-voice-lines` → master):** пошли БОЛЕЕ простым путём, чем
+  цепочка `SoundVoice`/`ProcessVoiceEvent`. Сервер `dmAISurvivorBase.SpeakLine(id)` → net-var
+  `m_VoiceLineId`+`m_VoiceLineNonce` → клиент в `OnVariablesSynchronized` играет `Play3D` через
+  `SoundParams("dmBotVoice_test_SoundSet")` (свой `CfgSoundSets`/`CfgSoundShaders` в `config.cpp`);
+  рот — серверный `SetTalking` (как ZenExpansionAudioAI). Реплики-слова задаются обычным
+  SoundSet, БЕЗ `CfgVoiceSoundTables`/`AnimEvents SoundVoice`. Подтверждено в игре (рот шевелится).
 
 ---
 
@@ -184,6 +190,12 @@ no-op (`#ifdef SERVER`), на каждом клиенте — играет по�
 2. `class CfgVoiceSoundTables { class Voice { class dmBotLine1_Char_LookupTable { class None { category="none"; soundSets[]={"dmBotLine1_SoundSet"}; }; }; }; };`
 3. `class CfgVehicles { class SurvivorBase { class AnimEvents { class SoundVoice { class dmBotLine1 { soundLookupTable="dmBotLine1_Char_LookupTable"; id=<НОВЫЙ id>; }; }; }; }; };`
    (необязательно `noise=...` — если хотим шум через зомби-сенсорику, хотя у игрока это всё равно не используется).
+
+**Готча (выяснено при реализации):** при наследовании `baseCharacter_SoundShader`/
+`baseCharacter_SoundSet` (аддон `DZ_Sounds_Effects`) нужна forward-декларация
+`class baseCharacter_SoundShader;` / `class baseCharacter_SoundSet;` внутри своего блока,
+иначе `CfgConvert` падает с `Undefined base class "baseCharacter_SoundShader"`.
+`requiredAddons[]` это НЕ решает. Подробнее — `docs/codeguide.md`.
 
 ---
 

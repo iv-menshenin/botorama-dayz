@@ -116,6 +116,39 @@
   выберет ванильный, а твой метод молча не вызовется. Перед добавлением метода проверяй
   ванильные с тем же именем: `grep -rn 'bool DropItem\b' DayZ-Script-Diff/scripts/`.
 
+## Конфиг (`config.cpp`): наследование классов из другого аддона
+
+Классы `config.cpp` (`CfgVehicles` / `CfgSoundShaders` / `CfgSoundSets` / ...)
+наследуются только от классов, объявленных в уже загруженных аддонах. Для
+**кросс-аддонного** наследования нужна **forward-декларация** базового класса ВНУТРИ
+того же блока, иначе `CfgConvert` падает на сборке PBO:
+
+```
+File: botorama\config.cpp
+/CfgSoundShaders.<Класс>: Undefined base class "baseCharacter_SoundShader"
+```
+
+- `requiredAddons[]` это **НЕ решает**: он задаёт порядок загрузки в рантайме, а
+  `CfgConvert` резолвит имена базовых классов при конвертации и требует forward-декларацию.
+- Пишется `class <Base>;` (с точкой с запятой) перед первым наследником в том же блоке:
+
+```cpp
+class CfgSoundShaders
+{
+	class baseCharacter_SoundShader;
+	class dmBotVoice_test_SoundShader : baseCharacter_SoundShader { ... };
+};
+class CfgSoundSets
+{
+	class baseCharacter_SoundSet;
+	class dmBotVoice_test_SoundSet : baseCharacter_SoundSet { ... };
+};
+```
+
+- Эталон — рабочий мод `TerjeMods/TerjeMedicine/Sounds/config.cpp`: наследует
+  `baseCharacter_SoundShader`/`baseCharacter_SoundSet` с forward-декларацией и БЕЗ
+  `DZ_Sounds_Effects` в `requiredAddons`.
+
 ## Генерики
 
 - `class X<Class T>` — ограничений `<Class T : Base>` НЕТ; `T` ведёт себя как `Class`
