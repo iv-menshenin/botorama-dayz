@@ -159,6 +159,15 @@ static const string DM_CHAT_TEST_LOOTING_CHANGE = "change";
 //! Test scenario "enemy" — spawn an armed bot at distance N and mark the player hostile.
 static const string DM_CHAT_TEST_ENEMY = "enemy";
 
+//! Launch command family ("/launch ...") — stress-test scenarios.
+static const string DM_CHAT_LAUNCH_INVASION = "invasion";
+
+//! Invasion scenario: 3*N bots at DM_INVASION_DISTANCE, each on its own random
+//! bearing, each hostile to every real player with a spread of DM_INVASION_SPREAD.
+static const float DM_INVASION_DISTANCE = 700.0;
+static const float DM_INVASION_SPREAD = 250.0;
+static const int DM_INVASION_MULT = 3;
+
 //! Test scenario "suppressor" — noise-strength ladder by suppressor kind.
 static const string DM_CHAT_TEST_SUPPRESSOR = "suppressor";
 
