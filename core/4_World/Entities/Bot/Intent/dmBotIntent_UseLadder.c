@@ -123,6 +123,13 @@ class dmBotIntent_UseLadder : dmBotIntent
 			return;
 		}
 
+		if ( m_Direction < 0 )
+		{
+			bot.SetMove(180.0, 3.0);
+		} else {
+			bot.SetMove(0.0, 2.0);
+		}
+
 		HumanCommandLadder hcl = pawn.GetCommand_Ladder();
 		if (hcl && hcl.CanExit())
 		{
