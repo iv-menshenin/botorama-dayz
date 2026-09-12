@@ -1090,6 +1090,9 @@ class dmAISurvivorBase : PlayerBase
 			float shock = damageResult.GetDamage("", "Shock");
 			if (shock > 0.0)
 				AddHealth("", "Shock", shock * 0.5);
+			float hlth = damageResult.GetDamage("", "Health");
+			if (hlth > 0.0)
+				AddHealth("", "Health", hlth * 0.5);
 		}
 
 		if (source)
