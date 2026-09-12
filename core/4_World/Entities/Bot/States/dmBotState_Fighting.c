@@ -39,6 +39,7 @@ class dmBotState_Fighting : dmBotState
 
 		dmAISurvivor bot = GetOwner();
 		bot.SetMeleeCooldown(0.0);
+		bot.SetInCombat(true);
 
 		ResolveTarget();
 
@@ -96,6 +97,9 @@ class dmBotState_Fighting : dmBotState
 		if ( m_HitTo ) m_HitTo.Finish();
 		if ( m_Evasion ) m_Evasion.Finish();
 		if ( m_Look ) m_Look.Finish();
+
+		dmAISurvivor bot = GetOwner();
+		if ( bot ) bot.SetInCombat(false);
 	}
 
 	void ResolveTarget()

@@ -160,7 +160,9 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   пере-записывал взгляд между сменами → голова «дёргалась» и возвращалась в центр.
   Переиспользуя/ревьюя интент — проверь, что он держит свой канал потиково.
 - Интенты: `MoveTo` (path-aware, прогресс-монитор, один пересчёт), `HoldLook`
-  (точка/сущность), `Glance` (голова), `Turn` (тело), `Stance`, `LookAround`.
+  (точка/сущность), `Glance` (голова), `Turn` (тело), `Stance`, `LookAround`,
+  `Flank` (обход дугой за LOS), `EvadeAim` (реверс-Фланг: укрытие по полукругу +
+  страйф + threat агрессору; ставится парой с `HoldLook FULL` через `bot.EvadeAim`).
 - **Интент НЕ создаёт и НЕ использует другие интенты** (`bot.AddFSMIntent(...)`
   внутри интента — анти-паттерн). Старый `Approach` держал внутренний
   `dmBotIntent_MoveTo` и пересоздавал его — ломалось на автодедлайне пула/арбитраже.
@@ -369,6 +371,12 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   = индекс 1, а не `transform[2]` как в `GetTransform`); позиция глаз — `GetBonePositionWS("Head")`.
   НЕ `MiscGameplayFunctions.GetHeadingVector` — это горизонтальный вектор **корпуса**, без питча.
   Raycast: `DayZPhysics.RaycastRV(beg, end, out pos, out dir, out comp, null, null, ignoreObj, false, false, ObjIntersectView)`.
+- **Кость головы ≠ прицел.** `transform[1]` головы отклонён от реального ствола на ~12.5° по
+  питчу (и ~5° по яу) — голова на сервере не следует стволу по питчу. Для «куда целится игрок»
+  применяй поправку (эталон — Expansion `Expansion_GetAimDirection`, SERVER-ветка):
+  `angles = headDir.VectorToAngles(); angles[0] = angles[0] + 5; angles[1] = angles[1] + 12.5;`
+  (с wrap `>360 → -=360`); `dir = angles.AnglesToVector()`. Без поправки питч-ошибка ~13°
+  ломает угловые проверки «целятся в меня» (реализовано как `dmVision.GetPlayerAimDir`).
 - `HumanCommandMove.GetCurrentMovementSpeed()` НЕ годится как «иду ли я» (ненулевой во
   время переступания) — используй свой флаг из `SetMove`.
 - Цели (паттерн Expansion): `eAITargetInformation` + `eAITargetInformationState`

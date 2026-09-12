@@ -106,6 +106,7 @@ class dmBotState_Follow : dmBotState
 			if (player && !player.IsAlive()) return EXIT;
 
 			//! Атакован/есть враждебная цель — уходим в Fighting.
+			//! Тут не проверяем флаг IsInCombat, а проверяем наличие угрозы. Флаг никто не поставит, если не выйти из Follow.
 			if (bot.GetHostileTarget() != null) return EXIT;
 		}
 		

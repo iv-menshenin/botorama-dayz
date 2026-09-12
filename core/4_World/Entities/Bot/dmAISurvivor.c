@@ -87,6 +87,16 @@ class dmAISurvivor
 	//! intent that walks DM_DANGER_ESCAPE_DIST away from the danger. null when idle.
 	ref dmBotIntent_EscapeDanger m_EscapeIntent;
 
+	//! Уворот от прицела: парный набор персональных интентов (EvadeAim MOVE +
+	//! HoldLook LOOK). null, когда уворот неактивен.
+	ref dmBotIntent_EvadeAim m_EvadeAimIntent;
+	ref dmBotIntent_HoldLook m_EvadeAimLook;
+
+	//! Последний зарегистрированный выстрел (стрелок + серийный номер) — пишет
+	//! dmHearing по SHOT-шуму, читает dmBotIntent_EvadeAim.
+	EntityAI m_LastShotEntity;
+	int m_ShotSerial;
+
 	//! Patrol points (world positions visited in order).
 	private ref array<vector> m_PatrolPoints;
 
@@ -99,6 +109,8 @@ class dmAISurvivor
 	//! Strike cooldown (seconds) — ticked by the Fighting state, read by the
 	//! HitTo/Evasion intents (see GetMeleeCooldown/SetMeleeCooldown).
 	private float m_MeleeCooldown = 0.0;
+
+	private bool m_IsInCombat= false;
 
 	void dmAISurvivor()
 	{
@@ -395,6 +407,7 @@ class dmAISurvivor
 			AddPersonalityIntent(m_TidyIntent);
 		}
 
+		UpdateEvade();
 		UpdateIntents(pDt);
 		m_Pawn.GetInventoryFrames().Tick();
 		if (m_Pawn.GetAiming().IsEnabled())
@@ -826,6 +839,20 @@ class dmAISurvivor
 	}
 
 	//------------------------------------------------------------------
+	// Flag "in combat"
+	//------------------------------------------------------------------
+
+	void SetInCombat(bool inCombat = true)
+	{
+		m_IsInCombat = inCombat;
+	}
+
+	bool IsInCombat()
+	{
+		return m_IsInCombat;
+	}
+
+	//------------------------------------------------------------------
 	// Intent pools
 	//------------------------------------------------------------------
 
@@ -848,6 +875,74 @@ class dmAISurvivor
 		m_EscapeIntent = new dmBotIntent_EscapeDanger();
 		m_EscapeIntent.m_DangerPos = dangerPos;
 		AddPersonalityIntent(m_EscapeIntent);
+	}
+
+	//! Уворот от прицела: пара персональных интентов (EvadeAim MOVE + HoldLook LOOK).
+	//! Не запускается в бою; повторный вызов игнорируется, пока уворот активен.
+	void EvadeAim(EntityAI aggressor)
+	{
+		if (!aggressor)
+			return;
+		UpdateEvade();
+		if ( IsInCombat() )
+		{
+			#ifdef DM_BOT_DEBUG_EVADE
+			dmBotLog.Debug("[Evade] guard: in combat");
+			#endif
+			return;
+		}
+		if (m_EvadeAimIntent && !m_EvadeAimIntent.IsFinished() && !m_EvadeAimIntent.IsExpired())
+		{
+			#ifdef DM_BOT_DEBUG_EVADE
+			dmBotLog.Debug("[Evade] guard: already evading");
+			#endif
+			return;
+		}
+		m_EvadeAimIntent = new dmBotIntent_EvadeAim();
+		m_EvadeAimIntent.m_Aggressor = aggressor;
+		#ifdef DM_BOT_DEBUG_EVADE
+		dmBotLog.Debug("[Evade] trigger " + aggressor.GetType());
+		#endif
+		AddPersonalityIntent(m_EvadeAimIntent);
+		m_EvadeAimLook = new dmBotIntent_HoldLook();
+		m_EvadeAimLook.m_Entity = aggressor;
+		m_EvadeAimLook.m_Turn = dmBotLookTurn.FULL;
+		m_EvadeAimLook.m_Priority = dmBotIntentPriority.CRITICAL;
+		AddPersonalityIntent(m_EvadeAimLook);
+	}
+
+	//! Снять парный HoldLook, когда уворот завершился/истёк. Зовётся из OnUpdate.
+	void UpdateEvade()
+	{
+		if (!m_EvadeAimIntent)
+			return;
+		if (m_EvadeAimIntent.IsFinished() || m_EvadeAimIntent.IsExpired())
+		{
+			if (m_EvadeAimLook && !m_EvadeAimLook.IsFinished())
+				m_EvadeAimLook.Finish();
+			m_EvadeAimIntent = null;
+			m_EvadeAimLook = null;
+		}
+
+		if ( m_EvadeAimIntent )
+			m_EvadeAimIntent.ActiveTick(this);
+	}
+
+	//! Зарегистрировать выстрел стрелка (dmHearing зовёт по SHOT-шуму).
+	void OnGunshot(EntityAI shooter)
+	{
+		m_ShotSerial++;
+		m_LastShotEntity = shooter;
+	}
+
+	EntityAI GetLastShotEntity()
+	{
+		return m_LastShotEntity;
+	}
+
+	int GetShotSerial()
+	{
+		return m_ShotSerial;
 	}
 
 	void AddCommandIntent(dmBotIntent intent)
@@ -1141,6 +1236,7 @@ class dmAISurvivor
 
 	//! Ближайшая враждебная цель (threat >= DM_ATTACK_THREAT_THRESHOLD, не friendly,
 	//! живая). Без ограничения дистанции; ближайшая побеждает (ничья — выше threat).
+	//! Это НЕ флаг боя, чтобы определить, находится ли бот в состоянии боя используйте IsInCombat().
 	dmTarget GetHostileTarget()
 	{
 		// если ближайшая видимая цель все еще жива и это текущая цель, то пока закрепляемся на ней

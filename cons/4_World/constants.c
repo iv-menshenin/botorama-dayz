@@ -402,6 +402,26 @@ static const float DM_AGGRO_AIM_HEAD_PITCH = 12.5;   // поправка пит�
 static const float DM_AGGRO_AIM_MIN_HALF_W = 5.0;    // пол по яу
 static const float DM_AGGRO_AIM_MIN_HALF_H = 10.0;   // пол по питчу
 
+//! Уворот от прицела (EvadeAim): threat-давление и геометрия укрытия.
+static const float DM_EVADE_AIM_RATE            = 0.05;   // threat/с, пока интент активен
+static const float DM_EVADE_AIM_SHOT_THREAT     = 0.35;   // threat за выстрел агрессора (попытка убийства)
+static const float DM_EVADE_AIM_END_DIST        = 10.0;   // (a) конец: агрессор дальше X
+static const float DM_EVADE_AIM_END_AIM_ANGLE   = 45.0;   // (a) угол прицела > X
+static const float DM_EVADE_AIM_END_HEAD_ANGLE  = 25.0;   // (b) угол головы > X (после опускания)
+//! Геометрия: полукруг (±MAX_ANGLE) вокруг агрессора, радиус от MIN_DIST, растёт
+//! на DIST_STEP при исчерпании свипа.
+static const float DM_EVADE_AIM_START_ANGLE     = 15.0;
+static const float DM_EVADE_AIM_ANGLE_STEP      = 15.0;
+static const float DM_EVADE_AIM_MAX_ANGLE       = 90.0;   // полукруг (±90°), не полный круг
+static const float DM_EVADE_AIM_MIN_DIST        = 10.0;   // мин. радиус круга
+static const float DM_EVADE_AIM_MAX_DIST        = 60.0;   // макс. радиус
+static const float DM_EVADE_AIM_DIST_STEP       = 10.0;   // рост радиуса при исчерпании
+static const float DM_EVADE_AIM_MAX_SURFACE_DELTA = 1.5;
+static const float DM_EVADE_AIM_STALL_TIMEOUT   = 8.0;
+//! Страйф при поиске укрытия: поставь false, чтобы бот стоял, когда укрытия нет.
+static const bool  DM_EVADE_AIM_STRAFE          = true;
+static const float DM_EVADE_AIM_STRAFE_SWITCH   = 0.5;    // смена стороны страйфа, с
+
 //! Melee: cooldown (seconds) between the bot's strikes.
 static const float DM_MELEE_COOLDOWN = 0.6;
 

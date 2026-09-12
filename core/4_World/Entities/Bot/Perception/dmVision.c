@@ -285,7 +285,13 @@ class dmVision
 			#endif
 
 			if (yawDiff <= halfW && pitchDiff <= halfH)
+			{
 				bot.AddThreat(p, DM_AGGRO_AIM_RATE * pDt);
+				#ifdef DM_BOT_DEBUG_EVADE
+				dmBotLog.Debug("[Evade] aim detected " + p.GetType() + " dist=" + dist);
+				#endif
+				bot.EvadeAim(p);
+			}
 		}
 	}
 
@@ -319,7 +325,7 @@ class dmVision
 	//! Направление прицела игрока: кость головы (forward, с питчем). Fallback —
 	//! направление корпуса. В отличие от GetLookDir питч НЕ зануляется (нужен для
 	//! сравнения с угловой высотой силуэта бота).
-	private vector GetPlayerAimDir(PlayerBase player)
+	static vector GetPlayerAimDir(PlayerBase player)
 	{
 		int hb = player.GetBoneIndexByName("Head");
 		vector aim;
@@ -337,6 +343,26 @@ class dmVision
 			angles[1] = angles[1] + DM_AGGRO_AIM_HEAD_PITCH;
 			if (angles[1] > 360.0) angles[1] = angles[1] - 360.0;
 			aim = angles.AnglesToVector();
+		}
+		else
+		{
+			aim = player.GetDirection();
+		}
+		aim.Normalize();
+		return aim;
+	}
+
+	//! Направление головы игрока (сырая кость, без поправки прицела) — для условия
+	//! (b) уворота: «голова отвернулась».
+	static vector GetPlayerHeadDir(PlayerBase player)
+	{
+		int hb = player.GetBoneIndexByName("Head");
+		vector aim;
+		if (hb >= 0)
+		{
+			vector transform[4];
+			player.GetBoneTransformWS(hb, transform);
+			aim = transform[1];
 		}
 		else
 		{

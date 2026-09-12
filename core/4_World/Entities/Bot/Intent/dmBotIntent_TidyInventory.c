@@ -21,7 +21,7 @@ class dmBotIntent_TidyInventory : dmBotIntent
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
 		//! Don't tidy while fighting (the Shooting/Fighting states own the weapon).
-		if (bot.GetHostileTarget() != null)
+		if ( bot.IsInCombat() )
 		{
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] TidyInventory: not appliable while fighting");

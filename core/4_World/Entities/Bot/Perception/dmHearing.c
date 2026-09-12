@@ -45,6 +45,10 @@ class dmHearing
 		if (root == m_Bot.GetPawn())
 			return;
 
+		//! Выстрел (любого стрелка) — регистрируем для уворота от прицела.
+		if (type == dmNoiseType.SHOT)
+			m_Bot.OnGunshot(root);
+
 		float attractiveness = DM_NOISE_ATTRACTIVENESS_NOISE;
 		if (type == dmNoiseType.SHOT || type == dmNoiseType.BULLETIMPACT)
 			attractiveness = DM_NOISE_ATTRACTIVENESS_SHOT;
