@@ -13,14 +13,19 @@ class dmBotVoice
 		return "";
 	}
 
-	//! Длительность анимации рта (сек). Запасное значение 1.0.
+	//! Длительность анимации рта (сек) — читается из конфига
+	//! (CfgSoundSets <set> duration, задано рядом со звуком в config.cpp).
+	//! Fallback 1.0, если поле не задано.
 	static float GetTalkDuration(int lineId)
 	{
-		switch (lineId)
-		{
-		case dmVoiceLine.DM_VOICE_TEST:
-			return DM_VOICE_TALK_DURATION_TEST;
-		}
+		string name = GetSoundSetName(lineId);
+		if (name == "")
+			return 1.0;
+
+		string path = "CfgSoundSets " + name + " duration";
+		if (GetGame().ConfigIsExisting(path))
+			return GetGame().ConfigGetFloat(path);
+
 		return 1.0;
 	}
 }

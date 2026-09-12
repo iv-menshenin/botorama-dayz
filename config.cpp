@@ -367,5 +367,6 @@ class CfgSoundSets
 		{
 			"dmBotVoice_test_SoundShader"
 		};
+		duration=1.04;
 	};
 };
