@@ -86,6 +86,42 @@ class dmLoot
 		return dmLootCategory.OTHER;
 	}
 
+	//! Напиток (жидкость): бутылка/фляга или банка газировки.
+	static bool IsDrink(ItemBase item)
+	{
+		if (!item)
+			return false;
+		if (item.IsInherited(Bottle_Base))
+			return true;
+		if (item.IsInherited(SodaCan_ColorBase))
+			return true;
+		return false;
+	}
+
+	//! Первый съедобный предмет в инвентаре (drink=false — еда, drink=true — напиток).
+	static ItemBase FindEdible(PlayerBase pawn, bool drink)
+	{
+		if (!pawn)
+			return null;
+		array<EntityAI> items = new array<EntityAI>();
+		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			ItemBase item = ItemBase.Cast(items[i]);
+			if (!item)
+				continue;
+			if (item.IsDamageDestroyed() || item.GetHealth01() <= 0.0)
+				continue;
+			if (!item.IsInherited(Edible_Base))
+				continue;
+			bool isDrink = IsDrink(item);
+			if (drink == isDrink)
+				return item;
+		}
+		return null;
+	}
+
 	//! Перевязочное: бинт, тряпка или бандана (ванильное наследование).
 	static bool IsBandage(ItemBase item)
 	{

@@ -595,3 +595,14 @@ static const int   DM_MEDICAL_SPLINT_RAG_COST = 4;
 static const float DM_MEDICAL_COLD_HC = -0.15;
 //! MedicalCare: таймаут (секунды) ожидания завершения full-body анимации (фолбэк).
 static const float DM_MEDICAL_ANIM_TIMEOUT = 4.0;
+
+//! EatDrink (персональный рефлекс еды/питья): порог энергии, ниже которого бот ест.
+static const float DM_EAT_DRINK_ENERGY        = 2500.0;
+//! EatDrink: порог воды, ниже которого бот пьёт.
+static const float DM_EAT_DRINK_WATER         = 2500.0;
+//! EatDrink: радиус (метры), в котором враг блокирует еду/питьё.
+static const float DM_EAT_DRINK_ENEMY_RADIUS  = 250.0;
+//! EatDrink: время (секунды) проигрывания additive-анимации еды/питья.
+static const float DM_EAT_DRINK_ANIM_TIME     = 2.0;
+//! EatDrink: интервал (секунды) пересканирования, когда есть/пить нечего.
+static const float DM_EAT_DRINK_SCAN_INTERVAL = 2.0;

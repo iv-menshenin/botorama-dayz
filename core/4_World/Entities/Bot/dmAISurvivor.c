@@ -83,6 +83,10 @@ class dmAISurvivor
 	//! magazines while out of combat). Recreated when it expires (auto-deadline).
 	private ref dmBotIntent_TidyInventory m_TidyIntent;
 
+	//! Persistent "eat/drink" personality intent (eats when energy is low, drinks
+	//! when water is low, while out of combat). Recreated like the tidy intent.
+	private ref dmBotIntent_EatDrink m_EatDrinkIntent;
+
 	//! Reactive escape from a burning fireplace: personal CRITICAL+EXCLUSIVE move
 	//! intent that walks DM_DANGER_ESCAPE_DIST away from the danger. null when idle.
 	ref dmBotIntent_EscapeDanger m_EscapeIntent;
@@ -182,6 +186,9 @@ class dmAISurvivor
 
 		m_TidyIntent = new dmBotIntent_TidyInventory();
 		AddPersonalityIntent(m_TidyIntent);
+
+		m_EatDrinkIntent = new dmBotIntent_EatDrink();
+		AddPersonalityIntent(m_EatDrinkIntent);
 
 		s_All.Insert(this);
 		s_ByPawn.Set(m_Pawn, this);
@@ -405,6 +412,14 @@ class dmAISurvivor
 		{
 			m_TidyIntent = new dmBotIntent_TidyInventory();
 			AddPersonalityIntent(m_TidyIntent);
+		}
+
+		//! Same for the eat/drink intent (it idles when there's nothing to eat or
+		//! drink, but the pool drops it on the auto-deadline).
+		if (!m_EatDrinkIntent || m_EatDrinkIntent.IsFinished() || m_EatDrinkIntent.IsExpired())
+		{
+			m_EatDrinkIntent = new dmBotIntent_EatDrink();
+			AddPersonalityIntent(m_EatDrinkIntent);
 		}
 
 		UpdateEvade();
