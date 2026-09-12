@@ -71,17 +71,16 @@ class dmBotState_Fighting : dmBotState
 		vector tPos = m_TargetEntity.GetPosition();
 		vector d = tPos - botPos;
 		d[1] = 0.0;
-		float distSq = d.LengthSq() - 0.5;
+		float dist = d.Length() - 0.5;
 		float reach = GetMeleeReach(bot);
-		float reachSq = reach * reach;
 
 		EnsureLook();
 		EnsureApproach(bot);
 		EnsureEvasion(bot);
 		EnsureHitTo(bot);
 
-		m_HitTo.m_Active = (distSq <= reachSq && bot.GetMeleeCooldown() == 0.0);
-		m_Approach.m_Active = (m_HitTo.m_LastFail == dmHitToFail.TOOFAR) || (distSq > reachSq) || (bot.GetMeleeCooldown() == 0.0 && distSq > (reachSq * 0.9)); // a small gap
+		m_HitTo.m_Active = (dist <= reach && bot.GetMeleeCooldown() == 0.0);
+		m_Approach.m_Active = (m_HitTo.m_LastFail == dmHitToFail.TOOFAR) || (dist > reach) || (bot.GetMeleeCooldown() == 0.0 && dist > (reach * 0.9)); // a small gap
 		m_Evasion.m_Active = (bot.GetMeleeCooldown() > 0.0) && !m_Approach.m_Active;
 
 		return CONTINUE;
