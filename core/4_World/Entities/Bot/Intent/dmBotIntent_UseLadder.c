@@ -75,8 +75,17 @@ class dmBotIntent_UseLadder : dmBotIntent
 		{
 			vector pos = bot.GetPosition();
 			vector dir = m_Entry - pos;
-			dir[1] = 0.0;
+			vector flatDir = dir;
+			flatDir[1] = 0.0;
 			float dist = dir.Length();
+
+			//! Точка направления входа/выхода (model-space → world): к ней разворачиваем
+			//! корпус, чтобы нативная HumanCommandLadder.Exit() выпустила бота с верной
+			//! стороны лестницы.
+			vector dirPointModel = m_Ladder.m_BottomDir;
+			if (m_Direction < 0)
+				dirPointModel = m_Ladder.m_TopDir;
+			vector dirPoint = m_Building.ModelToWorld(dirPointModel);
 
 			if (dist > DM_LADDER_ATTACH_DIST)
 			{
@@ -91,10 +100,13 @@ class dmBotIntent_UseLadder : dmBotIntent
 					return;
 				}
 
-				float yaw = dir.VectorToAngles()[0];
+				float entryYaw = flatDir.VectorToAngles()[0];
+				vector dirToPoint = dirPoint - pos;
+				dirToPoint[1] = 0.0;
+				float dirYaw = dirToPoint.VectorToAngles()[0];
 				float bodyYaw = bot.GetOrientation()[0];
-				float moveAngle = dmAISurvivor.AngleDiff(yaw, bodyYaw);
-				bot.SetMoveYaw(yaw);
+				float moveAngle = dmAISurvivor.AngleDiff(entryYaw, bodyYaw);
+				bot.SetMoveYaw(dirYaw);
 				bot.SetMove(moveAngle, 2.0);
 				return;
 			}
@@ -111,7 +123,8 @@ class dmBotIntent_UseLadder : dmBotIntent
 			m_AttachGrace = DM_LADDER_ATTACH_GRACE;
 
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Ladder] UseLadder: attached index=" + m_Ladder.m_Index + " type=" + m_Ladder.m_Type);
+			dmBotLog.Debug("[Ladder] UseLadder: attach entry=" + m_Entry + " dirPoint=" + dirPoint + " dir=" + m_Direction);
+			dmBotLog.Debug("[Ladder] UseLadder: attach orient=" + bot.GetOrientation()[0] + " index=" + m_Ladder.m_Index + " type=" + m_Ladder.m_Type);
 			#endif
 			return;
 		}
@@ -146,6 +159,9 @@ class dmBotIntent_UseLadder : dmBotIntent
 		HumanCommandLadder hcl = pawn.GetCommand_Ladder();
 		if (hcl && hcl.CanExit())
 		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Ladder] UseLadder: exit pos=" + bot.GetPosition() + " orient=" + bot.GetOrientation()[0]);
+			#endif
 			hcl.Exit();
 			return;
 		}

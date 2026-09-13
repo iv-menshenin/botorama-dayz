@@ -19,6 +19,8 @@ class dmBotLadder
 	string m_Type;
 	vector m_Bottom;
 	vector m_Top;
+	vector m_BottomDir;   // направление входа/выхода у нижней точки
+	vector m_TopDir;      // направление входа/выхода у верхней точки
 }
 
 class dmBotLadderCache
@@ -103,6 +105,8 @@ class dmBotLadderCache
 
 			if (name == ladderName + "_con")
 				CollectConVertices(selection, memory, ladder);
+			if (name == ladderName + "_con_dir")
+				CollectConDirVertices(selection, memory, ladder);
 		}
 
 		#ifdef DM_BOT_DEBUG_FSM
@@ -183,5 +187,34 @@ class dmBotLadderCache
 			return;
 		ladder.m_Bottom = bottom;
 		ladder.m_Top = top;
+	}
+
+	//! Собирает вершины selection'а "_con_dir" в направления входа/выхода лестницы,
+	//! сортируя по Y (младшая Y — низ, старшая — верх). Позиции остаются в model-space.
+	private void CollectConDirVertices(Selection selection, LOD memory, dmBotLadder ladder)
+	{
+		int count = 0;
+		vector bottom;
+		vector top;
+		int j;
+		for (j = 0; j < selection.GetVertexCount(); j++)
+		{
+			vector vertex = selection.GetVertexPosition(memory, j);
+			if (count == 0)
+			{
+				bottom = vertex;
+				top = vertex;
+				count = 1;
+				continue;
+			}
+			if (vertex[1] < bottom[1])
+				bottom = vertex;
+			if (vertex[1] > top[1])
+				top = vertex;
+		}
+		if (count == 0)
+			return;
+		ladder.m_BottomDir = bottom;
+		ladder.m_TopDir = top;
 	}
 }
