@@ -151,6 +151,18 @@ class dmBotSpawnManager
 		#endif
 	}
 
+	//! Спавнит все незаполненные слоты немедленно (ручной триггер из чата).
+	void SpawnAll()
+	{
+		int i;
+		for (i = 0; i < m_Entries.Count(); i++)
+		{
+			dmBotSpawnEntry entry = m_Entries[i];
+			if (entry && !entry.Bot)
+				SpawnEntry(entry);
+		}
+	}
+
 	//! Прибить точку строго к земле (SurfaceY по x/z), игнорируя pos[1].
 	static vector SnapToGround(vector pos)
 	{

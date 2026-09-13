@@ -238,3 +238,9 @@ static const int DM_AIM_TEST_MAG_ROUNDS = 5;
 static const string DM_CHAT_CMD_TP = "tp";
 
 static const string DM_CHAT_CMD_TP_ME = "me";
+
+//! POI command family ("/poi ...") — сводка по поселениям/точкам.
+static const string DM_CHAT_POI = "poi";
+
+//! SpawnCity command ("/spawncity") — принудительный спавн всех ботов.
+static const string DM_CHAT_SPAWNCITY = "spawncity";
