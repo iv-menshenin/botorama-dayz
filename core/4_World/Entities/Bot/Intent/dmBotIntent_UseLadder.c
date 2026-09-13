@@ -172,7 +172,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 		{
 			bot.SetMove(180.0, 3.0);
 		} else {
-			bot.SetMove(0.0, 2.0);
+			bot.SetMove(0.0, 3.0);
 		}
 
 		HumanCommandLadder hcl = pawn.GetCommand_Ladder();

@@ -1417,7 +1417,7 @@ class dmAISurvivorBase : PlayerBase
 		float target = m_DesiredSpeed;
 		if (m_TurnSharp)
 			target = Math.Min(target, DM_MOVE_TURN_SLOW_SPEED);
-		if (target > DM_SPEED_IDX_JOG && (!(CanConsumeStamina(EStaminaConsumers.SPRINT) && CanSprint()) || IsAtHeight()))
+		if (target > DM_SPEED_IDX_JOG && (!(CanConsumeStamina(EStaminaConsumers.SPRINT) && CanSprint()) || (IsAtHeight() && !IsClimbingLadder())))
 			target = DM_SPEED_IDX_JOG;
 
 		float maxStep = DM_MOVE_ACCEL_RATE * pDt;
