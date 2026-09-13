@@ -101,6 +101,10 @@ static const string DM_CHAT_MELEE = "melee";
 
 //! Sub-command "say" — make the bound bot speak a voice line ("/bot say {id}").
 static const string DM_CHAT_SAY = "say";
+//! Sub-command "sayrandom" — бот говорит случайную реплику категории ("/bot sayrandom {category}").
+static const string DM_CHAT_SAYRANDOM = "sayrandom";
+//! Test "voice" — автотест центра воспроизведения реплик ("/test bot voice").
+static const string DM_CHAT_TEST_VOICE = "voice";
 
 //! Sub-command "combat" — switch the bound bot to the combat preset.
 static const string DM_CHAT_COMBAT = "combat";

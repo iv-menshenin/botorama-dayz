@@ -63,6 +63,8 @@
 //!                                в маркер на земле (N м) и в болванку (N+2 м); дельта
 //!                                FIRE→IMPACT читается из лога [Ballistics] (все аргументы
 //!                                FirearmEffects). Выявляет «мгновенное» попадание.
+//!   /test bot voice        — автотест центра воспроизведения реплик: категоризатор/
+//!                                выбиратор/кулдаун молчания (3 фазы, без аудио).
 //!   /test cancel       — прервать работающий тест и удалить его бота.
 
 class dmTestCommand : dmCommandModule
@@ -78,10 +80,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player, parts);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | bandaging | splinting | painkiller | painkillerbandage | charcoal | tetracycline | vitamins | death | target | shoot | aim | enemy | emote | fight | eat | drink | eatcan | weapon load | weapon selection | suppressor | trajectory {N} | leadshoot {N} | flytime {N}
+		//! /test bot patrol | overload | shock | stamina | brokenleg | bandaging | splinting | painkiller | painkillerbandage | charcoal | tetracycline | vitamins | death | target | shoot | aim | enemy | emote | fight | eat | drink | eatcan | weapon load | weapon selection | suppressor | trajectory {N} | leadshoot {N} | flytime {N} | voice
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | bandaging | splinting | painkiller | painkillerbandage | charcoal | tetracycline | vitamins | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | eat | drink | eatcan | weapon load | weapon selection | suppressor | trajectory {N} | leadshoot {N} | flytime {N}");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | bandaging | splinting | painkiller | painkillerbandage | charcoal | tetracycline | vitamins | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | eat | drink | eatcan | weapon load | weapon selection | suppressor | trajectory {N} | leadshoot {N} | flytime {N} | voice");
 			return false;
 		}
 
@@ -147,6 +149,9 @@ class dmTestCommand : dmCommandModule
 
 		if (parts[2] == DM_CHAT_TEST_ENEMY)
 			return HandleEnemy(player, parts);
+
+		if (parts[2] == DM_CHAT_TEST_VOICE)
+			return HandleTestCase(player, new dmBotTest_Voice());
 
 		dmCommandManager.ChatToPlayer(player, "Неизвестный сценарий: " + parts[2]);
 		return false;

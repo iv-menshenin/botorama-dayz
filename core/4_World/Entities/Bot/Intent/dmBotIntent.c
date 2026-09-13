@@ -32,7 +32,8 @@ enum dmBotIntentsChannel
 	MOVE,   // движение
 	STANCE, // стойка
 	EMOTION,// эмоция
-	ATTACK  // удар
+	ATTACK, // удар
+	VOICE   // голосовая реплика
 };
 
 class dmBotIntent

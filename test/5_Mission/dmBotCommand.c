@@ -17,7 +17,8 @@
 //!   /bot vision                — показать видимые цели бота.
 //!   /bot give {item}            — выдать предмет в руки бота.
 //!   /bot melee                  — ударить враждебную цель (мили-удар).
-//!   /bot say {id}               — бот произносит голосовую реплику (0=тест).
+//!   /bot say {lineId}          — бот произносит конкретную реплику (1..903, без кулдауна).
+//!   /bot sayrandom {category}  — бот говорит случайную реплику категории (с кулдауном).
 //!   /bot combat                 — боевой режим (атакует угрозы в радиусе).
 //!   /bot car sitdown            — сесть в машину с игроком на свободное место.
 //!   /bot killall                — убить всех заспавненных ботов (Health=0).
@@ -63,6 +64,8 @@ class dmBotCommand : dmCommandModule
 			return HandleMelee(player, parts);
 		if (parts[1] == DM_CHAT_SAY)
 			return HandleSay(player, parts);
+		if (parts[1] == DM_CHAT_SAYRANDOM)
+			return HandleSayRandom(player, parts);
 		if (parts[1] == DM_CHAT_COMBAT)
 			return HandleCombat(player, parts);
 		if (parts[1] == DM_CHAT_CAR)
@@ -703,9 +706,66 @@ class dmBotCommand : dmCommandModule
 		return true;
 	}
 
-	//! "/bot say {id}" — бот произносит голосовую реплику (0=тест). См. dmBotVoice.
+	//! "/bot say {lineId}" — прямое произнесение конкретной реплики (без кулдауна).
 	private bool HandleSay(PlayerBase player, array<string> parts)
 	{
+		if (parts.Count() < 3)
+		{
+			dmCommandManager.ChatToPlayer(player, "Укажи lineId: /bot say {lineId} (1..903)");
+			return true;
+		}
+		int lineId = parts[2].ToInt();
+		if (lineId <= 0)
+		{
+			dmCommandManager.ChatToPlayer(player, "Некорректный lineId: " + parts[2]);
+			return true;
+		}
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
+			return true;
+		}
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет пешки");
+			return true;
+		}
+		pawn.SpeakLine(lineId);
+		dmCommandManager.ChatToPlayer(player, "Бот говорит реплику " + lineId);
+		return true;
+	}
+
+	//! "/bot sayrandom {category}" — бот говорит случайную реплику категории (через центр, с кулдауном).
+	private bool HandleSayRandom(PlayerBase player, array<string> parts)
+	{
+		if (parts.Count() < 3)
+		{
+			dmCommandManager.ChatToPlayer(player, "Укажи категорию: /bot sayrandom greeting|wake|passenger|idle|patrol|aimed_at|heard_shot|got_shot|combat|escort");
+			return true;
+		}
+
+		dmVoiceCategory cat;
+		bool valid = true;
+		if (parts[2] == "greeting") cat = dmVoiceCategory.GREETING;
+		else if (parts[2] == "wake") cat = dmVoiceCategory.WAKE;
+		else if (parts[2] == "passenger") cat = dmVoiceCategory.PASSENGER_CRASH;
+		else if (parts[2] == "idle") cat = dmVoiceCategory.IDLE;
+		else if (parts[2] == "patrol") cat = dmVoiceCategory.PATROL;
+		else if (parts[2] == "aimed_at") cat = dmVoiceCategory.AIMED_AT;
+		else if (parts[2] == "heard_shot") cat = dmVoiceCategory.HEARD_SHOT;
+		else if (parts[2] == "got_shot") cat = dmVoiceCategory.GOT_SHOT;
+		else if (parts[2] == "combat") cat = dmVoiceCategory.COMBAT;
+		else if (parts[2] == "escort") cat = dmVoiceCategory.ESCORT;
+		else valid = false;
+
+		if (!valid)
+		{
+			dmCommandManager.ChatToPlayer(player, "Неизвестная категория: " + parts[2]);
+			return true;
+		}
+
 		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
 		if (!bot)
 		{
@@ -713,19 +773,11 @@ class dmBotCommand : dmCommandModule
 			return true;
 		}
 
-		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
-		if (!pawn)
-		{
-			dmCommandManager.ChatToPlayer(player, "Нет пешки");
-			return true;
-		}
-
-		int lineId = 0;
-		if (parts.Count() >= 3)
-			lineId = parts[2].ToInt();
-
-		pawn.SpeakLine(lineId);
-		dmCommandManager.ChatToPlayer(player, "Бот говорит реплику " + lineId);
+		int lineId = bot.SayCategory(cat);
+		if (lineId >= 0)
+			dmCommandManager.ChatToPlayer(player, "Бот говорит реплику " + lineId + " (" + parts[2] + ")");
+		else
+			dmCommandManager.ChatToPlayer(player, "Кулдаун молчания ещё идёт");
 		return true;
 	}
 

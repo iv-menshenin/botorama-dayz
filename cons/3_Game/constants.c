@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.147";
+static const string DM_BOTORAMA_VERSION = "3.148";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
@@ -67,9 +67,7 @@ static const float DM_NOISE_GUNSHOT_SILENCED_HOMEMADE = 150.0;
 static const float DM_NOISE_ATTRACTIVENESS_NOISE = 0.6;
 static const float DM_NOISE_ATTRACTIVENESS_SHOT = 0.9;
 
-//! Голосовые реплики бота (id). Аудио паковано в PBO и описано в CfgSoundSets (config.cpp).
-enum dmVoiceLine
-{
-	DM_VOICE_TEST = 0,
-	DM_VOICE_COUNT
-};
+//! Кулдаун молчания бота: минимальный интервал между случайными репликами (сек, 10 мин).
+static const float DM_VOICE_COOLDOWN = 600.0;
+//! Верхняя граница lineId реплики (category*100 + index). Используется в net-var и guard.
+static const int DM_VOICE_LINE_MAX = 1000;

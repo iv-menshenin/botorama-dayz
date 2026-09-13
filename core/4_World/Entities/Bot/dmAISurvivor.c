@@ -57,6 +57,9 @@ class dmAISurvivor
 	private ref dmNeeds m_Needs;
 	private ref dmExplorer m_Explorer;
 
+	//! Голосовой центр (кулдаун молчания + случайный выбор реплики).
+	private ref dmBotVoiceCenter m_VoiceCenter;
+
 	//! Pathfinder (navmesh wrapper), lazily created on first use.
 	private ref dmBotPathfinder m_Pathfinder;
 
@@ -128,6 +131,7 @@ class dmAISurvivor
 		m_Needs = new dmNeeds();
 		m_Explorer = new dmExplorer();
 		m_Hearing = new dmHearing(this);
+		m_VoiceCenter = new dmBotVoiceCenter(this);
 	}
 
 	//! Model class to use. Must be set before Spawn().
@@ -473,6 +477,17 @@ class dmAISurvivor
 	dmExplorer GetExplorer()
 	{
 		return m_Explorer;
+	}
+
+	dmBotVoiceCenter GetVoiceCenter()
+	{
+		return m_VoiceCenter;
+	}
+
+	//! Удобный делегат: сказать случайную реплику из категории (см. dmBotVoiceCenter.SayCategory).
+	int SayCategory(dmVoiceCategory cat)
+	{
+		return m_VoiceCenter.SayCategory(cat);
 	}
 
 	//------------------------------------------------------------------
@@ -1507,6 +1522,7 @@ class dmAISurvivor
 		m_Winner.Set(dmBotIntentsChannel.STANCE, null);
 		m_Winner.Set(dmBotIntentsChannel.EMOTION, null);
 		m_Winner.Set(dmBotIntentsChannel.ATTACK, null);
+		m_Winner.Set(dmBotIntentsChannel.VOICE, null);
 
 		IntentsArbitrationPool(m_PersonalityIntents, pDt);
 		IntentsArbitrationPool(m_CommandIntents, pDt);

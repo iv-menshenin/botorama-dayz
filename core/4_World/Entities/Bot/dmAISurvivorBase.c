@@ -188,7 +188,7 @@ class dmAISurvivorBase : PlayerBase
 		RegisterNetSyncVariableFloat("m_LookYawDeg", -DM_LOOK_MAX_YAW, DM_LOOK_MAX_YAW, 1);
 		RegisterNetSyncVariableFloat("m_LookPitchDeg", -DM_LOOK_MAX_PITCH, DM_LOOK_MAX_PITCH, 1);
 
-		RegisterNetSyncVariableInt("m_VoiceLineId", 0, dmVoiceLine.DM_VOICE_COUNT + 8);
+		RegisterNetSyncVariableInt("m_VoiceLineId", 0, DM_VOICE_LINE_MAX);
 		RegisterNetSyncVariableInt("m_VoiceLineNonce", 0, 65535);
 
 		//! Replace the vanilla melee combat + fight logic. The vanilla
@@ -1577,7 +1577,7 @@ class dmAISurvivorBase : PlayerBase
 	//! клиентам и стартует анимацию рта на фиксированную длительность.
 	void SpeakLine(int lineId)
 	{
-		if (lineId < 0 || lineId >= dmVoiceLine.DM_VOICE_COUNT)
+		if (lineId <= 0 || lineId >= DM_VOICE_LINE_MAX)
 			return;
 		if (m_VoiceLineNonce >= 65535)
 			m_VoiceLineNonce = 0;
