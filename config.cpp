@@ -31,6 +31,7 @@ class CfgMods
 					"botorama/cons/3_Game",
 					"botorama/reg/3_Game",
 					"botorama/core/3_Game",
+					"botorama/map/3_Game",
 					"botorama/test/3_Game"
 				};
 			};
@@ -40,6 +41,7 @@ class CfgMods
 					"botorama/cons/4_World",
 					"botorama/reg/4_World",
 					"botorama/core/4_World",
+					"botorama/map/4_World",
 					"botorama/loadout/4_World",
 					"botorama/test/4_World"
 				};
@@ -50,6 +52,7 @@ class CfgMods
 				files[]={
 					"botorama/cons/5_Mission",
 					"botorama/core/5_Mission",
+					"botorama/map/5_Mission",
 					"botorama/test/5_Mission"
 				};
 			};
