@@ -180,15 +180,23 @@ description: Живой справочник по ИИ-ботам для DayZ (�
 
 ## Pathfinding
 
-- `dmBotPathfinder` — обёртка над `AIWorld.FindPath` (A* по navmesh) + `SamplePosition`.
+- `dmBotPathfinder` — обёртка над `AIWorld.FindPath` (A* по navmesh) + `SamplePosition` +
+  **`FindRoute`** (ladder-aware маршрут из сегментов, см. ниже).
 - `AIWorld m_AIWorld` — БЕЗ `ref` (`~AIWorld` private, движок владеет);
   `ref PGFilter m_Filter/m_SampleFilter` (создаём через `new`).
 - Фильтр ходьбы: include `WALK|DOOR|INSIDE`, exclude `SWIM|SWIM_SEA|SPECIAL|UNREACHABLE`.
-- `MoveTo`: `OnStart` → `bot.FindPathTo(target)`; нет пути → `Fail()`. Пер-тик доворот к
-  подцели + прогресс-монитор (`DM_MOVE_PROGRESS_EPS`/`DM_MOVE_STUCK_TIME`) → пересчёт 1 раз → `Fail()`.
-- **TODO**: recovery при зависании (шаг назад/вбок), двери (`PGPolyFlags.DOOR` + `SetCost`),
-  vault/climb (`SPECIAL/JUMP/CLIMB` + `HumanCommandClimb`/`m_JumpClimb`), лестницы
-  (`PGPolyFlags.LADDER` + `HumanCommandLadder`/`COMMANDID_LADDER`). Детали — `docs/research/navigation.md`.
+- `MoveTo`: `OnStart` → `bot.FindRouteTo(target)` (сегменты); нет маршрута → `Fail()`. Пер-тик
+  доворот к подцели + прогресс-монитор (`DM_MOVE_PROGRESS_EPS`/`DM_MOVE_STUCK_TIME`) → пересчёт → `Fail()`.
+- **Маршрут из сегментов (лестницы)** — `dmBotRouteSegment` (navmesh-путь ИЛИ лестница).
+  `FindRoute` рекурсивно: нативный `FindPath` → если последний вейпоинт ближе `DM_NAV_GAP` (1.5 м)
+  по Y к цели — один navmesh-сегмент; иначе разрыв (цель выше/ниже) → `FindLadderBuildingAt(цель)`
+  (raycast вниз, фолбэк вверх) → перебор ВСЕХ лестниц здания (visited-set `тип_индекс` + глубина
+  `DM_NAV_MAX_DEPTH=6` от бесконечной рекурсии): `FindRouteRecursive(far → цель)`, при успехе —
+  `[navmesh from→near] + [лестница] + sub`. `MoveTo` идёт по сегментам: конец navmesh-сегмента +
+  следующий лестничный → спавн `dmBotIntent_UseLadder` (personality), после отцепки (`TickLadder`)
+  → `m_RouteIdx += 2`. Лестница НЕ из stuck-каскада (старый `TryStartLadder` удалён).
+- Двери (`PGPolyFlags.DOOR` + `SetCost`), vault/climb (`SPECIAL/JUMP/CLIMB` + `HumanCommandClimb`) —
+  частично; детали — `docs/research/navigation.md`.
 - **Лестница (`dmBotIntent_UseLadder` + `dmBotLadderCache`)**: memory-LOD лестницы содержит ДВА
   набора вершин — `ladderN_con` (точки входа: низ/верх) **и** `ladderN_con_dir` (направление
   входа/выхода). Оба обязательны. **Готча (v3.135)**: без `_con_dir` нативный

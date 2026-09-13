@@ -80,6 +80,11 @@
   (`void RollWeighted(array<ref dmBotTransition> eligible, ...)`), иначе
   `FIX-ME: Method argument can't be strong reference`. `ref` — только для ПОЛЕЙ и
   ЛОКАЛЬНЫХ переменных не-Managed-классов. Исключение — `out`/`inout` (другой механизм).
+- **`array`/`map`/`set` — reference-типы**: переданные параметром БЕЗ `ref` делят один
+  объект с вызывающим (мутации `Set`/`Remove`/`Insert`/`Clear` видны вызывающему). Поэтому
+  рекурсивный обход с «посещённым»-множеством передаёт `map<string,bool> visited` (plain),
+  а НЕ `ref map<...>` — иначе `FIX-ME`. `ref` на контейнере нужен только в ПОЛЯХ/элементах
+  (`ref array<ref T>`, `ref map<...> m_Cache` — владение), а не в параметрах.
 - **`out`/`inout` — ТОЛЬКО в сигнатуре, НА МЕСТЕ ВЫЗОВА НЕ ПИШУТСЯ.** Объявление:
   `bool FindCarWithPlayer(out int freeSeat)` / `bool FindPath(vector from, vector to, inout array<vector> waypoints)`;
   вызов: `FindCarWithPlayer(freeSeat)` / `m_Pathfinder.FindPath(GetPosition(), sampled, path)`.
