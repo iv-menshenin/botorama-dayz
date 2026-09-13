@@ -125,7 +125,7 @@ class dmBotSpawnManager
 		}
 	}
 
-	//! Заспавнить бота в entry (модель случайная, loadout из config, FSM Survivor).
+	//! Заспавнить бота в entry (модель случайная, loadout из config, FSM Nomad).
 	void SpawnEntry(dmBotSpawnEntry entry)
 	{
 		ref dmAISurvivor bot = new dmAISurvivor();
@@ -143,7 +143,7 @@ class dmBotSpawnManager
 		if (cfg)
 			dmLoadoutApplier.Apply(pawn, cfg);
 
-		bot.SetFSM(dmBotPreset_Survivor.Create(bot));
+		bot.SetFSM(dmBotPreset_Nomad.Create(bot));
 		entry.Bot = bot;
 
 		#ifdef DM_BOT_DEBUG_SPAWN
