@@ -134,6 +134,14 @@ static const float DM_PATH_SAMPLE_RADIUS = 2.0;
 //! Reach radius (meters) for an intermediate path waypoint.
 static const float DM_PATH_WAYPOINT_REACH = 0.15;
 
+//! Порог разницы высот (м) между последним вейпоинтом и целью, выше которого маршрут
+//! считается «недостижимым» (разрыв navmesh → ищем лестницу).
+static const float DM_NAV_GAP = 1.5;
+
+//! Максимальная глубина рекурсии FindRoute (длина цепочки лестниц через разрывы navmesh).
+//! Страховка от бесконечной рекурсии (помимо visited-set по типу+индексу лестницы).
+static const int DM_NAV_MAX_DEPTH = 6;
+
 //! Path rounding: turn angle (degrees) below which a corner is left unchanged.
 static const float DM_PATH_ROUND_ANGLE_LOW   = 75.0;
 //! Path rounding: turn angle (degrees) above which a corner is stair-stepped (90°).

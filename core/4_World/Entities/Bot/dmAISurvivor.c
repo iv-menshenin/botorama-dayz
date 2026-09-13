@@ -802,6 +802,14 @@ class dmAISurvivor
 		return m_Pathfinder.FindPath(GetPosition(), sampled, path);
 	}
 
+	//! Ladder-aware маршрут (сегменты) от бота до цели. false — маршрута нет.
+	bool FindRouteTo(vector target, inout array<ref dmBotRouteSegment> segments)
+	{
+		if (!m_Pathfinder)
+			m_Pathfinder = new dmBotPathfinder();
+		return m_Pathfinder.FindRoute(GetPosition(), target, segments);
+	}
+
 	//! Обнаружить закрытую незапертую дверь прямо перед ботом и запустить
 	//! EXCLUSIVE-интент dmBotIntent_OpenDoor (отойти → открыть → дождаться).
 	//! Рейкаст вперёд на уровне глаз; возвращает true, если интент запущен.

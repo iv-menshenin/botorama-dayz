@@ -20,6 +20,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 	ref array<vector> m_Path;
 	int m_PathIdx = 0;
 	bool m_HasPath = false;
+	ref array<ref dmBotRouteSegment> m_Route;   // полный маршрут (сегменты)
+	int m_RouteIdx = 0;                          // индекс текущего navmesh-сегмента
 	float m_PathYaw;
 	float m_Distance;
 
@@ -145,6 +147,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		m_Path = new array<vector>();
 		m_HasPath = false;
+		m_Route = new array<ref dmBotRouteSegment>();
+		m_RouteIdx = 0;
 
 		m_LastPassedPoint = bot.GetPosition();
 
@@ -276,7 +280,18 @@ class dmBotIntent_MoveTo : dmBotIntent
 			m_UseLadder = null;
 			m_Laddering = false;
 			m_NoProgressTime = 0.0;
-			RePath(bot);   // пере-прокладка после смены этажа
+			m_RouteIdx = m_RouteIdx + 2;   // перепрыгнуть лестничный сегмент
+			if (m_Route && m_RouteIdx < m_Route.Count() && !m_Route[m_RouteIdx].m_IsLadder)
+			{
+				m_Path = m_Route[m_RouteIdx].m_Waypoints;
+				m_PathIdx = 0;
+				m_HasPath = true;
+				RoundPath();
+			}
+			else
+			{
+				RePath(bot);
+			}
 		}
 	}
 
@@ -414,6 +429,19 @@ class dmBotIntent_MoveTo : dmBotIntent
 				return;
 			}
 
+			//! Конец navmesh-сегмента: если дальше по маршруту лестница — спавним подъём.
+			if (m_Route && m_RouteIdx + 1 < m_Route.Count() && m_Route[m_RouteIdx + 1].m_IsLadder)
+			{
+				dmBotRouteSegment ladderSeg = m_Route[m_RouteIdx + 1];
+				m_UseLadder = new dmBotIntent_UseLadder();
+				m_UseLadder.m_Building = ladderSeg.m_Building;
+				m_UseLadder.m_Ladder = ladderSeg.m_Ladder;
+				m_UseLadder.m_Direction = ladderSeg.m_Direction;
+				bot.AddPersonalityIntent(m_UseLadder);
+				m_Laddering = true;
+				return;
+			}
+
 			OnReachedGoal(bot, subGoal);
 			return;
 		}
@@ -468,7 +496,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 	}
 
 	//! Decision cascade when the bot is stuck: door first, then vault/climb, then
-	//! ladder, then a step-back recovery, and finally abort/re-path.
+	//! a step-back recovery, and finally abort/re-path.
 	void ResolveStuck(dmAISurvivor bot)
 	{
 		if (TryOpenDoorAhead(bot))
@@ -489,13 +517,6 @@ class dmBotIntent_MoveTo : dmBotIntent
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
 			dmBotLog.Debug("[PATH] TryVaultFallback pos=" + bot.GetPosition());
-			#endif
-			return;
-		}
-		if (TryStartLadder(bot))
-		{
-			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] TryStartLadder pos=" + bot.GetPosition());
 			#endif
 			return;
 		}
@@ -765,13 +786,23 @@ class dmBotIntent_MoveTo : dmBotIntent
 		dmBotLog.Debug("[PATH] RePath invoked goal=" + m_Goal + " goalY=" + m_Goal[1]);
 		DebugElevatedGoal(bot);
 		#endif
-		ref array<vector> newPath = new array<vector>();
-		if (bot.FindPathTo(m_Goal, newPath) && newPath.Count() > 0)
+		ref array<ref dmBotRouteSegment> route = new array<ref dmBotRouteSegment>();
+		if (bot.FindRouteTo(m_Goal, route) && route.Count() > 0)
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] FindPathTo выполнено успешно, обнаружено " + newPath.Count() + " сегментов в пути");
+			dmBotLog.Debug("[PATH] FindRouteTo выполнено успешно, сегментов " + route.Count());
+			int si;
+			for (si = 0; si < route.Count(); si++)
+			{
+				if (route[si].m_IsLadder)
+					dmBotLog.Debug("[PATH]   seg[" + si + "] LADDER dir=" + route[si].m_Direction);
+				else
+					dmBotLog.Debug("[PATH]   seg[" + si + "] navmesh n=" + route[si].m_Waypoints.Count());
+			}
 			#endif
-			m_Path = newPath;
+			m_Route = route;
+			m_RouteIdx = 0;
+			m_Path = m_Route[0].m_Waypoints;
 			m_PathIdx = 0;
 			m_HasPath = true;
 			RoundPath();
@@ -1105,124 +1136,6 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		float fallHeight = botPos[1] - contactPos[1];
 		return fallHeight >= DM_BOT_FALL_HEIGHT_LOW;
-	}
-
-	//! Try to start a ladder climb/descend (the stuck detector calls this when the
-	//! path goes across floors). Resolves the building from the floor entity under
-	//! the bot, falling back to a forward raycast when approaching from outside,
-	//! then picks the ladder entry point with the lowest 2D-distance x height
-	//! difference on the correct side (up = bottom entry, down = top entry) and
-	//! spawns a dmBotIntent_UseLadder (EXCLUSIVE) to own the climb. Returns true if
-	//! started.
-	bool TryStartLadder(dmAISurvivor bot)
-	{
-		#ifdef DM_BOT_PROFILE
-		dmBotSpan _span = dmBotProfiler.Start("PathFinder.StartLadder");
-		#endif
-
-		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
-		if (!pawn)
-			return false;
-
-		vector botPos = pawn.GetPosition();
-
-		if (Math.AbsFloat(m_Goal[1] - botPos[1]) <= DM_LADDER_FLOOR_GAP)
-		{
-			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] TryStartLadder skip: same floor dY=" + Math.AbsFloat(m_Goal[1] - botPos[1]));
-			#endif
-			return false;
-		}
-
-		Building building;
-		IEntity floor = pawn.PhysicsGetFloorEntity();
-		if (floor)
-			building = Building.Cast(floor);
-
-		ref array<ref dmBotLadder> ladders;
-		if (building)
-			ladders = dmBotLadderCache.GetInstance().GetLadders(building);
-
-		if (!building || !ladders || ladders.Count() == 0)
-		{
-			vector dir = pawn.GetDirection();
-			dir[1] = 0.0;
-			dir.Normalize();
-			vector beg = botPos + Vector(0.0, DM_EYE_HEIGHT, 0.0);
-			vector end = beg + dir * DM_DOOR_OPEN_DIST;
-
-			RaycastRVParams rp = new RaycastRVParams(beg, end, pawn);
-			rp.sorted = true;
-			rp.type = ObjIntersectView;
-			rp.flags = CollisionFlags.NEARESTCONTACT;
-			ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-			if (DayZPhysics.RaycastRVProxy(rp, hits) && hits.Count() > 0)
-			{
-				building = Building.Cast(hits[0].obj);
-				if (building)
-					ladders = dmBotLadderCache.GetInstance().GetLadders(building);
-			}
-		}
-
-		if (!building || !ladders || ladders.Count() == 0)
-			return false;
-
-		int dirSign = 1;
-		if (m_Goal[1] < botPos[1])
-			dirSign = -1;
-
-		dmBotLadder best = null;
-		float bestWeight = 0.0;
-		int i;
-		for (i = 0; i < ladders.Count(); i++)
-		{
-			dmBotLadder ladder = ladders[i];
-			vector modelEntry = ladder.m_Bottom;
-			if (dirSign < 0)
-				modelEntry = ladder.m_Top;
-			vector entry = building.ModelToWorld(modelEntry);
-			float dx = entry[0] - botPos[0];
-			float dz = entry[2] - botPos[2];
-			float dy = Math.AbsFloat(entry[1] - botPos[1]);
-			float weight = (dx * dx + dz * dz) * dy;
-			if (!best || weight < bestWeight)
-			{
-				best = ladder;
-				bestWeight = weight;
-			}
-		}
-
-		if (!best)
-			return false;
-
-		vector bestModelEntry = best.m_Bottom;
-		if (dirSign < 0)
-			bestModelEntry = best.m_Top;
-		vector bestEntry = building.ModelToWorld(bestModelEntry);
-		float bestDx = bestEntry[0] - botPos[0];
-		float bestDz = bestEntry[2] - botPos[2];
-		float bestDist2D = Math.Sqrt(bestDx * bestDx + bestDz * bestDz);
-		if (bestDist2D > DM_LADDER_ENTRY_REACH)
-		{
-			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] TryStartLadder skip: entry too far dist=" + bestDist2D + " entry=" + bestEntry);
-			#endif
-			return false;
-		}
-
-		m_UseLadder = new dmBotIntent_UseLadder();
-		m_UseLadder.m_Building = building;
-		m_UseLadder.m_Ladder = best;
-		m_UseLadder.m_Direction = dirSign;
-		//! Personality (не FSM): переживает ClearFSMIntents() при переходе FSM, иначе
-		//! бот отменяется посреди подъёма и зависает на лестнице. Эталон — OpenDoor.
-		bot.AddPersonalityIntent(m_UseLadder);
-		m_Laddering = true;
-
-		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] MoveTo: ladder building=" + building + " dir=" + dirSign + " index=" + best.m_Index);
-		#endif
-		return true;
 	}
 
 	ref PGFilter m_PathFilter;

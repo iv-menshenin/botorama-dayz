@@ -10,6 +10,16 @@
 //! Deferred (see docs/plans/fsm-implementation-plan.md "Pathfinding"): swimming,
 //! attachment navmesh, string-pulling, path-cost tuning.
 
+//! Один сегмент маршрута: navmesh-путь ИЛИ подъём/спуск по лестнице.
+class dmBotRouteSegment
+{
+	bool m_IsLadder = false;            // true = лестница, false = navmesh-путь
+	ref array<vector> m_Waypoints;      // waypoints (для navmesh-сегмента)
+	Building m_Building;                // для лестничного сегмента
+	ref dmBotLadder m_Ladder;
+	int m_Direction = 1;                // +1 вверх, -1 вниз
+}
+
 class dmBotPathfinder
 {
 	AIWorld m_AIWorld;
@@ -78,5 +88,128 @@ class dmBotPathfinder
 		dmBotLog.Debug("[PATH] SamplePosition sampled=" + sampled);
 		#endif
 		return ok;
+	}
+
+	//! Ladder-aware маршрут из сегментов. Заполняет `segments` (очищает); false — нет маршрута.
+	bool FindRoute(vector from, vector to, inout array<ref dmBotRouteSegment> segments)
+	{
+		segments.Clear();
+		ref map<string, bool> visited = new map<string, bool>();
+		return FindRouteRecursive(from, to, visited, segments, 0);
+	}
+
+	private bool FindRouteRecursive(vector from, vector to, map<string, bool> visited, inout array<ref dmBotRouteSegment> outSegments, int depth)
+	{
+		if (depth > DM_NAV_MAX_DEPTH)
+			return false;
+
+		vector sampledTo;
+		if (!SamplePosition(to, DM_PATH_SAMPLE_RADIUS, sampledTo))
+			return false;
+
+		ref array<vector> path = new array<vector>();
+		if (!m_AIWorld.FindPath(from, sampledTo, m_Filter, path) || path.Count() == 0)
+			return false;
+
+		vector last = path[path.Count() - 1];
+		if (Math.AbsFloat(last[1] - sampledTo[1]) <= DM_NAV_GAP)
+		{
+			dmBotRouteSegment seg = new dmBotRouteSegment();
+			seg.m_IsLadder = false;
+			seg.m_Waypoints = path;
+			outSegments.Insert(seg);
+			return true;
+		}
+
+		int dir = 1;
+		if (sampledTo[1] < last[1])
+			dir = -1;
+
+		Building building = FindLadderBuildingAt(sampledTo);
+		if (!building)
+			return false;
+
+		ref array<ref dmBotLadder> ladders = dmBotLadderCache.GetInstance().GetLadders(building);
+		if (!ladders || ladders.Count() == 0)
+			return false;
+
+		int i;
+		for (i = 0; i < ladders.Count(); i++)
+		{
+			dmBotLadder ladder = ladders[i];
+
+			string key = building.GetType() + "_" + ladder.m_Index;
+			bool seen = false;
+			if (visited.Find(key, seen))
+				continue;
+
+			vector nearModel = ladder.m_Bottom;
+			vector farModel = ladder.m_Top;
+			if (dir < 0)
+			{
+				nearModel = ladder.m_Top;
+				farModel = ladder.m_Bottom;
+			}
+			vector near = building.ModelToWorld(nearModel);
+			vector far = building.ModelToWorld(farModel);
+
+			visited.Set(key, true);
+
+			ref array<ref dmBotRouteSegment> sub = new array<ref dmBotRouteSegment>();
+			if (FindRouteRecursive(far, to, visited, sub, depth + 1))
+			{
+				ref array<vector> pathToNear = new array<vector>();
+				if (m_AIWorld.FindPath(from, near, m_Filter, pathToNear) && pathToNear.Count() > 0)
+				{
+					dmBotRouteSegment segNav = new dmBotRouteSegment();
+					segNav.m_IsLadder = false;
+					segNav.m_Waypoints = pathToNear;
+					outSegments.Insert(segNav);
+
+					dmBotRouteSegment segLadder = new dmBotRouteSegment();
+					segLadder.m_IsLadder = true;
+					segLadder.m_Building = building;
+					segLadder.m_Ladder = ladder;
+					segLadder.m_Direction = dir;
+					outSegments.Insert(segLadder);
+
+					int j;
+					for (j = 0; j < sub.Count(); j++)
+						outSegments.Insert(sub[j]);
+
+					return true;
+				}
+			}
+
+			visited.Remove(key);
+		}
+
+		return false;
+	}
+
+	//! Здание с лестницей под/над точкой: raycast ВНИЗ (фолбэк ВВЕРХ).
+	private Building FindLadderBuildingAt(vector pos)
+	{
+		Building building;
+		RaycastRVParams rp = new RaycastRVParams(pos + Vector(0.0, 1.0, 0.0), pos + Vector(0.0, -50.0, 0.0), null);
+		rp.flags = CollisionFlags.ALLOBJECTS;
+		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
+		if (DayZPhysics.RaycastRVProxy(rp, hits) && hits.Count() > 0)
+		{
+			building = Building.Cast(hits[0].obj);
+			if (building)
+				return building;
+		}
+
+		RaycastRVParams rpUp = new RaycastRVParams(pos + Vector(0.0, 1.0, 0.0), pos + Vector(0.0, 25.0, 0.0), null);
+		rpUp.flags = CollisionFlags.ALLOBJECTS;
+		ref array<ref RaycastRVResult> hitsUp = new array<ref RaycastRVResult>;
+		if (DayZPhysics.RaycastRVProxy(rpUp, hitsUp) && hitsUp.Count() > 0)
+		{
+			building = Building.Cast(hitsUp[0].obj);
+			if (building)
+				return building;
+		}
+		return null;
 	}
 }
