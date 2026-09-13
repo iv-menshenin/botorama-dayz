@@ -873,6 +873,203 @@ if ((!found || (path.Count() == 2 && !Math.IsPointInCircle(Position, 1.0, path[1
 флаг в нативном пути; (3) fall-защита — проверка только на последнем сегменте пути (чтобы не
 застревать на верхних этажах).
 
+### 7. Детект «внутри здания / под крышей» (для гипотезы «крыша vs внутренний этаж»)
+
+**Задача**: игрок залез по ВНЕШНЕЙ лестнице на крышу; бот вместо лестницы зашёл ВНУТРЬ и
+поднялся на 2-й этаж по внутренней. Нужно различать «цель на крыше» (открытое небо) и
+«цель на внутреннем этаже» (перекрытие сверху), чтобы выбрать внешнюю лестницу, а не
+внутренний маршрут.
+
+**Ванильный кандидат-хак: `Man.IsSoundInsideBuilding()`**:
+
+- `proto native bool IsSoundInsideBuilding();` — `3_game/entities/man.c:37` (без комментария
+  в исходнике; ДУБЛЬ в `3_game/entities/dayzanimal.c:195`). Наследуется всей цепочкой
+  `Man → Human → DayZPlayer → DayZPlayerImplement → ManBase → PlayerBase`
+  (`manbase.c:1`, `playerbase.c:49`), а также `DayZAnimal`/`DayZCreatureAI`
+  (`dayzanimal.c:191/195`). Т.е. `dmAISurvivorBase : PlayerBase` имеет её бесплатно.
+- Семантика — **звуковой реверб/акустическое окружение** («внутри интерьера здания»), НЕ
+  геометрический raycast. Подтверждается использованиями:
+  - `environment.c:313-316` — `bool IsInsideBuilding()` ванили = `m_Player.IsSoundInsideBuilding()`
+    (дождь/тепло-комфорт: «под крышей, но не обязательно внутри реверба»).
+  - `dayzplayerimplement.c:3446` — `builder.AddVariable("interior", IsSoundInsideBuilding())`
+    (payload аудио-события).
+  - `dayzplayerimplement.c:3834` и `dayzanimal.c:384` — сравнение своего `IsSoundInsideBuilding()`
+    с `GetPlayer().IsSoundInsideBuilding()` для детекта смены акустической среды.
+  - `spookyareamisc.c:12/62` — условие спауна/деспауна «жуткой» звуковой зоны.
+- **Вывод**: это сигнал «я внутри звукового объёма здания» → на открытой крыше его НЕТ
+  (нет потолка-резонатора), на внутреннем этаже — есть. Значит, это дешёвый и прямой
+  признак «внутри vs на крыше». Ограничения: (а) натив эвристический (зависит от расстановки
+  звуковых объёмов в геометрии здания — крыша может частично давать реверб у парапета);
+  (б) не даёт НАПРАВЛЕНИЯ/ТОЧКИ — только булев флаг позиции ПЕШКИ, поэтому для произвольной
+  целевой точки на крыше его напрямую НЕ применить (нельзя «IsSoundInsideBuilding(targetPos)»);
+  (в) вычисляется на аудио-потоке, возможна задержка смены значения. Рекомендация — как
+  вторичный гейт для позиции САМОГО бота, а не цели.
+
+**Ванильный паттерн «под крышей» (эталон для raycast) — `environment.c CheckUnderRoof()`**:
+
+- `4_world/classes/environment/environment.c:391-411`:
+  ```c
+  protected void CheckUnderRoof()
+  {
+      if (IsChildOfType({Car})) { m_IsUnderRoof = false; m_IsUnderRoofBuilding = false; return; }
+      float hitFraction; vector hitPosition, hitNormal;
+      vector from = m_Player.GetPosition();
+      vector to = from + "0 25 0";
+      Object hitObject;
+      PhxInteractionLayers collisionLayerMask = PhxInteractionLayers.ITEM_LARGE|PhxInteractionLayers.BUILDING|PhxInteractionLayers.VEHICLE;
+      m_IsUnderRoof = DayZPhysics.RayCastBullet(from, to, collisionLayerMask, null, hitObject, hitPosition, hitNormal, hitFraction);
+      m_IsUnderRoofBuilding = hitObject && hitObject.IsInherited(House);
+  }
+  ```
+  - `m_IsUnderRoof` = ЛЮБОЙ хит вверх на 25 м (включая навесы/тент/дерево/ИТЕМ_LARGE);
+    `m_IsUnderRoofBuilding` = хит является `House` (здание). Именно `m_IsUnderRoofBuilding`
+    («под крышей ЗДАНИЯ») — сигнал «внутри интерьера/под потолком», нужный для нашего кейса.
+  - Периодичность `GameConstants.ENVIRO_TICK_ROOF_RC_CHECK = 10` с (`3_game/constants.c:725`),
+    значение **кэшируется** (обновляется в `CheckUnderRoof` по таймеру `m_RoofCheckTimer`,
+    `environment.c:214-217`). Для произвольной точки/мгновенного решения НЕ пригоден — но сам
+    raycast-паттерн — эталон для собственного пробника.
+  - Готча кэша: `IsUnderRoof()`/`IsUnderRoofBuilding()` (`:305/:343`) возвращают СТАРОЕ
+    значение между тиками (до 10 с). Для FollowTo-решения бот должен делать СВОЙ raycast вверх,
+    а не читать `Environment`.
+
+**`DayZPhysics.RayCastBullet` vs `RaycastRV`/`RaycastRVProxy`** (`3_game/global/dayzphysics.c`):
+
+- `proto static bool RayCastBullet(vector begPos, vector endPos, PhxInteractionLayers layerMask, Object ignoreObj, out Object hitObject, out vector hitPosition, out vector hitNormal, out float hitFraction)` (`:211`) —
+  **«пулевой» raycast по маске физических слоёв** (`PhxInteractionLayers`, `:1-43`: `ITEM_LARGE`,
+  `BUILDING`, `VEHICLE`, `DOOR`, `TERRAIN`, `WATERLAYER`, `AI`, ...). Один ближайший хит:
+  `hitObject` + `hitPosition` + `hitNormal` + `hitFraction`. Без радиуса, без surface-info,
+  без component-index. Это ТО, что использует `CheckUnderRoof` (и `JumpClimb` для тестов).
+- `proto static bool RaycastRV(vector begPos, vector endPos, out vector contactPos, out vector contactDir, out int contactComponent, set<Object> results = NULL, Object with = NULL, Object ignore = NULL, bool sorted = false, bool ground_only = false, int iType = ObjIntersectView, float radius = 0.0, CollisionFlags flags = CollisionFlags.NEARESTCONTACT)` (`:199`) —
+  raycast с **радиусом** (`radius`, «толстый» луч), `iType` (`ObjIntersectFire/View/Geom/...`),
+  `CollisionFlags` (`NEARESTCONTACT`), выдаёт `contactComponent` (индекс компонента — важно для
+  `GetDoorIndex(result.component)`), `contactDir`. botorama УЖЕ использует её
+  (`dmBotIntent_MoveTo.c:972/993` с `ObjIntersectGeom`, «лёгкий» геом-детект препятствия).
+- `proto static bool RaycastRVProxy(notnull RaycastRVParams in, out notnull array<ref RaycastRVResult> results, array<Object> excluded = null)` (`:208`) —
+  тот же физический движок, но **структурный** API: `RaycastRVParams` (`:49-92`: `begPos/endPos/
+  ignore/with/radius/flags/type/sorted/groundOnly`) → `array<RaycastRVResult>` (`:98-113`:
+  `obj/parent/pos/dir/hierLevel/component/surface/entry/exit`) + `excluded`. Поддержка **прокси-иерархии**
+  (`hierLevel > 0` → объект = прокси). Основной raycast в botorama
+  (`dmVision.c:431`, `MoveTo.c:722/826/1044/1179`, `Flank.c:270`, `EvadeAim.c:388`,
+  `dmAISurvivor.c:825`).
+- **Итог для детекта крыши**: для «есть ли потолок над точкой» правильнее `RayCastBullet`
+  (лёгкий, маска `ITEM_LARGE|BUILDING|VEHICLE`, луч вверх `from → from + "0 25 0"`) + проверка
+  `hitObject.IsInherited(House)` — ровно как `CheckUnderRoof`. НЕ `RaycastRVProxy` (даёт лишний
+  оверхед прокси/поверхности, и маска-слои в нём не задаются — только `with`/`ignore`).
+
+### 8. Navmesh крыши и поверхность запросов `AIWorld`
+
+**Поверхность нативных запросов подтверждена** (`3_game/ai/aiworld.c` — весь файл 123 строки):
+
+- `FindPath(vector from, vector to, PGFilter, out TVectorArray waypoints)` (`:98`) — путь с учётом
+  фильтра, waypoints включают старт/конец.
+- `RaycastNavMesh(vector from, vector to, PGFilter, out vector hitPos, out vector hitNormal)` (`:110`) —
+  дока `:108` «returns true — if ray hits **navmesh edge**» (ловит РЁБРА, не плоскую поверхность;
+  уже известно, см. готчу в «Сводка сигнатур»).
+- `SampleNavmeshPosition(vector position, float maxDistance, PGFilter, out vector sampledPosition)` (`:122`) —
+  ближайшая точка navmesh в радиусе `maxDistance`.
+- **Больше ничего нет**: нет запроса флагов полигона, нет запроса «в каком полигоне/острове точка»,
+  нет прямого «есть ли navmesh-связь между двумя этажами». `PGFilter` — только
+  `GetIncludeFlags/GetExcludeFlags/GetExlusiveFlags/SetFlags/SetCost` (`:59-68`).
+
+**Флаги полигона** (`PGPolyFlags`, `:1-26`): `WALK, DISABLED, DOOR, INSIDE, SWIM, SWIM_SEA,
+LADDER, JUMP_OVER, JUMP_DOWN, CLIMB, CRAWL, CROUCH, UNREACHABLE, ALL, JUMP, SPECIAL`.
+**Флага «крыша/ROOF» НЕТ** — крыша, если она walkable, — это обычные `WALK`-полигоны
+(потенциально `INSIDE` не ставится, т.к. это открытое небо). Различение «крыша vs внутренний
+этаж» на уровне флагов полигона **невозможно** — только по `INSIDE` (внутри здания) против
+`WALK`-на-открытом.
+
+**Связь лестницы с крышей в navmesh** — через `PGPolyFlags.LADDER` (`:13`): полигоны-«трапы»
+лестниц маркируются `LADDER` и служат точками перехода между navmesh-«островами» (этажи/крыша).
+A* проходит по лестнице ТОЛЬКО если `LADDER` включён в include фильтра (уже в
+`ExpansionPathFilters` и в нашей рекомендации). Прямых подтверждений «крыша = отдельный
+navmesh-остров» в скриптах нет (нативна генерация navmesh в движке, не в скриптах) — это
+остаётся гипотезой, проверяемой эмпирически (см. §9).
+
+**`ExpansionNavMesh`/`ExpansionNavMeshPolygon`** (`DayZExpansion/AI/.../Classes/NavMesh/*.c`) —
+**НЕ ИИ-navmesh**, а самописная полигональная сетка для ТРАНСПОРТА (корабль/лодка), генерится из
+geometry LOD (`Generate()`, `ExpansionNavMesh.c:27`, по 4-вершинным селекшенам). К навигации бота
+по зданиям/крышам отношения не имеет. Флаги там читаются из конфига `NavMesh pN flags`
+(`ExpansionNavMeshPolygon.c:28-30`), это НЕ `PGPolyFlags`.
+
+### 9. Маршрутизация Expansion к крыше/этажу выше (проверено в исходниках)
+
+Проверено по `eAIBase.c` (линии совпадают с §1 выше). **Расхождений с уже записанным нет**,
+но подчёркиваю для текущего бага:
+
+- Expansion **НЕ различает «крыша vs внутренний этаж»** ни через «under roof», ни через
+  `IsSoundInsideBuilding`, ни через флаги navmesh. Единственный признак вертикали —
+  **`|ΔY| > 1.5`** (`eAIBase.c:5007`) + **радиус здания с лестницей**
+  (`eAI_CheckShouldUseBuildingWithLadder`, `:5111`, через `IsPointInCircle(center, radius, targetPos)`).
+- Здание под ногами определяется `PhysicsGetFloorEntity()` → каст в `BuildingBase` с
+  `Expansion_GetLaddersCount() > 0` (`:5015-5029`), НЕ по нахождению цели.
+- Выбор лестницы — «process of elimination» по взвешиванию `Distance2DSq × |ΔY|` (`:4830-4831`),
+  entry-point = низ (`m_Con[0]`) при подъёме / верх (`m_Con[1]`) при спуске. Пул лестниц
+  здания (`m_eAI_Ladders`) с удалением использованных и капом циклов (`m_eAI_LadderLoops`).
+- **Кейс «цель на крыше, крыша вне navmesh»** обрабатывается НЕ лестничной логикой, а
+  **leap-of-faith** (`ExpansionPathPoint.FindPathFrom`, обратный `FindPath` + проверка высоты,
+  §2) — то есть «прыгнуть вниз», а НЕ «залезть на крышу». Специального «залезть на крышу по
+  внешней лестнице» механизма НЕТ — Expansion просто ведёт к entry-point ближайшей лестницы
+  здания, в чей радиус попадает цель. Если внешняя лестница не выбирается — значит у Expansion
+  та же уязвимость, что и у нас (внутренняя лестница ближе по `2D × ΔY`).
+- Единственное употребление «under roof» в Expansion AI — `Expansion_IsUnderRoofBuilding()`
+  (`environment.c:37`) в `eaistate_takeitem_base.c:115` — гейт «присесть, чтобы взять предмет»
+  (не ложиться под крышей). К навигации/выбору лестницы НЕ относится.
+
+**Вывод**: чтобы починить «крыша → внешняя лестница», одной лестничной логики Expansion мало —
+нужен ДОПОЛНИТЕЛЬНЫЙ признак «цель на крыше, а не внутри» (raycast вверх + `House` из §7) и,
+при нём, предпочтение лестницы, чей верхний конец ближе к ЦЕЛИ на крыше / чей entry находится
+СНАРУЖИ здания (вне интерьера). У Expansion этого признака нет — это наш инкремент.
+
+### 10. Гипотеза бага и эмпирические диагностики
+
+**Гипотеза** (две независимые, могут действовать вместе):
+
+1. **Крыша вне navmesh / отдельный остров** → `dmBotPathfinder.SamplePosition(roofPos, radius)`
+   возвращает БЛИЖАЙШУЮ точку navmesh, которой оказывается внутренний этаж ПОД крышей (3D-ближайшая
+   точка = пол под потолком), т.е. цель «прижимается вниз» на 2-й этаж ещё ДО `FindPath`.
+2. **A* выбирает внутренний маршрут** — даже если крыша на navmesh, путь через внешнюю лестницу
+   (13.7 м) длиннее/дороже, чем через вход внутрь (2.7 м) + внутреннюю лестницу, и `FindPath`
+   отдаёт внутренний маршрут.
+
+**Диагностики (порядок важен)**:
+
+1. **Raycast вверх от цели** (`RayCastBullet`, маска `ITEM_LARGE|BUILDING|VEHICLE`, `from=roofTarget`,
+   `to=roofTarget + "0 25 0"`): если есть хит и `hitObject.IsInherited(House)` — цель ВНУТРИ
+   (потолок над ней), лестница не нужна/внутренний маршрут легитимен; если хита нет — цель на
+   ОТКРЫТОЙ крыше → нужен внешний маршрут. Это мгновенный и дешёвый фильтр.
+2. **`SampleNavmeshPosition(roofTarget, radius, filter, out sampled)`** и логировать
+   `sampled[1] - roofTarget[1]`: большое отрицательное ΔY (>1 этаж) подтверждает гипотезу 1
+   («прижало вниз»). Пробовать несколько радиусов (`DM_MOVE_GROUND_PROBE_RADIUS=0.5` и больше,
+   например 2..5 м).
+3. **`FindPath(botPos, roofTarget)`** в лоб: если путь вернулся, но последний waypoint ниже
+   крыши или ведёт внутрь (координаты двери/внутренней лестницы) — гипотеза 2 (A* обходит
+   лестницу). Логировать весь массив waypoint'ов + длины сегментов.
+4. **`FindPath` до entry-point внешней лестницы** (низ `m_Con[0]`) и сравнить с путём до цели:
+   если путь до entry существует, но путь до крыши идёт внутрь — маршрутизация, а не
+   достижимость.
+5. **`RaycastNavMesh(botPos, roofTarget, filter, ...)`** на сегменте «вход в здание»: подтвердит,
+   что переход «снаружи → внутри» пересекает navmesh-ребро (дверь/клаймб), т.е. что крыша и
+   интерьер — разные острова, связанные только через дверь/лестницу.
+6. **`IsSoundInsideBuilding()` бота** как санкция: если после подъёма по ВНУТРЕННЕЙ лестнице бот
+   даёт `true`, а при выходе на крышу ожидаем `false` — сигнал валиден на сервере AI_SERVER
+   (проверить, что натив вообще работает для INSTANCETYPE_AI_SERVER, а не только для
+   контролируемого игрока).
+
+**Рекомендуемый детект «внутри здания / под крышей» для botorama**:
+
+- Для **точки** (цель/waypoint): собственный raycast вверх `RayCastBullet(from, from+"0 25 0",
+  ITEM_LARGE|BUILDING|VEHICLE, null, hit, hitPos, hitNormal, hitFrac)` + `hit && hit.IsInherited(House)`
+  → `IsPointUnderRoofBuilding(pos)`. Это мгновенный эквивалент `CheckUnderRoof`, но без 10-секундного
+  кэша (ванильный `Environment.m_IsUnderRoofBuilding` читать НЕЛЬЗЯ — он кэшированный и только для
+  игрока).
+- Для **позиции самого бота** (дешёвый вторичный гейт): `IsSoundInsideBuilding()` — `true` значит
+  «внутри интерьера», `false` — «на открытом (крыша/улица)». Использовать как подтверждение, а не
+  как единственный источник истины (эвристика + возможная задержка).
+- В `MoveTo`/`FollowTo`: перед выбором лестницы, если `|ΔY(цель, бот)| > 1.5` И
+  `!IsPointUnderRoofBuilding(цель)` → цель НА КРЫШЕ → выбирать лестницу с верхним концом,
+  ближайшим к цели на крыше, и/или entry СНАРУЖИ интерьера; не прижимать цель `SamplePosition`
+  вниз, пока не проверен raycast вверх.
+
 ---
 
 # Газ-зоны и опасные места
