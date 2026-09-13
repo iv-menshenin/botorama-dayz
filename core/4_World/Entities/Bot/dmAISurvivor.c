@@ -791,7 +791,12 @@ class dmAISurvivor
 			m_Pathfinder = new dmBotPathfinder();
 
 		vector sampled;
-		if (!m_Pathfinder.SamplePosition(target, DM_PATH_SAMPLE_RADIUS, sampled))
+		bool sampledOk = m_Pathfinder.SamplePosition(target, DM_PATH_SAMPLE_RADIUS, sampled);
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] FindPathTo target=" + target + " sampledOk=" + sampledOk);
+		dmBotLog.Debug("[PATH] FindPathTo sampled=" + sampled);
+		#endif
+		if (!sampledOk)
 			return false;
 
 		return m_Pathfinder.FindPath(GetPosition(), sampled, path);

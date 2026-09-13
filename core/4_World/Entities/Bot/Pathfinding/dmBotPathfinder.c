@@ -54,7 +54,16 @@ class dmBotPathfinder
 			return false;
 
 		waypoints.Clear();
-		return m_AIWorld.FindPath(from, to, m_Filter, waypoints);
+		bool found = m_AIWorld.FindPath(from, to, m_Filter, waypoints);
+
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] FindPath from=" + from + " to=" + to + " found=" + found);
+		dmBotLog.Debug("[PATH] FindPath n=" + waypoints.Count());
+		int wi;
+		for (wi = 0; wi < waypoints.Count(); wi++)
+			dmBotLog.Debug("[PATH] FindPath wp[" + wi + "]=" + waypoints[wi]);
+		#endif
+		return found;
 	}
 
 	//! Snap a position to the nearest navmesh point within maxDist.
@@ -63,6 +72,11 @@ class dmBotPathfinder
 		if (!m_AIWorld)
 			return false;
 
-		return m_AIWorld.SampleNavmeshPosition(pos, maxDist, m_SampleFilter, sampled);
+		bool ok = m_AIWorld.SampleNavmeshPosition(pos, maxDist, m_SampleFilter, sampled);
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] SamplePosition pos=" + pos + " maxDist=" + maxDist + " ok=" + ok);
+		dmBotLog.Debug("[PATH] SamplePosition sampled=" + sampled);
+		#endif
+		return ok;
 	}
 }

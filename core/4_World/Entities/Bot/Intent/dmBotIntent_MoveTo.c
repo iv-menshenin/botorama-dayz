@@ -363,8 +363,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 				if (dot < 0.0)
 					side = Vector(toFire[2], 0.0, -toFire[0]);      // -90 (ближе к исходной подцели)
 
+				vector dangerSubGoal = subGoal;
 				subGoal = avoidCenter + side * (avoidRadius + DM_BOT_DANGER_MARGIN);
 				subGoal[1] = pos[1];
+
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] Danger shift " + dangerSubGoal + " -> " + subGoal + " fire=" + avoidCenter);
+				#endif
 			}
 		}
 
@@ -757,7 +762,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 	void RePath(dmAISurvivor bot)
 	{
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] RePath invoked");
+		dmBotLog.Debug("[PATH] RePath invoked goal=" + m_Goal + " goalY=" + m_Goal[1]);
 		#endif
 		ref array<vector> newPath = new array<vector>();
 		if (bot.FindPathTo(m_Goal, newPath) && newPath.Count() > 0)
@@ -785,6 +790,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 			return;
 		}
 
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] RePath: NO PATH goal=" + m_Goal + " unreachable");
+		#endif
 		m_HasPath = false;
 		m_Path = null;
 	}
@@ -851,13 +859,16 @@ class dmBotIntent_MoveTo : dmBotIntent
 			}
 
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] RoundPath: turn=" + turn);
+			dmBotLog.Debug("[PATH] RoundPath corner=" + wp + " turn=" + turn);
 			#endif
 
 			vector extPoint = wp + dirIn * DM_PATH_ROUND_STEP;
 			if (turn <= DM_PATH_ROUND_ANGLE_HIGH)
 			{
 				InsertRounded(rounded, extPoint, wp);
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] RoundPath insert ext=" + extPoint + " (from " + wp + ")");
+				#endif
 				prev = rounded[rounded.Count() - 1];
 				continue;
 			}
@@ -866,6 +877,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 			vector sidePoint = extPoint + dir90 * DM_PATH_ROUND_STEP;
 			InsertRounded(rounded, extPoint, wp);
 			InsertRounded(rounded, sidePoint, wp);
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] RoundPath insert ext=" + extPoint + " side=" + sidePoint + " (from " + wp + ")");
+			#endif
 			prev = rounded[rounded.Count() - 1];
 		}
 
