@@ -135,6 +135,8 @@ class dmBotPathfinder
 		#endif
 
 		Building building = FindLadderBuildingAt(sampledTo, ignoreObj);
+		if (!building)
+			building = FindLadderBuildingAt(from, ignoreObj);
 		#ifdef DM_BOT_DEBUG_PATHFINDER
 		if (building)
 			dmBotLog.Debug("[PATH] FindRoute building=" + building.GetType());

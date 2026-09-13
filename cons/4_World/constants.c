@@ -582,6 +582,8 @@ static const float DM_FALL_CHECK_AHEAD = 0.5;
 static const float DM_FALL_SURFACE_EPS = 1.5;
 //! Fall-safety: троттлинг проверки (с).
 static const float DM_FALL_CHECK_INTERVAL = 1.0;
+//! Fall-safe: длительность (с) отхода назад от края перед перестроением маршрута.
+static const float DM_STEP_BACK_TIME = 0.5;
 
 //! Loot: timeout (seconds) after which an ignored item is picked up again.
 static const float DM_LOOT_IGNORE_TIMEOUT = 300.0;

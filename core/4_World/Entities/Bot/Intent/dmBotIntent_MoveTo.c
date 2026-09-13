@@ -41,6 +41,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 	int m_DetourCount = 0;
 	float m_DetourDir = 90.0;
 
+	bool m_SteppingBack = false;    // отходим назад от края (fall-safe)
+	float m_StepBackTimer = 0.0;
+	bool m_StepBackDone = false;    // уже отходили один раз (без зацикливания)
+
 	//! Vault/climb in progress: while the climb command is active MoveTo neither
 	//! steers nor monitors progress (see OnUpdate). Once IsClimbing() clears the
 	//! following resumes.
@@ -142,6 +146,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_DetourTimer = 0.0;
 		m_DetourCount = 0;
 
+		m_SteppingBack = false;
+		m_StepBackTimer = 0.0;
+		m_StepBackDone = false;
+
 		m_Vaulting = false;
 		m_VaultGrace = 0.0;
 
@@ -186,6 +194,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (m_Detouring)  { TickDetour(bot, pDt);  return; }
 		if (m_Vaulting)   { TickVault(bot, pDt);   return; }
 		if (m_Laddering)  { TickLadder(bot, pDt);  return; }
+		if (m_SteppingBack) { TickStepBack(bot, pDt); return; }
 
 		TickMove(bot, pDt);
 	}
@@ -247,6 +256,45 @@ class dmBotIntent_MoveTo : dmBotIntent
 		}
 
 		m_NoProgressTime = 0.0;
+	}
+
+	//! Fall-safe: есть ли обрыв на 0.5 м впереди (по направлению к подцели).
+	bool HasDropAhead(dmAISurvivor bot)
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+			return false;
+
+		vector pos = bot.GetPosition();
+
+		vector moveDir = m_Goal - pos;
+		moveDir[1] = 0.0;
+		if (moveDir.Length() < 0.01)
+			return false;
+		moveDir.Normalize();
+
+		return !GroundRay(pawn, pos + moveDir * DM_FALL_CHECK_AHEAD);
+	}
+
+	//! Начать отход назад на DM_STEP_BACK_TIME.
+	void StartStepBack(dmAISurvivor bot)
+	{
+		m_SteppingBack = true;
+		m_StepBackTimer = DM_STEP_BACK_TIME;
+	}
+
+	//! Пока отходим: движемся назад, по истечении — перестроить маршрут.
+	void TickStepBack(dmAISurvivor bot, float pDt)
+	{
+		m_StepBackTimer -= pDt;
+		bot.SetMove(180.0, 1.0);
+
+		if (m_StepBackTimer <= 0.0)
+		{
+			m_SteppingBack = false;
+			bot.SetMove(0.0, 0.0);
+			RePath(bot);
+		}
 	}
 
 	//! Vault/climb in progress: wait for the grace period, then stop vaulting once
@@ -872,6 +920,17 @@ class dmBotIntent_MoveTo : dmBotIntent
 			#endif
 			m_HasPath = false;
 			m_Path = null;
+			return;
+		}
+
+		//! Fall-safe: перед ботом обрыв и маршрута нет — один раз отойти назад и перестроить.
+		if (HasDropAhead(bot) && !m_StepBackDone)
+		{
+			m_StepBackDone = true;
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] RePath: drop ahead — step back");
+			#endif
+			StartStepBack(bot);
 			return;
 		}
 
