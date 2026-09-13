@@ -4,7 +4,8 @@
 //! only hold the AIWorld reference and the two PGFilters used by the bot:
 //!   - m_Filter       — walkable ground (WALK/DOOR/INSIDE) + vault/climb (JUMP/CLIMB)
 //!     + ladders (LADDER, cheap — routes between navmesh floors), no swim/crawl/
-//!     crouch/unreachable.
+//!     crouch. UNREACHABLE is included so A* routes over rooftops/detached navmesh
+//!     islands (as Expansion does).
 //!   - m_SampleFilter — snap a target onto the navmesh (everything except crawl/crouch).
 //!
 //! Deferred (see docs/plans/fsm-implementation-plan.md "Pathfinding"): swimming,
@@ -37,8 +38,10 @@ class dmBotPathfinder
 		//! exclude CRAWL/CROUCH so A* doesn't route through crawl-only polygons.
 		//! LADDER is included so A* can cross between navmesh floors via a ladder;
 		//! its cost is cheap (1.0) so the bot walks toward the ladder.
-		int include = PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.DISABLED | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.LADDER;
-		int exclude = PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.UNREACHABLE;
+		//! UNREACHABLE is included so A* routes over rooftops/detached navmesh
+		//! islands (as Expansion does).
+		int include = PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.DISABLED | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.LADDER | PGPolyFlags.UNREACHABLE;
+		int exclude = PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH;
 
 		m_Filter = new PGFilter();
 		m_Filter.SetFlags(include, exclude, PGPolyFlags.NONE);
