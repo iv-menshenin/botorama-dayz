@@ -228,6 +228,10 @@ class CfgSoundSets
       m_Targets.RemoveItem(t);
   ```
 - `enum Name { A, B, C }` — int-перечисления (`FileAttr`, `FindFileFlags`, ...).
+  **Значения enum НЕ попадают в глобальную область видимости — доступ только
+  квалифицированно:** `Name.A`, `Name.B`. Голое `A` (даже в том же файле, где объявлен
+  enum, и в `switch`-`case` по этому enum) даёт ошибку `Can't find variable 'A'`.
+  `case A:` → `case Name.A:`.
 - Параметры по умолчанию поддерживаются (`void F(int x = 0)`).
 - **Векторная арифметика — без inline-вызовов методов.** Цепочка вызовов в одном
   векторном выражении компилируется/вычисляется неверно: `a.GetPosition() - b.GetPosition()`

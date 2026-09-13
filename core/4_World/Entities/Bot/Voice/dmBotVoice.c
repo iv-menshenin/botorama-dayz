@@ -23,16 +23,16 @@ class dmBotVoice
 	{
 		switch (cat)
 		{
-		case GREETING:        return "greeting";
-		case WAKE:            return "wake";
-		case PASSENGER_CRASH: return "passenger";
-		case IDLE:            return "idle";
-		case PATROL:          return "patrol";
-		case AIMED_AT:        return "aimed_at";
-		case HEARD_SHOT:      return "heard_shot";
-		case GOT_SHOT:        return "got_shot";
-		case COMBAT:          return "combat";
-		case ESCORT:          return "escort";
+		case dmVoiceCategory.GREETING:        return "greeting";
+		case dmVoiceCategory.WAKE:            return "wake";
+		case dmVoiceCategory.PASSENGER_CRASH: return "passenger";
+		case dmVoiceCategory.IDLE:            return "idle";
+		case dmVoiceCategory.PATROL:          return "patrol";
+		case dmVoiceCategory.AIMED_AT:        return "aimed_at";
+		case dmVoiceCategory.HEARD_SHOT:      return "heard_shot";
+		case dmVoiceCategory.GOT_SHOT:        return "got_shot";
+		case dmVoiceCategory.COMBAT:          return "combat";
+		case dmVoiceCategory.ESCORT:          return "escort";
 		}
 		return "";
 	}
@@ -42,16 +42,16 @@ class dmBotVoice
 	{
 		switch (cat)
 		{
-		case GREETING:        return 10;
-		case WAKE:            return 5;
-		case PASSENGER_CRASH: return 5;
-		case IDLE:            return 4;
-		case PATROL:          return 5;
-		case AIMED_AT:        return 5;
-		case HEARD_SHOT:      return 5;
-		case GOT_SHOT:        return 3;
-		case COMBAT:          return 5;
-		case ESCORT:          return 3;
+		case dmVoiceCategory.GREETING:        return 10;
+		case dmVoiceCategory.WAKE:            return 5;
+		case dmVoiceCategory.PASSENGER_CRASH: return 5;
+		case dmVoiceCategory.IDLE:            return 4;
+		case dmVoiceCategory.PATROL:          return 5;
+		case dmVoiceCategory.AIMED_AT:        return 5;
+		case dmVoiceCategory.HEARD_SHOT:      return 5;
+		case dmVoiceCategory.GOT_SHOT:        return 3;
+		case dmVoiceCategory.COMBAT:          return 5;
+		case dmVoiceCategory.ESCORT:          return 3;
 		}
 		return 0;
 	}
