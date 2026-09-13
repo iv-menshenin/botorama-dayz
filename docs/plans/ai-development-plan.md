@@ -83,6 +83,29 @@
 ### Группа 6 — интеграция
 17. `[ ]` **Реактивный эскорт** — эскорт → угроза → бой → возврат. Deps: 6, 12.
 
+### Группа 7 — мир: POI-реестр, спавн «по городам», кочевничество
+18. `[ ]` **`dmWorldPOIRegistry` (поселения)** — `dmWorldPOIType`/`dmWorldPOI`/реестр;
+    сборка поселений из `CfgWorlds <world> Names` (`ConfigGet*`) + query-API. Deps: research
+    (`docs/research/world-poi.md`). Файлы: новый `core/4_World/World/`. Критерий: `/poi`
+    печатает поселения (имя/тип/позиция).
+19. `[ ]` **Классификация зданий + колодцы** — разовый скан статики всей карты
+    (`SceneGetEntitiesInBox` + `QueryFlags.STATIC|ORIGIN_DISTANCE`), классификация по префиксу
+    `GetType()` + `IsInherited` → категории (POLICE/FIRE/MEDICAL/MILITARY/RESIDENTIAL/…),
+    колодцы (`IsWell()`) → WATER, привязка к ближайшему поселению. Deps: 18.
+20. `[ ]` **`poi.json` + `spawn.json`** — `dmPoiConfig`/`dmSpawnConfig` через `dmJsonFile`
+    (`$profile:dmBotorama/`); `Defaults()`+`Save()` при отсутствии. Deps: 18.
+21. `[ ]` **`dmBotSpawnManager`** — спавн по `BotsPerSettlement` боту на поселение, кап
+    `MaxBots`, loadout, `RespawnDelay`, без дублей; тик из `MissionServer.OnUpdate`.
+    Deps: 18, 20, loadout. Критерий: `/spawncity` заспавнивает по боту на город, мёртвые
+    респавнятся.
+22. `[ ]` **Кочевничество (`Travel`)** — `dmBotState_Travel` (INTERRUPTIBLE, `MoveTo` к POI)
+    + выбор цели по нуждам (жажда→WATER, голод→RESIDENTIAL/COMMERCIAL, нет оружия→MILITARY/POLICE,
+    иначе соседнее поселение) + `dmBotPreset_Nomad`. Deps: 18, 21, Exploration. Критерий:
+    жаждущий бот идёт к колодцу, затем лутает и кочует.
+23. `[ ]` **Команды `/poi`, `/spawncity`** (+`/poi goto {type}`). Deps: 18, 21.
+
+План: `docs/plans/world-poi-spawn.md`. MVP-веха: задачи 18–21 (по боту на город), 22 — кочёвка.
+
 ---
 
 ## Статус боевого блока (v3.36–v3.44)
