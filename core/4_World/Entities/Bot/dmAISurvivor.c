@@ -807,7 +807,7 @@ class dmAISurvivor
 	{
 		if (!m_Pathfinder)
 			m_Pathfinder = new dmBotPathfinder();
-		return m_Pathfinder.FindRoute(GetPosition(), target, segments);
+		return m_Pathfinder.FindRoute(GetPosition(), target, GetFollowTarget(), segments);
 	}
 
 	//! Обнаружить закрытую незапертую дверь прямо перед ботом и запустить

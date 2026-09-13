@@ -91,14 +91,15 @@ class dmBotPathfinder
 	}
 
 	//! Ladder-aware маршрут из сегментов. Заполняет `segments` (очищает); false — нет маршрута.
-	bool FindRoute(vector from, vector to, inout array<ref dmBotRouteSegment> segments)
+	//! `ignoreObj` — объект, который raycast поиска здания пропускает (цель сопровождения).
+	bool FindRoute(vector from, vector to, Object ignoreObj, inout array<ref dmBotRouteSegment> segments)
 	{
 		segments.Clear();
 		ref map<string, bool> visited = new map<string, bool>();
-		return FindRouteRecursive(from, to, visited, segments, 0);
+		return FindRouteRecursive(from, to, ignoreObj, visited, segments, 0);
 	}
 
-	private bool FindRouteRecursive(vector from, vector to, map<string, bool> visited, inout array<ref dmBotRouteSegment> outSegments, int depth)
+	private bool FindRouteRecursive(vector from, vector to, Object ignoreObj, map<string, bool> visited, inout array<ref dmBotRouteSegment> outSegments, int depth)
 	{
 		if (depth > DM_NAV_MAX_DEPTH)
 			return false;
@@ -125,7 +126,17 @@ class dmBotPathfinder
 		if (sampledTo[1] < last[1])
 			dir = -1;
 
-		Building building = FindLadderBuildingAt(sampledTo);
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH] FindRoute gap dir=" + dir + " lastY=" + last[1] + " toY=" + sampledTo[1]);
+		#endif
+
+		Building building = FindLadderBuildingAt(sampledTo, ignoreObj);
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		if (building)
+			dmBotLog.Debug("[PATH] FindRoute building=" + building.GetType());
+		else
+			dmBotLog.Debug("[PATH] FindRoute building=NONE");
+		#endif
 		if (!building)
 			return false;
 
@@ -153,11 +164,18 @@ class dmBotPathfinder
 			vector near = building.ModelToWorld(nearModel);
 			vector far = building.ModelToWorld(farModel);
 
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] FindRoute try ladder i=" + ladder.m_Index + " near=" + near + " far=" + far);
+			#endif
+
 			visited.Set(key, true);
 
 			ref array<ref dmBotRouteSegment> sub = new array<ref dmBotRouteSegment>();
-			if (FindRouteRecursive(far, to, visited, sub, depth + 1))
+			if (FindRouteRecursive(far, to, ignoreObj, visited, sub, depth + 1))
 			{
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] FindRoute recurse far->to OK");
+				#endif
 				ref array<vector> pathToNear = new array<vector>();
 				if (m_AIWorld.FindPath(from, near, m_Filter, pathToNear) && pathToNear.Count() > 0)
 				{
@@ -188,10 +206,10 @@ class dmBotPathfinder
 	}
 
 	//! Здание с лестницей под/над точкой: raycast ВНИЗ (фолбэк ВВЕРХ).
-	private Building FindLadderBuildingAt(vector pos)
+	private Building FindLadderBuildingAt(vector pos, Object ignoreObj)
 	{
 		Building building;
-		RaycastRVParams rp = new RaycastRVParams(pos + Vector(0.0, 1.0, 0.0), pos + Vector(0.0, -50.0, 0.0), null);
+		RaycastRVParams rp = new RaycastRVParams(pos + Vector(0.0, 1.0, 0.0), pos + Vector(0.0, -50.0, 0.0), ignoreObj);
 		rp.flags = CollisionFlags.ALLOBJECTS;
 		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
 		if (DayZPhysics.RaycastRVProxy(rp, hits) && hits.Count() > 0)
@@ -201,7 +219,7 @@ class dmBotPathfinder
 				return building;
 		}
 
-		RaycastRVParams rpUp = new RaycastRVParams(pos + Vector(0.0, 1.0, 0.0), pos + Vector(0.0, 25.0, 0.0), null);
+		RaycastRVParams rpUp = new RaycastRVParams(pos + Vector(0.0, 1.0, 0.0), pos + Vector(0.0, 25.0, 0.0), ignoreObj);
 		rpUp.flags = CollisionFlags.ALLOBJECTS;
 		ref array<ref RaycastRVResult> hitsUp = new array<ref RaycastRVResult>;
 		if (DayZPhysics.RaycastRVProxy(rpUp, hitsUp) && hitsUp.Count() > 0)
