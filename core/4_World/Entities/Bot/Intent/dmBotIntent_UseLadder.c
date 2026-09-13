@@ -89,6 +89,11 @@ class dmBotIntent_UseLadder : dmBotIntent
 				dirPointModel = m_Ladder.m_TopDir;
 			vector dirPoint = m_Building.ModelToWorld(dirPointModel);
 
+			//! Яу направления входа/выхода: считаем один раз — нужен и на подходе, и при привязке.
+			vector dirToPoint = dirPoint - pos;
+			dirToPoint[1] = 0.0;
+			float dirYaw = dirToPoint.VectorToAngles()[0];
+
 			if (dist > DM_LADDER_ATTACH_DIST)
 			{
 				m_ApproachTime += pDt;
@@ -103,9 +108,6 @@ class dmBotIntent_UseLadder : dmBotIntent
 				}
 
 				float entryYaw = flatDir.VectorToAngles()[0];
-				vector dirToPoint = dirPoint - pos;
-				dirToPoint[1] = 0.0;
-				float dirYaw = dirToPoint.VectorToAngles()[0];
 				float bodyYaw = bot.GetOrientation()[0];
 				float moveAngle = dmAISurvivor.AngleDiff(entryYaw, bodyYaw);
 				bot.SetMoveYaw(dirYaw);
@@ -118,6 +120,11 @@ class dmBotIntent_UseLadder : dmBotIntent
 				Finish();
 				return;
 			}
+
+			//! Точная ориентация корпуса вдоль лестницы (как при посадке в машину):
+			//! чтобы лезть прямо и сойти на крышу ровно, а не боком.
+			bot.SetOrientation(Vector(dirYaw, 0.0, 0.0));
+			pawn.SetTargetBodyYaw(dirYaw);
 
 			pawn.SetClimbingLadderType(m_Ladder.m_Type);
 			pawn.StartCommand_Ladder(m_Building, m_Ladder.m_Index);

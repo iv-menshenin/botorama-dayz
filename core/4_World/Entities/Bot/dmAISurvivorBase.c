@@ -1048,10 +1048,16 @@ class dmAISurvivorBase : PlayerBase
 			return;
 		}
 
+		bool onLadder = IsClimbingLadder();
+
 		ApplyWeaponADS();
-		ApplyBodyTurn(pDt);
+		if (!onLadder)
+			ApplyBodyTurn(pDt);
+		if (onLadder)
+			m_TurnSharp = false;   // иначе устаревший флаг резкого поворота затормозит подъём
 		ApplyMovement(pDt);
-		ApplyStance(pDt);
+		if (!onLadder)
+			ApplyStance(pDt);
 
 		if (m_FireCooldown > 0.0)
 			m_FireCooldown -= pDt;
