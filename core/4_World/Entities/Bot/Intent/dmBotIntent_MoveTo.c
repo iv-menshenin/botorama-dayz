@@ -966,6 +966,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		vector botPos = pawn.GetPosition();
 
+		if (Math.AbsFloat(m_Goal[1] - botPos[1]) <= DM_LADDER_FLOOR_GAP)
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] TryStartLadder skip: same floor dY=" + Math.AbsFloat(m_Goal[1] - botPos[1]));
+			#endif
+			return false;
+		}
+
 		Building building;
 		IEntity floor = pawn.PhysicsGetFloorEntity();
 		if (floor)
@@ -1026,6 +1034,21 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (!best)
 			return false;
+
+		vector bestModelEntry = best.m_Bottom;
+		if (dirSign < 0)
+			bestModelEntry = best.m_Top;
+		vector bestEntry = building.ModelToWorld(bestModelEntry);
+		float bestDx = bestEntry[0] - botPos[0];
+		float bestDz = bestEntry[2] - botPos[2];
+		float bestDist2D = Math.Sqrt(bestDx * bestDx + bestDz * bestDz);
+		if (bestDist2D > DM_LADDER_ENTRY_REACH)
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] TryStartLadder skip: entry too far dist=" + bestDist2D + " entry=" + bestEntry);
+			#endif
+			return false;
+		}
 
 		m_UseLadder = new dmBotIntent_UseLadder();
 		m_UseLadder.m_Building = building;

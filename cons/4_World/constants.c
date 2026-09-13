@@ -174,6 +174,14 @@ static const float DM_LADDER_ATTACH_GRACE = 0.5;
 //! considered stuck (then it reverses the climb direction once, then gives up).
 static const float DM_LADDER_STUCK_TIME = 8.0;
 
+//! Min height difference (meters) between the goal and the bot for a ladder to
+//! even be considered (less = same floor, no ladder needed).
+static const float DM_LADDER_FLOOR_GAP = 1.5;
+
+//! Max horizontal distance (meters) from the bot to the ladder entry point at
+//! which the bot is still considered "at the ladder" and may start climbing.
+static const float DM_LADDER_ENTRY_REACH = 2.5;
+
 //! Grace period (seconds) after starting a vault/climb before MoveTo checks
 //! IsClimbing() — gives the climb command time to become active.
 static const float DM_VAULT_GRACE = 1.0;
