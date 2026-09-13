@@ -189,6 +189,14 @@ description: Живой справочник по ИИ-ботам для DayZ (�
 - **TODO**: recovery при зависании (шаг назад/вбок), двери (`PGPolyFlags.DOOR` + `SetCost`),
   vault/climb (`SPECIAL/JUMP/CLIMB` + `HumanCommandClimb`/`m_JumpClimb`), лестницы
   (`PGPolyFlags.LADDER` + `HumanCommandLadder`/`COMMANDID_LADDER`). Детали — `docs/research/navigation.md`.
+- **Лестница (`dmBotIntent_UseLadder` + `dmBotLadderCache`)**: memory-LOD лестницы содержит ДВА
+  набора вершин — `ladderN_con` (точки входа: низ/верх) **и** `ladderN_con_dir` (направление
+  входа/выхода). Оба обязательны. **Готча (v3.135)**: без `_con_dir` нативный
+  `HumanCommandLadder.Exit()` выпускает бота НЕ с той стороны лестницы → падение с крыши
+  (входишь с одной стороны, наверху сходишь в пустоту). Дистанция прицепки к входу — ТОЛЬКО 3D
+  (не занулять Y в `m_Entry - pos`), иначе бот цепляется к лестнице с другого этажа (был на 9 м
+  выше нижней точки). Эталон — ваниль `ActionEnterLadder` (`actionenterladder.c:58,82`) и
+  Expansion `ExpansionLadder.m_ConDir[2]` (сортировка по Y, низ=`[0]`/верх=`[1]`).
 
 ## Инвентарь / Loadout
 

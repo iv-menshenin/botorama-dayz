@@ -694,6 +694,13 @@ void OverrideTargetPosition(vector pPosition, bool isFinal = true, float maxDist
 индекса из имени, вершины `ladderN_con` / `ladderN_con_dir`; кэш в static
 `s_Expansion_BuildingsWithLadders` (`map<string, map<int, ExpansionLadder>>` по типу здания).
 
+> **Урок (ботorama v3.135)**: `_con_dir` — НЕ опционально. Первая версия `dmBotLadderCache`
+> парсила только `ladderN_con` (низ/верх), игнорируя `_con_dir` — нативный
+> `HumanCommandLadder.Exit()` выпускал бота НЕ с той стороны лестницы (входил с одной
+> стороны, наверху сходил в пустоту) → падение с крыши. Направление входа/выхода — это
+> отдельные данные (`_con_dir`), не выводимые из точек входа. Также: дистанция прицепки к
+> входу должна быть 3D (иначе бот цепляется к лестнице, находясь этажом выше).
+
 **Проверки близости/достижимости** (`eAIBase.c`):
 
 - `eAI_IsInLadderRadius(vector entryPoint)` (`:5233-5250`) — `IsPointInCircle(entryPoint,
