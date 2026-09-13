@@ -246,3 +246,50 @@ static proto native void SceneGetEntitiesInBox(vector min, vector max, notnull o
 5. **Спавн «по городам»**: точки города = центр из `Names` (+ смещение внутрь по
    навмешу `SampleNavmeshPosition`), либо напрямую `$mission:cfgplayerspawnpoints.xml`
    (posbubbles-группы уже и есть кластеры по городам).
+
+---
+
+## Уточнения из офлайн-генерации (v3.149, фактические данные)
+
+Проверено на реальных файлах `$mission:dayzOffline.chernarusplus` (в `/home/devalio/dayz/server/`).
+
+1. **`CfgWorlds <world> Names`** — 306 локаций (не 316): `Village` 59, `ViewPoint` 57,
+   `Local` 49, `Hill` 37, `LocalOffice` 31, `Marine` 18, `RailroadStation` 17, `City` 16,
+   `Camp` 11, `Ruin` 9, `Capital` 2. Поселения (спавн-цели) = Capital+City+Village+Camp = 88.
+   Данные лежат в `DayZ Projects/DZ/worlds/chernarusplus/world/config.cpp` (читаемы офлайн).
+
+2. **`mapgrouppos.xml`** — 11680 зданий (класс + абсолютная позиция `x y z` + угол `a`),
+   270 уникальных классов. **`mapgroupproto.xml`** — 435 групп (по классу): `<usage>`
+   (категория) + `<container><point pos="x y z">` (относительные точки лута). 422 класса
+   имеют точки лута.
+
+3. **`<usage>` — НЕ пригоден как строгая классификация зданий.** Это весовые тэги
+   лута, а не тип постройки: `Land_Mil_Guardhouse1` → `Police`, `Land_Mil_Barracks5_Basement`
+   → `Medic`, `Bonfire` → `Firefighter`, `Land_Wreck_Volha_Police` (полицейская машина) →
+   `Police`. Классификацию делаем **точными именами классов + чистыми префиксами**:
+   - WATER: `Land_Misc_Well_Pump_Blue/Yellow` (79 колодцев: 59 синих + 20 жёлтых — НЕ 118).
+   - POLICE: `Land_City_PoliceStation` + `Land_Village_PoliceStation` (=20).
+   - FIRE: `Land_City_FireStation` + `Land_Mil_FireStation` (=7).
+   - MEDICAL: `Land_City_Hospital`, `Land_Village_HealthCare`, `Land_Medical_Tent_*` (=37).
+   - MILITARY: префиксы `Land_Mil_`, `Land_Tisy_`, `Land_Airfield_`, `Land_Prison_` + `Land_Guardhouse`.
+   - INDUSTRIAL (промзоны): `Land_Factory_`, `Land_CementWorks_`, `Land_Quarry_`, `Land_Mine_`,
+     `Land_CoalPlant_`, `Land_Smokestack_`, `Land_Sawmill_`, `Land_Rail_Station_`,
+     `Land_Rail_Warehouse_`, `Land_Repair_Center`, `Land_Power_*`, `Land_Pier_`.
+   - FUEL: `Land_FuelStation_Build` (=19).
+   - RESIDENTIAL: `Land_House_`, `Land_HouseBlock_`, `Land_Tenement_`, `Land_Camp_House_`.
+   - остальное → GENERIC (сараи `Land_Shed_*`, гаражи, амбары, гражданские `Land_Wreck_*` — роуминг).
+
+4. **Военные wrecks (останки хаммера/вертолётов/БМП) — ДИНАМИЧЕСКИЕ события, НЕ статика.**
+   `StaticObj_Wreck_HMMWV_DE`, `Wreck_UH1Y/Mi8/Mi8_Crashed`, `StaticObj_Wreck_BMP1/2_DE`,
+   `BRDM_DE`, `Ural_DE`, `T72_Chassis_DE` — отсутствуют в `mapgrouppos.xml` (0 шт.). Они
+   спавнятся CE-событиями (`cfgeventgroups.xml`: группы `Abandoned_*`/`Ambush_*`/`Block_*`/
+   `Supply_*`/`Traffic_*`) в точках `cfgeventspawns.xml` (`<event name><pos x z a>`). В статике
+   есть только `Land_Wreck_C130J_Cargo` (1, упавший самолёт). Для статичного `world_poi.json`
+   доступен только C130J; динамические точки событий — отдельная тема (не в MVP).
+
+5. **Водопои = только колодцы** (`Land_Misc_Well_Pump_*`). `Land_Water_Station` (76) — декоративная
+   вышка, НЕ источник воды. Пруды/озёра — поверхность террейна (грид-скан), не в MVP.
+
+6. **Цветовые варианты** (`Land_House_1W09_Yellow/Brown`) — отдельные классы в обоих XML; в
+   `mapgroupproto.xml` присутствуют как отдельные группы с теми же точками. При рантайм-поиске
+   интерьер-точек для варианта может отсутствовать группа → нужен фолбэк «срезать суффикс цвета».
