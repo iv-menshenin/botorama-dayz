@@ -763,6 +763,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 	{
 		#ifdef DM_BOT_DEBUG_PATHFINDER
 		dmBotLog.Debug("[PATH] RePath invoked goal=" + m_Goal + " goalY=" + m_Goal[1]);
+		DebugElevatedGoal(bot);
 		#endif
 		ref array<vector> newPath = new array<vector>();
 		if (bot.FindPathTo(m_Goal, newPath) && newPath.Count() > 0)
@@ -796,6 +797,41 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_HasPath = false;
 		m_Path = null;
 	}
+
+#ifdef DM_BOT_DEBUG_PATHFINDER
+	//! Отладочная диагностика: почему цель на этаже выше идёт внутрь, а не по лестнице.
+	void DebugElevatedGoal(dmAISurvivor bot)
+	{
+		vector botPos = bot.GetPosition();
+		float dY = Math.AbsFloat(m_Goal[1] - botPos[1]);
+		if (dY <= DM_LADDER_FLOOR_GAP)
+			return;
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		string botInside = "n/a";
+		if (pawn)
+			botInside = pawn.IsSoundInsideBuilding().ToString();
+
+		dmBotLog.Debug("[PATH] ElevatedGoal dY=" + dY + " goal=" + m_Goal + " botInside=" + botInside);
+
+		RoofProbe(bot, m_Goal, "goal");
+		RoofProbe(bot, botPos, "bot");
+	}
+
+	//! Raycast вверх на 25 м: ловит «под крышей здания» (hit = House/Building) vs «открытое небо».
+	void RoofProbe(dmAISurvivor bot, vector pt, string label)
+	{
+		vector from = pt + Vector(0.0, 0.5, 0.0);
+		vector to = pt + Vector(0.0, 25.0, 0.0);
+		RaycastRVParams rp = new RaycastRVParams(from, to, bot.GetPawn());
+		rp.flags = CollisionFlags.ALLOBJECTS;
+		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
+		string hitType = "none";
+		if (DayZPhysics.RaycastRVProxy(rp, hits) && hits.Count() > 0 && hits[0].obj)
+			hitType = hits[0].obj.GetType();
+		dmBotLog.Debug("[PATH] RoofProbe " + label + " pt=" + pt + " hit=" + hitType);
+	}
+#endif
 
 	//! Post-process a freshly computed path: round sharp corners (>= DM_PATH_ROUND_ANGLE_LOW)
 	//! by inserting intermediate waypoints (overshoot + 90° stair-steps) so the bot
