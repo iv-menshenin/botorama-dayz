@@ -163,18 +163,36 @@ class dmBotPathfinder
 			if (visited.Find(key, seen))
 				continue;
 
-			vector nearModel = ladder.m_Bottom;
-			vector farModel = ladder.m_Top;
-			if (dir < 0)
-			{
-				nearModel = ladder.m_Top;
-				farModel = ladder.m_Bottom;
-			}
-			vector near = building.ModelToWorld(nearModel);
-			vector far = building.ModelToWorld(farModel);
+			vector bottom = building.ModelToWorld(ladder.m_Bottom);
+			vector top = building.ModelToWorld(ladder.m_Top);
+
+			float dBottom = Math.AbsFloat(bottom[1] - last[1]);
+			float dTop = Math.AbsFloat(top[1] - last[1]);
 
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] FindRoute try ladder i=" + ladder.m_Index + " near=" + near + " far=" + far);
+			dmBotLog.Debug("[PATH] FindRoute ladder i=" + ladder.m_Index + " dBottom=" + dBottom + " dTop=" + dTop);
+			#endif
+
+			if (Math.Min(dBottom, dTop) > DM_FALL_DANGER_DROP)
+			{
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] FindRoute ladder i=" + ladder.m_Index + " skip (level gate)");
+				#endif
+				continue;
+			}
+
+			vector near = bottom;
+			vector far = top;
+			int ladderDir = 1;
+			if (dTop < dBottom)
+			{
+				near = top;
+				far = bottom;
+				ladderDir = -1;
+			}
+
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] FindRoute ladder i=" + ladder.m_Index + " near=" + near + " far=" + far + " dir=" + ladderDir);
 			#endif
 
 			visited.Set(key, true);
@@ -199,7 +217,7 @@ class dmBotPathfinder
 					segLadder.m_IsLadder = true;
 					segLadder.m_Building = building;
 					segLadder.m_Ladder = ladder;
-					segLadder.m_Direction = dir;
+					segLadder.m_Direction = ladderDir;
 					segLadder.m_LadderHeight = Math.AbsFloat(far[1] - near[1]);
 					candidate.Insert(segLadder);
 
