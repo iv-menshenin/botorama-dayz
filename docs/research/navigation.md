@@ -501,6 +501,120 @@ bot.PlayDoorOpenGesture();        // hand-жест, в том же тике (и�
   а не впихивать в `MoveTo` — жизненный цикл длинный (подход → прицепка → подъём →
   отцепка) и несовместим с обычным «SetMove к waypoint'у».
 
+### Climb speed (почему подъём «периодически притормаживает»)
+
+**Цель**: понять, как ваниль управляет темпом подъёма по лестнице, откуда берётся
+ступенчатость, и что менять в `dmBotIntent_UseLadder` / `ApplyMovement`.
+
+**Как ваниль управляет скоростью подъёма** (подтверждено по исходникам):
+
+- `HumanCommandLadder` (`3_game/human.c:644`) — чисто нативный класс. В скриптах только
+  `CanExit()` / `Exit()` / `GetLogoutPosition()` / `DebugDrawLadder` / `DebugGetLadderIndex`
+  (`human.c:650-663`). Скорость/направление подъёма в скриптах НЕ управляются — это
+  нативный код + animation graph. Прямого скриптового API «задать темп подъёма» нет.
+- Темп подъёма задаётся движением из input-controller. `HumanInputController.GetMovement(out pSpeed, out pLocalDirection)`
+  (`human.c:24-25`) — «returns pSpeed 0,1..2..3 (idle, walk, run, sprint), local
+  normalized direction vector». Т.е. скорость **квантуется** в дискретные индексы, и именно
+  этот индекс (`HumanMovementState.m_iMovement`, `human.c:1157` «0 idle, 1 walk, 2-run,
+  3-sprint») читает нативный `HumanCommandLadder`.
+- `OverrideMovementSpeed(ONE_FRAME, value)` (`human.c:234`) пишет в тот же input-controller;
+  `ONE_FRAME` = «применить значение и затем DISABLED на следующем CommandHandler»
+  (`human.c:11`). Именно так бот задаёт скорость (цепочка `SetMove → m_DesiredSpeed →
+  ApplyMovement → OverrideMovementSpeed`).
+- Дискретные состояния движения на лестнице — `DayZPlayerConstants` (`3_game/dayzplayer.c:656-661`):
+  `MOVEMENTIDX_SLIDE=-2, IDLE=0, WALK=1, RUN=2, SPRINT=3`.
+- Маппинг индекса на поведение лестницы подтверждён через побочные ванильные обработчики:
+  - `StaminaHandler.StaminaProcessor_Ladder` (`4_world/classes/staminahandler.c:740-762`):
+    `m_iMovement==2` → «climb up (fast)», дренит стамину
+    `STAMINA_DRAIN_LADDER_FAST_PER_SEC=8` × `GetSprintLadderStaminaModifier()`
+    (`cfggameplayhandler.c:197`, `cfggameplaydatajson.c:138`); `m_iMovement==1` →
+    «climb up (slow)», регенит (`STAMINA_GAIN_LADDER_PER_SEC=1`, `constants.c:694`).
+  - `PlayerBase.OnLadder → ProcessHandDamage` (`4_world/entities/manbase/playerbase.c:1844-1865`):
+    `m_iMovement == MOVEMENTIDX_SLIDE (-2)` = **скольжение вниз** (порча перчаток
+    `GLOVES_DAMAGE_SLIDING_LADDER_PER_SEC` + шанс кровотечения
+    `CHANCE_TO_BLEED_SLIDING_LADDER_PER_SEC`). Т.е. «быстрый спуск» = slide, «обычный
+    спуск» = медленный шаг вниз.
+
+**Про ступенчатость (анимация перехвата перекладины)**: подъём по лестнице — циклическая
+анимация «перехват перекладины → подтянуться → перехват следующей». Это **непрерывного**
+движения нет: между перекладинами ускорение, на каждой перекладине — «зацеп». Чем ниже
+темп (walk/jog), тем заметнее ритм «рывок–пауза». Подтверждение на уровне скриптов:
+дискретность состояний (`m_iMovement` walk/run/sprint — три разных анимационных темпа)
+плюс отсутствие какого-либо аналогового управления темпом. Точная нативная раскладка
+«какой индекс → какая скорость цикла» в скриптах не видна (движок) — **не подтверждено
+по исходникам**, проверяется эмпирически.
+
+**Как ведёт Expansion**: НЕ задаёт движение на лестнице вообще. `eAI_OnMovementUpdate`
+делает `//! Do nothing` при `m_eAI_IsOnLadder` (`eAIBase.c:7556-7559`); всё сводится к
+`StartCommand_Ladder` → ждём → `hcl.Exit()` при `CanExit() && m_eAI_LadderTime > 2.0`
+(`eAIBase.c:7508-7510`). Нативный `HumanCommandLadder` при этом лезет сам (его темп —
+нативное значение по умолчанию/последний override). botorama, наоборот, активно гонит
+`SetMove` во время подъёма — это избыточнее, чем у Expansion, и именно здесь живёт баг.
+
+**Текущее состояние botorama** (подтверждено):
+
+- `dmBotIntent_UseLadder` фаза подъёма: вверх `bot.SetMove(0.0, 2.0)` (jog), вниз
+  `bot.SetMove(180.0, 3.0)` (sprint) (`dmBotIntent_UseLadder.c:171-176`).
+- `ApplyMovement` кэп спринта (`dmAISurvivorBase.c:1420-1421`):
+  `if (target > DM_SPEED_IDX_JOG && (!(CanConsumeStamina(SPRINT) && CanSprint()) || IsAtHeight())) target = DM_SPEED_IDX_JOG;`
+- `IsAtHeight()` = `p[1] - SurfaceY(p[0], p[2]) > DM_FALL_DANGER_DROP (2.75)`
+  (`dmAISurvivorBase.c:506-510`). На лестнице, поднявшись > 2.75 м, бот «на высоте» →
+  sprint режется до jog.
+- Итог по направлениям:
+  - **Вверх**: jog (2.0) = `m_iMovement==2` «fast climb». Кэп НЕ срабатывает (jog не > jog).
+    Бот лезет на среднем темпе → ритм «перехвата перекладины» заметен.
+  - **Вниз**: sprint (3.0) **срезается** до jog (2.0) из-за `IsAtHeight()` → обычный
+    медленный спуск, а не быстрый slide.
+
+**Гипотеза причины «периодического торможения»**: бот лезет вверх на jog (темп «fast
+climb», не «sprint climb»). На этом темпе цикл «перехват перекладины» виден как
+периодическое притормаживание (рывок–пауза на каждой перекладине). На sprint темп выше,
+цикл быстрее, ступеньки сглаживаются. Дополнительный вклад (для длинных лестниц) — при
+переходе на sprint может вылезти стамина-гейт (см. кавеаты ниже), но при текущем jog
+вверх стамина не гейтится (jog не > jog).
+
+**Рекомендуемый фикс** (конкретно):
+
+1. `core/4_World/Entities/Bot/Intent/dmBotIntent_UseLadder.c:175` — подъём вверх тоже на
+   sprint: `bot.SetMove(0.0, 2.0)` → `bot.SetMove(0.0, 3.0)`.
+2. `core/4_World/Entities/Bot/dmAISurvivorBase.c:1420` — не резать sprint на лестнице по
+   высоте (лестничная команда сама владеет позицией, падения нет):
+   `|| IsAtHeight()` → `|| (IsAtHeight() && !IsClimbingLadder())`.
+
+   Т.е. итоговая строка:
+   ```c
+   if (target > DM_SPEED_IDX_JOG && (!(CanConsumeStamina(EStaminaConsumers.SPRINT) && CanSprint()) || (IsAtHeight() && !IsClimbingLadder())))
+       target = DM_SPEED_IDX_JOG;
+   ```
+
+**Кавеаты (учесть при реализации/тесте)**:
+
+- **Стамина**: «fast climb» дренит стамину (`STAMINA_DRAIN_LADDER_FAST_PER_SEC=8`/с), а
+  кэп оставляет стамина-гейт `CanConsumeStamina(SPRINT)`. На длинной лестнице стамина может
+  кончиться → `CanConsumeStamina` вернёт false → sprint снова упадёт до jog у самого верха
+  (и «торможение» вернётся на последних метрах). Если это проявится — либо exempt'ить и
+  стамина-гейт на лестнице (`&& !IsClimbingLadder()` добавить к `!(...)` части), либо
+  смириться как с реалистичным лимитом. Проверять на лестницах > 4-5 этажей.
+- **Спуск**: после фикса `SetMove(180.0, 3.0)` перестанет срезаться и станет **slide**
+  (`MOVEMENTIDX_SLIDE`) → порча перчаток + шанс кровотечения (`ProcessHandDamage`,
+  `playerbase.c:1854-1865`). Если быстрый спуск-со-скольжением нежелателен — явно держать
+  спуск на jog: `bot.SetMove(180.0, 2.0)` (в той же строке 173).
+- **Квантование**: `GetMovement()` отдаёт дискрет 0/1/2/3, а `m_ActualSpeed` рампуется
+  непрерывно (`DM_MOVE_ACCEL_RATE=6`). Одноразовый разгон `0→3` на входе в фазу подъёма
+  (~0.5 с) пройдёт через walk→run→sprint; это норма, а не «периодическое». Периодичность —
+  именно анимационный цикл, а не рампа.
+
+**Открытые вопросы (не подтверждено по скриптам, проверить эмпирически)**:
+
+- Точная нативная скорость подъёма для индексов run(2) vs sprint(3) и порог квантования
+  `m_ActualSpeed → m_iMovement` (движок). Проверить на тесте: сравнить Y-профиль подъёма
+  на jog vs sprint (лог `m_ActualSpeed` + `curY` из `dmBotIntent_UseLadder`).
+- Доходит ли `OverrideMovementSpeed(ONE_FRAME, …)` до нативного `HumanCommandLadder` в
+  полном объёме или команда частично игнорирует input-controller (судя по тому, что бот
+  реально лезет — доходит; но точный маппинг индекса не читается из скриптов).
+- Нужен ли вообще активный `SetMove` во время подъёма, или достаточно, как у Expansion,
+  `StartCommand_Ladder` + ждать `CanExit()` (тогда темп — нативный дефолт).
+
 ---
 
 ## Итоговый набор PGFilter (include/exclude/cost)
