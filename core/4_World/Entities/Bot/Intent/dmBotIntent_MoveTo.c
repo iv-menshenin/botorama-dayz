@@ -816,6 +816,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		RoofProbe(bot, m_Goal, "goal");
 		RoofProbe(bot, botPos, "bot");
+		DebugPathProbes(bot);
 	}
 
 	//! Raycast вверх на 25 м: ловит «под крышей здания» (hit = House/Building) vs «открытое небо».
@@ -830,6 +831,115 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (DayZPhysics.RaycastRVProxy(rp, hits) && hits.Count() > 0 && hits[0].obj)
 			hitType = hits[0].obj.GetType();
 		dmBotLog.Debug("[PATH] RoofProbe " + label + " pt=" + pt + " hit=" + hitType);
+	}
+
+	//! Комплексная отладочная диагностика «цель выше, чем достижимо» (крыша/этаж).
+	//! Вся отладка изолирована здесь: чтобы выпилить — удали ОДИН вызов DebugPathProbes(bot).
+	void DebugPathProbes(dmAISurvivor bot)
+	{
+		vector botPos = bot.GetPosition();
+
+		// Лениво строит m_PathFilter (как IsPointOnNavMesh) и логирует HIT/NOHIT по цели.
+		IsPointOnNavMesh(m_Goal);
+
+		// 1) Точный сэмпл: есть ли navmesh в 0.5 м от цели (платформа игрока).
+		vector exact;
+		bool exactNav = g_Game.GetWorld().GetAIWorld().SampleNavmeshPosition(m_Goal, 0.5, m_PathFilter, exact);
+		if (exactNav)
+			dmBotLog.Debug("[PATH] ProbePlatform navmesh@goal sampled=" + exact + " dY=" + Math.AbsFloat(m_Goal[1] - exact[1]));
+		else
+			dmBotLog.Debug("[PATH] ProbePlatform NO navmesh within 0.5m");
+
+		// 2) Обратный путь: может ли «крыша» дотянуться до земли?
+		ref array<vector> rev = new array<vector>();
+		if (g_Game.GetWorld().GetAIWorld().FindPath(m_Goal, botPos, m_PathFilter, rev) && rev.Count() > 0)
+			dmBotLog.Debug("[PATH] ProbeReverse found n=" + rev.Count() + " last=" + rev[rev.Count() - 1]);
+		else
+			dmBotLog.Debug("[PATH] ProbeReverse NO PATH");
+
+		// 3) Серия высот: FindPath(bot -> цель + k метров вверх).
+		ProbeHeight(bot, 0.0);
+		ProbeHeight(bot, 0.5);
+		ProbeHeight(bot, 1.0);
+		ProbeHeight(bot, 2.0);
+		ProbeHeight(bot, 3.0);
+
+		// 4) Лестница: путь до нижней/верхней точки входа.
+		ProbeLadders(bot, botPos);
+	}
+
+	//! FindPath(bot -> m_Goal + up) с маркером высоты.
+	void ProbeHeight(dmAISurvivor bot, float up)
+	{
+		vector probeGoal = m_Goal + Vector(0.0, up, 0.0);
+		ref array<vector> p = new array<vector>();
+		if (bot.FindPathTo(probeGoal, p) && p.Count() > 0)
+			dmBotLog.Debug("[PATH] ProbeHeight +" + up + " found n=" + p.Count() + " last=" + p[p.Count() - 1]);
+		else
+			dmBotLog.Debug("[PATH] ProbeHeight +" + up + " NO PATH");
+	}
+
+	//! Путь до нижней/верхней точек входа лестницы здания под ботом/перед ботом.
+	void ProbeLadders(dmAISurvivor bot, vector botPos)
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+			return;
+
+		Building building;
+		IEntity floor = pawn.PhysicsGetFloorEntity();
+		if (floor)
+			building = Building.Cast(floor);
+
+		ref array<ref dmBotLadder> ladders;
+		if (building)
+			ladders = dmBotLadderCache.GetInstance().GetLadders(building);
+
+		if (!building || !ladders || ladders.Count() == 0)
+		{
+			vector dir = pawn.GetDirection();
+			dir[1] = 0.0;
+			dir.Normalize();
+			vector beg = botPos + Vector(0.0, DM_EYE_HEIGHT, 0.0);
+			vector end = beg + dir * DM_DOOR_OPEN_DIST;
+			RaycastRVParams rp = new RaycastRVParams(beg, end, pawn);
+			rp.sorted = true;
+			rp.type = ObjIntersectView;
+			rp.flags = CollisionFlags.NEARESTCONTACT;
+			ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
+			if (DayZPhysics.RaycastRVProxy(rp, hits) && hits.Count() > 0)
+			{
+				building = Building.Cast(hits[0].obj);
+				if (building)
+					ladders = dmBotLadderCache.GetInstance().GetLadders(building);
+			}
+		}
+
+		if (!building || !ladders || ladders.Count() == 0)
+		{
+			dmBotLog.Debug("[PATH] ProbeLadders no ladder building");
+			return;
+		}
+
+		int i;
+		for (i = 0; i < ladders.Count(); i++)
+		{
+			dmBotLadder ladder = ladders[i];
+			vector bottomWorld = building.ModelToWorld(ladder.m_Bottom);
+			vector topWorld = building.ModelToWorld(ladder.m_Top);
+			ref array<vector> pB = new array<vector>();
+			bool bOk = bot.FindPathTo(bottomWorld, pB);
+			if (bOk && pB.Count() > 0)
+				dmBotLog.Debug("[PATH] ProbeLadder i=" + ladder.m_Index + " bottom ok last=" + pB[pB.Count() - 1]);
+			else
+				dmBotLog.Debug("[PATH] ProbeLadder i=" + ladder.m_Index + " bottom NO PATH");
+			ref array<vector> pT = new array<vector>();
+			bool tOk = bot.FindPathTo(topWorld, pT);
+			if (tOk && pT.Count() > 0)
+				dmBotLog.Debug("[PATH] ProbeLadder i=" + ladder.m_Index + " top ok last=" + pT[pT.Count() - 1]);
+			else
+				dmBotLog.Debug("[PATH] ProbeLadder i=" + ladder.m_Index + " top NO PATH");
+		}
 	}
 #endif
 
