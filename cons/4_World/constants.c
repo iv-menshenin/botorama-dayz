@@ -571,6 +571,18 @@ static const float DM_AI_DEFAULT_INIT_SPEED = 800.0;
 //! DayZPlayerImplementFallDamage.HEALTH_HEIGHT_LOW).
 static const float DM_BOT_FALL_HEIGHT_LOW = 5.0;
 
+//! Fall-safety: перепад (м) ниже точки, при котором точка считается «обрывом»
+//! (уже нельзя vault/climb вниз).
+static const float DM_FALL_DANGER_DROP = 2.75;
+//! Fall-safety: блокировать «прыжок вниз», если бот выше этого (м) над землёй.
+static const float DM_FALL_JUMP_BLOCK_HEIGHT = 3.0;
+//! Fall-safety: дистанция (м) контрольных точек вперёд.
+static const float DM_FALL_CHECK_AHEAD = 0.5;
+//! Fall-safety: если поверхность земли в пределах этого (м) от Y вейпоинта — пропустить лучи.
+static const float DM_FALL_SURFACE_EPS = 1.5;
+//! Fall-safety: троттлинг проверки (с).
+static const float DM_FALL_CHECK_INTERVAL = 1.0;
+
 //! Loot: timeout (seconds) after which an ignored item is picked up again.
 static const float DM_LOOT_IGNORE_TIMEOUT = 300.0;
 

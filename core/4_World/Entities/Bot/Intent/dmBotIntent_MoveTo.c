@@ -59,6 +59,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! Accumulator for the periodic re-path (throttled by DM_MOVE_REPATH_INTERVAL).
 	float m_RepathAccum = 0.0;
 
+	//! Accumulator for the fall-safety check (throttled by DM_FALL_CHECK_INTERVAL).
+	float m_FallCheckAccum = 0.0;
+
 	//! Proactive vision (ProbeAhead): climb/door candidates with a cooldown/timeout,
 	//! and whether walkable ground is ahead (fall safety).
 	bool m_ClimbCandidate = false;
@@ -176,6 +179,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		m_AllProgressTime += pDt;
 		TickVision(bot, pDt);
+		UpdateFallSafety(bot, pDt);
 
 		if (IsFinished()) return;
 		if (m_Recovering) { TickRecover(bot, pDt); return; }
@@ -406,9 +410,16 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if ( m_Distance < 1.0 )
 		{
-			m_TooCloseTime += pDt;
-			if ( m_TooCloseTime > DM_MOVE_TOO_CLOSE_MAX )
-				m_TooCloseTime = DM_MOVE_TOO_CLOSE_MAX;
+			dmAISurvivorBase pawnChk = dmAISurvivorBase.Cast(bot.GetPawn());
+			bool atHeight = false;
+			if (pawnChk)
+				atHeight = pawnChk.IsAtHeight();
+			if (!atHeight)
+			{
+				m_TooCloseTime += pDt;
+				if ( m_TooCloseTime > DM_MOVE_TOO_CLOSE_MAX )
+					m_TooCloseTime = DM_MOVE_TOO_CLOSE_MAX;
+			}
 		} else {
 			m_TooCloseTime = 0.0;
 		}
@@ -678,8 +689,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		return false;
 	}
 
-	//! Proactive vision throttle: probe ahead (navmesh ground + climb/door rays) at
-	//! a fixed interval.
+	//! Proactive vision throttle: probe ahead (climb/door rays) at a fixed interval.
 	void TickVision(dmAISurvivor bot, float pDt)
 	{
 		m_MovingVisionDt += pDt;
@@ -690,12 +700,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 		ProbeAhead(bot, pDt);
 	}
 
-	float m_NoNavMeshBug = 0.0;
-	float m_DoNotCheckNavMesh = 0.0;
-
-	//! Proactive look ahead: probe the point just ahead of the bot for walkable
-	//! ground (fall safety), a climbable obstacle (low upward ray) and a closed door
-	//! (eye ray). Sets m_NoGroundAhead and the m_ClimbCandidate/m_DoorCandidate flags.
+	//! Proactive look ahead: probe the point just ahead of the bot for a climbable
+	//! obstacle (low upward ray) and a closed door (eye ray). Sets the
+	//! m_ClimbCandidate/m_DoorCandidate flags. (Fall safety moved to UpdateFallSafety.)
 	void ProbeAhead(dmAISurvivor bot, float pDt)
 	{
 		#ifdef DM_BOT_PROFILE
@@ -717,25 +724,6 @@ class dmBotIntent_MoveTo : dmBotIntent
 		dir.Normalize();
 		float probeDist = Math.Min(1.0, distTo + 0.1);
 		vector probe = pos + dir * probeDist;
-
-		if ( m_DoNotCheckNavMesh > 0.0 )
-		{
-			m_NoGroundAhead = false;
-			m_DoNotCheckNavMesh -= pDt;
-		} else {
-			m_NoGroundAhead = !IsPointOnNavMesh(probe);
-		}
-
-		if ( m_NoGroundAhead )
-		{
-			m_NoNavMeshBug += pDt;
-			if ( m_NoNavMeshBug > 5.0 )
-			{
-				m_DoNotCheckNavMesh = 15.0;
-			}
-		} else {
-			m_NoNavMeshBug = 0.0;
-		}
 
 		float now = GetGame().GetTickTime();
 
@@ -776,6 +764,71 @@ class dmBotIntent_MoveTo : dmBotIntent
 				}
 			}
 		}
+	}
+
+	//! Fall-safety (троттлинг DM_FALL_CHECK_INTERVAL): дешёвая предпроверка SurfaceY,
+	//! при перепаде — 3 луча вниз. Ставит m_NoGroundAhead.
+	void UpdateFallSafety(dmAISurvivor bot, float pDt)
+	{
+		m_FallCheckAccum += pDt;
+		if (m_FallCheckAccum < DM_FALL_CHECK_INTERVAL)
+			return;
+		m_FallCheckAccum = 0.0;
+
+		vector pos = bot.GetPosition();
+		vector subGoal = m_Goal;
+		if (m_HasPath && m_Path.Count() > 0)
+			subGoal = m_Path[m_PathIdx];
+
+		vector moveDir = subGoal - pos;
+		moveDir[1] = 0.0;
+		if (moveDir.Length() < 0.01)
+		{
+			m_NoGroundAhead = false;
+			return;
+		}
+		moveDir.Normalize();
+
+		vector ahead = subGoal + moveDir * DM_FALL_CHECK_AHEAD;
+		float surfaceY = GetGame().SurfaceY(ahead[0], ahead[2]);
+		if (Math.AbsFloat(surfaceY - subGoal[1]) <= DM_FALL_SURFACE_EPS)
+		{
+			m_NoGroundAhead = false;
+			return;
+		}
+
+		m_NoGroundAhead = !HasGroundAhead(bot, subGoal, moveDir);
+	}
+
+	//! 3 луча вниз (−45°, 0°, +45° от moveDir). true = земля есть во всех направлениях.
+	bool HasGroundAhead(dmAISurvivor bot, vector basePoint, vector moveDir)
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+			return true;
+
+		float c45 = 0.707106781;
+		vector dirL = Vector(moveDir[0] * c45 + moveDir[2] * c45, 0.0, -moveDir[0] * c45 + moveDir[2] * c45);
+		vector dirR = Vector(moveDir[0] * c45 - moveDir[2] * c45, 0.0, moveDir[0] * c45 + moveDir[2] * c45);
+
+		if (!GroundRay(pawn, basePoint + moveDir * DM_FALL_CHECK_AHEAD))
+			return false;
+		if (!GroundRay(pawn, basePoint + dirL * DM_FALL_CHECK_AHEAD))
+			return false;
+		if (!GroundRay(pawn, basePoint + dirR * DM_FALL_CHECK_AHEAD))
+			return false;
+		return true;
+	}
+
+	//! Луч вниз из точки: есть ли поверхность в пределах DM_FALL_DANGER_DROP.
+	bool GroundRay(dmAISurvivorBase pawn, vector p)
+	{
+		vector beg = p + Vector(0.0, 1.0, 0.0);
+		vector end = p + Vector(0.0, -DM_FALL_DANGER_DROP, 0.0);
+		vector contactPos;
+		vector contactDir;
+		int contactComponent;
+		return DayZPhysics.RaycastRV(beg, end, contactPos, contactDir, contactComponent, null, null, pawn, false, false, ObjIntersectGeom);
 	}
 
 	//! Re-aim the navmesh path at m_Goal. On failure m_HasPath becomes false and
@@ -1099,6 +1152,11 @@ class dmBotIntent_MoveTo : dmBotIntent
 			return false;
 
 		vector botPos = pawn.GetPosition();
+
+		//! Не прыгать, если бот высоко над землёй (на крыше) — спуск только по лестнице.
+		float groundY = GetGame().SurfaceY(botPos[0], botPos[2]);
+		if (botPos[1] - groundY > DM_FALL_JUMP_BLOCK_HEIGHT)
+			return false;
 
 		//! Goal must be below the bot (a real vertical gap).
 		if (m_Goal[1] >= botPos[1] - 0.5)

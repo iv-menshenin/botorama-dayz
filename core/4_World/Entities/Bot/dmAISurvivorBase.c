@@ -502,6 +502,13 @@ class dmAISurvivorBase : PlayerBase
 		return true;
 	}
 
+	//! Бот «на высоте» — над землёй больше DM_FALL_DANGER_DROP (крыша/обрыв).
+	bool IsAtHeight()
+	{
+		vector p = GetPosition();
+		return p[1] - GetGame().SurfaceY(p[0], p[2]) > DM_FALL_DANGER_DROP;
+	}
+
 	//! Disable the vanilla client aiming model (mouse-driven) — an AI bot has no
 	//! aim input, so it would oscillate the weapon IK / recoil. Aim is driven by
 	//! SetAim/GetWeaponAimDirection instead.
@@ -1404,7 +1411,7 @@ class dmAISurvivorBase : PlayerBase
 		float target = m_DesiredSpeed;
 		if (m_TurnSharp)
 			target = Math.Min(target, DM_MOVE_TURN_SLOW_SPEED);
-		if (target > DM_SPEED_IDX_JOG && !(CanConsumeStamina(EStaminaConsumers.SPRINT) && CanSprint()))
+		if (target > DM_SPEED_IDX_JOG && (!(CanConsumeStamina(EStaminaConsumers.SPRINT) && CanSprint()) || IsAtHeight()))
 			target = DM_SPEED_IDX_JOG;
 
 		float maxStep = DM_MOVE_ACCEL_RATE * pDt;
