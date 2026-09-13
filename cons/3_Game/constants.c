@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.149";
+static const string DM_BOTORAMA_VERSION = "3.150";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
@@ -71,3 +71,21 @@ static const float DM_NOISE_ATTRACTIVENESS_SHOT = 0.9;
 static const float DM_VOICE_COOLDOWN = 600.0;
 //! Верхняя граница lineId реплики (category*100 + index). Используется в net-var и guard.
 static const int DM_VOICE_LINE_MAX = 1000;
+
+//! Тип точки интереса / здания (мир). Используется reg (живой реестр зданий +
+//! интерьер-карта) и map (реестр локаций). Строковые имена в JSON конфигах
+//! ("WATER", "POLICE", ...) совпадают с именами значений.
+enum dmWorldPOIType
+{
+	NONE = 0,
+	WATER,
+	POLICE,
+	FIRE,
+	MEDICAL,
+	MILITARY,
+	MILITARY_WRECK,
+	FUEL,
+	INDUSTRIAL,
+	RESIDENTIAL,
+	GENERIC
+};
