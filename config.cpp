@@ -22,7 +22,7 @@ class CfgMods
 		author = "devalio";
 		version = 2.4;
 		type = "mod";
-		defines[] = { "DM_BOT_PROFILE", "DM_BOT_DEBUG_EVADE", "DM_BOT_DEBUG_MEDICAL", "DM_BOT_DEBUG_VOICE" };
+		defines[] = { "DM_BOT_PROFILE", "DM_BOT_DEBUG_FSM", "DM_BOT_DEBUG_PATHFINDER" };
 		class defs 
 		{
 			class gameScriptModule {
