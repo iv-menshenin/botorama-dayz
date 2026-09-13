@@ -45,6 +45,11 @@ class dmBotConditions
 		return new dmBotCondition_MedicalCare();
 	}
 
+	static dmBotCondition Thirsty()
+	{
+		return new dmBotCondition_Thirsty();
+	}
+
 	static dmBotCondition LastPositionSpreadLessOrEqual(float spread)
 	{
 		return new dmBotCondition_LastPositionSpread(spread, true);
