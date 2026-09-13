@@ -18,7 +18,8 @@ class dmBotIntent_UseLadder : dmBotIntent
 	//! Grace period after attaching before IsClimbingLadder() is trusted — gives
 	//! the ladder command a moment to become the active movement command.
 	float m_AttachGrace = 0.0;
-	float m_ClimbTime = 0.0;      // время в фазе подъёма (stuck-детект)
+	float m_NoProgressTime = 0.0;   // время без вертикального прогресса (stuck-детект)
+	float m_LastClimbY = 0.0;       // последний Y в фазе подъёма (для детекта прогресса)
 	float m_ApproachTime = 0.0;   // время в фазе подхода (timeout-детект)
 	int m_StuckReversals = 0;     // сколько раз уже развернулись
 
@@ -48,7 +49,8 @@ class dmBotIntent_UseLadder : dmBotIntent
 
 		m_Phase = 0;
 		m_AttachGrace = 0.0;
-		m_ClimbTime = 0.0;
+		m_NoProgressTime = 0.0;
+		m_LastClimbY = 0.0;
 		m_ApproachTime = 0.0;
 		m_StuckReversals = 0;
 
@@ -121,6 +123,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 			pawn.StartCommand_Ladder(m_Building, m_Ladder.m_Index);
 			m_Phase = 1;
 			m_AttachGrace = DM_LADDER_ATTACH_GRACE;
+			m_LastClimbY = pawn.GetPosition()[1];
 
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[Ladder] UseLadder: attach entry=" + m_Entry + " dirPoint=" + dirPoint + " dir=" + m_Direction);
@@ -141,7 +144,16 @@ class dmBotIntent_UseLadder : dmBotIntent
 			return;
 		}
 
-		m_ClimbTime += pDt;
+		float curY = pawn.GetPosition()[1];
+		if (Math.AbsFloat(curY - m_LastClimbY) > DM_LADDER_PROGRESS_EPS)
+		{
+			m_LastClimbY = curY;
+			m_NoProgressTime = 0.0;
+		}
+		else
+		{
+			m_NoProgressTime += pDt;
+		}
 
 		if (!pawn.IsClimbingLadder())
 		{
@@ -166,29 +178,26 @@ class dmBotIntent_UseLadder : dmBotIntent
 			return;
 		}
 
-		//! Stuck: дольше порога не дошли до точки выхода. Разворачиваемся один раз
-		//! (слезаем обратно и подходим с другого конца), при повторном — сдаёмся.
-		if (m_ClimbTime > DM_LADDER_STUCK_TIME)
+		//! Stuck: нет вертикального прогресса дольше порога. Сначала разворачиваемся
+		//! (лезем обратно, НЕ слезая с лестницы), при повторном — сдаёмся (Exit).
+		if (m_NoProgressTime > DM_LADDER_STUCK_TIME)
 		{
-			if (hcl)
-				hcl.Exit();
-
 			if (m_StuckReversals == 0)
 			{
 				m_Direction = -m_Direction;
-				UpdateEntry();
-				m_Phase = 0;
-				m_ClimbTime = 0.0;
-				m_ApproachTime = 0.0;
-				m_AttachGrace = 0.0;
+				m_NoProgressTime = 0.0;
+				m_LastClimbY = curY;
 				m_StuckReversals = 1;
 
 				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[Ladder] UseLadder: stuck — reversing dir=" + m_Direction + " entry=" + m_Entry);
+				dmBotLog.Debug("[Ladder] UseLadder: stuck — reversing dir=" + m_Direction);
 				#endif
 			}
 			else
 			{
+				if (hcl)
+					hcl.Exit();
+
 				#ifdef DM_BOT_DEBUG_FSM
 				dmBotLog.Debug("[Ladder] UseLadder: stuck again — giving up");
 				#endif

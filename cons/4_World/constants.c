@@ -178,9 +178,13 @@ static const float DM_LADDER_ATTACH_DIST = 2.0;
 //! trusts IsClimbingLadder() — gives the ladder command time to become active.
 static const float DM_LADDER_ATTACH_GRACE = 0.5;
 
-//! Time (seconds) on the ladder without reaching an exit before the bot is
+//! Time (seconds) without vertical progress on the ladder before the bot is
 //! considered stuck (then it reverses the climb direction once, then gives up).
-static const float DM_LADDER_STUCK_TIME = 8.0;
+static const float DM_LADDER_STUCK_TIME = 3.0;
+
+//! Min vertical change (meters) on the ladder that counts as "progress" (resets
+//! the stuck timer).
+static const float DM_LADDER_PROGRESS_EPS = 0.1;
 
 //! Min height difference (meters) between the goal and the bot for a ladder to
 //! even be considered (less = same floor, no ladder needed).
