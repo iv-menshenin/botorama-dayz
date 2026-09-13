@@ -67,9 +67,16 @@
 
 ### Голос
 
-- `/bot say {id}` — бот произносит голосовую реплику рядом с собой (позиционный
-  3D-звук, слышен всем в радиусе; рот шевелится). `{id}` — номер реплики
-  (`0` = тестовая, файл `voices/test.ogg` в PBO). См. `dmBotVoice`/`dmAISurvivorBase.SpeakLine`.
+- `/bot say {lineId}` — бот произносит конкретную реплику (позиционный 3D-звук,
+  слышен всем в радиусе; рот шевелится). Без кулдауна. `{lineId}` = `категория*100 + номер`
+  (напр. `803` = combat/contact «Контакт!»). См. `dmBotVoice.GetSoundSetName`.
+- `/bot sayrandom {category}` — бот говорит случайную реплику категории через центр
+  воспроизведения (`dmBotVoiceCenter`), с кулдауном молчания 10 минут. Категории:
+  `greeting | wake | passenger | idle | patrol | aimed_at | heard_shot | got_shot | combat | escort`.
+  Тексты реплик — `docs/voices/voices.md`.
+
+Аудио лежит в `voices/<category>/<keyword>.ogg` (пока плейсхолдеры `test.ogg`); длительность рта
+читается из `CfgSoundSets <set> duration` в `config.cpp`.
 
 ### Транспорт
 
@@ -157,6 +164,9 @@
 - `/test bot overload run` — собрать и запустить FSM (patrol + idle) на подготовленных ботах.
 - `/test bot enemy {N}` — заспавнить бота в N метрах от игрока (лицом к нему), одетого в горку
   (штаны/куртка/перчатки/ботинки), с B95 и патронами .308; игрок-отправитель — враг бота.
+- `/test bot voice` — автотест центра воспроизведения реплик (без аудио): `SayCategory(GREETING)`
+  вернул lineId из категории → повторный вызов подавлен кулдауном → после `ResetCooldown` снова
+  заговорил.
 
 ### Отмена
 
