@@ -256,6 +256,9 @@ static const string DM_MAP_CONFIG_DIR = "$profile:dmBotorama/Map";
 //! Building-interior map file (schema dmBuildingInteriorConfig). The user places a
 //! copy of the generated map/Configs/buildings_interior.json here.
 static const string DM_MAP_BUILDINGS_FILE = "$profile:dmBotorama/Map/buildings_interior.json";
+//! World POI file (schema dmWorldPoiConfig). The user places a copy of the
+//! generated map/Configs/world_poi.json here.
+static const string DM_MAP_WORLD_POI_FILE = "$profile:dmBotorama/Map/world_poi.json";
 //! Delay (ms) before a House registers itself, so the building has a valid position
 //! by the time the registry reads it (in the constructor it is still (0,0,0)).
 static const int DM_HOUSE_REGISTER_DELAY_MS = 1000;
