@@ -19,6 +19,7 @@ class dmBotRouteSegment
 	Building m_Building;                // для лестничного сегмента
 	ref dmBotLadder m_Ladder;
 	int m_Direction = 1;                // +1 вверх, -1 вниз
+	float m_LadderHeight = 0.0;         // высота лестницы (штраф в стоимости маршрута)
 }
 
 class dmBotPathfinder
@@ -147,6 +148,9 @@ class dmBotPathfinder
 		if (!ladders || ladders.Count() == 0)
 			return false;
 
+		float bestCost = -1.0;
+		ref array<ref dmBotRouteSegment> bestRoute = null;
+
 		int i;
 		for (i = 0; i < ladders.Count(); i++)
 		{
@@ -182,27 +186,49 @@ class dmBotPathfinder
 				ref array<vector> pathToNear = new array<vector>();
 				if (m_AIWorld.FindPath(from, near, m_Filter, pathToNear) && pathToNear.Count() > 0)
 				{
+					ref array<ref dmBotRouteSegment> candidate = new array<ref dmBotRouteSegment>();
+
 					dmBotRouteSegment segNav = new dmBotRouteSegment();
 					segNav.m_IsLadder = false;
 					segNav.m_Waypoints = pathToNear;
-					outSegments.Insert(segNav);
+					candidate.Insert(segNav);
 
 					dmBotRouteSegment segLadder = new dmBotRouteSegment();
 					segLadder.m_IsLadder = true;
 					segLadder.m_Building = building;
 					segLadder.m_Ladder = ladder;
 					segLadder.m_Direction = dir;
-					outSegments.Insert(segLadder);
+					segLadder.m_LadderHeight = Math.AbsFloat(far[1] - near[1]);
+					candidate.Insert(segLadder);
 
 					int j;
 					for (j = 0; j < sub.Count(); j++)
-						outSegments.Insert(sub[j]);
+						candidate.Insert(sub[j]);
 
-					return true;
+					float cost = RouteLength2D(candidate);
+					#ifdef DM_BOT_DEBUG_PATHFINDER
+					dmBotLog.Debug("[PATH] FindRoute ladder i=" + ladder.m_Index + " cost=" + cost);
+					#endif
+					if (bestRoute == null || cost < bestCost)
+					{
+						bestCost = cost;
+						bestRoute = candidate;
+					}
 				}
 			}
 
 			visited.Remove(key);
+		}
+
+		if (bestRoute != null)
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] FindRoute best cost=" + bestCost);
+			#endif
+			int k;
+			for (k = 0; k < bestRoute.Count(); k++)
+				outSegments.Insert(bestRoute[k]);
+			return true;
 		}
 
 		return false;
@@ -232,5 +258,34 @@ class dmBotPathfinder
 				return building;
 		}
 		return null;
+	}
+
+	//! 2D-длина navmesh-пути (сумма горизонтальных дистанций соседних вейпоинтов).
+	private float PathLength2D(array<vector> path)
+	{
+		float total = 0.0;
+		int i;
+		for (i = 1; i < path.Count(); i++)
+		{
+			vector d = path[i] - path[i - 1];
+			d[1] = 0.0;
+			total = total + d.Length();
+		}
+		return total;
+	}
+
+	//! 2D-стоимость маршрута: сумма длин navmesh-сегментов + высота каждой лестницы.
+	private float RouteLength2D(array<ref dmBotRouteSegment> route)
+	{
+		float total = 0.0;
+		int i;
+		for (i = 0; i < route.Count(); i++)
+		{
+			if (route[i].m_IsLadder)
+				total = total + route[i].m_LadderHeight;
+			else
+				total = total + PathLength2D(route[i].m_Waypoints);
+		}
+		return total;
 	}
 }
