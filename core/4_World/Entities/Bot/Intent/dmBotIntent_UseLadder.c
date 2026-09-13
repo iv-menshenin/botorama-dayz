@@ -19,6 +19,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 	//! the ladder command a moment to become the active movement command.
 	float m_AttachGrace = 0.0;
 	float m_ClimbTime = 0.0;      // время в фазе подъёма (stuck-детект)
+	float m_ApproachTime = 0.0;   // время в фазе подхода (timeout-детект)
 	int m_StuckReversals = 0;     // сколько раз уже развернулись
 
 	void dmBotIntent_UseLadder()
@@ -48,6 +49,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 		m_Phase = 0;
 		m_AttachGrace = 0.0;
 		m_ClimbTime = 0.0;
+		m_ApproachTime = 0.0;
 		m_StuckReversals = 0;
 
 		if (!m_Building || !m_Ladder)
@@ -78,6 +80,17 @@ class dmBotIntent_UseLadder : dmBotIntent
 
 			if (dist > DM_LADDER_ATTACH_DIST)
 			{
+				m_ApproachTime += pDt;
+				if (m_ApproachTime >= DM_LADDER_APPROACH_TIME)
+				{
+					#ifdef DM_BOT_DEBUG_FSM
+					dmBotLog.Debug("[Ladder] UseLadder: approach timeout, giving up");
+					#endif
+					bot.SetMove(0.0, 0.0);
+					Fail();
+					return;
+				}
+
 				float yaw = dir.VectorToAngles()[0];
 				float bodyYaw = bot.GetOrientation()[0];
 				float moveAngle = dmAISurvivor.AngleDiff(yaw, bodyYaw);
@@ -150,6 +163,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 				UpdateEntry();
 				m_Phase = 0;
 				m_ClimbTime = 0.0;
+				m_ApproachTime = 0.0;
 				m_AttachGrace = 0.0;
 				m_StuckReversals = 1;
 

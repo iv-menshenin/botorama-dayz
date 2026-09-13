@@ -182,6 +182,10 @@ static const float DM_LADDER_FLOOR_GAP = 1.5;
 //! which the bot is still considered "at the ladder" and may start climbing.
 static const float DM_LADDER_ENTRY_REACH = 2.5;
 
+//! Max time (seconds) in the ladder-approach phase before the bot gives up
+//! (the entry point is unreachable).
+static const float DM_LADDER_APPROACH_TIME = 5.0;
+
 //! Grace period (seconds) after starting a vault/climb before MoveTo checks
 //! IsClimbing() — gives the climb command time to become active.
 static const float DM_VAULT_GRACE = 1.0;
