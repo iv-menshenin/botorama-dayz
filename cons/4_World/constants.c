@@ -361,12 +361,12 @@ static const float DM_SCAN_INTERVAL_MIN = 10.0;
 static const float DM_SCAN_INTERVAL_MAX = 30.0;
 
 //! Scan: head turn angle range (±degrees from the body).
-static const float DM_SCAN_ANGLE_MIN = 5.0;
-static const float DM_SCAN_ANGLE_MAX = 35.0;
+static const float DM_SCAN_ANGLE_MIN = 15.0;
+static const float DM_SCAN_ANGLE_MAX = 75.0;
 
 //! Scan: how long the head holds a new direction before recentering (seconds).
-static const float DM_SCAN_HOLD_MIN = 5.0;
-static const float DM_SCAN_HOLD_MAX = 15.0;
+static const float DM_SCAN_HOLD_MIN = 3.0;
+static const float DM_SCAN_HOLD_MAX = 10.0;
 
 //! Scan: body turn angle range (±degrees), used when body turning is allowed.
 static const float DM_SCAN_BODY_ANGLE_MIN = 15.0;

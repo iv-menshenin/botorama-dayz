@@ -24,12 +24,18 @@ class dmBotPreset_Survivor
 		idle.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		idle.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		idle.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
-		shoot.AddTransition(idle, 1.0);
+
+		shoot.AddTransition(idle, 0.1);
+		shoot.AddTransition(explore, 1.0);
 		fight.AddTransition(idle, 1.0);
+		fight.AddTransition(explore, 1.0);
+
 		explore.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		explore.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		explore.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+
 		stealth.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+		
 		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 

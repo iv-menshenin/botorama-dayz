@@ -35,6 +35,9 @@ class dmBotState_Idle : dmBotState
 
 	override int OnUpdate(float pDt)
 	{
+		// если не выйти из IDLE, то бот не будет перематываться сразу, будет сначала "отдыхать" а потом лечиться
+		if ( GetOwner().AreNecessaryMedicationsAvailable() ) return EXIT;
+
 		if (m_Scan && (m_Scan.IsFinished() || m_Scan.IsExpired()))
 			m_Scan = null;
 		if (!m_Scan)

@@ -874,9 +874,6 @@ class dmBotTest_WeaponLoad : dmTestSuite_TestCase
 		fsm.Start();
 		bot2.SetFSM(fsm);
 
-		dmBotIntent_TidyInventory tidy = new dmBotIntent_TidyInventory();
-		bot2.AddPersonalityIntent(tidy);
-
 		return "";
 	}
 }

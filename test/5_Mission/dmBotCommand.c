@@ -131,22 +131,33 @@ class dmBotCommand : dmCommandModule
 			dmCommandManager.ChatToPlayer(player, "Не удалось заспавнить бота.");
 		}
 
+		dmLoadoutConfig cfg;
 		switch (preset) {
+		case "nomad":
+			cfg = dmLoadoutApplier.Load("PlayerSurvivorLoadout");
+			bot.SetFSM(dmBotPreset_Nomad.Create(bot));
+			break;
+
 		case "survivor":
-			dmLoadoutConfig cfg = dmLoadoutApplier.Load("PlayerSurvivorLoadout");
-			if (cfg)
-			{
-				pawn = bot.GetPawn();
-				if (pawn) dmLoadoutApplier.Apply(pawn, cfg);
-			}
+			cfg = dmLoadoutApplier.Load("PlayerSurvivorLoadout");
 			bot.SetFSM(dmBotPreset_Survivor.Create(bot));
 			break;
+
 		case "escort":
+			cfg = dmLoadoutApplier.Load("Stalker");
 			bot.SetFSM(dmBotPreset_Escort.Create(bot));
 			break;
+
 		case "hunter":
+			cfg = dmLoadoutApplier.Load("Hunter");
 			bot.SetFSM(dmBotPreset_Hunter.Create(bot));
 			break;
+		}
+
+		if (cfg)
+		{
+			pawn = bot.GetPawn();
+			if (pawn) dmLoadoutApplier.Apply(pawn, cfg);
 		}
 
 		return true;

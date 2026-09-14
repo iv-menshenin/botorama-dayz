@@ -49,7 +49,21 @@ class dmBotIntent_TidyInventory : dmBotIntent
 			return;
 		}
 
-		//! 2) Reload the weapon in hands when it has run dry. Reuses ReloadWeaponAI.
+		//! Если сначала ReloadWeaponAI, а потом LoadMagazineAI, тогда бот при наличии в инвентаре пустого магазина и пачки патронов
+		//! сначала положит один патрон в патронник винтовки, затем зарядит оставшимися патронами магазин,
+		//! присоединения магазина к винтовке не произойдет
+
+		//! 2) Load magazines from ammo piles (only out of combat — here we always are).
+		if (pawn.LoadMagazineAI())
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[FSM] LoadMagazineAI: ReloadWeaponAI completed");
+			#endif
+			m_Cooldown = DM_TIDY_STEP_INTERVAL;
+			return;
+		}
+
+		//! 3) Reload the weapon in hands when it has run dry. Reuses ReloadWeaponAI.
 		if (bot.GetWeaponInHands() && (bot.HasNoAmmo() || bot.CheckNeedsChamber()))
 		{
 			if (pawn.ReloadWeaponAI())
@@ -60,16 +74,6 @@ class dmBotIntent_TidyInventory : dmBotIntent
 				m_Cooldown = DM_TIDY_STEP_INTERVAL;
 				return;
 			}
-		}
-
-		//! 3) Load magazines from ammo piles (only out of combat — here we always are).
-		if (pawn.LoadMagazineAI())
-		{
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] LoadMagazineAI: ReloadWeaponAI completed");
-			#endif
-			m_Cooldown = DM_TIDY_STEP_INTERVAL;
-			return;
 		}
 
 		m_Cooldown = DM_TIDY_SCAN_INTERVAL;

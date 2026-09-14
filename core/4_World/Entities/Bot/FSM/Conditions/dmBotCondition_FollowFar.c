@@ -13,6 +13,19 @@ class dmBotCondition_FollowFar : dmBotCondition
 			return false;
 		}
 
+		if ( !bot.GetPawn() ) return false;
+
+		// TODO возможно, это справедливо для Follow но не для других состояний
+		PlayerBase p = PlayerBase.Cast(t)
+		if ( p )
+		{
+			bool botInVehicle;
+			bool targetInVehicle;
+			if ( bot.GetPawn().GetCommand_Vehicle() ) botInVehicle = true;
+			if ( p.GetCommand_Vehicle() ) targetInVehicle = true;
+			if ( targetInVehicle != botInVehicle ) return true;
+		}
+
 		vector targetPos = t.GetPosition();
 		vector botPos = bot.GetPosition();
 		vector d = targetPos - botPos;

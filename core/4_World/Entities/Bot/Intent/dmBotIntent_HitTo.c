@@ -61,9 +61,10 @@ class dmBotIntent_HitTo : dmBotIntent
 		vector targetPos = m_TargetEntity.GetPosition();
 		vector botPos = bot.GetPosition();
 		vector d = targetPos - botPos;
+		float yDiff = Math.AbsFloat(d[1]); // если не проверить Y, то бот будет вас бить даже если вы на другом этаже
 		d[1] = 0.0;
 		float dist = d.Length() - 0.65; // 0.65 - это две толщины тела. между ботом и чеолвекоподобным существом будет ровно 0
-		if (dist > m_ReachDistance)
+		if (dist > m_ReachDistance || yDiff > 1.0)
 		{
 			m_LastFail = dmHitToFail.TOOFAR;
 			#ifdef DM_BOT_DEBUG_FSM
