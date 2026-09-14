@@ -10,3 +10,6 @@ profiles/
 
 # Converted loadout presets (deployed to $profile, not part of the mod source)
 src/loadout/Presets/
+
+# PBO build output (tools/build.sh)
+build/

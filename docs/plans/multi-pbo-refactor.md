@@ -112,8 +112,36 @@ botorama/
 
 1. `[x]` Ветка `feature/multi-pbo-refactor` (от master).
 2. `[x]` План-документ (этот файл).
-3. `[ ]` Перемещение модулей в `src/`, ассетов в `src/core/`, map JSON в `data/map/`.
-4. `[ ]` Разбиение `config.cpp` на 6 модульных + правки путей.
-5. `[ ]` bump `DM_BOTORAMA_VERSION` (`src/cons/3_Game/constants.c`).
-6. `[ ]` `tools/build.sh` + сборка/подпись/деплой.
-7. `[ ]` Верификация на сервере (лог + команды).
+3. `[x]` Перемещение модулей в `src/`, ассетов в `src/core/`, map JSON в `data/map/`.
+4. `[x]` Разбиение `config.cpp` на 6 модульных + правки путей.
+5. `[x]` bump `DM_BOTORAMA_VERSION` → `3.159` (`src/cons/3_Game/constants.c`).
+6. `[x]` `tools/build.sh` + сборка/подпись/деплой.
+7. `[x]` Верификация на сервере (6 PBO загрузились, `Botorama initialized: 3.159`).
+
+## Итоговый рецепт сборки (проверен)
+
+Сборка производится **ИИ-агентом headless** через Windows-тулзы DayZ Tools под
+Steam/Proton (не нужен Steam GUI, но нужен установленный DayZ Tools + Proton + рантайм).
+Ключевые факты, добытые из `ps`/`/proc/<pid>/environ` живой Steam-сессии:
+
+- **Цепочка запуска** (рантайм `SteamLinuxRuntime_4`, НЕ sniper/soldier — у тех glibc 2.36,
+  а Proton 11 требует ≥2.38):
+  ```
+  SteamLinuxRuntime_4/_v2-entry-point --verb=waitforexitandrun -- \
+    'Proton Hotfix'/proton waitforexitandrun '<exe>' <args>
+  ```
+- **Окружение**: `STEAM_COMPAT_DATA_PATH=…/compatdata/830640`, `STEAM_COMPAT_CLIENT_INSTALL_PATH=…`,
+  `STEAM_COMPAT_INSTALL_PATH=…/DayZ Tools`, `STEAM_COMPAT_LIBRARY_PATHS`, `SteamAppId=830640`.
+  Полный набор — в `tools/build.sh`.
+- **AddonBuilder CLI**: `AddonBuilder.exe <src> <dst_dir> [-prefix=…] [-clear]
+  [-include=<файл>] [-sign=<biprivatekey>]`. `dst_dir` — каталог, имя `.pbo` берётся из
+  имени папки-исходника.
+- **Include-список** (обязателен — иначе полный билд выкидывает `.c`):
+  `*.emat; *.edds; *.ptc; *.c; *.imageset; *.layout; *.ogg; *.agr; *.csv`
+  (semicolon-разделитель, файл `tools/include.lst`).
+- **Подпись**: `-sign=…/Keys/devalio.biprivatekey` → `devalio.bisign`; имя подписи `devalio`.
+- **`-packonly` НЕ подходит** — он не делает `config.cpp`→`config.bin` (нужен полный билд с `-include`).
+
+Запуск: `bash tools/build.sh` (DayZ Tools при этом должен быть закрыт в Steam —
+`wineserver` префикса один на процесс). Деплой — копия 6×`.pbo`+`.bisign` в
+`@Botorama/Addons/` (старый одиночный `botorama.pbo` удалён).
