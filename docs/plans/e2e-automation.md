@@ -167,12 +167,23 @@ class dmE2ESnapshot  { string Name; bool Alive; vector Pos; string State; bool M
 
 ## Фазы
 
-1. `[~]` **Hello world** — полный цикл без игрока: `ping` + `spawn` + `snapshot` +
-   `clearall` (все — мгновенные, без отложенных `wait`). Критерий: агент кладёт
-   `hello-001.json` → в `out/hello-001.result.json` появляется `Status:"ok"` +
-   снапшот бота `A`.
+1. `[x]` **Hello world** — полный цикл без игрока: `ping` + `spawn` + `snapshot` +
+   `clearall` (все — мгновенные, без отложенных `wait`). Проверено: агент кладёт
+   `hello-001.json` → в `out/hello-001.result.json` `Status:"ok"` + снапшот бота `A`
+   (`Alive=1`, `Pos=[…]`). Реализация — `src/test/4_World/dmE2EBridge.c`,
+   `src/test/5_Mission/MissionServer.c` (хук OnUpdate), `DM_E2E_*` в `test/3_Game/constants.c`.
 2. `[ ]` **Движение + follow** — `moveto`, `follow`, `speed`, `patrol` + условия
    `state`/`reached`/`distance`/`alive`/`moving` (отложенный автомат).
 3. `[ ]` **Агентская обвязка** — скрипт «сценарий → poll результата» + tail RPT.
 4. `[ ]` Опционально: `watch` (таймсерия состояния), резолв локаций по
    `dmWorldPOIRegistry`.
+
+## Готчи, вскрытые на hello-world (см. `docs/codeguide.md`)
+
+- `dmJsonFile<T>` делает `dmJsonConfigBase.Cast(config)` (версионирование) → для
+  структур БЕЗ наследования `dmJsonConfigBase` шаблон не компилируется
+  (`Types ... are not related`). Для e2e-структур использовать **`JsonFileLoader<T>`
+  напрямую** + локальный `EnsureDir` (копия `dmJsonFile.EnsureDirectory`).
+- output-массивы (`Steps`/`Snapshot`) — `ref array<ref T>` + явный `new`, НЕ `autoptr`
+  (иначе `Insert` — silent no-op и в результате `[]`).
+- `bool` в JSON сериализуется как `1`/`0`.
