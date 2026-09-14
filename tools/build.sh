@@ -34,6 +34,15 @@ OUT="$ROOT/build"
 SIGN_KEY='Z:\home\devalio\dayz\Work\Keys\devalio.biprivatekey'
 INC='Z:\home\devalio\dayz\Work\botorama\tools\include.lst'
 
+# --- Очистить Temp префикса перед сборкой (быстрее + надёжнее) ---
+# AddonBuilder и сам чистит Temp, но делает это очень медленно; ручная очистка
+# содержимого каталога ускоряет компиляцию и снижает гонки старых артефактов.
+# Удаляем только содержимое, не сам каталог (wine-префикс должен остаться валидным).
+TMP="/mnt/deep-space/Steam/steamapps/compatdata/830640/pfx/drive_c/users/steamuser/AppData/Local/Temp"
+if [ -d "$TMP" ]; then
+    find "$TMP" -mindepth 1 -delete 2>/dev/null || true
+fi
+
 MODULES="cons reg core map loadout test"
 
 # --- Режим defines: --prod | (default, functional) | --test ---

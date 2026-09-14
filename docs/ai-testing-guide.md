@@ -87,6 +87,10 @@ bash tools/build.sh
 
 Собирает 6 модулей → `build/<модуль>.pbo` + `build/<модуль>.pbo.devalio.bisign`.
 
+Перед сборкой `build.sh` очищает Temp wine-префикса
+(`compatdata/830640/pfx/drive_c/users/steamuser/AppData/Local/Temp`) — AddonBuilder
+чистит его сам, но медленно; ручная очистка ускоряет компиляцию и надёжнее.
+
 ### 1.6 Готчи сборки
 
 - **Рантайм — только `SteamLinuxRuntime_4`.** `SteamLinuxRuntime_sniper`/`soldier`

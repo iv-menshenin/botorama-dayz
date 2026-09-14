@@ -135,5 +135,5 @@
 
 - `dayz-dev`: `edit` allow; `bash` — `git/mv/cp/mkdir/grep/rg/find/ls` (без build/server); external — deny.
 - `dayz-research`: `edit` allow (заметки); `bash` — read-only (`grep/rg/find/ls/cat/head/tail/strings`); external — `/home/devalio/dayz/Work/**`.
-- `dayz-tester`: `edit` allow; `bash` allow (ops); external — `DayZServer/**`, `Keys/**`, `~/dayz-cherno`.
+- `dayz-tester`: `edit` allow; `bash` allow (ops); external — `DayZServer/**`, `Keys/**`, `~/dayz-cherno`, Temp-префикса сборки (`compatdata/830640/.../Temp/**`).
 - `dayz-orchestrator`: primary, полный доступ (делегирует, ревьюит, коммитит, собирает/деплоит при необходимости).
