@@ -108,13 +108,6 @@ class dmWorldPOIRegistry
 		return nearest;
 	}
 
-	int PointCount()
-	{
-		if (!m_Config || !m_Config.Points)
-			return 0;
-		return m_Config.Points.Count();
-	}
-
 	static bool IsSettlementType(string type)
 	{
 		if (type == "Capital")

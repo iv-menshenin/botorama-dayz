@@ -7,7 +7,7 @@
 //! Один класс здания: относительные точки лута внутри него.
 class dmBuildingInteriorEntry
 {
-	string Class;              // конфиг-класс здания (GetType())
+	string ClassName;          // конфиг-класс здания (GetType())
 	string Type;               // строка типа POI ("WATER"/"POLICE"/... → dmWorldPOIType)
 	ref array<vector> Points;  // относительные координаты [x,y,z] в локальном пространстве здания
 }
@@ -15,6 +15,6 @@ class dmBuildingInteriorEntry
 //! Корень buildings_interior.json.
 class dmBuildingInteriorConfig : dmJsonConfigBase
 {
-	string World;                                  // имя карты ("chernarusplus")
+	string WorldName;                              // имя карты ("chernarusplus")
 	ref array<ref dmBuildingInteriorEntry> Buildings;
 }

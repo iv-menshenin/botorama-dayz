@@ -12,19 +12,9 @@ class dmWorldPoiLocation
 	vector Position;  // [x, 0, z] (2D-позиция; высота земли резолвится в рантайме)
 }
 
-//! Отдельностоящий объект-точка интереса (здание, колодец, ...).
-class dmWorldPoiPoint
-{
-	string Class;     // конфиг-класс здания/объекта
-	string Type;      // строка типа POI ("WATER"/"POLICE"/... см. dmWorldPOIType)
-	vector Position;  // [x, y, z]
-	string Location;  // имя родительской локации ("" = отдельностоящий POI)
-}
-
 //! Корень world_poi.json.
 class dmWorldPoiConfig : dmJsonConfigBase
 {
-	string World;                                  // имя карты
+	string WorldName;                              // имя карты
 	ref array<ref dmWorldPoiLocation> Locations;
-	ref array<ref dmWorldPoiPoint> Points;
 }

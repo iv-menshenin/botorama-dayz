@@ -30,7 +30,7 @@ class dmPoiCommand : dmCommandModule
 			return true;
 		}
 
-		dmCommandManager.ChatToPlayer(player, "Поселений: " + registry.SettlementCount() + ", точек: " + registry.PointCount());
+		dmCommandManager.ChatToPlayer(player, "Поселений: " + registry.SettlementCount());
 
 		int shown = 0;
 		int i;

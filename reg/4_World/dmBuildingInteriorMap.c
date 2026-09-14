@@ -47,8 +47,8 @@ class dmBuildingInteriorMap
 			for (i = 0; i < m_Config.Buildings.Count(); i++)
 			{
 				dmBuildingInteriorEntry entry = m_Config.Buildings[i];
-				if (entry && entry.Class != "")
-					m_ByClass.Set(entry.Class, entry);
+				if (entry && entry.ClassName != "")
+					m_ByClass.Set(entry.ClassName, entry);
 			}
 		}
 
