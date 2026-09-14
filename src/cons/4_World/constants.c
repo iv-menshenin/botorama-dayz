@@ -252,15 +252,15 @@ static const float DM_INTENT_MAX_AGE = 300.0;
 static const string DM_LOADOUT_DIR = "$profile:dmBotorama/loadouts";
 
 //! Directory where the user drops generated map configs (building interiors, POIs).
-static const string DM_MAP_CONFIG_DIR = "$profile:dmBotorama/Map";
+static const string DM_MAP_CONFIG_DIR = "$profile:dmBotorama/map";
 //! Building-interior map file (schema dmBuildingInteriorConfig). The user places a
 //! copy of the generated data/map/buildings_interior.json here.
-static const string DM_MAP_BUILDINGS_FILE = "$profile:dmBotorama/Map/buildings_interior.json";
+static const string DM_MAP_BUILDINGS_FILE = "$profile:dmBotorama/map/buildings_interior.json";
 //! World POI file (schema dmWorldPoiConfig). The user places a copy of the
 //! generated data/map/world_poi.json here.
-static const string DM_MAP_WORLD_POI_FILE = "$profile:dmBotorama/Map/world_poi.json";
+static const string DM_MAP_WORLD_POI_FILE = "$profile:dmBotorama/map/world_poi.json";
 //! Spawn distribution file (schema dmSpawnConfig). Created with defaults on first run.
-static const string DM_MAP_SPAWN_FILE = "$profile:dmBotorama/Map/spawn.json";
+static const string DM_MAP_SPAWN_FILE = "$profile:dmBotorama/map/spawn.json";
 //! Spawn manager tick interval (seconds) — how often Tick checks/replenishes population.
 static const float DM_SPAWN_TICK_INTERVAL = 1.0;
 //! Random offset (meters, ±) of a bot's spawn point from its settlement center.

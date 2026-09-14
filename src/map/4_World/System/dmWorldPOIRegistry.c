@@ -2,7 +2,7 @@
 //!
 //! Грузит world_poi.json (dmWorldPoiConfig) и индексирует поселения — локации
 //! типа Capital/City/Village/Camp — для спавн-менеджера (query-API). Данные
-//! читаются из $profile:dmBotorama/Map/world_poi.json — копию сгенерированного
+//! читаются из $profile:dmBotorama/map/world_poi.json — копию сгенерированного
 //! data/map/world_poi.json пользователь кладёт сам.
 
 class dmWorldPOIRegistry

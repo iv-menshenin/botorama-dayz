@@ -4,7 +4,7 @@
 //! реестра поселений dmWorldPOIRegistry: на каждое поселение — квота ботов (override
 //! из config.Settlements или общий BotsPerSettlement). Тикер (Tick) вызывается из
 //! MissionServer.OnUpdate и держит популяцию: спавнит по квоте, кап MaxBots, респавн
-//! после RespawnDelay. Данные читаются из $profile:dmBotorama/Map/spawn.json — файл
+//! после RespawnDelay. Данные читаются из $profile:dmBotorama/map/spawn.json — файл
 //! по умолчанию создаётся при первом запуске, если его нет.
 
 //! Одна запись спавна: бот привязан к поселению, либо жив, либо ждёт респавна.
