@@ -62,3 +62,12 @@ codeguide. `CollisionFlags.ALLOBJECTS` — отдельный член enum'а �
 боксам/точкам «под землёй» (scanbox давал `0 entities` с Y=-5..5 при земле ~339).
 Действует пока: не появится поле с относительной высотой (напр. `YRel`) или иной
 способ указать «земля ± дельта».
+
+### API: AI-выжившие «загрязняют» dmEntityRegistry.GetPlayers()
+Решение: `dmEntityRegistry.GetPlayers()` содержит И AI-выживших, И людей (потому что
+`dmAISurvivorBase : PlayerBase`, а `modded PlayerBase` регистрирует каждую сущность).
+Чтобы найти человека — фильтровать `dmAISurvivorBase.Cast(p) == null` (человек — ванильный
+`PlayerBase`, не наследник `dmAISurvivorBase`).
+Почему: `observe` телепортировал первого AI-бота (~88 settlement-ботов) вместо человека.
+Влияет на любой код, читающий `GetPlayers()` как «людей».
+Действует пока: не будет отдельного реестра «только людей» или флага `IsHuman` в `PlayerBase`.

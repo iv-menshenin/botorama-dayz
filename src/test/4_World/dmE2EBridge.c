@@ -551,23 +551,28 @@ class dmE2EBridge
 		r.Reason = "cleared " + cleared;
 	}
 
-	//! Teleport the first connected player (observer) to Pos and face Yaw.
+	//! Teleport the first HUMAN player (observer) to Pos and face Yaw.
+	//! AI survivors (dmAISurvivorBase) are PlayerBase too and pollute the registry,
+	//! so they must be skipped.
 	private void RunObserve(dmE2EStep step, dmE2EStepResult r)
 	{
 		array<PlayerBase> players = dmEntityRegistry.GetPlayers();
-		if (players.Count() == 0)
+		int i;
+		for (i = 0; i < players.Count(); i++)
 		{
-			r.Ok = false;
-			r.Reason = "no player connected";
-			return;
+			PlayerBase p = players[i];
+			if (p && !dmAISurvivorBase.Cast(p))
+			{
+				p.SetPosition(ResolveWorldPos(step.Pos));
+				p.SetOrientation(Vector(step.Yaw, 0, 0));
+				r.Ok = true;
+				r.Reason = "teleported player";
+				return;
+			}
 		}
 
-		PlayerBase player = players[0];
-		player.SetPosition(ResolveWorldPos(step.Pos));
-		player.SetOrientation(Vector(step.Yaw, 0, 0));
-
-		r.Ok = true;
-		r.Reason = "teleported player";
+		r.Ok = false;
+		r.Reason = "no player connected";
 	}
 
 	//! Create the parent directory chain of a file path (mirrors dmJsonFile.EnsureDirectory,
