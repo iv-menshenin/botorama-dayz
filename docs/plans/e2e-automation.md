@@ -62,7 +62,7 @@ class dmE2EStep
 {
     string Op;        // ping | spawn | moveto | follow | patrol | speed | loadout |
                       // stance | look | say | wait | assert | snapshot | clearall | killall
-                      // + пробы мира: spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj
+                      // + пробы мира: spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj | observe
     string Who;       // имя бота (кем управляем) / имя объекта (spawnobj/botdump)
     string Target;    // имя цели-бота (follow / distance)
     vector Pos;       // [x,y,z] мировая точка
@@ -119,6 +119,7 @@ class dmE2EStep
 | `getpos` | `Obj` | позиция + yaw объекта | — |
 | `setpos` | `Obj`, `Pos`, `Yaw` | `SetPosition(SnapToGroundExactly)` + `SetOrientation` | — |
 | `clearobj` | `Obj` (`"*"` — все) | удалить объект(ы) из мира и реестра | `cleared N` |
+| `observe` | `Pos`, `Yaw` | телепорт **первого подключённого игрока** (`dmEntityRegistry.GetPlayers()[0]`): `SetPosition(SnapToGroundExactly(Pos))` + `SetOrientation(Vector(Yaw,0,0))` | `teleported player` / `no player connected` |
 
 Примечания:
 - `spawnobj`/`getpos`/`setpos`/`clearobj` работают с реестром `m_Objects`
@@ -126,6 +127,10 @@ class dmE2EStep
 - `raycast` с 0 хитов = чистый LOS (луч не встретил препятствие между A и B).
 - `botdump` выгружает FSM-интенты; **командные интенты пока не выгружаются** (нет
   публичного геттера `m_CommandIntents` в `dmAISurvivor` — техдолг, добавить при нужде).
+- `observe` — для тестов **с наблюдателем** (клиент `tools/run-client.sh`). Использовать
+  только когда нужно визуальное подтверждение или оркестратор/человек явно сказал
+  «с наблюдателем»; по умолчанию тесты headless. `no player connected` = клиент ещё
+  не зашёл — повторить после подключения.
 
 ## Результат (выход) — `out/<job>.result.json`
 

@@ -7,7 +7,8 @@
 //!
 //! Ops: ping | spawn | snapshot | clearall (named bots) plus the world/physics
 //! probe ops spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj
-//! (named objects). All instantaneous (single-tick).
+//! (named objects) and observe (teleport a connected player). All instantaneous
+//! (single-tick).
 
 //! A job (input): an id and the list of steps to run.
 class dmE2EJob
@@ -228,6 +229,10 @@ class dmE2EBridge
 			else if (step.Op == "clearobj")
 			{
 				RunClearObj(step, stepResult);
+			}
+			else if (step.Op == "observe")
+			{
+				RunObserve(step, stepResult);
 			}
 			else
 			{
@@ -529,6 +534,25 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "cleared " + cleared;
+	}
+
+	//! Teleport the first connected player (observer) to Pos and face Yaw.
+	private void RunObserve(dmE2EStep step, dmE2EStepResult r)
+	{
+		array<PlayerBase> players = dmEntityRegistry.GetPlayers();
+		if (players.Count() == 0)
+		{
+			r.Ok = false;
+			r.Reason = "no player connected";
+			return;
+		}
+
+		PlayerBase player = players[0];
+		player.SetPosition(SnapToGroundExactly(step.Pos));
+		player.SetOrientation(Vector(step.Yaw, 0, 0));
+
+		r.Ok = true;
+		r.Reason = "teleported player";
 	}
 
 	//! Create the parent directory chain of a file path (mirrors dmJsonFile.EnsureDirectory,
