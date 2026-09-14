@@ -10,10 +10,10 @@
 //! Одна запись спавна: бот привязан к поселению, либо жив, либо ждёт респавна.
 class dmBotSpawnEntry
 {
-	string Settlement;         // имя локации
-	vector Position;           // [x, y, z] — где спавнить
-	ref dmAISurvivor Bot;      // null если не заспавнен/мёртв
-	float RespawnTimer;        // обратный отсчёт после смерти
+	string m_Settlement;         // имя локации
+	vector m_Position;           // [x, y, z] — где спавнить
+	ref dmAISurvivor m_Survivor;      // null если не заспавнен/мёртв
+	float m_RespawnTimer;        // обратный отсчёт после смерти
 }
 
 class dmBotSpawnManager
@@ -74,10 +74,10 @@ class dmBotSpawnManager
 			for (j = 0; j < quota; j++)
 			{
 				dmBotSpawnEntry entry = new dmBotSpawnEntry();
-				entry.Settlement = settlement.Name;
-				entry.Position = RollSpawnPosition(settlement.Position);
-				entry.Bot = null;
-				entry.RespawnTimer = 0.0;
+				entry.m_Settlement = settlement.Name;
+				entry.m_Position = RollSpawnPosition(settlement.Position);
+				entry.m_Survivor = null;
+				entry.m_RespawnTimer = 0.0;
 				m_Entries.Insert(entry);
 				entryCount++;
 			}
@@ -110,16 +110,16 @@ class dmBotSpawnManager
 			if (!entry)
 				continue;
 
-			if (entry.Bot && !entry.Bot.IsSpawned())
+			if (entry.m_Survivor && !entry.m_Survivor.IsSpawned())
 			{
-				entry.Bot = null;
-				entry.RespawnTimer = m_Config.RespawnDelay;
+				entry.m_Survivor = null;
+				entry.m_RespawnTimer = m_Config.RespawnDelay;
 			}
 
-			if (!entry.Bot)
+			if (!entry.m_Survivor)
 			{
-				entry.RespawnTimer -= DM_SPAWN_TICK_INTERVAL;
-				if (entry.RespawnTimer <= 0.0)
+				entry.m_RespawnTimer -= DM_SPAWN_TICK_INTERVAL;
+				if (entry.m_RespawnTimer <= 0.0)
 					SpawnEntry(entry);
 			}
 		}
@@ -130,11 +130,11 @@ class dmBotSpawnManager
 	{
 		ref dmAISurvivor bot = new dmAISurvivor();
 		bot.SetModel(dmSurvivor.GetRandom());
-		PlayerBase pawn = bot.Spawn(entry.Position, Vector(Math.RandomFloat(0.0, 360.0), 0.0, 0.0));
+		PlayerBase pawn = bot.Spawn(entry.m_Position, Vector(Math.RandomFloat(0.0, 360.0), 0.0, 0.0));
 		if (!pawn)
 		{
 			#ifdef DM_BOT_DEBUG_SPAWN
-			dmBotLog.Debug("[SpawnManager] spawn FAILED: settlement=" + entry.Settlement + " pos=" + entry.Position);
+			dmBotLog.Debug("[SpawnManager] spawn FAILED: settlement=" + entry.m_Settlement + " pos=" + entry.m_Position);
 			#endif
 			return;
 		}
@@ -144,10 +144,10 @@ class dmBotSpawnManager
 			dmLoadoutApplier.Apply(pawn, cfg);
 
 		bot.SetFSM(dmBotPreset_Nomad.Create(bot));
-		entry.Bot = bot;
+		entry.m_Survivor = bot;
 
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("[SpawnManager] spawned: settlement=" + entry.Settlement + " pos=" + entry.Position + " total=" + dmAISurvivor.Count());
+		dmBotLog.Debug("[SpawnManager] spawned: settlement=" + entry.m_Settlement + " pos=" + entry.m_Position + " total=" + dmAISurvivor.Count());
 		#endif
 	}
 
@@ -158,7 +158,7 @@ class dmBotSpawnManager
 		for (i = 0; i < m_Entries.Count(); i++)
 		{
 			dmBotSpawnEntry entry = m_Entries[i];
-			if (entry && !entry.Bot)
+			if (entry && !entry.m_Survivor)
 				SpawnEntry(entry);
 		}
 	}

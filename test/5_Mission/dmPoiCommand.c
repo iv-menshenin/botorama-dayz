@@ -44,7 +44,7 @@ class dmPoiCommand : dmCommandModule
 				continue;
 
 			vector pos = settlement.Position;
-			dmCommandManager.ChatToPlayer(player, settlement.Name + " (" + settlement.Type + ") " + (int)pos[0] + "," + (int)pos[2]);
+			dmCommandManager.ChatToPlayer(player, settlement.Name + " (" + settlement.Type + ") " + pos[0] + "," + pos[2]);
 			shown++;
 		}
 
