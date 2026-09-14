@@ -36,6 +36,57 @@ INC='Z:\home\devalio\dayz\Work\botorama\tools\include.lst'
 
 MODULES="cons reg core map loadout test"
 
+# --- Режим defines: --prod | (default, functional) | --test ---
+#   --prod            -> только DM_BOT_PROFILE (минимальный прод-билд)
+#   (без флага)       -> функциональный: defines[] как закоммитил dayz-dev
+#   --test            -> регрессионный: все event-домены из tools/defines_test.txt
+MODE="func"
+case "${1:-}" in
+    --prod) MODE="prod" ;;
+    --test) MODE="test" ;;
+    ""|--) MODE="func" ;;
+    *) echo "usage: build.sh [--prod|--test]  (default: functional, keeps committed defines)" >&2; exit 2 ;;
+esac
+
+# Модули, у которых есть defines[] (gated call sites; cons/reg — без defines).
+DEFINES_FILES="core map loadout test"
+
+build_defines_list() {
+    if [ "$MODE" = "prod" ]; then
+        echo '"DM_BOT_PROFILE"'
+    elif [ "$MODE" = "test" ]; then
+        sed -e 's/#.*$//' -e '/^[[:space:]]*$/d' "$ROOT/tools/defines_test.txt" \
+            | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+            | sed 's/^/"/; s/$/"/' \
+            | paste -sd ',' - | sed 's/,/, /g'
+    fi
+}
+
+patch_defines() {
+    local defines="$1"
+    for m in $DEFINES_FILES; do
+        local cfg="$ROOT/src/$m/config.cpp"
+        cp "$cfg" "/tmp/build_defines_backup_$m.cpp"
+        sed -i -E "s|^([[:space:]]*)defines\[\][[:space:]]*=.*$|\1defines[] = { $defines };|" "$cfg"
+    done
+}
+
+restore_defines() {
+    for m in $DEFINES_FILES; do
+        local cfg="$ROOT/src/$m/config.cpp"
+        if [ -f "/tmp/build_defines_backup_$m.cpp" ]; then
+            cp "/tmp/build_defines_backup_$m.cpp" "$cfg"
+            rm -f "/tmp/build_defines_backup_$m.cpp"
+        fi
+    done
+}
+
+if [ "$MODE" != "func" ]; then
+    DEFINES=$(build_defines_list)
+    patch_defines "$DEFINES"
+    trap restore_defines EXIT
+fi
+
 rm -rf "$OUT"
 mkdir -p "$OUT"
 

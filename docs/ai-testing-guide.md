@@ -13,7 +13,7 @@
 2. [Деплой](#2-деплой)
 3. [Запуск сервера](#3-запуск-сервера)
 4. [Чтение логов](#4-чтение-логов)
-5. [Автотесты (костяк)](#5-автотесты-костяк)
+5. [Автотесты (файловый мост)](#5-автотесты-файловый-мост)
 
 ---
 
@@ -151,7 +151,7 @@ RPT-лог сервера — `DayZServer/profiles-cherno/DayZServer_<дата>.
 |---|---|---|
 | Загрузка PBO | `Adding package '…@Botorama/Addons/<модуль>.pbo'` | все 6 PBO загрузились |
 | Defines | `…dmBotorama_Cons,dmBotorama_Reg,dmBotorama_Core…` | цепочка `requiredAddons` встала |
-| Версия мода | `[dmBot] Botorama initialized: 3.159` | `dmBotLog.LogVersion` (совпадает с `DM_BOTORAMA_VERSION`) |
+| Версия мода | `[dmBot] Botorama initialized: 3.160` | `dmBotLog.LogVersion` (совпадает с `DM_BOTORAMA_VERSION`) |
 | Ошибки скриптов | `SCRIPT (E)` / `[dmBot][error]` | реальные проблемы (не `(W)` warning'и) |
 | Краш | `crash_*.log`, `error.log`, `*.mdmp` | смотреть stack |
 
@@ -165,9 +165,43 @@ RPT-лог сервера — `DayZServer/profiles-cherno/DayZServer_<дата>.
 
 ---
 
-## 5. Автотесты (костяк)
+## 5. Автотесты (файловый мост)
 
-> **TODO** — следующая фаза. Спроектировать: команды-сценарии (файловый канал
-> `$profile:dmBotorama/e2e/…`), набор данных для лога, и «hello world» с полным
-> циклом «сборка → старт → тест → результат → фиксация». Детали — после
-> проектирования костяка.
+Автотесты управляются **файловым мостом** — без игрока и без HTTP-сервиса. Агент
+кладёт JSON-сценарий, мод исполняет его на сервере, агент читает JSON-результат и
+tail'ит RPT. Протокол, словарь команд и схема результата — `docs/plans/e2e-automation.md`;
+каталог регрессионных сценариев — `tools/e2e/`.
+
+Цикл (см. §5.1–5.3): собрать → задеплоить → старт → сценарий → результат → фиксация.
+
+### 5.1 Выбор defines при сборке
+
+`tools/build.sh` принимает флаг, задающий набор `defines[]` (debug-домены логирования):
+
+| Режим | Флаг | defines[] |
+|---|---|---|
+| **Прод** | `--prod` | только `DM_BOT_PROFILE` |
+| **Функциональный** (дефолт) | *(без флага)* | как закоммитил `dayz-dev` (релевантные домены фичи) |
+| **Регрессионный** | `--test` | все event-домены из `tools/defines_test.txt` |
+
+Регрессию тестировщик гоняет с `--test` (полное покрытие event-доменов); per-frame
+домены (`DM_BOT_TRACE_LOOK`, `DM_BOT_DEBUG_PERFRAME_MOVING_LOG`) в `--test` НЕ входят
+(спам) — их включает `dayz-dev` точечно, если конкретный сценарий их проверяет.
+
+### 5.2 Запуск сценария
+
+```bash
+# маркер уже лежит (см. e2e-automation.md)
+cat > "$PROFILE/dmBotorama/e2e/in/<job>.json" <<'EOF'   # атомарно: .tmp → rename
+{ "Name": "<job>", "Timeout": 60, "Steps": [ ... ] }
+EOF
+# дождаться out/<job>.result.json; при провале — tail RPT
+```
+
+Результат: `out/<job>.result.json` (`Status`: `ok`/`error`/`timeout`, `Steps[].Ok`,
+`Snapshot[]`). `bool` в JSON = `1`/`0`.
+
+### 5.3 RPT-канал моста
+
+Жизненный цикл моста пишется в RPT под доменом `DM_BOT_DEBUG_E2E` (входит в `--test`):
+`enabled`, `job X picked up`, `step N: op=…`, `job X → status=…`, ошибки.

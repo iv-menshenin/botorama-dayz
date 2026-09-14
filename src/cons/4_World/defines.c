@@ -33,6 +33,9 @@
 //!   DM_BOT_DEBUG_MEDICAL — ИИ-лечение (MedicalCare): вход в состояние, шаги очереди,
 //!                          применение эффекта, ошибки.
 //!   DM_BOT_DEBUG_VOICE   — голосовые реплики бота (SpeakLine/TickTalking/PlayVoiceLineClient).
+//!   DM_BOT_DEBUG_LOOTING — лут/Exploration (сканирование, оценка, подбор/выброс).
+//!   DM_BOT_DEBUG_BALLISTICS — баллистика выстрела (FIRE → HIT/IMPACT, время полёта).
+//!   DM_BOT_DEBUG_E2E     — файловый мост автотестов (жизненный цикл сценария).
 //!   DM_BOT_DEBUG_PATHFINDER — pathfinding (moving to goal)
 //!   DM_BOT_DEBUG_PERFRAME_MOVING_LOG — per-frame movement speed/angle (ApplyMovement).
 //!
@@ -45,6 +48,13 @@
 //!
 //! PROFILING:
 //!   DM_BOT_PROFILE — accumulate per-frame timings; dump via "/prof dump".
+//!
+//! Классификация для `tools/build.sh`:
+//!   EVENT-домены (дешёвые, дискретные события) — включаются в регрессионный билд
+//!   `--test` (полный список в `tools/defines_test.txt`). Всё, кроме двух ниже.
+//!   PER-FRAME-домены (спам на каждый кадр) — НЕ входят в `--test`, включаются точечно
+//!   только если сценарий их проверяет:
+//!     DM_BOT_DEBUG_PERFRAME_MOVING_LOG, DM_BOT_TRACE_LOOK.
 //!
 //! Gating is done at the CALL SITE, not inside dmBotLog:
 //!
