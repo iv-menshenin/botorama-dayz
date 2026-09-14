@@ -365,9 +365,10 @@ class dmE2EBridge
 		DayZPlayerUtils.SceneGetEntitiesInBox(step.Min, step.Max, statics, QueryFlags.STATIC);
 
 		int i;
+		string line;
 		for (i = 0; i < dynamics.Count(); i++)
 		{
-			string line = "ent[D] " + dynamics[i].GetType() + " pos=" + dynamics[i].GetPosition();
+			line = "ent[D] " + dynamics[i].GetType() + " pos=" + dynamics[i].GetPosition();
 			r.Dump.Insert(line);
 			#ifdef DM_BOT_DEBUG_E2E
 			dmBotLog.Debug("[E2E] " + line);
@@ -375,7 +376,7 @@ class dmE2EBridge
 		}
 		for (i = 0; i < statics.Count(); i++)
 		{
-			string line = "ent[S] " + statics[i].GetType() + " pos=" + statics[i].GetPosition();
+			line = "ent[S] " + statics[i].GetType() + " pos=" + statics[i].GetPosition();
 			r.Dump.Insert(line);
 			#ifdef DM_BOT_DEBUG_E2E
 			dmBotLog.Debug("[E2E] " + line);
