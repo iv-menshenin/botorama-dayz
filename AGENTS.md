@@ -50,6 +50,7 @@
   (`cons/3_Game/constants.c`).
 - Реализацию делает субагент `dayz-dev`; ревью оркестратора — по чеклисту `codeguide.md`.
 - API-исследование — субагент `dayz-research` (пишет только `docs/research/`).
+- E2E-тестирование перед фиксацией — субагент `dayz-tester` (сборка/деплой/сервер/сценарии/логи).
 
 ## Модуль `/test` (конвенции каркаса тестов)
 
@@ -93,9 +94,20 @@
 ## Субагенты
 
 Определения (source of truth) — `.opencode/agent/dayz-dev.md`, `.opencode/agent/dayz-research.md`,
-`.opencode/agent/dayz-orchestrator.md` (дублируются в глобальный `~/.config/opencode/agent/`
-для загрузки — держать в синхроне). Скилл `dayz-ai-bot` — `.opencode/skills/dayz-ai-bot/`.
+`.opencode/agent/dayz-orchestrator.md`, `.opencode/agent/dayz-tester.md` (дублируются в глобальный
+`~/.config/opencode/agent/` для загрузки — держать в синхроне). Скилл `dayz-ai-bot` — `.opencode/skills/dayz-ai-bot/`.
 
 - **`dayz-orchestrator`** — агент по умолчанию (`default_agent` в `opencode.jsonc`): он сам
   не пишет код, а делегирует реализацию `dayz-dev`, исследование — `dayz-research`,
-  и делает ревью/рефлексию.
+  E2E-тестирование — `dayz-tester`, и делает ревью/рефлексию.
+- **`dayz-dev`** — реализует атомарную задачу (код). Пишет тест-сценарий под своё изменение.
+- **`dayz-research`** — исследует ванильный/Expansion API, пишет `docs/research/`.
+- **`dayz-tester`** — гоняет E2E-цикл (сборка/деплой/сервер/сценарии/логи), отчёт PASS/FAIL
+  оркестратору. Не пишет код мода. Source of truth — `docs/ai-testing-guide.md`.
+
+## Разрешения (permission) по ответственности
+
+- `dayz-dev`: `edit` allow; `bash` — `git/mv/cp/mkdir/grep/rg/find/ls` (без build/server); external — deny.
+- `dayz-research`: `edit` allow (заметки); `bash` — read-only (`grep/rg/find/ls/cat/head/tail/strings`); external — `/home/devalio/dayz/Work/**`.
+- `dayz-tester`: `edit` allow; `bash` allow (ops); external — `DayZServer/**`, `Keys/**`, `~/dayz-cherno`.
+- `dayz-orchestrator`: primary, полный доступ (делегирует, ревьюит, коммитит, собирает/деплоит при необходимости).

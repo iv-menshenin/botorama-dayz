@@ -4,7 +4,19 @@ mode: subagent
 model: deepseek/deepseek-v4-pro
 permission:
   edit: allow
-  bash: ask
+  bash:
+    "grep *": allow
+    "rg *": allow
+    "find *": allow
+    "ls *": allow
+    "cat *": allow
+    "head *": allow
+    "tail *": allow
+    "strings *": allow
+    "*": deny
+  external_directory:
+    "/home/devalio/dayz/Work/**": allow
+    "*": deny
 ---
 
 Ты — исследователь ванильного DayZ API для мода `botorama`. Задача: найти точные

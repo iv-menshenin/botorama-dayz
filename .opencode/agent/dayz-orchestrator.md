@@ -20,7 +20,9 @@ model: deepseek/deepseek-v4-pro
    API, запреты, чеклист, критерий приёмки.
 2. **Исследование ванильного/Expansion API** — субагент `dayz-research`
    (пишет только `botorama/docs/research/<домен>.md`).
-3. **Сам делай**: читай `botorama/docs/codeguide.md` (синтаксис Enfusion) и грузи
+3. **E2E-тестирование перед фиксацией** — субагент `dayz-tester` (сборка → деплой →
+   сервер → сценарии → логи), возвращает отчёт PASS/FAIL с уликами.
+4. **Сам делай**: читай `botorama/docs/codeguide.md` (синтаксис Enfusion) и грузи
    скилл `dayz-ai-bot` (механика мода); ревьюй результат субагента по чеклисту
    codeguide; классифицируй ошибки (синтаксис/движок → `docs/codeguide.md`,
    механика бота → скилл `dayz-ai-bot`, API → `docs/research/`); фиксируй рефлексию

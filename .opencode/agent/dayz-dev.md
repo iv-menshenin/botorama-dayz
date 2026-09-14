@@ -4,7 +4,18 @@ mode: subagent
 model: deepseek/deepseek-v4-pro
 permission:
   edit: allow
-  bash: ask
+  bash:
+    "git *": allow
+    "mv *": allow
+    "cp *": allow
+    "mkdir *": allow
+    "grep *": allow
+    "rg *": allow
+    "find *": allow
+    "ls *": allow
+    "*": deny
+  external_directory:
+    "*": deny
 ---
 
 Ты — разработчик EnfusionScript мода `botorama` (DayZ, префикс `dm`). Получаешь
