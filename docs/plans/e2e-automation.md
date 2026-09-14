@@ -62,7 +62,8 @@ class dmE2EStep
 {
     string Op;        // ping | spawn | moveto | follow | patrol | speed | loadout |
                       // stance | look | say | wait | assert | snapshot | clearall | killall
-    string Who;       // имя бота (кем управляем)
+                      // + пробы мира: spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj
+    string Who;       // имя бота (кем управляем) / имя объекта (spawnobj/botdump)
     string Target;    // имя цели-бота (follow / distance)
     vector Pos;       // [x,y,z] мировая точка
     float Yaw;        // ориентация при спавне (градусы)
@@ -73,6 +74,12 @@ class dmE2EStep
     string Value;     // значение условия ("Follow", "true"/"false", …)
     float Tolerance;  // допуск для reached/distance (метры)
     float Timeout;    // таймаут шага (wait), секунды
+    string ClassName; // класс CfgVehicles (spawnobj)
+    vector From;      // точка A (raycast)
+    vector To;        // точка B (raycast)
+    vector Min;       // min-угол коробки (scanbox)
+    vector Max;       // max-угол коробки (scanbox)
+    string Obj;       // имя объекта (getpos/setpos/clearobj)
 }
 ```
 
@@ -97,6 +104,28 @@ class dmE2EStep
 Условия (`Cond`): `state` (имя FSM-состояния), `reached` (дистанция до `Pos` <
 `Tolerance`), `distance` (дистанция до `Target` < `Tolerance`), `alive`/`moving`
 (`Value` = `"true"/"false"`).
+
+## Пробы мира (probe-операции) — для гипотез `dayz-research`
+
+Отдельная поверхность: проверка окружения/физики, а не поведения ботов. Дамп идёт и в
+`Steps[].Dump` (result-JSON), и в RPT (домен `DM_BOT_DEBUG_E2E`). Все — мгновенные.
+
+| Op | поля | что делает | Reason |
+|---|---|---|---|
+| `spawnobj` | `Who` (имя), `ClassName`, `Pos`, `Yaw` | `GetGame().CreateObject(ClassName, SnapToGroundExactly(Pos), false)` + `SetOrientation`; регистрация в `m_Objects[Who]` | `spawned <Class>` |
+| `raycast` | `From`, `To` | снап `From`/`To` на землю + `DM_E2E_EYE_HEIGHT` (1.8м); `DayZPhysics.RaycastRVProxy` с `CollisionFlags.ALLOBJECTS`; дамп всех хитов (obj/parent/pos/dist/component) | `<N> hits` / `0 hits (clear)` |
+| `scanbox` | `Min`, `Max` | `SceneGetEntitiesInBox` **два вызова** (DYNAMIC + STATIC, т.к. `QueryFlags` — не битмаска); дамп `ent[D]`/`ent[S]` | `<N> entities` |
+| `botdump` | `Who` (имя бота) | дамп тела/движения/мозга: pos, alive/unconscious/restrained/bleeding, health/blood/shock, stamina, vel, orient, fsm, fsmIntents | `dumped` |
+| `getpos` | `Obj` | позиция + yaw объекта | — |
+| `setpos` | `Obj`, `Pos`, `Yaw` | `SetPosition(SnapToGroundExactly)` + `SetOrientation` | — |
+| `clearobj` | `Obj` (`"*"` — все) | удалить объект(ы) из мира и реестра | `cleared N` |
+
+Примечания:
+- `spawnobj`/`getpos`/`setpos`/`clearobj` работают с реестром `m_Objects`
+  (`map<string, Object>`), боты — с `m_Named`. Реестры чистятся по завершении job.
+- `raycast` с 0 хитов = чистый LOS (луч не встретил препятствие между A и B).
+- `botdump` выгружает FSM-интенты; **командные интенты пока не выгружаются** (нет
+  публичного геттера `m_CommandIntents` в `dmAISurvivor` — техдолг, добавить при нужде).
 
 ## Результат (выход) — `out/<job>.result.json`
 
@@ -124,7 +153,7 @@ class dmE2EResult
     autoptr array<ref dmE2EStepResult> Steps;
     autoptr array<ref dmE2ESnapshot> Snapshot;
 }
-class dmE2EStepResult { int Index; string Op; bool Ok; string Reason; }
+class dmE2EStepResult { int Index; string Op; bool Ok; string Reason; autoptr array<string> Dump; }
 class dmE2ESnapshot  { string Name; bool Alive; vector Pos; string State; bool Moving; }
 ```
 
@@ -172,10 +201,13 @@ class dmE2ESnapshot  { string Name; bool Alive; vector Pos; string State; bool M
    `hello-001.json` → в `out/hello-001.result.json` `Status:"ok"` + снапшот бота `A`
    (`Alive=1`, `Pos=[…]`). Реализация — `src/test/4_World/dmE2EBridge.c`,
    `src/test/5_Mission/MissionServer.c` (хук OnUpdate), `DM_E2E_*` в `test/3_Game/constants.c`.
-2. `[ ]` **Движение + follow** — `moveto`, `follow`, `speed`, `patrol` + условия
+2. `[x]` **Пробы мира** — `spawnobj`/`raycast`/`scanbox`/`botdump`/`getpos`/`setpos`/
+   `clearobj` (мгновенные, дамп в `Steps[].Dump` + RPT). Для проверки гипотез
+   `dayz-research`. `botdump` пока без командных интентов (нет геттера `m_CommandIntents`).
+3. `[ ]` **Движение + follow** — `moveto`, `follow`, `speed`, `patrol` + условия
    `state`/`reached`/`distance`/`alive`/`moving` (отложенный автомат).
-3. `[ ]` **Агентская обвязка** — скрипт «сценарий → poll результата» + tail RPT.
-4. `[ ]` Опционально: `watch` (таймсерия состояния), резолв локаций по
+4. `[ ]` **Агентская обвязка** — скрипт «сценарий → poll результата» + tail RPT.
+5. `[ ]` Опционально: `watch` (таймсерия состояния), резолв локаций по
    `dmWorldPOIRegistry`.
 
 ## Готчи, вскрытые на hello-world (см. `docs/codeguide.md`)

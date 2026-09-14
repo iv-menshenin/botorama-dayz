@@ -61,6 +61,14 @@
    for (k = 1; k < n; k++)
        div = div * 2.0;
    ```
+   **Следствие для флагов-запросов**: `QueryFlags` и `CollisionFlags` — это
+   **последовательные enum'ы, а НЕ битмаски** (`QueryFlags`: `NONE=0, STATIC=1,
+   DYNAMIC=2, ORIGIN_DISTANCE=3, ONLY_ROADWAYS=4`; `CollisionFlags`: `FIRSTCONTACT=0,
+   NEARESTCONTACT=1, ONLYSTATIC=2, ONLYDYNAMIC=3, ONLYWATER=4, ALLOBJECTS=5`).
+   Комбинировать их через `|` нельзя (даст чужой член: `STATIC|DYNAMIC` = `1|2 = 3 =
+   ORIGIN_DISTANCE`). Если нужны и статика, и динамика — **два отдельных вызова**
+   (`SceneGetEntitiesInBox(..., QueryFlags.DYNAMIC)` + `...(..., QueryFlags.STATIC)`).
+   Один флаг на вызов — эталон `dmLoot.c`/`dmRedZone.c` (DYNAMIC), `dmExplorer.c` (STATIC).
 
 ## Типы и ссылки (`ref`)
 

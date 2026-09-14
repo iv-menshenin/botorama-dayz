@@ -5,7 +5,9 @@
 //! input to e2e/done/. The bridge is inert unless the e2e/enabled marker file
 //! exists, so there is zero overhead when no agent is driving.
 //!
-//! Hello-world ops: ping | spawn | snapshot | clearall (all instantaneous).
+//! Ops: ping | spawn | snapshot | clearall (named bots) plus the world/physics
+//! probe ops spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj
+//! (named objects). All instantaneous (single-tick).
 
 //! A job (input): an id and the list of steps to run.
 class dmE2EJob
@@ -18,10 +20,16 @@ class dmE2EJob
 //! One job step (op plus per-op parameters).
 class dmE2EStep
 {
-	string Op;       // "ping" | "spawn" | "snapshot" | "clearall"
-	string Who;      // bot name (spawn)
-	vector Pos;      // [x,y,z] world position (spawn)
-	float Yaw;       // orientation in degrees (spawn)
+	string Op;        // "ping" | "spawn" | "snapshot" | "clearall" | probe op
+	string Who;       // bot name (spawn, botdump) / object name (spawnobj)
+	vector Pos;       // [x,y,z] world position (spawn, spawnobj, setpos)
+	float Yaw;        // orientation in degrees (spawn, spawnobj, setpos)
+	string ClassName; // CfgVehicles class (spawnobj)
+	vector From;      // raycast start point (world)
+	vector To;        // raycast end point (world)
+	vector Min;       // scanbox min corner (world)
+	vector Max;       // scanbox max corner (world)
+	string Obj;       // object name (getpos, setpos, clearobj)
 }
 
 //! Per-step outcome.
@@ -31,6 +39,7 @@ class dmE2EStepResult
 	string Op;
 	bool Ok;
 	string Reason;
+	ref array<string> Dump;   // probe-op dump lines (raycast/scanbox/botdump/getpos)
 }
 
 //! Snapshot of one named bot.
@@ -59,6 +68,7 @@ class dmE2EBridge
 {
 	static ref dmE2EBridge s_Instance;
 	private ref map<string, ref dmAISurvivor> m_Named;
+	private ref map<string, Object> m_Objects;
 	private float m_ScanAccum;
 
 	static dmE2EBridge Get()
@@ -71,6 +81,7 @@ class dmE2EBridge
 	void dmE2EBridge()
 	{
 		m_Named = new map<string, ref dmAISurvivor>();
+		m_Objects = new map<string, Object>();
 		m_ScanAccum = 0.0;
 	}
 
@@ -133,6 +144,7 @@ class dmE2EBridge
 			dmE2EStepResult stepResult = new dmE2EStepResult();
 			stepResult.Index = i;
 			stepResult.Op = step.Op;
+			stepResult.Dump = new array<string>();
 
 			if (step.Op == "ping")
 			{
@@ -189,6 +201,34 @@ class dmE2EBridge
 				stepResult.Ok = true;
 				stepResult.Reason = "cleared " + cleared;
 			}
+			else if (step.Op == "spawnobj")
+			{
+				RunSpawnObj(step, stepResult, result);
+			}
+			else if (step.Op == "raycast")
+			{
+				RunRaycast(step, stepResult);
+			}
+			else if (step.Op == "scanbox")
+			{
+				RunScanBox(step, stepResult);
+			}
+			else if (step.Op == "botdump")
+			{
+				RunBotDump(step, stepResult);
+			}
+			else if (step.Op == "getpos")
+			{
+				RunGetPos(step, stepResult);
+			}
+			else if (step.Op == "setpos")
+			{
+				RunSetPos(step, stepResult);
+			}
+			else if (step.Op == "clearobj")
+			{
+				RunClearObj(step, stepResult);
+			}
 			else
 			{
 				stepResult.Ok = false;
@@ -213,9 +253,282 @@ class dmE2EBridge
 		#endif
 	}
 
+	//! Drop both registries after a job: named bots and named probe objects
+	//! (objects are deleted from the world so they never leak across jobs).
 	void ClearNamed()
 	{
 		m_Named.Clear();
+		ClearObjects();
+	}
+
+	//! Delete every probe object from the world and empty the registry.
+	//! Returns the number of objects deleted.
+	private int ClearObjects()
+	{
+		TStringArray keys = m_Objects.GetKeyArray();
+		int cleared = 0;
+		int i;
+		for (i = 0; i < keys.Count(); i++)
+		{
+			Object obj;
+			if (m_Objects.Find(keys[i], obj) && obj)
+			{
+				EntityAI entity = EntityAI.Cast(obj);
+				if (entity)
+					entity.DeleteSafe();
+				cleared = cleared + 1;
+			}
+		}
+		m_Objects.Clear();
+		return cleared;
+	}
+
+	//! Spawn an arbitrary CfgVehicles object at a ground-snapped position,
+	//! registered under the step's Who name (in m_Objects, not m_Named).
+	private void RunSpawnObj(dmE2EStep step, dmE2EStepResult r, dmE2EResult result)
+	{
+		Object obj = GetGame().CreateObject(step.ClassName, SnapToGroundExactly(step.Pos), false);
+		if (obj)
+		{
+			obj.SetOrientation(Vector(step.Yaw, 0, 0));
+			m_Objects.Insert(step.Who, obj);
+			r.Ok = true;
+			r.Reason = "spawned " + step.ClassName;
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "spawn failed";
+			result.Status = "error";
+		}
+	}
+
+	//! Raycast between two eye-height points (ground-snapped, raised by
+	//! DM_E2E_EYE_HEIGHT). Every hit is dumped (obj/parent/pos/dist/component).
+	private void RunRaycast(dmE2EStep step, dmE2EStepResult r)
+	{
+		vector fromPos = SnapToGroundExactly(step.From);
+		vector toPos = SnapToGroundExactly(step.To);
+		float fromY = fromPos[1] + DM_E2E_EYE_HEIGHT;
+		float toY = toPos[1] + DM_E2E_EYE_HEIGHT;
+		fromPos[1] = fromY;
+		toPos[1] = toY;
+
+		RaycastRVParams params = new RaycastRVParams(fromPos, toPos);
+		params.flags = CollisionFlags.ALLOBJECTS;
+
+		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>();
+		DayZPhysics.RaycastRVProxy(params, hits);
+
+		int i;
+		for (i = 0; i < hits.Count(); i++)
+		{
+			RaycastRVResult hit = hits[i];
+			string objName = "null";
+			if (hit.obj)
+				objName = hit.obj.GetType();
+			string parentName = "null";
+			if (hit.parent)
+				parentName = hit.parent.GetType();
+			float dist = vector.Distance(fromPos, hit.pos);
+
+			string line = "hit: obj=" + objName + " parent=" + parentName;
+			line += " pos=" + hit.pos;
+			line += " dist=" + dist;
+			line += " component=" + hit.component;
+			r.Dump.Insert(line);
+			#ifdef DM_BOT_DEBUG_E2E
+			dmBotLog.Debug("[E2E] " + line);
+			#endif
+		}
+
+		r.Ok = true;
+		if (hits.Count() == 0)
+			r.Reason = "0 hits (clear)";
+		else
+			r.Reason = hits.Count().ToString() + " hits";
+	}
+
+	//! Scene box query (static + dynamic) with a per-entity dump line. Static
+	//! and dynamic entities are fetched in two separate calls (one flag each).
+	private void RunScanBox(dmE2EStep step, dmE2EStepResult r)
+	{
+		array<EntityAI> dynamics = new array<EntityAI>();
+		DayZPlayerUtils.SceneGetEntitiesInBox(step.Min, step.Max, dynamics, QueryFlags.DYNAMIC);
+
+		array<EntityAI> statics = new array<EntityAI>();
+		DayZPlayerUtils.SceneGetEntitiesInBox(step.Min, step.Max, statics, QueryFlags.STATIC);
+
+		int i;
+		for (i = 0; i < dynamics.Count(); i++)
+		{
+			string line = "ent[D] " + dynamics[i].GetType() + " pos=" + dynamics[i].GetPosition();
+			r.Dump.Insert(line);
+			#ifdef DM_BOT_DEBUG_E2E
+			dmBotLog.Debug("[E2E] " + line);
+			#endif
+		}
+		for (i = 0; i < statics.Count(); i++)
+		{
+			string line = "ent[S] " + statics[i].GetType() + " pos=" + statics[i].GetPosition();
+			r.Dump.Insert(line);
+			#ifdef DM_BOT_DEBUG_E2E
+			dmBotLog.Debug("[E2E] " + line);
+			#endif
+		}
+
+		r.Ok = true;
+		r.Reason = (dynamics.Count() + statics.Count()).ToString() + " entities";
+	}
+
+	//! Dump the named bot's body/motion/brain state as a set of lines.
+	private void RunBotDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		string line = "pos=" + bot.GetPosition();
+		r.Dump.Insert(line);
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] " + line);
+		#endif
+
+		line = "alive=" + pawn.IsAlive() + " unconscious=" + pawn.IsUnconscious();
+		r.Dump.Insert(line);
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] " + line);
+		#endif
+
+		line = "restrained=" + pawn.IsRestrained() + " bleeding=" + pawn.IsBleeding();
+		r.Dump.Insert(line);
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] " + line);
+		#endif
+
+		line = "health=" + pawn.GetHealth01() + " blood=" + pawn.GetHealth("", "Blood") + " shock=" + pawn.GetHealth("", "Shock");
+		r.Dump.Insert(line);
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] " + line);
+		#endif
+
+		float stamina = -1.0;
+		StaminaHandler sh = pawn.GetStaminaHandler();
+		if (sh)
+			stamina = sh.GetStaminaNormalized();
+		line = "stamina=" + stamina;
+		r.Dump.Insert(line);
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] " + line);
+		#endif
+
+		vector vel = GetVelocity(pawn);
+		line = "vel=" + vel;
+		r.Dump.Insert(line);
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] " + line);
+		#endif
+
+		line = "orient=" + bot.GetOrientation();
+		r.Dump.Insert(line);
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] " + line);
+		#endif
+
+		dmBotFSM fsm = bot.GetFSM();
+		string fsmName = "none";
+		if (fsm && fsm.GetCurrentState())
+			fsmName = fsm.GetCurrentState().GetName();
+		line = "fsm=" + fsmName;
+		r.Dump.Insert(line);
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] " + line);
+		#endif
+
+		line = "fsmIntents=" + bot.GetFSMIntents().Count();
+		r.Dump.Insert(line);
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] " + line);
+		#endif
+
+		r.Ok = true;
+		r.Reason = "dumped";
+	}
+
+	//! Report the named probe object's position and yaw.
+	private void RunGetPos(dmE2EStep step, dmE2EStepResult r)
+	{
+		Object obj;
+		if (!m_Objects.Find(step.Obj, obj) || !obj)
+		{
+			r.Ok = false;
+			r.Reason = "no such object";
+			return;
+		}
+
+		string line = "pos=" + obj.GetPosition() + " yaw=" + obj.GetOrientation()[0];
+		r.Dump.Insert(line);
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] " + line);
+		#endif
+
+		r.Ok = true;
+		r.Reason = "";
+	}
+
+	//! Reposition the named probe object (ground-snapped) and set its yaw.
+	private void RunSetPos(dmE2EStep step, dmE2EStepResult r)
+	{
+		Object obj;
+		if (!m_Objects.Find(step.Obj, obj) || !obj)
+		{
+			r.Ok = false;
+			r.Reason = "no such object";
+			return;
+		}
+
+		obj.SetPosition(SnapToGroundExactly(step.Pos));
+		obj.SetOrientation(Vector(step.Yaw, 0, 0));
+
+		r.Ok = true;
+		r.Reason = "";
+	}
+
+	//! Delete one probe object (by name) or all of them ("*" or empty).
+	private void RunClearObj(dmE2EStep step, dmE2EStepResult r)
+	{
+		int cleared = 0;
+		if (step.Obj == "*" || step.Obj == "")
+		{
+			cleared = ClearObjects();
+		}
+		else
+		{
+			Object obj;
+			if (m_Objects.Find(step.Obj, obj) && obj)
+			{
+				EntityAI entity = EntityAI.Cast(obj);
+				if (entity)
+					entity.DeleteSafe();
+				m_Objects.Remove(step.Obj);
+				cleared = 1;
+			}
+		}
+
+		r.Ok = true;
+		r.Reason = "cleared " + cleared;
 	}
 
 	//! Create the parent directory chain of a file path (mirrors dmJsonFile.EnsureDirectory,

@@ -256,3 +256,6 @@ static const string DM_E2E_ENABLED_FILE = "$profile:dmBotorama/e2e/enabled";
 
 //! Scan cadence (seconds) of the e2e/in/ directory for new jobs.
 static const float DM_E2E_SCAN_INTERVAL = 0.5;
+
+//! Eye height (meters) added to raycast endpoints after ground snap (LOS probes).
+static const float DM_E2E_EYE_HEIGHT = 1.8;
