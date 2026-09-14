@@ -10,6 +10,10 @@ permission:
     "/mnt/deep-space/Steam/steamapps/compatdata/830640/pfx/drive_c/users/steamuser/AppData/Local/Temp/**": allow
     "/home/devalio/dayz/Work/Keys/**": allow
     "/home/devalio/dayz-cherno": allow
+    "/home/devalio/.local/share/Steam/steamapps/common/DayZ/**": allow
+    "/home/devalio/.local/share/Steam/steamapps/compatdata/221100/**": allow
+    "/home/devalio/.local/share/Steam/steamapps/common/Proton Hotfix/**": allow
+    "/home/devalio/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/**": allow
     "*": deny
 ---
 
@@ -39,6 +43,9 @@ E2E-цикл автотестов и возвращаешь оркестрато
 4. **Сценарии** — положить `<job>.json` в `$profile:dmBotorama/e2e/in/` (маркер
    `e2e/enabled` уже лежит), дождаться `out/<job>.result.json`, при провале — tail RPT.
 5. **Отчёт** — PASS/FAIL по шагам, снапшоты, выдержки result/RPT → оркестратору.
+6. **Завершение (обязательно!)** — выключить сервер (`kill` все процессы `DayZServer`,
+   проверить `pgrep -f DayZServer` == пусто) и, если запускал, клиент-наблюдатель
+   (`pkill -f DayZ_x64.exe`). НИКОГДА не оставляй сервер/клиент работать после прогона.
 
 ## Клиент-наблюдатель (опционально)
 

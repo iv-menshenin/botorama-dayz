@@ -1,0 +1,8 @@
+{
+  "Name": "observer-demo",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "observe", "Pos": [4114, 0, 10824], "Yaw": 45 }
+  ]
+}

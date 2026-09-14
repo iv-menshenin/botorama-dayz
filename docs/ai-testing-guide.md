@@ -144,6 +144,9 @@ rm -rf ./profiles-cherno/*.log *.ADM *.RPT *.mdmp
 - Конфиг: `chernoDZ.cfg` (карта Чернорусь), профиль `profiles-cherno`.
 - Рестарт: `kill <pid>` → `~/dayz-cherno` (сервер перечитывает новые PBO только
   при рестарте — hot-reload отсутствует).
+- **Остановка (обязательно после прогона)**: `pkill -f DayZServer` + проверить
+  `pgrep -f DayZServer` == пусто. Сервер не оставлять работающим после тестов.
+  Если запускал клиент-наблюдателя — `pkill -f DayZ_x64.exe`.
 
 ---
 
