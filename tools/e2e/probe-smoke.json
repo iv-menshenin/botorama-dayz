@@ -8,7 +8,7 @@
     { "Op": "getpos", "Obj": "obj1" },
     { "Op": "setpos", "Obj": "obj1", "Pos": [4122, 0, 10832], "Yaw": 45 },
     { "Op": "getpos", "Obj": "obj1" },
-    { "Op": "scanbox", "Min": [4110, -5, 10820], "Max": [4130, 5, 10840] },
+    { "Op": "scanbox", "Min": [4110, 0, 10820], "Max": [4130, 0, 10840] },
     { "Op": "raycast", "From": [4117, 0, 10827], "To": [4612, 0, 9955] },
     { "Op": "clearobj", "Obj": "*" },
     { "Op": "clearall" }

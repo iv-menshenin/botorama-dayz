@@ -155,7 +155,7 @@ class dmE2EBridge
 			else if (step.Op == "spawn")
 			{
 				ref dmAISurvivor bot = new dmAISurvivor();
-				PlayerBase pawn = bot.Spawn(SnapToGroundExactly(step.Pos), Vector(step.Yaw, 0, 0));
+				PlayerBase pawn = bot.Spawn(ResolveWorldPos(step.Pos), Vector(step.Yaw, 0, 0));
 				if (pawn)
 				{
 					m_Named.Insert(step.Who, bot);
@@ -288,11 +288,19 @@ class dmE2EBridge
 		return cleared;
 	}
 
+	//! Resolve a world point: Y==0 (unspecified) -> snap to ground; else keep explicit Y.
+	private vector ResolveWorldPos(vector p)
+	{
+		if (p[1] == 0.0)
+			return SnapToGroundExactly(p);
+		return p;
+	}
+
 	//! Spawn an arbitrary CfgVehicles object at a ground-snapped position,
 	//! registered under the step's Who name (in m_Objects, not m_Named).
 	private void RunSpawnObj(dmE2EStep step, dmE2EStepResult r, dmE2EResult result)
 	{
-		Object obj = GetGame().CreateObject(step.ClassName, SnapToGroundExactly(step.Pos), false);
+		Object obj = GetGame().CreateObject(step.ClassName, ResolveWorldPos(step.Pos), false);
 		if (obj)
 		{
 			obj.SetOrientation(Vector(step.Yaw, 0, 0));
@@ -312,12 +320,18 @@ class dmE2EBridge
 	//! DM_E2E_EYE_HEIGHT). Every hit is dumped (obj/parent/pos/dist/component).
 	private void RunRaycast(dmE2EStep step, dmE2EStepResult r)
 	{
-		vector fromPos = SnapToGroundExactly(step.From);
-		vector toPos = SnapToGroundExactly(step.To);
-		float fromY = fromPos[1] + DM_E2E_EYE_HEIGHT;
-		float toY = toPos[1] + DM_E2E_EYE_HEIGHT;
-		fromPos[1] = fromY;
-		toPos[1] = toY;
+		vector fromPos = step.From;
+		vector toPos = step.To;
+		if (fromPos[1] == 0.0)
+		{
+			fromPos = SnapToGroundExactly(fromPos);
+			fromPos[1] = fromPos[1] + DM_E2E_EYE_HEIGHT;
+		}
+		if (toPos[1] == 0.0)
+		{
+			toPos = SnapToGroundExactly(toPos);
+			toPos[1] = toPos[1] + DM_E2E_EYE_HEIGHT;
+		}
 
 		RaycastRVParams params = new RaycastRVParams(fromPos, toPos);
 		params.flags = CollisionFlags.ALLOBJECTS;
@@ -359,10 +373,10 @@ class dmE2EBridge
 	private void RunScanBox(dmE2EStep step, dmE2EStepResult r)
 	{
 		array<EntityAI> dynamics = new array<EntityAI>();
-		DayZPlayerUtils.SceneGetEntitiesInBox(step.Min, step.Max, dynamics, QueryFlags.DYNAMIC);
+		DayZPlayerUtils.SceneGetEntitiesInBox(ResolveWorldPos(step.Min), ResolveWorldPos(step.Max), dynamics, QueryFlags.DYNAMIC);
 
 		array<EntityAI> statics = new array<EntityAI>();
-		DayZPlayerUtils.SceneGetEntitiesInBox(step.Min, step.Max, statics, QueryFlags.STATIC);
+		DayZPlayerUtils.SceneGetEntitiesInBox(ResolveWorldPos(step.Min), ResolveWorldPos(step.Max), statics, QueryFlags.STATIC);
 
 		int i;
 		string line;
@@ -505,7 +519,7 @@ class dmE2EBridge
 			return;
 		}
 
-		obj.SetPosition(SnapToGroundExactly(step.Pos));
+		obj.SetPosition(ResolveWorldPos(step.Pos));
 		obj.SetOrientation(Vector(step.Yaw, 0, 0));
 
 		r.Ok = true;
@@ -549,7 +563,7 @@ class dmE2EBridge
 		}
 
 		PlayerBase player = players[0];
-		player.SetPosition(SnapToGroundExactly(step.Pos));
+		player.SetPosition(ResolveWorldPos(step.Pos));
 		player.SetOrientation(Vector(step.Yaw, 0, 0));
 
 		r.Ok = true;
