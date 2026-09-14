@@ -1,9 +1,9 @@
 {
- "Version": 1,
- "Enabled": true,
- "BotsPerSettlement": 1,
- "MaxBots": 40,
- "SpawnLoadout": "SurvivorLoadout",
- "RespawnDelay": 300.0,
- "Settlements": []
+    "Version": 1,
+    "Enabled": true,
+    "BotsPerSettlement": 1,
+    "MaxBots": 40,
+    "SpawnLoadout": "SurvivorLoadout",
+    "RespawnDelay": 300.0,
+    "Settlements": []
 }
