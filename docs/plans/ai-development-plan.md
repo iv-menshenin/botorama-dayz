@@ -86,7 +86,7 @@
 ### Группа 7 — мир: POI-реестр, спавн «по городам», кочевничество
 > Реализовано v3.149–v3.157. Архитектура: `cons` (enum/константы) ← `reg` (хук House +
 > живой реестр зданий + интерьер-карта) ← `core` (бот) ← `map` (конфиг локаций + спавн).
-> Данные карты генерируются офлайн (см. `docs/research/world-poi.md` и `map/Configs/`).
+> Данные карты генерируются офлайн (см. `docs/research/world-poi.md` и `data/map/`).
 
 18. `[x]` **Рефактор: JSON-инфра в `reg`** — `core/3_Game/Config/{dmJsonFile,dmJsonConfigBase}`
     → `reg/3_Game/Config`; `reg/3_Game` в `config.cpp`. (v3.149)

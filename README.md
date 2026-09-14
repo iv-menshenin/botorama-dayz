@@ -29,9 +29,9 @@
 
 ## Модули
 
-- `cons/` — константы (game / world / mission-слои).
-- `core/` — код мода (`3_Game` / `4_World` / `5_Mission`).
-- `reg/` — `modded class`-патчи ванильных классов (`Weapon_Base`, `WeaponFire`, `PlayerBase`).
-- `loadout/` — пресеты экипировки.
-- `test/` — тестовый каркас и сценарии.
+- `src/cons/` — константы (game / world / mission-слои).
+- `src/core/` — код мода (`3_Game` / `4_World` / `5_Mission`).
+- `src/reg/` — `modded class`-патчи ванильных классов (`Weapon_Base`, `WeaponFire`, `PlayerBase`).
+- `src/loadout/` — пресеты экипировки.
+- `src/test/` — тестовый каркас и сценарии.
 - `docs/` — документация (`codeguide.md`, `combat.md`, `research/`).

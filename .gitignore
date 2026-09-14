@@ -9,4 +9,4 @@ serverLog/
 profiles/
 
 # Converted loadout presets (deployed to $profile, not part of the mod source)
-loadout/Presets/
+src/loadout/Presets/

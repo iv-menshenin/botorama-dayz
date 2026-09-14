@@ -32,12 +32,80 @@
 
 ```
 botorama/
-├── Animations/                  # кастомный animation graph (.agr, текстовый)
-│   ├── player_main.agr
-│   ├── Locomotion.agr
-│   ├── Actions.agr
-│   └── Tests.agr
-├── config.cpp                   # CfgPatches / CfgMods / CfgVehicles (defines, modules)
+├── src/                         # код мода (по одному PBO на верхнеуровневый модуль)
+│   ├── cons/                    # константы и дефайны
+│   │   ├── config.cpp           # CfgPatches / CfgMods (dmBotorama_Cons)
+│   │   ├── 3_Game/
+│   │   │   └── constants.c      # DM_BOTORAMA_VERSION (версия мода)
+│   │   ├── 4_World/
+│   │   │   ├── constants.c      # DM_* константы мира (модель, спавн, look)
+│   │   │   └── defines.c        # DM_BOT_DEBUG / DM_BOT_TRACE (документация)
+│   │   └── 5_Mission/
+│   │       └── constants.c      # DM_CHAT_* (чат-команды)
+│   ├── reg/                     # modded class-патчи ванильных классов
+│   │   ├── config.cpp           # CfgPatches / CfgMods (dmBotorama_Reg)
+│   │   ├── 3_Game/
+│   │   │   └── Config/          # JSON-конфиги (dmJsonFile/dmJsonConfigBase)
+│   │   └── 4_World/             # dmEntityRegistry/dmLiveBuildingRegistry/modded_*
+│   ├── core/                    # исполняемый код
+│   │   ├── config.cpp           # CfgPatches / CfgMods + CfgVehicles/CfgSoundShaders/CfgSoundSets
+│   │   ├── Animations/          # кастомный animation graph (.agr, текстовый)
+│   │   │   ├── player_main.agr
+│   │   │   ├── Locomotion.agr
+│   │   │   ├── Actions.agr
+│   │   │   └── Tests.agr
+│   │   ├── voices/              # голосовые реплики (.ogg)
+│   │   ├── 3_Game/
+│   │   │   ├── Logging/
+│   │   │   │   └── dmBotLog.c   # dmBotLog.Debug/Trace/LogVersion
+│   │   │   └── Profiling/       # профайлер (scope-guard + CSV-дамп)
+│   │   │       └── dmBotProfiler.c  # dmBotProfiler/dmBotSpan/dmProfEntry
+│   │   ├── 4_World/
+│   │   │   └── Entities/
+│   │   │       └── Bot/
+│   │   │           ├── dmAISurvivor.c      # контроллер (мозг бота)
+│   │   │           ├── dmAISurvivorBase.c  # пешка (PlayerBase + анимации)
+│   │   │           ├── dmTarget.c          # цель бота (ACQUIRE/DESTROY, память)
+│   │   │           ├── FSM/                # ядро FSM
+│   │   │           │   ├── dmBotFSM.c
+│   │   │           │   ├── dmBotState.c
+│   │   │           │   ├── dmBotTransition.c
+│   │   │           │   ├── dmBotCondition.c
+│   │   │           │   └── Conditions/     # условия (предикаты)
+│   │   │           ├── Intent/             # намерения (пул + арбитраж)
+│   │   │           │   ├── dmBotIntent.c
+│   │   │           │   ├── dmBotIntentPool.c
+│   │   │           │   └── dmBotIntent_*.c # HoldLook/LookAround/MoveTo/Glance/Turn
+│   │   │           ├── States/             # состояния (dmBotState_*)
+│   │   │           ├── Pathfinding/        # обёртка над navmesh-API (dmBotPathfinder)
+│   │   │           └── Presets/            # пресеты (dmBotPreset_*)
+│   │   └── 5_Mission/
+│   │       ├── MissionServer.c      # сервер: OnInit (регистрация команд), OnEvent, тикер
+│   │       └── MissionGameplay.c    # клиент: OnInit (LogVersion)
+│   ├── map/                    # конфиг локаций + спавн-менеджер
+│   │   ├── config.cpp          # CfgPatches / CfgMods (dmBotorama_Map)
+│   │   ├── 3_Game/
+│   │   │   └── Config/         # dmWorldPoiConfig/dmSpawnConfig
+│   │   ├── 4_World/
+│   │   │   └── System/         # dmWorldPOIRegistry
+│   │   └── 5_Mission/          # MissionServer + dmBotSpawnManager
+│   ├── loadout/                # loadout-ы ботов (свой компактный JSON-формат)
+│   │   ├── config.cpp          # CfgPatches / CfgMods (dmBotorama_Loadout)
+│   │   └── 4_World/
+│   │       ├── dmLoadoutConfig.c   # структуры данных (схема JSON)
+│   │       ├── dmLoadoutApplier.c  # загрузка + применение
+│   │       └── README.md           # «как это работает»
+│   └── test/                   # тестовые команды/сценарии (не «продукт»)
+│       ├── config.cpp          # CfgPatches / CfgMods (dmBotorama_Test)
+│       ├── 3_Game/             # constants.c
+│       ├── 4_World/            # dmTestSuite/dmBotTest + Commands/
+│       │   └── Commands/       # движок чат-команд (dmCommandManager/dmCommandModule)
+│       └── 5_Mission/          # "/bot ..." "/fsm ..." "/test ..." "/prof ..."
+├── data/                        # JSON-данные генератора карты (не код)
+│   └── map/
+│       ├── world_poi.json
+│       ├── buildings_interior.json
+│       └── spawn.json
 ├── fstructure.md                # этот файл — принцип размещения
 ├── loadouts.md                  # формат loadout + примеры (для пользователя)
 ├── docs/                        # документация (см. AGENTS.md)
@@ -45,84 +113,29 @@ botorama/
 │   ├── techdebt.md              # техдолг
 │   ├── plans/                   # планы (ai-development-plan, fsm-implementation-plan, …)
 │   └── research/                # research-заметки по API (perception/navigation/entityai/combat/loot)
-├── cons/                        # константы и дефайны
-│   ├── 3_Game/
-│   │   └── constants.c          # DM_BOTORAMA_VERSION (версия мода)
-│   ├── 4_World/
-│   │   ├── constants.c          # DM_* константы мира (модель, спавн, look)
-│   │   └── defines.c            # DM_BOT_DEBUG / DM_BOT_TRACE (документация)
-│   └── 5_Mission/
-│       └── constants.c          # DM_CHAT_* (чат-команды)
-└── core/                        # исполняемый код
-    ├── 3_Game/
-    │   ├── Logging/
-    │   │   └── dmBotLog.c       # dmBotLog.Debug/Trace/LogVersion
-    │   └── Config/              # JSON-конфиги (переиспользуемые, без привязки к ботам)
-    │       ├── dmJsonFile.c     # generic reader/writer + версионирование
-    │       └── dmJsonConfigBase.c # база для версионируемых конфиг-структур
-    │   └── Profiling/           # профайлер (scope-guard + CSV-дамп)
-    │       └── dmBotProfiler.c  # dmBotProfiler/dmBotSpan/dmProfEntry
-    ├── 4_World/
-    │   └── Entities/
-    │       └── Bot/
-    │           ├── dmAISurvivor.c      # контроллер (мозг бота)
-    │           ├── dmAISurvivorBase.c  # пешка (PlayerBase + анимации)
-    │           ├── dmTarget.c          # цель бота (ACQUIRE/DESTROY, память)
-    │           ├── FSM/                # ядро FSM
-    │           │   ├── dmBotFSM.c
-    │           │   ├── dmBotState.c
-    │           │   ├── dmBotTransition.c
-    │           │   ├── dmBotCondition.c
-    │           │   └── Conditions/     # условия (предикаты)
-    │           ├── Intent/             # намерения (пул + арбитраж)
-    │           │   ├── dmBotIntent.c
-    │           │   ├── dmBotIntentPool.c
-    │           │   └── dmBotIntent_*.c # HoldLook/LookAround/MoveTo/Glance/Turn
-    │           ├── States/             # состояния (dmBotState_*)
-    │           ├── Pathfinding/        # обёртка над navmesh-API (dmBotPathfinder)
-    │           └── Presets/            # пресеты (dmBotPreset_*)
-    └── 5_Mission/
-        ├── MissionServer.c      # сервер: OnInit (регистрация команд), OnEvent, тикер
-        ├── MissionGameplay.c    # клиент: OnInit (LogVersion)
-        └── Commands/            # движок чат-команд
-            ├── dmCommandManager.c   # register + delegate + утилиты
-            └── dmCommandModule.c    # базовый модуль команды
-├── loadout/                    # loadout-ы ботов (свой компактный JSON-формат)
-│   └── 4_World/
-│       ├── dmLoadoutConfig.c   # структуры данных (схема JSON)
-│       ├── dmLoadoutApplier.c  # загрузка + применение
-│       └── README.md           # «как это работает»
-test/                       # тестовые команды/сценарии (не «продукт»)
-    └── 5_Mission/
-        ├── dmCommandContext.c  # общее состояние + доменные хелперы
-        ├── dmBotCommand.c      # "/bot ..." (spawn/intent/patrol/speed/status/setX)
-        ├── dmFSMCommand.c      # "/fsm ..." (new/add/apply)
-        ├── dmTestCommand.c     # "/test ..." (сценарии)
-        ├── dmBotTest.c         # самопроверяемые тесты тела (base + runner + shock/stamina/brokenleg/death)
-        └── dmProfCommand.c     # "/prof ..." (dump/clear/start/stop)
 ```
 
 ## Правила размещения
 
-- Классы бота (`dmAI*`) → `core/4_World/Entities/Bot/`.
-- Ядро FSM (`dmBotFSM/State/Transition/Condition`) → `core/4_World/Entities/Bot/FSM/`.
-- Условия (`dmBotCondition_*`) → `core/4_World/Entities/Bot/FSM/Conditions/`.
-- Намерения (`dmBotIntent`/`dmBotIntentPool`/`dmBotIntent_*`) → `core/4_World/Entities/Bot/Intent/`.
-- Состояния (`dmBotState_*`) → `core/4_World/Entities/Bot/States/`.
-- Пресеты (`dmBotPreset_*`) → `core/4_World/Entities/Bot/Presets/`.
-- Pathfinding (`dmBotPathfinder`) → `core/4_World/Entities/Bot/Pathfinding/`.
-- Логирование (`dmBotLog`) → `core/3_Game/Logging/` (нужно и серверу, и клиенту).
-- Читатель JSON-конфигов (`dmJsonFile`/`dmJsonConfigBase`) → `core/3_Game/Config/` (переиспользуемый, не привязан к ботам).
-- Профайлер (`dmBotProfiler`) → `core/3_Game/Profiling/` (нужен серверу; грузится до world/mission, откуда он инструментируется).
-- Loadout (`dmLoadoutConfig`/`dmLoadoutApplier`) → `loadout/4_World/` (свой формат JSON; применяется к пешке бота).
-- Константы → `cons/<слой>/constants.c`.
-- Версия мода (`DM_BOTORAMA_VERSION`) → `cons/3_Game/constants.c` (используется из 3_Game; модуль грузится первым).
-- Дефайны логирования → `cons/4_World/defines.c`.
-- Миссия (`MissionServer`/`MissionGameplay`) → `core/5_Mission/`.
-- Движок чат-команд (`dmCommandManager`/`dmCommandModule`) → `core/5_Mission/Commands/`.
-- Тестовые команды/сценарии (`dmBotCommand`/`dmFSMCommand`/`dmTestCommand`, `dmCommandContext`) → `test/5_Mission/`.
-- Команда профайлера (`dmProfCommand`) → `test/5_Mission/`.
-- Графы анимаций → `Animations/`.
+- Классы бота (`dmAI*`) → `src/core/4_World/Entities/Bot/`.
+- Ядро FSM (`dmBotFSM/State/Transition/Condition`) → `src/core/4_World/Entities/Bot/FSM/`.
+- Условия (`dmBotCondition_*`) → `src/core/4_World/Entities/Bot/FSM/Conditions/`.
+- Намерения (`dmBotIntent`/`dmBotIntentPool`/`dmBotIntent_*`) → `src/core/4_World/Entities/Bot/Intent/`.
+- Состояния (`dmBotState_*`) → `src/core/4_World/Entities/Bot/States/`.
+- Пресеты (`dmBotPreset_*`) → `src/core/4_World/Entities/Bot/Presets/`.
+- Pathfinding (`dmBotPathfinder`) → `src/core/4_World/Entities/Bot/Pathfinding/`.
+- Логирование (`dmBotLog`) → `src/core/3_Game/Logging/` (нужно и серверу, и клиенту).
+- Читатель JSON-конфигов (`dmJsonFile`/`dmJsonConfigBase`) → `src/reg/3_Game/Config/` (переиспользуемый, не привязан к ботам).
+- Профайлер (`dmBotProfiler`) → `src/core/3_Game/Profiling/` (нужен серверу; грузится до world/mission, откуда он инструментируется).
+- Loadout (`dmLoadoutConfig`/`dmLoadoutApplier`) → `src/loadout/4_World/` (свой формат JSON; применяется к пешке бота).
+- Константы → `src/cons/<слой>/constants.c`.
+- Версия мода (`DM_BOTORAMA_VERSION`) → `src/cons/3_Game/constants.c` (используется из 3_Game; модуль грузится первым).
+- Дефайны логирования → `src/cons/4_World/defines.c`.
+- Миссия (`MissionServer`/`MissionGameplay`) → `src/core/5_Mission/`.
+- Движок чат-команд (`dmCommandManager`/`dmCommandModule`) → `src/test/4_World/Commands/`.
+- Тестовые команды/сценарии (`dmBotCommand`/`dmFSMCommand`/`dmTestCommand`, `dmCommandContext`) → `src/test/5_Mission/`.
+- Команда профайлера (`dmProfCommand`) → `src/test/5_Mission/`.
+- Графы анимаций → `src/core/Animations/`.
 
 При добавлении нового файла: кладём в подходящую функциональную папку своего слоя;
 новую функциональную область — в новую папку (`Entities/X`, `Logging`, `Commands`, …),
