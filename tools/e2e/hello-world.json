@@ -1,0 +1,10 @@
+{
+  "Name": "hello-world",
+  "Timeout": 60,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [11339.77, 0.0, 14391.05], "Yaw": 0.0 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}
