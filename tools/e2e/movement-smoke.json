@@ -1,0 +1,12 @@
+{
+  "Name": "movement-smoke",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "moveto", "Who": "A", "Pos": [4147, 0, 10857] },
+    { "Op": "wait", "Who": "A", "Cond": "reached", "Pos": [4147, 0, 10857], "Tolerance": 4.0, "Timeout": 40 },
+    { "Op": "assert", "Who": "A", "Cond": "alive", "Value": "true" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}
