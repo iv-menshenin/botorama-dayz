@@ -353,21 +353,16 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		CarGearboxType type = m_Car.GearboxGetType();
 		if (type == CarGearboxType.MANUAL)
 		{
-			//! Машина ВСЕГДА в передаче во время вождения: старт с места — сразу
-			//! FIRST (0..15), иначе классика «курица-яйцо» — прежняя ветка
-			//! speedAbs<2.0→NEUTRAL выбивала машину в нейтраль, а на 1-ю она
-			//! переключалась только при speedAbs>=15, которую без 1-й не набрать.
-			int targetGear = CarGear.FIRST;
+			//! На МКПП у серверного ИИ сцепление не замыкается (ваниль делает это
+			//! через HumanCommandVehicle.SetClutchState), включённая передача
+			//! замыкает трансмиссию на холостой двигатель и сопротивляется
+			//! импульсному толчку; поэтому ездим в NEUTRAL на импульсе (как
+			//! референс AutoCarMod и ванильный ActionPushCar). Переключение передач
+			//! вперёд по скорости — отложено (нужна АКПП-машина либо симуляция
+			//! индикатора).
+			int targetGear = CarGear.NEUTRAL;
 			if (m_Reverse)
 				targetGear = CarGear.REVERSE;
-			else if (speedAbs < 15.0)
-				targetGear = CarGear.FIRST;
-			else if (speedAbs < 30.0)
-				targetGear = CarGear.SECOND;
-			else if (speedAbs < 45.0)
-				targetGear = CarGear.THIRD;
-			else
-				targetGear = CarGear.FOURTH;
 
 			if (m_Car.GetCurrentGear() != targetGear)
 				m_Car.ShiftTo(targetGear);

@@ -73,8 +73,9 @@ static const float DM_DRIVE_STEER_MAX_IMPULSE = 800.0;
 //! Drive: макс. тиков в реверсе до принудительного возврата вперёд (анти-залипание).
 static const float DM_DRIVE_REVERSE_MAX_TICKS = 40.0;
 
-//! Drive: ниже этой скорости (км/ч) руль/боковой импульс не прикладывается.
-static const float DM_DRIVE_STEER_MIN_SPEED = 3.0;
+//! Drive: ниже этой скорости (км/ч) руль/боковой импульс не прикладывается
+//! (анти-джиттер на месте, но не блокирует разворот к цели на малой скорости).
+static const float DM_DRIVE_STEER_MIN_SPEED = 0.5;
 
 //! Drive: тиков застревания до переключения на реверс.
 static const float DM_DRIVE_STUCK_THRESHOLD = 50.0;
