@@ -228,7 +228,9 @@ class dmE2ESnapshot  { string Name; bool Alive; vector Pos; string State; bool M
    отложенный автомат `m_StepIndex` + таймер; `assert` — мгновенный). Проверено:
    `moveto`→`wait reached`→`assert alive`→`snapshot` — бот реально прошёл navmesh
    (PATH-лог, покадровый рост позиции), `wait` тикался ~10 с, `Moving=1`.
-4. `[ ]` **Агентская обвязка** — скрипт «сценарий → poll результата» + tail RPT.
+4. `[x]` **Агентская обвязка** — `tools/run-scenario.sh`: «сценарий → poll результата →
+   tail RPT» (атомарный деплой в `in/`, ожидание `out/<job>.result.json`, tail RPT
+   при не-ok). Один прогон сценария одной командой.
 5. `[ ]` Опционально: `watch` (таймсерия состояния), резолв локаций по
    `dmWorldPOIRegistry`.
 
