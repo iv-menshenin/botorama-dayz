@@ -437,25 +437,12 @@ class dmVision
 		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
 			return true;
 
-		bool hasLOS = false;
-		foreach(RaycastRVResult hit: hits)
-		{
-			if ( hasLOS ) continue;
-
-			Object o = hit.obj;
-			Object p = hit.parent;
-			hasLOS = hasLOS || (o == target) || (p == target); // maybe for parent we could use o.GetHierarchyRoot or something
-
-			#ifdef DM_BOT_DEBUG_VISION
-			if ( o && p )
-				dmBotLog.Debug("[Vision] Raycast (looking for " + target.GetType() + ") hit at " + hit.pos + " to " + o.GetType() + " parent=" + p.GetType() + " hasLOS=" + hasLOS);
-			if ( o && !p )
-				dmBotLog.Debug("[Vision] Raycast (looking for " + target.GetType() + ") hit at " + hit.pos + " to " + o.GetType() + " hasLOS=" + hasLOS);
-			if ( !o && p )
-				dmBotLog.Debug("[Vision] Raycast (looking for " + target.GetType() + ") hit at " + hit.pos + " to None parent=" + p.GetType() + " hasLOS=" + hasLOS);
-			#endif
-		}
-		return hasLOS;
+		//! sorted=true + NEARESTCONTACT → ближайший хит первый; для LOS важен
+		//! только он (ближайшее препятствие между глазом и целью).
+		RaycastRVResult first = hits[0];
+		Object o = first.obj;
+		Object p = first.parent;
+		return (o == target) || (p == target);
 	}
 
 	// ProbabilityOfDetection - вероятность обнаружить цель зрением

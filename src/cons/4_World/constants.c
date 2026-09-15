@@ -392,10 +392,15 @@ static const float DM_PERCEPTION_BOX_INTERVAL = 1.0;
 //! Perception: per-target LOS refresh intervals (seconds). The LOS pass runs every
 //! tick and re-checks each target at its own cadence: creatures and friendly targets
 //! are cheap to keep fresh, high-threat targets re-check fastest, low-threat slower.
+//! High-threat is deliberately 0.2 (5 Hz raycast) rather than 0.1: at 10 Hz the LOS
+//! raycast of a hostile dominated the profile (~91% CPU after Opt-1). The 200 ms
+//! slower refresh means a bot may briefly still "see" a target that just hid, but
+//! that is human-sized and the FOV-cone gate clears m_HasLOS instantly when the
+//! target leaves the cone.
 static const float DM_PERCEPTION_REFRESH_CREATURE = 0.25;
 static const float DM_PERCEPTION_REFRESH_FRIENDLY = 0.3;
 static const float DM_PERCEPTION_REFRESH_LOW_THREAT = 0.2;
-static const float DM_PERCEPTION_REFRESH_HIGH_THREAT = 0.1;
+static const float DM_PERCEPTION_REFRESH_HIGH_THREAT = 0.2;
 
 //! Target evaluation: threat (0..1) — how dangerous a sighted entity is.
 //! The player is scored low so bots don't auto-attack them by default.
