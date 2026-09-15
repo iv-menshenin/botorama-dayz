@@ -9,8 +9,8 @@
 //! shock | restrain | give | wait | assert | snapshot | clearall (named bots)
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
-//! botdump | getpos | setpos | clearobj (named objects) and observe (teleport a
-//! connected player). `wait` and `sleep`
+//! botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
+//! drive | cardump, and observe (teleport a connected player). `wait` and `sleep`
 //! are the deferred ops: they tick across frames (wait until a condition is met
 //! or its timeout expires; sleep until its timeout). Everything else executes in
 //! a single tick.
@@ -34,16 +34,17 @@ class dmE2EStep
 	autoptr array<vector> Points;  // patrol points [[x,z],...]
 	float Speed;      // preferred movement speed (1..3)
 	string Loadout;   // loadout name
-	string Cond;      // wait/assert condition: state|reached|distance|alive|moving
+	string Cond;      // wait/assert condition: state|reached|distance|alive|moving|carpos|carspeed
 	string Value;     // condition value (state name / "true"/"false" / lineId for say)
 	float Tolerance;  // reached/distance tolerance (meters)
 	float Timeout;    // wait timeout / sleep duration (seconds)
-	string ClassName; // CfgVehicles class (spawnobj)
+	string ClassName; // CfgVehicles class (spawnobj, spawncar)
+	string Wheel;     // wheel CfgVehicles class (spawncar)
 	vector From;      // raycast start point (world)
 	vector To;        // raycast end point (world)
 	vector Min;       // scanbox min corner (world)
 	vector Max;       // scanbox max corner (world)
-	string Obj;       // object name (getpos, setpos, clearobj)
+	string Obj;       // object name (getpos, setpos, clearobj, drive, cardump, carpos, carspeed)
 	int Count;        // number of bots to spawn (army)
 	string Settlement; // settlement name for the army center (optional)
 	float Radius;     // spawn scatter radius around the center (army, default 50)
@@ -417,6 +418,18 @@ class dmE2EBridge
 		else if (step.Op == "observe")
 		{
 			RunObserve(step, r);
+		}
+		else if (step.Op == "spawncar")
+		{
+			RunSpawnCar(step, r);
+		}
+		else if (step.Op == "drive")
+		{
+			RunDrive(step, r);
+		}
+		else if (step.Op == "cardump")
+		{
+			RunCarDump(step, r);
 		}
 		else
 		{
@@ -987,6 +1000,41 @@ class dmE2EBridge
 		bool alive;
 		bool mv;
 		bool result;
+		Object carObj;
+		CarScript car;
+		bool fast;
+
+		//! Car conditions operate on a named probe object (m_Objects), not a bot.
+		if (step.Cond == "carpos")
+		{
+			if (!m_Objects.Find(step.Obj, carObj) || !carObj)
+			{
+				r.Ok = false;
+				r.Reason = "no such car";
+				return false;
+			}
+			result = vector.Distance(carObj.GetPosition(), ResolveWorldPos(step.Pos)) < step.Tolerance;
+			r.Ok = result;
+			r.Reason = "";
+			return result;
+		}
+
+		if (step.Cond == "carspeed")
+		{
+			if (!m_Objects.Find(step.Obj, carObj) || !carObj)
+			{
+				r.Ok = false;
+				r.Reason = "no such car";
+				return false;
+			}
+			fast = false;
+			car = CarScript.Cast(carObj);
+			if (car)
+				fast = car.GetSpeedometerAbsolute() > step.Value.ToFloat();
+			r.Ok = fast;
+			r.Reason = "";
+			return fast;
+		}
 
 		if (!m_Named.Find(step.Who, bot))
 		{
@@ -1343,6 +1391,177 @@ class dmE2EBridge
 
 		r.Ok = false;
 		r.Reason = "no player connected";
+	}
+
+	//! "spawncar" — create a car, outfit it (wheels/battery/spark plug/radiator/
+	//! fluids) and release the brakes, registered in m_Objects under step.Who.
+	private void RunSpawnCar(dmE2EStep step, dmE2EStepResult r)
+	{
+		string cls = step.ClassName;
+		if (cls == "")
+			cls = "CivilianSedan";
+
+		string wheel = step.Wheel;
+		if (wheel == "")
+			wheel = "CivSedanWheel";
+
+		Object obj = GetGame().CreateObject(cls, ResolveWorldPos(step.Pos), false);
+		if (!obj)
+		{
+			r.Ok = false;
+			r.Reason = "spawn failed";
+			return;
+		}
+
+		CarScript car = CarScript.Cast(obj);
+		if (!car)
+		{
+			EntityAI badEntity = EntityAI.Cast(obj);
+			if (badEntity)
+				badEntity.DeleteSafe();
+			r.Ok = false;
+			r.Reason = "not a car";
+			return;
+		}
+
+		car.SetOrientation(Vector(step.Yaw, 0, 0));
+
+		int i;
+		EntityAI wheelEnt;
+		for (i = 0; i < car.WheelCount(); i++)
+		{
+			wheelEnt = car.WheelGetEntity(i);
+			if (!wheelEnt || wheelEnt.IsRuined())
+				car.GetInventory().CreateInInventory(wheel);
+		}
+
+		EntityAI battery = car.GetBattery();
+		if (!battery || battery.IsRuined())
+		{
+			EntityAI bat = car.GetInventory().CreateInInventory("CarBattery");
+			if (bat && bat.HasEnergyManager())
+				bat.GetCompEM().AddEnergy(bat.GetCompEM().GetEnergyMax());
+		}
+
+		if (!car.FindAttachmentBySlotName("SparkPlug"))
+			car.GetInventory().CreateInInventory("SparkPlug");
+
+		if (!car.FindAttachmentBySlotName("CarRadiator"))
+			car.GetInventory().CreateInInventory("CarRadiator");
+
+		car.Fill(CarFluid.FUEL, car.GetFluidCapacity(CarFluid.FUEL));
+		car.Fill(CarFluid.COOLANT, car.GetFluidCapacity(CarFluid.COOLANT));
+		car.Fill(CarFluid.OIL, car.GetFluidCapacity(CarFluid.OIL));
+		car.Fill(CarFluid.BRAKE, car.GetFluidCapacity(CarFluid.BRAKE));
+
+		car.SetHandbrake(0.0);
+		car.SetBrake(0.0);
+		car.ShiftTo(CarGear.NEUTRAL);
+
+		m_Objects.Insert(step.Who, obj);
+		r.Ok = true;
+		r.Reason = "spawned " + cls;
+	}
+
+	//! "drive" — issue a dmBotIntent_Drive: the named bot boards the named car
+	//! and drives to Pos.
+	private void RunDrive(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		Object carObj;
+		if (!m_Objects.Find(step.Obj, carObj) || !carObj)
+		{
+			r.Ok = false;
+			r.Reason = "no such car";
+			return;
+		}
+
+		Transport transport = Transport.Cast(carObj);
+		if (!transport)
+		{
+			r.Ok = false;
+			r.Reason = "not a transport";
+			return;
+		}
+
+		dmBotIntent_Drive drive = new dmBotIntent_Drive();
+		drive.m_Transport = transport;
+		drive.m_Seat = 0;
+		drive.m_Destination = ResolveWorldPos(step.Pos);
+		bot.AddCommandIntent(drive);
+
+		r.Ok = true;
+		r.Reason = "drive issued";
+	}
+
+	//! "cardump" — dump the named car's speed/gear/gearbox/RPM/steering/engine.
+	private void RunCarDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		Object obj;
+		if (!m_Objects.Find(step.Obj, obj) || !obj)
+		{
+			r.Ok = false;
+			r.Reason = "no such car";
+			return;
+		}
+
+		CarScript car = CarScript.Cast(obj);
+		if (!car)
+		{
+			r.Ok = false;
+			r.Reason = "not a car";
+			return;
+		}
+
+		string line = "pos=" + car.GetPosition();
+		AppendDump(r, line);
+
+		line = "speed=" + car.GetSpeedometerAbsolute();
+		AppendDump(r, line);
+
+		line = "gear=" + car.GetCurrentGear();
+		AppendDump(r, line);
+
+		string gearbox = "MANUAL";
+		if (car.GearboxGetType() == CarGearboxType.AUTOMATIC)
+			gearbox = "AUTOMATIC";
+		line = "gearbox=" + gearbox;
+		AppendDump(r, line);
+
+		if (car.GearboxGetType() == CarGearboxType.AUTOMATIC)
+		{
+			string mode = "D";
+			CarAutomaticGearboxMode gm = car.GearboxGetMode();
+			if (gm == CarAutomaticGearboxMode.P)
+				mode = "P";
+			else if (gm == CarAutomaticGearboxMode.R)
+				mode = "R";
+			else if (gm == CarAutomaticGearboxMode.N)
+				mode = "N";
+			else
+				mode = "D";
+			line = "gearmode=" + mode;
+			AppendDump(r, line);
+		}
+
+		line = "rpm=" + car.EngineGetRPM();
+		AppendDump(r, line);
+
+		line = "steer=" + car.GetSteering();
+		AppendDump(r, line);
+
+		line = "engine=" + car.EngineIsOn();
+		AppendDump(r, line);
+
+		r.Ok = true;
+		r.Reason = "dumped";
 	}
 
 	//! Create the parent directory chain of a file path (mirrors dmJsonFile.EnsureDirectory,
