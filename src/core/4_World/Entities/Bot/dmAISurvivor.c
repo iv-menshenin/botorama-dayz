@@ -447,8 +447,21 @@ class dmAISurvivor
 					}
 				}
 			}
+
+			//! Развязаться (с анимацией).
+			dmBotIntent_Untie untie = new dmBotIntent_Untie();
+			AddPersonalityIntent(untie);
 		}
 		m_WasRestrained = restrained;
+
+		//! Побег при явной угрозе, пока связан: MOVE-интент стартует одновременно с
+		//! развязыванием; моторику до SetRestrained(false) глушит CanAct пешки.
+		if (restrained)
+		{
+			dmTarget threat = GetHostileTarget();
+			if (threat && threat.m_Entity)
+				EscapeDanger(threat.m_Entity.GetPosition());
+		}
 
 		//! Пробуждение после нокаута: вернуть выпавшее оружие (персональный CRITICAL).
 		if (m_DroppedWeapon)

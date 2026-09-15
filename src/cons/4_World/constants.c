@@ -466,6 +466,9 @@ static const float DM_RESTRAIN_THREAT_UNCONSCIOUS = 0.35;
 //! Restrain (связывание): радиус (метры), в котором люди считаются причастными при отключке.
 static const float DM_RESTRAIN_THREAT_RADIUS = 8.0;
 
+//! Restrain (развязывание): длительность (секунды) анимации борьбы до освобождения.
+static const float DM_UNTIE_DURATION = 3.0;
+
 //! Target evaluation: attractiveness (0..1) — how interesting a target is.
 static const float DM_TARGET_ATTRACT_PLAYER = 0.1;
 static const float DM_TARGET_ATTRACT_ZOMBIE = 0.2;
