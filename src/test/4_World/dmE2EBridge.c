@@ -166,7 +166,6 @@ class dmE2EBridge
 				{
 					stepResult.Ok = false;
 					stepResult.Reason = "spawn failed";
-					result.Status = "error";
 				}
 			}
 			else if (step.Op == "snapshot")
@@ -204,7 +203,7 @@ class dmE2EBridge
 			}
 			else if (step.Op == "spawnobj")
 			{
-				RunSpawnObj(step, stepResult, result);
+				RunSpawnObj(step, stepResult);
 			}
 			else if (step.Op == "raycast")
 			{
@@ -238,7 +237,6 @@ class dmE2EBridge
 			{
 				stepResult.Ok = false;
 				stepResult.Reason = "unknown op";
-				result.Status = "error";
 			}
 
 			result.Steps.Insert(stepResult);
@@ -247,6 +245,13 @@ class dmE2EBridge
 			dmBotLog.Debug("[E2E] step " + i + " " + step.Op + " ok=" + stepResult.Ok);
 			dmBotLog.Debug("[E2E] step reason=" + stepResult.Reason);
 			#endif
+		}
+
+		int stepIdx;
+		for (stepIdx = 0; stepIdx < result.Steps.Count(); stepIdx++)
+		{
+			if (!result.Steps[stepIdx].Ok)
+				result.Status = "error";
 		}
 
 		SaveResult(result);
@@ -298,7 +303,7 @@ class dmE2EBridge
 
 	//! Spawn an arbitrary CfgVehicles object at a ground-snapped position,
 	//! registered under the step's Who name (in m_Objects, not m_Named).
-	private void RunSpawnObj(dmE2EStep step, dmE2EStepResult r, dmE2EResult result)
+	private void RunSpawnObj(dmE2EStep step, dmE2EStepResult r)
 	{
 		Object obj = GetGame().CreateObject(step.ClassName, ResolveWorldPos(step.Pos), false);
 		if (obj)
@@ -312,8 +317,16 @@ class dmE2EBridge
 		{
 			r.Ok = false;
 			r.Reason = "spawn failed";
-			result.Status = "error";
 		}
+	}
+
+	//! Append a dump line to the step result and echo it to RPT (gated).
+	private void AppendDump(dmE2EStepResult r, string line)
+	{
+		r.Dump.Insert(line);
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] " + line);
+		#endif
 	}
 
 	//! Raycast between two eye-height points (ground-snapped, raised by
@@ -355,10 +368,7 @@ class dmE2EBridge
 			line += " pos=" + hit.pos;
 			line += " dist=" + dist;
 			line += " component=" + hit.component;
-			r.Dump.Insert(line);
-			#ifdef DM_BOT_DEBUG_E2E
-			dmBotLog.Debug("[E2E] " + line);
-			#endif
+			AppendDump(r, line);
 		}
 
 		r.Ok = true;
@@ -383,18 +393,12 @@ class dmE2EBridge
 		for (i = 0; i < dynamics.Count(); i++)
 		{
 			line = "ent[D] " + dynamics[i].GetType() + " pos=" + dynamics[i].GetPosition();
-			r.Dump.Insert(line);
-			#ifdef DM_BOT_DEBUG_E2E
-			dmBotLog.Debug("[E2E] " + line);
-			#endif
+			AppendDump(r, line);
 		}
 		for (i = 0; i < statics.Count(); i++)
 		{
 			line = "ent[S] " + statics[i].GetType() + " pos=" + statics[i].GetPosition();
-			r.Dump.Insert(line);
-			#ifdef DM_BOT_DEBUG_E2E
-			dmBotLog.Debug("[E2E] " + line);
-			#endif
+			AppendDump(r, line);
 		}
 
 		r.Ok = true;
@@ -421,67 +425,40 @@ class dmE2EBridge
 		}
 
 		string line = "pos=" + bot.GetPosition();
-		r.Dump.Insert(line);
-		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] " + line);
-		#endif
+		AppendDump(r, line);
 
 		line = "alive=" + pawn.IsAlive() + " unconscious=" + pawn.IsUnconscious();
-		r.Dump.Insert(line);
-		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] " + line);
-		#endif
+		AppendDump(r, line);
 
 		line = "restrained=" + pawn.IsRestrained() + " bleeding=" + pawn.IsBleeding();
-		r.Dump.Insert(line);
-		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] " + line);
-		#endif
+		AppendDump(r, line);
 
 		line = "health=" + pawn.GetHealth01() + " blood=" + pawn.GetHealth("", "Blood") + " shock=" + pawn.GetHealth("", "Shock");
-		r.Dump.Insert(line);
-		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] " + line);
-		#endif
+		AppendDump(r, line);
 
 		float stamina = -1.0;
 		StaminaHandler sh = pawn.GetStaminaHandler();
 		if (sh)
 			stamina = sh.GetStaminaNormalized();
 		line = "stamina=" + stamina;
-		r.Dump.Insert(line);
-		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] " + line);
-		#endif
+		AppendDump(r, line);
 
 		vector vel = GetVelocity(pawn);
 		line = "vel=" + vel;
-		r.Dump.Insert(line);
-		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] " + line);
-		#endif
+		AppendDump(r, line);
 
 		line = "orient=" + bot.GetOrientation();
-		r.Dump.Insert(line);
-		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] " + line);
-		#endif
+		AppendDump(r, line);
 
 		dmBotFSM fsm = bot.GetFSM();
 		string fsmName = "none";
 		if (fsm && fsm.GetCurrentState())
 			fsmName = fsm.GetCurrentState().GetName();
 		line = "fsm=" + fsmName;
-		r.Dump.Insert(line);
-		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] " + line);
-		#endif
+		AppendDump(r, line);
 
 		line = "fsmIntents=" + bot.GetFSMIntents().Count();
-		r.Dump.Insert(line);
-		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] " + line);
-		#endif
+		AppendDump(r, line);
 
 		r.Ok = true;
 		r.Reason = "dumped";
@@ -499,10 +476,7 @@ class dmE2EBridge
 		}
 
 		string line = "pos=" + obj.GetPosition() + " yaw=" + obj.GetOrientation()[0];
-		r.Dump.Insert(line);
-		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] " + line);
-		#endif
+		AppendDump(r, line);
 
 		r.Ok = true;
 		r.Reason = "";
