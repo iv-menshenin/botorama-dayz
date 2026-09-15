@@ -92,6 +92,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 	float m_VeerTimer = 0.0;
 	float m_VeerDir = 90.0;
 	bool m_VeerSide = false;   // чередование влево/вправо
+	//! Tree collision oracle grace: until this time (GetTickTime) the oracle ignores
+	//! the lateral velocity component — the diagonal impulse of a just-finished veer
+	//! decays here instead of being read as a trunk collision.
+	float m_VeerGraceUntil = 0.0;
 
 	//! Ladder climb/descend in progress: while the UseLadder intent (EXCLUSIVE)
 	//! owns the body, MoveTo is dormant; once it finishes MoveTo re-routes (see
@@ -178,6 +182,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_VeerTimer = 0.0;
 		m_VeerDir = 90.0;
 		m_VeerSide = false;
+		m_VeerGraceUntil = 0.0;
 		m_TreeCollisionCooldown = 0.0;
 
 		m_Laddering = false;
@@ -312,7 +317,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_VeerTimer -= pDt;
 		bot.SetMove(m_VeerDir, DM_TREE_VEER_SPEED);
 		if (m_VeerTimer <= 0.0)
+		{
 			m_Veering = false;
+			m_VeerGraceUntil = GetGame().GetTickTime() + DM_TREE_ORACLE_GRACE;
+		}
 	}
 
 	//! Fall-safe: есть ли обрыв на 0.5 м впереди (по направлению к подцели).
@@ -569,7 +577,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		//! Оракул: командуем вперёд, а фактическая скорость имеет боковую составляющую —
 		//! значит бот зацепил круглое дерево и его снесло по касательной.
-		if (Math.AbsFloat(moveAngle) < DM_TREE_COLLISION_MOVE_ANGLE && GetGame().GetTickTime() > m_TreeCollisionCooldown)
+		if (Math.AbsFloat(moveAngle) < DM_TREE_COLLISION_MOVE_ANGLE && GetGame().GetTickTime() > m_TreeCollisionCooldown && GetGame().GetTickTime() > m_VeerGraceUntil)
 		{
 			dmAISurvivorBase pawnV = dmAISurvivorBase.Cast(bot.GetPawn());
 			if (pawnV)

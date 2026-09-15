@@ -145,6 +145,9 @@ static const float DM_TREE_COLLISION_FORWARD = 0.5;
 //! Collision oracle: lateral velocity component (m/s) above this counts as the bot
 //! sliding sideways — the signature of a tangential slide off a round tree trunk.
 static const float DM_TREE_COLLISION_LATERAL = 0.4;
+//! Collision oracle: seconds after a veer ends during which the oracle ignores the
+//! lateral velocity component (the veer's diagonal impulse decays here).
+static const float DM_TREE_ORACLE_GRACE = 0.5;
 
 //! Cooldown (seconds) for the climb-candidate flag from the vision probe.
 static const float DM_CLIMB_FLAG_COOLDOWN = 1.0;
