@@ -66,6 +66,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! Accumulator for the fall-safety check (throttled by DM_FALL_CHECK_INTERVAL).
 	float m_FallCheckAccum = 0.0;
 
+	//! Collision oracle (test): throttle for the "slide off a round trunk" error log —
+	//! one trunk should not spam a dozen errors over half a second.
+	float m_TreeCollisionCooldown = 0.0;
+
 	//! Proactive vision (ProbeAhead): climb/door candidates with a cooldown/timeout,
 	//! and whether walkable ground is ahead (fall safety).
 	bool m_ClimbCandidate = false;
@@ -74,6 +78,17 @@ class dmBotIntent_MoveTo : dmBotIntent
 	bool m_DoorCandidate = false;
 	float m_DoorCandidateUntil = 0.0;
 	bool m_NoGroundAhead = false;
+
+	//! Tree/bush candidate: the trunk probe hit a tree/bush ahead; consumed by the
+	//! veer (side-strafe) to walk around it instead of vaulting/climbing.
+	bool m_TreeCandidate = false;
+	float m_TreeCandidateUntil = 0.0;
+
+	//! Veer in progress: short side-strafe around a tree (body keeps facing forward).
+	bool m_Veering = false;
+	float m_VeerTimer = 0.0;
+	float m_VeerDir = 90.0;
+	bool m_VeerSide = false;   // чередование влево/вправо
 
 	//! Ladder climb/descend in progress: while the UseLadder intent (EXCLUSIVE)
 	//! owns the body, MoveTo is dormant; once it finishes MoveTo re-routes (see
@@ -153,6 +168,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_Vaulting = false;
 		m_VaultGrace = 0.0;
 
+		m_TreeCandidate = false;
+		m_TreeCandidateUntil = 0.0;
+		m_Veering = false;
+		m_VeerTimer = 0.0;
+		m_VeerDir = 90.0;
+		m_VeerSide = false;
+		m_TreeCollisionCooldown = 0.0;
+
 		m_Laddering = false;
 		m_UseLadder = null;
 
@@ -190,6 +213,25 @@ class dmBotIntent_MoveTo : dmBotIntent
 		UpdateFallSafety(bot, pDt);
 
 		if (IsFinished()) return;
+
+		if (m_Veering) { TickVeer(bot, pDt); return; }
+		float nowTree = GetGame().GetTickTime();
+		if (m_TreeCandidate && nowTree < m_TreeCandidateUntil)
+		{
+			m_TreeCandidate = false;
+			m_Veering = true;
+			m_VeerTimer = DM_TREE_VEER_TIME;
+			m_VeerDir = 90.0;
+			if (m_VeerSide)
+				m_VeerDir = -90.0;
+			m_VeerSide = !m_VeerSide;
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug("[PATH] Veer start dir=" + m_VeerDir);
+			#endif
+			TickVeer(bot, pDt);
+			return;
+		}
+
 		if (m_Recovering) { TickRecover(bot, pDt); return; }
 		if (m_Detouring)  { TickDetour(bot, pDt);  return; }
 		if (m_Vaulting)   { TickVault(bot, pDt);   return; }
@@ -256,6 +298,17 @@ class dmBotIntent_MoveTo : dmBotIntent
 		}
 
 		m_NoProgressTime = 0.0;
+	}
+
+	//! Короткий стрейф вбок (без доворота корпуса), чтобы обойти дерево. Без
+	//! SetMoveYaw/LookAtPoint — корпус не крутится, только смещение вбок. m_NoProgressTime
+	//! во время veer не обновляется (мы в отдельном бранче OnUpdate).
+	void TickVeer(dmAISurvivor bot, float pDt)
+	{
+		m_VeerTimer -= pDt;
+		bot.SetMove(m_VeerDir, DM_TREE_VEER_SPEED);
+		if (m_VeerTimer <= 0.0)
+			m_Veering = false;
 	}
 
 	//! Fall-safe: есть ли обрыв на 0.5 м впереди (по направлению к подцели).
@@ -509,6 +562,34 @@ class dmBotIntent_MoveTo : dmBotIntent
 		float bodyYaw = bot.GetOrientation()[0];
 		float moveAngle = dmAISurvivor.AngleDiff(subYaw, bodyYaw);
 		m_PathYaw = subYaw;
+
+		//! Оракул: командуем вперёд, а фактическая скорость имеет боковую составляющую —
+		//! значит бот зацепил круглое дерево и его снесло по касательной.
+		if (Math.AbsFloat(moveAngle) < DM_TREE_COLLISION_MOVE_ANGLE && GetGame().GetTickTime() > m_TreeCollisionCooldown)
+		{
+			dmAISurvivorBase pawnV = dmAISurvivorBase.Cast(bot.GetPawn());
+			if (pawnV)
+			{
+				vector vel = GetVelocity(pawnV);
+				vel[1] = 0.0;
+				vector dnorm = dir;
+				dnorm[1] = 0.0;
+				if (dnorm.Length() > 0.001)
+				{
+					dnorm.Normalize();
+					float fwd = vel[0] * dnorm[0] + vel[2] * dnorm[2];
+					if (fwd > DM_TREE_COLLISION_FORWARD)
+					{
+						float lat = Math.AbsFloat(vel[0] * dnorm[2] - vel[2] * dnorm[0]);
+						if (lat > DM_TREE_COLLISION_LATERAL)
+						{
+							dmBotLog.Error("Tree collision: pos=" + pos + " lat=" + lat);
+							m_TreeCollisionCooldown = GetGame().GetTickTime() + 1.0;
+						}
+					}
+				}
+			}
+		}
 
 		//! Body faces the movement direction (comfort policy); the head looks at the
 		//! waypoint. If a higher-priority look intent holds the body (FULL), moveAngle
@@ -781,8 +862,12 @@ class dmBotIntent_MoveTo : dmBotIntent
 		ref array<ref RaycastRVResult> lowHits = new array<ref RaycastRVResult>;
 		if (DayZPhysics.RaycastRVProxy(low, lowHits) && lowHits.Count() > 0 && lowHits[0].obj)
 		{
-			m_ClimbCandidate = true;
-			m_ClimbCandidateUntil = now + DM_CLIMB_FLAG_COOLDOWN;
+			//! Дерево/куст НЕ карабкабельно — не ставить climb-candidate.
+			if (!lowHits[0].obj.IsTree() && !lowHits[0].obj.IsBush())
+			{
+				m_ClimbCandidate = true;
+				m_ClimbCandidateUntil = now + DM_CLIMB_FLAG_COOLDOWN;
+			}
 		}
 
 		//! Toe-луч у земли: ловит низкие перегородки, которые верхние лучи пропускают.
@@ -810,6 +895,26 @@ class dmBotIntent_MoveTo : dmBotIntent
 					m_DoorCandidate = true;
 					m_DoorCandidateUntil = now + DM_DOOR_FLAG_TIMEOUT;
 				}
+			}
+		}
+
+		//! Луч ствола (низкий толстый, физическая геометрия): дерево/куст впереди —
+		//! не карабкаемся, а обходим (veer). Луч длиннее probe — нужен запас дистанции.
+		vector treeProbe = pos + dir * DM_TREE_LOOKAHEAD;
+		RaycastRVParams tree = new RaycastRVParams(pos + Vector(0.0, DM_TREE_RAY_HEIGHT, 0.0), treeProbe + Vector(0.0, DM_TREE_RAY_HEIGHT, 0.0), bot.GetPawn(), DM_TREE_RAY_RADIUS);
+		tree.type = ObjIntersectGeom;
+		tree.flags = CollisionFlags.ALLOBJECTS;
+		ref array<ref RaycastRVResult> treeHits = new array<ref RaycastRVResult>;
+		if (DayZPhysics.RaycastRVProxy(tree, treeHits) && treeHits.Count() > 0)
+		{
+			Object to = treeHits[0].obj;
+			if (to && (to.IsTree() || to.IsBush()))
+			{
+				m_TreeCandidate = true;
+				m_TreeCandidateUntil = now + DM_TREE_FLAG_TIMEOUT;
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("[PATH] Tree candidate ahead type=" + to.GetType());
+				#endif
 			}
 		}
 	}

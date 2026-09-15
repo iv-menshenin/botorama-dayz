@@ -109,6 +109,35 @@ static const float DM_MOVE_STUCK_MIN_DIST = 0.5;
 //! Proactive vision probe interval (seconds) — how often MoveTo probes ahead.
 static const float DM_MOVE_VISION_INTERVAL = 0.25;
 
+//! Tree avoidance: trunk-probe lookahead distance (meters) — how far ahead the
+//! low thick trunk ray reaches (longer than the 1 m climb/eye probe so the bot has
+//! room to veer around the trunk instead of walking into it).
+static const float DM_TREE_LOOKAHEAD = 2.5;
+//! Tree avoidance: trunk-ray height (meters) above the ground — low enough to hit
+//! the trunk, high enough to clear rocks/roots.
+static const float DM_TREE_RAY_HEIGHT = 0.4;
+//! Tree avoidance: trunk-ray radius (meters) — a thick ray so a thin trunk is not
+//! missed when the trajectory is offset from the trunk axis.
+static const float DM_TREE_RAY_RADIUS = 0.25;
+//! Tree avoidance: tree-candidate flag freshness (seconds) — how long a detected
+//! tree stays "fresh" before the veer trigger ignores it.
+static const float DM_TREE_FLAG_TIMEOUT = 0.5;
+//! Tree avoidance: veer (side-strafe) duration (seconds).
+static const float DM_TREE_VEER_TIME = 0.7;
+//! Tree avoidance: veer (side-strafe) speed (0..3).
+static const float DM_TREE_VEER_SPEED = 1.0;
+
+//! Collision oracle (test): |moveAngle| (degrees) below this counts as "commanding
+//! forward" — a larger angle means the bot is deliberately strafing/backing, not
+//! sliding off a round trunk.
+static const float DM_TREE_COLLISION_MOVE_ANGLE = 20.0;
+//! Collision oracle: forward velocity component (m/s) above this means the bot is
+//! actually moving forward (not just standing against the trunk).
+static const float DM_TREE_COLLISION_FORWARD = 0.5;
+//! Collision oracle: lateral velocity component (m/s) above this counts as the bot
+//! sliding sideways — the signature of a tangential slide off a round tree trunk.
+static const float DM_TREE_COLLISION_LATERAL = 0.4;
+
 //! Cooldown (seconds) for the climb-candidate flag from the vision probe.
 static const float DM_CLIMB_FLAG_COOLDOWN = 1.0;
 
