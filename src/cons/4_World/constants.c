@@ -45,12 +45,14 @@ static const float DM_DRIVE_MAX_SPEED_TURNING = 30.0;
 static const float DM_DRIVE_TURN_ANGLE_THRESHOLD = 0.05;
 
 //! Drive: усиление толчка (импульс за км/ч ошибки скорости; единицы импульса
-//! dBodyApplyImpulseAt, НЕ м/с). Значение подобрано эмпирически (~1.5×50 ≈ 75 на
-//! полном газу при цели 50 км/ч).
-static const float DM_DRIVE_SPEED_KP = 1.5;
+//! dBodyApplyImpulseAt, НЕ м/с). Калибровочное стартовое значение (2.0×50 ≈ 100
+//! на полном газу при цели 50 км/ч). Сопротивления нативного газа больше нет —
+//! толчок в точке двигателя работает на референсном масштабе.
+static const float DM_DRIVE_SPEED_KP = 2.0;
 
-//! Drive: кап толчка (единицы импульса dBodyApplyImpulseAt, НЕ м/с; эмпирически).
-static const float DM_DRIVE_SPEED_MAX_IMPULSE = 100.0;
+//! Drive: кап толчка (единицы импульса dBodyApplyImpulseAt, НЕ м/с). Калибровочное
+//! стартовое значение; тормоз/руль (150/800) оставляем.
+static const float DM_DRIVE_SPEED_MAX_IMPULSE = 150.0;
 
 //! Drive: усиление торможения (импульс за км/ч ошибки; единицы импульса
 //! dBodyApplyImpulseAt, НЕ м/с). Подобрано эмпирически.
