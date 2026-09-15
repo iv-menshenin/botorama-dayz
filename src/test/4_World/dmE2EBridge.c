@@ -1,30 +1,40 @@
-//! dmE2EBridge — file bridge for E2E auto-tests (hello-world, phase 1).
+//! dmE2EBridge — file bridge for E2E auto-tests (phase 3: movement + deferred automaton).
 //!
 //! An AI agent drops a JSON job into $profile:dmBotorama/e2e/in/, the bridge
 //! executes it on the server and writes the result to e2e/out/, then moves the
 //! input to e2e/done/. The bridge is inert unless the e2e/enabled marker file
 //! exists, so there is zero overhead when no agent is driving.
 //!
-//! Ops: ping | spawn | snapshot | clearall (named bots) plus the world/physics
-//! probe ops spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj
-//! (named objects) and observe (teleport a connected player). All instantaneous
-//! (single-tick).
+//! Ops: ping | spawn | moveto | follow | patrol | speed | loadout | look | say |
+//! wait | assert | snapshot | clearall (named bots) plus the world/physics probe
+//! ops spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj
+//! (named objects) and observe (teleport a connected player). `wait` is the only
+//! deferred op: it ticks across frames until its condition is met or its timeout
+//! expires. Everything else executes in a single tick.
 
 //! A job (input): an id and the list of steps to run.
 class dmE2EJob
 {
 	string Name;     // job id (= file name)
-	float Timeout;   // overall timeout (unused in hello-world, but read)
+	float Timeout;   // overall timeout (seconds); 0 = none
 	autoptr array<ref dmE2EStep> Steps;
 }
 
 //! One job step (op plus per-op parameters).
 class dmE2EStep
 {
-	string Op;        // "ping" | "spawn" | "snapshot" | "clearall" | probe op
-	string Who;       // bot name (spawn, botdump) / object name (spawnobj)
-	vector Pos;       // [x,y,z] world position (spawn, spawnobj, setpos)
+	string Op;        // "ping" | "spawn" | "moveto" | "follow" | "patrol" | ...
+	string Who;       // bot name (spawn, moveto, ...) / object name (spawnobj)
+	string Target;    // target bot name (follow, distance, look)
+	vector Pos;       // [x,y,z] world position (spawn, moveto, reached, look, ...)
 	float Yaw;        // orientation in degrees (spawn, spawnobj, setpos)
+	autoptr array<vector> Points;  // patrol points [[x,z],...]
+	float Speed;      // preferred movement speed (1..3)
+	string Loadout;   // loadout name
+	string Cond;      // wait/assert condition: state|reached|distance|alive|moving
+	string Value;     // condition value (state name / "true"/"false" / lineId for say)
+	float Tolerance;  // reached/distance tolerance (meters)
+	float Timeout;    // wait step timeout (seconds)
 	string ClassName; // CfgVehicles class (spawnobj)
 	vector From;      // raycast start point (world)
 	vector To;        // raycast end point (world)
@@ -57,20 +67,29 @@ class dmE2ESnapshot
 class dmE2EResult
 {
 	string Name;
-	string Status;   // "ok" | "error"
+	string Status;   // "ok" | "error" | "timeout"
 	string Error;
 	ref array<ref dmE2EStepResult> Steps;
 	ref array<ref dmE2ESnapshot> Snapshot;
 }
 
-//! Singleton executor: scans e2e/in/*.json and runs one job per tick.
-//! Ticked from MissionServer.OnUpdate.
+//! Singleton executor: scans e2e/in/*.json and runs one job at a time. A job is
+//! advanced across ticks (deferred `wait` automaton); each tick either advances
+//! the current step or stays on it. Ticked from MissionServer.OnUpdate.
 class dmE2EBridge
 {
 	static ref dmE2EBridge s_Instance;
 	private ref map<string, ref dmAISurvivor> m_Named;
 	private ref map<string, Object> m_Objects;
 	private float m_ScanAccum;
+
+	private ref dmE2EJob m_Job;         // active job (null = idle, scanning)
+	private ref dmE2EResult m_Result;   // accumulating result
+	private string m_JobPath;           // input path (for done/)
+	private string m_JobFileName;       // input file name
+	private int m_StepIndex;            // next step to run
+	private float m_JobTimer;           // elapsed time of the whole job
+	private float m_WaitTimer;          // elapsed time of the current wait step
 
 	static dmE2EBridge Get()
 	{
@@ -84,12 +103,32 @@ class dmE2EBridge
 		m_Named = new map<string, ref dmAISurvivor>();
 		m_Objects = new map<string, Object>();
 		m_ScanAccum = 0.0;
+		m_Job = null;
+		m_Result = null;
+		m_JobPath = "";
+		m_JobFileName = "";
+		m_StepIndex = 0;
+		m_JobTimer = 0.0;
+		m_WaitTimer = 0.0;
 	}
 
 	void Tick(float dt)
 	{
 		if (!FileExist(DM_E2E_ENABLED_FILE))
 			return;
+
+		if (m_Job != null)
+		{
+			m_JobTimer = m_JobTimer + dt;
+			if (m_Job.Timeout > 0.0 && m_JobTimer > m_Job.Timeout)
+			{
+				m_Result.Status = "timeout";
+				FinalizeJob();
+				return;
+			}
+			AdvanceStep(dt);
+			return;
+		}
 
 		m_ScanAccum += dt;
 		if (m_ScanAccum < DM_E2E_SCAN_INTERVAL)
@@ -103,11 +142,13 @@ class dmE2EBridge
 		FileAttr fileAttr;
 		FindFileHandle handle = FindFile(DM_E2E_IN_DIR + "/*.json", fileName, fileAttr, FindFileFlags.DIRECTORIES);
 		if (fileName != "")
-			RunJob(DM_E2E_IN_DIR + "/" + fileName, fileName);
+			StartJob(DM_E2E_IN_DIR + "/" + fileName, fileName);
 		CloseFindFile(handle);
 	}
 
-	void RunJob(string jobPath, string fileName)
+	//! Load the job file and initialize the deferred automaton state. On load
+	//! failure the input is immediately failed and moved to done/ (as before).
+	private void StartJob(string jobPath, string fileName)
 	{
 		#ifdef DM_BOT_DEBUG_E2E
 		dmBotLog.Debug("[E2E] job picked up: " + fileName);
@@ -127,139 +168,517 @@ class dmE2EBridge
 			failResult.Error = loadError;
 			SaveResult(failResult);
 			MoveToDone(jobPath, fileName);
+			m_Job = null;
 			return;
 		}
 
-		dmE2EResult result = new dmE2EResult();
-		result.Steps = new array<ref dmE2EStepResult>();
-		result.Snapshot = new array<ref dmE2ESnapshot>();
-		result.Name = job.Name;
-		if (result.Name == "")
-			result.Name = BaseName(fileName);
-		result.Status = "ok";
+		m_Job = job;
+		m_JobPath = jobPath;
+		m_JobFileName = fileName;
+
+		m_Result = new dmE2EResult();
+		m_Result.Steps = new array<ref dmE2EStepResult>();
+		m_Result.Snapshot = new array<ref dmE2ESnapshot>();
+		m_Result.Name = m_Job.Name;
+		if (m_Result.Name == "")
+			m_Result.Name = BaseName(fileName);
+		m_Result.Status = "ok";
+
+		m_StepIndex = 0;
+		m_JobTimer = 0.0;
+		m_WaitTimer = 0.0;
+	}
+
+	//! Advance the automaton one step (or stay on the current wait step).
+	private void AdvanceStep(float dt)
+	{
+		if (m_StepIndex >= m_Job.Steps.Count())
+		{
+			FinalizeJob();
+			return;
+		}
+
+		dmE2EStep step = m_Job.Steps[m_StepIndex];
+
+		if (step.Op == "wait")
+		{
+			m_WaitTimer = m_WaitTimer + dt;
+
+			dmE2EStepResult waitResult = new dmE2EStepResult();
+			waitResult.Index = m_StepIndex;
+			waitResult.Op = step.Op;
+			waitResult.Dump = new array<string>();
+
+			bool done = false;
+			if (EvaluateCondition(step, waitResult))
+			{
+				waitResult.Ok = true;
+				waitResult.Reason = "condition met";
+				done = true;
+			}
+			else if (step.Timeout > 0.0 && m_WaitTimer >= step.Timeout)
+			{
+				waitResult.Ok = false;
+				waitResult.Reason = "timeout";
+				done = true;
+			}
+
+			if (done)
+			{
+				m_Result.Steps.Insert(waitResult);
+				m_WaitTimer = 0.0;
+				m_StepIndex = m_StepIndex + 1;
+				LogStep(waitResult);
+			}
+			return;
+		}
+
+		dmE2EStepResult stepResult = new dmE2EStepResult();
+		stepResult.Index = m_StepIndex;
+		stepResult.Op = step.Op;
+		stepResult.Dump = new array<string>();
+		RunInstantOp(step, stepResult);
+		m_Result.Steps.Insert(stepResult);
+		m_StepIndex = m_StepIndex + 1;
+		LogStep(stepResult);
+	}
+
+	//! Finish the active job: fold step outcomes into the final status, persist
+	//! the result, move the input to done/ and reset the automaton.
+	private void FinalizeJob()
+	{
+		if (m_Result.Status != "timeout")
+			m_Result.Status = "ok";
 
 		int i;
-		for (i = 0; i < job.Steps.Count(); i++)
+		for (i = 0; i < m_Result.Steps.Count(); i++)
 		{
-			dmE2EStep step = job.Steps[i];
-			dmE2EStepResult stepResult = new dmE2EStepResult();
-			stepResult.Index = i;
-			stepResult.Op = step.Op;
-			stepResult.Dump = new array<string>();
-
-			if (step.Op == "ping")
+			if (!m_Result.Steps[i].Ok)
 			{
-				stepResult.Ok = true;
-				stepResult.Reason = "";
+				m_Result.Status = "error";
+				break;
 			}
-			else if (step.Op == "spawn")
-			{
-				ref dmAISurvivor bot = new dmAISurvivor();
-				PlayerBase pawn = bot.Spawn(ResolveWorldPos(step.Pos), Vector(step.Yaw, 0, 0));
-				if (pawn)
-				{
-					m_Named.Insert(step.Who, bot);
-					stepResult.Ok = true;
-					stepResult.Reason = "spawned";
-				}
-				else
-				{
-					stepResult.Ok = false;
-					stepResult.Reason = "spawn failed";
-				}
-			}
-			else if (step.Op == "snapshot")
-			{
-				TStringArray names = m_Named.GetKeyArray();
-				int j;
-				for (j = 0; j < names.Count(); j++)
-				{
-					dmAISurvivor snapBot;
-					if (!m_Named.Find(names[j], snapBot))
-						continue;
-
-					dmE2ESnapshot snap = new dmE2ESnapshot();
-					snap.Name = names[j];
-					snap.Pos = snapBot.GetPosition();
-					if (snapBot.GetPawn() && snapBot.GetPawn().IsAlive())
-						snap.Alive = true;
-					else
-						snap.Alive = false;
-					dmBotFSM fsm = snapBot.GetFSM();
-					if (fsm && fsm.GetCurrentState())
-						snap.State = fsm.GetCurrentState().GetName();
-					snap.Moving = false;
-					result.Snapshot.Insert(snap);
-				}
-				stepResult.Ok = true;
-				stepResult.Reason = "";
-			}
-			else if (step.Op == "clearall")
-			{
-				int cleared = dmAISurvivor.ClearAll();
-				m_Named.Clear();
-				stepResult.Ok = true;
-				stepResult.Reason = "cleared " + cleared;
-			}
-			else if (step.Op == "spawnobj")
-			{
-				RunSpawnObj(step, stepResult);
-			}
-			else if (step.Op == "raycast")
-			{
-				RunRaycast(step, stepResult);
-			}
-			else if (step.Op == "scanbox")
-			{
-				RunScanBox(step, stepResult);
-			}
-			else if (step.Op == "botdump")
-			{
-				RunBotDump(step, stepResult);
-			}
-			else if (step.Op == "getpos")
-			{
-				RunGetPos(step, stepResult);
-			}
-			else if (step.Op == "setpos")
-			{
-				RunSetPos(step, stepResult);
-			}
-			else if (step.Op == "clearobj")
-			{
-				RunClearObj(step, stepResult);
-			}
-			else if (step.Op == "observe")
-			{
-				RunObserve(step, stepResult);
-			}
-			else
-			{
-				stepResult.Ok = false;
-				stepResult.Reason = "unknown op";
-			}
-
-			result.Steps.Insert(stepResult);
-
-			#ifdef DM_BOT_DEBUG_E2E
-			dmBotLog.Debug("[E2E] step " + i + " " + step.Op + " ok=" + stepResult.Ok);
-			dmBotLog.Debug("[E2E] step reason=" + stepResult.Reason);
-			#endif
 		}
 
-		int stepIdx;
-		for (stepIdx = 0; stepIdx < result.Steps.Count(); stepIdx++)
-		{
-			if (!result.Steps[stepIdx].Ok)
-				result.Status = "error";
-		}
-
-		SaveResult(result);
-		MoveToDone(jobPath, fileName);
+		SaveResult(m_Result);
+		MoveToDone(m_JobPath, m_JobFileName);
 		ClearNamed();
 
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] job done: " + result.Name + " status=" + result.Status);
+		dmBotLog.Debug("[E2E] job done: " + m_Result.Name + " status=" + m_Result.Status);
+		#endif
+
+		m_Job = null;
+		m_Result = null;
+		m_JobPath = "";
+		m_JobFileName = "";
+		m_StepIndex = 0;
+		m_JobTimer = 0.0;
+		m_WaitTimer = 0.0;
+	}
+
+	//! Dispatch a single-tick op to its runner.
+	private void RunInstantOp(dmE2EStep step, dmE2EStepResult r)
+	{
+		if (step.Op == "ping")
+		{
+			r.Ok = true;
+			r.Reason = "";
+		}
+		else if (step.Op == "spawn")
+		{
+			RunSpawn(step, r);
+		}
+		else if (step.Op == "moveto")
+		{
+			RunMoveTo(step, r);
+		}
+		else if (step.Op == "follow")
+		{
+			RunFollow(step, r);
+		}
+		else if (step.Op == "patrol")
+		{
+			RunPatrol(step, r);
+		}
+		else if (step.Op == "speed")
+		{
+			RunSpeed(step, r);
+		}
+		else if (step.Op == "loadout")
+		{
+			RunLoadout(step, r);
+		}
+		else if (step.Op == "look")
+		{
+			RunLook(step, r);
+		}
+		else if (step.Op == "say")
+		{
+			RunSay(step, r);
+		}
+		else if (step.Op == "assert")
+		{
+			RunAssert(step, r);
+		}
+		else if (step.Op == "snapshot")
+		{
+			RunSnapshot(step, r);
+		}
+		else if (step.Op == "clearall")
+		{
+			RunClearAll(step, r);
+		}
+		else if (step.Op == "spawnobj")
+		{
+			RunSpawnObj(step, r);
+		}
+		else if (step.Op == "raycast")
+		{
+			RunRaycast(step, r);
+		}
+		else if (step.Op == "scanbox")
+		{
+			RunScanBox(step, r);
+		}
+		else if (step.Op == "botdump")
+		{
+			RunBotDump(step, r);
+		}
+		else if (step.Op == "getpos")
+		{
+			RunGetPos(step, r);
+		}
+		else if (step.Op == "setpos")
+		{
+			RunSetPos(step, r);
+		}
+		else if (step.Op == "clearobj")
+		{
+			RunClearObj(step, r);
+		}
+		else if (step.Op == "observe")
+		{
+			RunObserve(step, r);
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "unknown op";
+		}
+	}
+
+	//! "spawn" — create a named bot at a ground-snapped position.
+	private void RunSpawn(dmE2EStep step, dmE2EStepResult r)
+	{
+		ref dmAISurvivor bot = new dmAISurvivor();
+		PlayerBase pawn = bot.Spawn(ResolveWorldPos(step.Pos), Vector(step.Yaw, 0, 0));
+		if (pawn)
+		{
+			m_Named.Insert(step.Who, bot);
+			r.Ok = true;
+			r.Reason = "spawned";
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "spawn failed";
+		}
+	}
+
+	//! "moveto" — issue a critical MoveTo command intent toward Pos.
+	private void RunMoveTo(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmBotIntent_MoveTo move = new dmBotIntent_MoveTo();
+		move.m_Goal = ResolveWorldPos(step.Pos);
+		move.m_Priority = dmBotIntentPriority.CRITICAL;
+		move.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+		move.m_Deadline = DM_E2E_MOVE_DEADLINE;
+		bot.AddCommandIntent(move);
+
+		r.Ok = true;
+		r.Reason = "moveto issued";
+	}
+
+	//! "follow" — make the bot escort the named target bot.
+	private void RunFollow(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivor target;
+		if (!m_Named.Find(step.Target, target))
+		{
+			r.Ok = false;
+			r.Reason = "no such target";
+			return;
+		}
+
+		bot.SetFollowTarget(target.GetPawn());
+		bot.ClearFSMIntents();
+		bot.SetFSM(dmBotPreset_Escort.Create(bot));
+
+		r.Ok = true;
+		r.Reason = "follow issued";
+	}
+
+	//! "patrol" — replace the bot's patrol points with the step's Points.
+	private void RunPatrol(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		bot.ClearPatrolPoints();
+		int i;
+		for (i = 0; i < step.Points.Count(); i++)
+			bot.AddPatrolPoint(ResolveWorldPos(step.Points[i]));
+
+		r.Ok = true;
+		r.Reason = "patrol issued";
+	}
+
+	//! "speed" — set the bot's preferred movement speed.
+	private void RunSpeed(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		bot.SetPreferredSpeed(step.Speed);
+
+		r.Ok = true;
+		r.Reason = "speed issued";
+	}
+
+	//! "loadout" — load a loadout by name and apply it to the bot's pawn.
+	private void RunLoadout(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmLoadoutConfig cfg = dmLoadoutApplier.Load(step.Loadout);
+		if (cfg)
+		{
+			dmLoadoutApplier.Apply(bot.GetPawn(), cfg);
+			r.Ok = true;
+			r.Reason = "loadout issued";
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "loadout not found";
+		}
+	}
+
+	//! "look" — issue a critical HoldLook intent at the target bot (or Pos).
+	private void RunLook(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmBotIntent_HoldLook look = new dmBotIntent_HoldLook();
+		look.m_Turn = dmBotLookTurn.FULL;
+		look.m_Priority = dmBotIntentPriority.CRITICAL;
+		look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+		look.m_Deadline = DM_E2E_MOVE_DEADLINE;
+
+		dmAISurvivor target;
+		if (m_Named.Find(step.Target, target))
+			look.m_Entity = target.GetPawn();
+		else
+			look.m_Point = ResolveWorldPos(step.Pos);
+
+		bot.AddCommandIntent(look);
+
+		r.Ok = true;
+		r.Reason = "look issued";
+	}
+
+	//! "say" — make the bot speak the voice line identified by Value (lineId).
+	private void RunSay(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (pawn)
+			pawn.SpeakLine(step.Value.ToInt());
+
+		r.Ok = true;
+		r.Reason = "say issued";
+	}
+
+	//! "assert" — instantaneous condition check; Ok = condition result.
+	private void RunAssert(dmE2EStep step, dmE2EStepResult r)
+	{
+		bool ok = EvaluateCondition(step, r);
+		if (ok)
+			r.Reason = "condition met";
+		else if (r.Reason == "")
+			r.Reason = "condition not met";
+	}
+
+	//! "snapshot" — record every named bot's state (alive/pos/state/moving).
+	private void RunSnapshot(dmE2EStep step, dmE2EStepResult r)
+	{
+		TStringArray names = m_Named.GetKeyArray();
+		int j;
+		for (j = 0; j < names.Count(); j++)
+		{
+			dmAISurvivor snapBot;
+			if (!m_Named.Find(names[j], snapBot))
+				continue;
+
+			dmE2ESnapshot snap = new dmE2ESnapshot();
+			snap.Name = names[j];
+			snap.Pos = snapBot.GetPosition();
+			if (snapBot.GetPawn() && snapBot.GetPawn().IsAlive())
+				snap.Alive = true;
+			else
+				snap.Alive = false;
+
+			dmBotFSM fsm = snapBot.GetFSM();
+			if (fsm && fsm.GetCurrentState())
+				snap.State = fsm.GetCurrentState().GetName();
+
+			snap.Moving = false;
+			PlayerBase snapPawn = snapBot.GetPawn();
+			if (snapPawn)
+			{
+				vector vel = GetVelocity(snapPawn);
+				if (vector.Distance(vel, vector.Zero) > DM_E2E_MOVING_THRESHOLD)
+					snap.Moving = true;
+			}
+
+			m_Result.Snapshot.Insert(snap);
+		}
+		r.Ok = true;
+		r.Reason = "";
+	}
+
+	//! "clearall" — remove every spawned bot and empty the named registry.
+	private void RunClearAll(dmE2EStep step, dmE2EStepResult r)
+	{
+		int cleared = dmAISurvivor.ClearAll();
+		m_Named.Clear();
+		r.Ok = true;
+		r.Reason = "cleared " + cleared;
+	}
+
+	//! Evaluate a wait/assert condition for the bot named by step.Who. Returns
+	//! true when the condition holds; fills r.Ok/r.Reason (used by both wait and
+	//! assert).
+	private bool EvaluateCondition(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		dmAISurvivor target;
+		dmBotFSM fsm;
+		PlayerBase pawn;
+		vector vel;
+		bool want;
+		bool alive;
+		bool mv;
+		bool result;
+
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return false;
+		}
+
+		result = false;
+
+		if (step.Cond == "state")
+		{
+			fsm = bot.GetFSM();
+			if (fsm && fsm.GetCurrentState() && fsm.GetCurrentState().GetName() == step.Value)
+				result = true;
+		}
+		else if (step.Cond == "reached")
+		{
+			if (vector.Distance(bot.GetPosition(), ResolveWorldPos(step.Pos)) < step.Tolerance)
+				result = true;
+		}
+		else if (step.Cond == "distance")
+		{
+			if (m_Named.Find(step.Target, target))
+			{
+				if (vector.Distance(bot.GetPosition(), target.GetPosition()) < step.Tolerance)
+					result = true;
+			}
+		}
+		else if (step.Cond == "alive")
+		{
+			want = step.Value == "true";
+			alive = false;
+			pawn = bot.GetPawn();
+			if (pawn && pawn.IsAlive())
+				alive = true;
+			if (alive == want)
+				result = true;
+		}
+		else if (step.Cond == "moving")
+		{
+			want = step.Value == "true";
+			vel = vector.Zero;
+			pawn = bot.GetPawn();
+			if (pawn)
+				vel = GetVelocity(pawn);
+			mv = vector.Distance(vel, vector.Zero) > DM_E2E_MOVING_THRESHOLD;
+			if (mv == want)
+				result = true;
+		}
+
+		r.Ok = result;
+		if (result)
+			r.Reason = "";
+		return result;
+	}
+
+	//! Echo a completed step to RPT (gated).
+	private void LogStep(dmE2EStepResult r)
+	{
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] step " + r.Index + " " + r.Op + " ok=" + r.Ok);
+		dmBotLog.Debug("[E2E] step reason=" + r.Reason);
 		#endif
 	}
 

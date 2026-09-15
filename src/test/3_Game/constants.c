@@ -259,3 +259,9 @@ static const float DM_E2E_SCAN_INTERVAL = 0.5;
 
 //! Eye height (meters) added to raycast endpoints after ground snap (LOS probes).
 static const float DM_E2E_EYE_HEIGHT = 1.8;
+
+//! E2E: deadline (seconds) for movement/look intents.
+static const float DM_E2E_MOVE_DEADLINE = 300.0;
+
+//! E2E: velocity threshold (m/s) above which a bot counts as "moving".
+static const float DM_E2E_MOVING_THRESHOLD = 0.5;
