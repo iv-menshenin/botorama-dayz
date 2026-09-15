@@ -1170,6 +1170,22 @@ class dmAISurvivorBase : PlayerBase
 				m_ShouldBeUnconscious = true;
 				StartCommand_Unconscious(0);
 
+				//! Серверная часть OnUnconsciousStart (ваниль гейтит INSTANCETYPE_SERVER/CLIENT — для AI_SERVER руками):
+				m_IsUnconscious = true;
+				SetSynchDirty();
+				if (GetMeleeFightLogic()) GetMeleeFightLogic().SetBlock(false);
+				SetMasterAttenuation("UnconsciousAttenuation");
+
+				//! Дроп предмета из рук + запоминание (ваниль дропает только на CLIENT-ветке).
+				EntityAI inHands = GetItemInHands();
+				if (inHands)
+				{
+					dmAISurvivor brain = dmAISurvivor.Find(this);
+					if (brain)
+						brain.SetDroppedWeapon(inHands);   //! запомнить для «вернуть оружие»
+					DropItem(ItemBase.Cast(inHands));
+				}
+
 				#ifdef DM_BOT_DEBUG_BODY
 				dmBotLog.Debug("UnconsciousBridge: shock=" + shock + " -> StartCommand_Unconscious(0)");
 				#endif
@@ -1182,6 +1198,11 @@ class dmAISurvivorBase : PlayerBase
 			if (hcu)
 			{
 				hcu.WakeUp(DayZPlayerConstants.STANCEIDX_PRONE);
+
+				//! Серверная часть OnUnconsciousStop (ваниль гейтит INSTANCETYPE_SERVER/CLIENT — для AI_SERVER руками):
+				m_IsUnconscious = false;
+				SetSynchDirty();
+				SetMasterAttenuation("");
 
 				#ifdef DM_BOT_DEBUG_BODY
 				dmBotLog.Debug("UnconsciousBridge: shock=" + shock + " -> WakeUp");

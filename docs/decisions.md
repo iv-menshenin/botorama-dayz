@@ -97,3 +97,13 @@ override глушил его только для `COMMANDID_MOVE`. Расшир�
 угла в `HitTo` отсекала удары → «бегающий болван» (stall).
 Действует пока: не исчерпан остаточный спин (~267°, редкий 1/288 ударов) — по эмпирике он от
 самой MELEE2-анимации (root motion), а не от HeadingModel/ApplyBodyTurn (см. techdebt).
+
+### body: «настоящий» нокаут/связывание — точечные правки, а не action-manager
+Решение: чинить нокаут/связывание/развязывание точечно (`m_IsUnconscious` + серверный дроп +
+modded `CanBeRestrained()` + свой restrainer-хук), а НЕ давать боту action-manager (как
+Expansion `eAIActionManager`).
+Почему: action-manager — крупный архитектурный сдвиг (и заодно чинит CPR/лут/связать), но
+рискован и избыточен для текущего скоупа; CPR/лут гейтятся только `IsUnconscious()` (net-var),
+а связывание — `CanBeRestrained()` (`GetActionManager()!=null`), что закрывается точечно.
+Действует пока: не появится потребность в массовых ванильных action'ах для бота (тогда
+пересмотреть в пользу action-manager).

@@ -122,6 +122,10 @@ class dmAISurvivor
 	//! state to log when the bot stays in reach without striking.
 	private float m_LastMeleeStrikeTime = 0.0;
 
+	//! Оружие, выпавшее из рук при нокауте. Хранится, чтобы будущий интент
+	//! dmBotIntent_RetrieveWeapon мог подобрать его обратно. null — ничего не выпадало.
+	private EntityAI m_DroppedWeapon;
+
 	private bool m_IsInCombat= false;
 
 	void dmAISurvivor()
@@ -963,6 +967,21 @@ class dmAISurvivor
 	void SetLastMeleeStrikeTime(float time)
 	{
 		m_LastMeleeStrikeTime = time;
+	}
+
+	//------------------------------------------------------------------
+	// Dropped weapon (knockout)
+	//------------------------------------------------------------------
+
+	//! Запомнить оружие, выпавшее из рук при нокауте (ставит UpdateUnconsciousBridge).
+	void SetDroppedWeapon(EntityAI item)
+	{
+		m_DroppedWeapon = item;
+	}
+
+	EntityAI GetDroppedWeapon()
+	{
+		return m_DroppedWeapon;
 	}
 
 	//------------------------------------------------------------------

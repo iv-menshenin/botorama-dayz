@@ -276,6 +276,116 @@ override void EEKilled(Object killer) {
   `OnUnconsciousStart()`; при `WakeUp` — `m_IsUnconscious = false` + `OnUnconsciousStop()`.
   Либо, как Expansion, дать боту action-manager, чтобы ванильный блок отработал сам.
 
+## 4. Нокаут и связывание (restrain/unrestrain)
+
+Цель фикса: (а) настоящий нокаут, (б) бот «развязывается» после связывания, (в) программно
+связать бота в автотестах. Ниже — проверенные сигнатуры и выводы по трём вопросам.
+
+### 4.1 Связывание (`ActionRestrainTarget`)
+
+- Класс `ActionRestrainTarget` (`4_world/classes/useractionscomponent/actions/continuous/
+  actionrestraintarget.c`), команда `CMD_ACTIONFB_RESTRAINTARGET`, full-body.
+- `ActionCondition` (`:41-55`): цель должна быть `PlayerBase`; ветка по instance-type игрока-актора:
+  - `INSTANCETYPE_SERVER` → `other_player.CanBeRestrained()`;
+  - иначе (клиент) → `!other_player.IsRestrained()`.
+- `ActionConditionContinue` (`:65-89`): на сервере в MP `return false`, если
+  `target.IsSurrendered() || !target.CanBeRestrained()`; на сервере при прогрессе `>0.75`
+  ставит `SetRestrainPrelocked(true)`; `return false` если `IsPlayerDisconnecting(target)`.
+- `OnStartServer` (`:91-107`): если цель `IsSurrendered()` → `EndSurrenderRequest(SurrenderDataRestrain)`
+  (завершить сдачу), иначе если `IsEmotePlaying()` → отменить эмоцию; затем
+  `target.SetRestrainStarted(true)`.
+- `OnFinishProgressServer` (`:121-149`): `if (CanReceiveAction(target) && !target.IsRestrained())`
+  → у актора в руках должен быть предмет (`item_in_hands_source`), иначе `Error`; `new_item_name =
+  MiscGameplayFunctions.ObtainRestrainItemTargetClassname(item_in_hands_source)` (= `ConfigGetString(
+  "OnRestrainChange")`); если у цели есть предмет в руках — `ChainedDropAndRestrainLambda`, иначе
+  `RestrainTargetPlayerLambda` → `LocalReplaceItemInHandsWithNewElsewhere`.
+- Финальная точка: `RestrainTargetPlayerLambda.OnSuccess` (`:221-227`) =
+  `m_TargetPlayer.SetRestrained(true); m_TargetPlayer.OnItemInHandsChanged();`.
+
+**Ключевой вывод: связывание НЕ гейтится `IsUnconscious()`.** Условие — `CanBeRestrained()`
+(`playerbase.c:1999-2010`): `false` если `IsInVehicle() || IsRaised() || IsSwimming() ||
+IsClimbing() || IsClimbingLadder() || IsRestrained() || !GetWeaponManager() ||
+GetWeaponManager().IsRunning() || !GetActionManager() || GetActionManager().GetRunningAction()
+!= null || IsMapOpen()`, или включён throwing. То есть фикс нокаута **сам по себе не открывает**
+связывание; для MP-игрока дополнительно нужно, чтобы цель НЕ была `IsSurrendered()` в момент
+continue (сдачу снимает сам `OnStartServer`).
+
+**Засада для AI-бота:** `CanBeRestrained()` требует `GetActionManager() != null`
+(`!GetActionManager()` → `false`). У `INSTANCETYPE_AI_SERVER`-бота `m_ActionManager == null`,
+поэтому ванильный игрок **не сможет** связать бота через `ActionRestrainTarget` — то же самое
+`if (mngr && hic)`-гейтование, что и у нокаута. Два пути: (а) дать боту action-manager (как
+Expansion, `eAIBase.c:735-736`), либо (б) `modded class`-override `CanBeRestrained()` для AI
+(вернуть `true` при выполнении остальных условий). Рекомендация — (а), т.к. заодно чинит нокаут
+и позволяет ванильным CPR/лут/restrain-флоу отрабатывать штатно.
+
+**Кто связал (restrainer):** на цели **нет** хука с идентичностью. Restrainer виден только в
+action'е (`action_data.m_Player` = source_player). `OnRestrainStart()` (`playerbase.c:3683`) — это
+клиентская UI-уборка (`CloseInventoryMenu`, снятие input-excludes), не событие «кто связал».
+Expansion добавляет `m_Expansion_OnRestrainedStateChaged` ScriptInvoker (bool, не кто) в
+`modded class PlayerBase` (`PlayerBase.c:61/1093-1106`). Вывод: чтобы бот знал «кто связал» —
+нужен СВОЙ хук (например `modded class ActionRestrainTarget.OnFinishProgressServer` записать
+restrainer в поле цели, либо собственный `SetRestrainedBy(PlayerBase)`).
+
+**Программный restrain (автотест):** `void SetRestrained(bool)` (`playerbase.c:2034`) — public,
+ставит `m_IsRestrained` + `SetSynchDirty()`. Вызов `bot.SetRestrained(true)` с сервера — легальный
+серверный путь, ванильный action не нужен. `IsRestrained()` override (`:2040`) = `m_IsRestrained`.
+Для «связанных рук» (визуал + предмет) ваниль кладёт `RestrainingToolLocked` в руки цели: его
+`EEItemLocationChanged` (`handcuffslocked.c:12-49`) при `newLoc` = HANDS сам делает
+`SetRestrained(true)` + `OnItemInHandsChanged()` (+ `OnRestrainStart()` если controlled). Expansion
+AI-action делает ровно `ai.GetHumanInventory().CreateInHands(new_item_name); ai.SetRestrained(true);
+ai.OnItemInHandsChanged();` (`ActionRestrainTarget.c:79-81`). Минимальный автотест:
+`bot.SetRestrained(true)` (флаг), опционально положить locked-restraint в руки.
+
+### 4.2 Развязывание (`ActionUnrestrainSelf`, не `ActionBreakFreeRestrain`)
+
+- Ванильный класс «развязать себя» — **`ActionUnrestrainSelf`** (`4_world/classes/useractionscomponent/
+  actions/continuous/actionunrestrainself.c`). `ActionBreakFreeRestrain` **не существует**.
+- Анимация — «борьба» (struggle): `m_CommandUID = CMD_ACTIONMOD_RESTRAINEDSTRUGGLE` (=23,
+  `dayzplayer.c:758`), `m_CommandUIDProne = CMD_ACTIONFB_RESTRAINEDSTRUGGLE` (=111, `dayzplayer.c:868`).
+- `ActionCondition` (`:64-67`): `player.IsRestrained()`. `CanBeUsedInRestrain()` → true (`:105-108`).
+- `OnFinishProgressServer` (`:85-103`): `player.SetRestrained(false)` + урон предмету +
+  `MiscGameplayFunctions.TransformRestrainItem(...)` (вернуть исходный предмет).
+- Развязать другого: `ActionUnrestrainTarget` (`actionunrestraintarget.c`) — гейт `target.IsRestrained()`
+  + предмет-инструмент из `CanBeUnrestrainedBy`; финал `SetRestrained(false)` + `TransformRestrainItem`.
+  Есть также `ActionUnrestrainTargetEmpty` (пустыми руками).
+- `TransformRestrainItem(current_item, tool, source, target)` (`miscgameplayfunctions.c:795-824`) —
+  превращает restrained-предмет обратно по конфигу `OnRestrainChange` (замена/уничтожение).
+
+**Серверный запуск у AI-бота:** у бота нет action-manager → ванильный `ActionUnrestrainSelf`
+запустить нельзя. Expansion решает так: action-manager создаётся (`eAIBase.c:735-736`), а FSM-состояние
+`eAIState_Struggle` (`eaistate_struggle.c:7`) зовёт `unit.StartActionObject(ActionUnrestrainSelf, null)`
+при `IsRestrained() && !IsUnconscious() && !m_eAI_IsInventoryVisible`. Т.е. ванильный путь «развязаться» —
+**через action-систему**, а не прямой дёржкой состояния. Минимальный кастомный путь для бота без
+action-manager: `bot.SetRestrained(false)` + удалить/трансформировать restrained-предмет
+(`TransformRestrainItem`/`DeleteSafe` + `OnItemInHandsChanged()`), как делает Expansion
+`ActionUnrestrainTarget.eAI_Unrestrain` (`ActionUnrestrainTarget.c:57-78`). Анимация борьбы — чисто
+визуальная; при желании запускается `StartCommand_Action(CMD_ACTIONFB_RESTRAINEDSTRUGGLE, pCallbackClass,
+pStanceMask)` (`human.c:1533`, `proto native`), но для серверного «развязался» не обязательна.
+
+### 4.3 Доступность `m_IsUnconscious` и дроп оружия при нокауте
+
+- **Объявление**: `protected bool m_IsUnconscious` — в `dayzplayerimplement.c:124` (НЕ в
+  `playerbase.c`). `protected` = доступен подклассу `dmAISurvivorBase` напрямую, сеттер через
+  `modded class PlayerBase` НЕ нужен. Регистрация net-sync: `RegisterNetSyncVariableBool(
+  "m_IsUnconscious")` (`playerbase.c:575`) → после записи нужен `SetSynchDirty()` (его делает
+  `OnUnconsciousStart()` в серверной ветке).
+- Для сравнения: `m_IsRestrained` — bare `bool` (`playerbase.c:158`, public по умолчанию), net-sync
+  `:576`; `m_IsRestrainStarted`/`m_IsRestrainPrelocked` — bare bool `:160/162`, net-sync `:581/582`.
+- **Дефолтная видимость в Enfusion = public** (подтверждено: `m_EmoteManager` объявлен без модификатора
+  `playerbase.c:94`, а к нему обращаются из другого класса `actionrestraintarget.c:103`). `protected`/
+  `private` — явные ограничения. Поэтому «можно ли писать напрямую»: `m_IsUnconscious` — да (protected),
+  `m_IsRestrained` — да (public), но для `m_IsRestrained` правильнее через `SetRestrained()` (делает
+  `SetSynchDirty`).
+- **Дроп оружия в `OnUnconsciousStart()`** (`playerbase.c:3502-3553`): `DropItem` находится в блоке
+  `INSTANCETYPE_CLIENT` (`:3508-3522`) — клиентская часть; серверная ветка
+  (`:3524`: `INSTANCETYPE_SERVER || (!IsMultiplayer && CLIENT)`) НЕ содержит `DropItem` (только
+  `SetSynchDirty`, `MarkCrewMemberUnconscious`, `EnableVoN(false)`, admin log, `SetBlock(false)`).
+  Для `INSTANCETYPE_AI_SERVER` **ни одна из двух веток не выполняется** → ванильный `OnUnconsciousStart`
+  у бота не выбросит оружие и не сделает `SetSynchDirty`. Подтверждено: дроп оружия для бота надо
+  делать СВОИМ кодом (наш override `DropItem`), как делает Expansion `eAI_DropItemInHandsImpl` в
+  `eAIBase.OnUnconsciousStart` (`eAIBase.c:10158-10162`) с комментарием «Needed because vanilla only
+  checks for INSTANCETYPE_SERVER».
+
 ## Открытые вопросы / не подтверждено
 
 - Точное нативное условие диспатча `EEKilled` при обнулении `Health`-стата
