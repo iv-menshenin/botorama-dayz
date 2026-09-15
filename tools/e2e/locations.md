@@ -45,3 +45,23 @@
 Высота Y — рантайм. Сценарий — `tools/e2e/forest-avoid.json`: `spawn` → `moveto goal` →
 `wait reached` (~90 с) → `assert`. PASS = бот дошёл и в RPT ноль `Tree collision`
 (`[dmBot][error]`), FAIL = есть `Tree collision`.
+
+## driving-road — дорога (вождение автомобиля)
+
+Дорожная сеть для автотестов вождения (прямой участок, поворот, кольцо-пятиугольник).
+Старт совпадает с `ref` локации `ballistics-range` (4117, 10827) — известный открытый
+участок. Высота Y — рантайм (`SnapToGroundExactly`).
+
+| Точка | X | Z |
+|---|---|---|
+| `start` (старт) | 4117 | 10827 |
+| `straight_end` (конец прямой) | 4821 | 9616 |
+| `turn_end` (конец поворота) | 4926 | 9684 |
+| `ring_c` (кольцо, вершина C) | 4874 | 9863 |
+| `ring_d` (кольцо, вершина D) | 4267 | 10924 |
+
+Маршруты вождения:
+- **прямая**: `start` → `straight_end`;
+- **поворот**: `start` → `straight_end` → `turn_end`;
+- **кольцо (пятиугольник)**: `start` → `straight_end` → `turn_end` → `ring_c` → `ring_d` →
+  обратно в `start` (замкнуто).

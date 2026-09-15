@@ -202,3 +202,233 @@ car.SetAnimationPhase(anim, 1.0);                          // 1.0 = открыт
   может снапаться на ~1м — поэтому достижимость 1.0, а не 0.05.
 - Боты регистрируются в `dmEntityRegistry` как `PlayerBase` — при поиске «игрок в машине»
   обязательно исключать `dmAISurvivorBase` (иначе найдём машину, где сидит другой бот).
+
+## Вождение: газ/передачи/RPM/руль
+
+Цель: подтвердить сигнатуры и поведение API `Car`/`CarScript` для «бот водит автомобиль»
+(газ, передачи АКПП/МКПП, RPM, руль, толчок импульсом, заводится ли без водителя).
+
+Источники: `scripts/3_game/vehicles/car.c`, `transport.c`, `4_world/entities/vehicles/carscript.c`,
+`3_game/dayzplayer.c`, `1_core/proto/enphysics.c`; эталон — Expansion
+`DayZExpansion_AI/.../Entities/CarScript.c` (AI-вождение) и `CarScript_Towing.c`.
+
+### Ключевой хук: `Transport.OnInput(float dt)`
+
+`OnInput` объявлен на `Transport` (`3_game/vehicles/transport.c:206`) как no-op virtual,
+с комментарием «Called after every input simulation step. ... It is highly recommended to
+store state of custom inputs elsewhere and call Setters here.» Именно в override'е `OnInput`
+Expansion гоняет AI-машину (ниже). Это **главная точка входа для скриптового вождения** —
+не `OnUpdate`, не `EOnPostSimulate`.
+
+### 1. Передачи: АКПП vs МКПП
+
+Сигнатуры (`3_game/vehicles/car.c`):
+
+- `proto native void ShiftUp();` (`:264`)
+- `proto native void ShiftTo(int gear);` (`:267`) — «Shifts the future gear to selected gear»
+- `proto native void ShiftDown();` (`:270`)
+- `proto native CarGearboxType GearboxGetType();` (`:273`) — `MANUAL|AUTOMATIC` (`:34-38`)
+- `proto native CarAutomaticGearboxMode GearboxGetMode();` (`:276`) — «useful when car has automatic gearbox», `P|R|N|D` (`:68-74`)
+- `proto native int GetCurrentGear();` (`:252`) — «current gear, -1 if there is no engine»
+- `proto native int GetGear();` (`:255`) — «future gear, -1 if there is no engine»
+- `proto native int GetNeutralGear();` (`:258`), `proto native int GetGearCount();` (`:261`)
+- `CarGear` enum (`:43-63`): `REVERSE, NEUTRAL, FIRST..SIXTEENTH`.
+
+**Как ванильный игрок переключает передачу:** НЕ через `ShiftUp/ShiftDown/ShiftTo` (в ванильном
+скрипте эти методы **нигде не вызываются** — grep даёт только объявления в `car.c`/`boat.c`).
+Передача гоняется нативно через `HumanCommandVehicle`:
+
+- `4_world/entities/dayzplayerimplement.c:2384-2394` — в `COMMANDID_VEHICLE`:
+  `if (hcv.WasGearChange())` → `AddCommandModifier_Action(CMD_ACTIONMOD_SHIFTGEAR, GearChangeActionCallback)`.
+- `4_world/entities/dayzplayerimplementvehicle.c:1-25` — `GearChangeActionCallback` только
+  дергает `hcv.SetClutchState(true)` при старте и `false` на `OnFinish`. Само переключение
+  делает движок по вводу (`UACarShiftGearUp/Down`, `5_mission/.../dayzspectator.c:14-16`).
+
+**Работает ли `ShiftTo` на автомате:** `ShiftTo(int gear)` принимает произвольный int; на МКПП
+передаётся `CarGear`, на АКПП — `CarAutomaticGearboxMode` (это отдельные enum'ы, но оба int).
+Прямое доказательство из Expansion towing (`CarScript_Towing.c:65-73`):
+
+```c
+if (GearboxGetType() == CarGearboxType.MANUAL)
+    ShiftTo(CarGear.NEUTRAL);
+else
+    ShiftTo(CarAutomaticGearboxMode.D);   // + закомменченный вариант ShiftTo(CarAutomaticGearboxMode.N)
+```
+
+Expansion AI (`DayZExpansion_AI/.../CarScript.c:88-111`) ездит на **MANUAL** значениях `CarGear`:
+`gear = CarGear.FIRST` (или `REVERSE` при развороте), затем `ShiftTo(gear)`. Т.е. для МКПП
+`ShiftTo(CarGear.FIRST/REVERSE/NEUTRAL)` — рабочий путь, подтверждён рабочим модом.
+
+**Как скрипт различает АКПП/МКПП** (ваниль, `carscript.c:2085-2090`, `UpdateLightsServer`):
+
+```c
+gear = GetGear();
+if (GearboxGetType() == CarGearboxType.AUTOMATIC)
+    gear = GearboxGetMode();
+```
+
+Аналогично HUD (`5_mission/gui/vehicles/carhud.c:203-236`): MANUAL → `GetGear()`, AUTOMATIC →
+`GearboxGetMode()`. Т.е. на АКПП индикатор/логика смотрят **`GearboxGetMode()`**, а `GetGear()`
+к актуальной передаче на АКПП не применяется (там «режим» P/R/N/D, сам выбор передачи внутри
+режима делает нативная симуляция АКПП).
+
+**Sedan_02:** тип коробки задаётся **конфигом транспорта, а не скриптом** (`type="GEARBOX_MANUAL"`
+в `config.cpp` транспортного pbo). В ванильном DayZ-Script-Diff конфиг отсутствует (только скрипты),
+в Expansion конфиге Sedan_02 стоит `type="GEARBOX_MANUAL"` (`Vehicles/Ground/Sedan_02/config.cpp:287`).
+Но Expansion `Sedan_02` — свой (ВАЗ-2101), не ванильный `Sedan_02`. Поэтому тип ванильного
+Sedan_02 — `[нужно проверить]` (см. гипотезы).
+
+### 2. RPM — можно ли задать программно
+
+- Только геттеры, сеттера RPM **нет**: `EngineGetRPMMin/Idle/Max/Redline/RPM` — `proto native`
+  (`3_game/vehicles/car.c:222-234`). `EngineGetRPM()` = «engine's rpm value» (нативное значение
+  симуляции).
+- `OnSound(CarSoundCtrl ctrl, float oldValue)` (`car.c:415-427`) — вызывается «every sound
+  simulation step», возврат = «new value of the specified sound controller», в доке:
+  «The higher the return value is the more muted sound is» (см. также `carscript.c:1519-1523`).
+  `CarSoundCtrl` (`car.c:1-13`): `ENGINE, RPM, SPEED, DOORS, PLAYER`. **`OnSound` управляет только
+  звуковыми контроллерами (громкость/питч), а не физической симуляцией.** Override
+  `carscript.c:1524-1537` показывает паттерн: на `CarSoundCtrl.ENGINE` вернуть `0.0`, если не
+  заведён (заглушить звук), иначе `oldValue`. Подменить **звук оборотов** можно, подменить
+  **симуляционное RPM** — нет.
+- Тахометр читает нативное RPM напрямую, без скрипт-переменной (`carhud.c:104`):
+  `rpm_value = m_CurrentVehicle.EngineGetRPM() / m_CurrentVehicle.EngineGetRPMMax();`
+  и `m_VehicleRPMPointer.SetRotation(0, 0, rpm_value * 270 - 130, true)` (`:108`).
+- **Синхронизация RPM/передачи/скорости на клиент** — НЕ через `RegisterNetSyncVariable`.
+  В конструкторе `CarScript` регистрируются только `m_HeadlightsOn`, `m_BrakesArePressed`,
+  `m_ForceUpdateLights`, crash-sounds, `m_CarHornState`, `m_CarEngineSoundState`
+  (`carscript.c:339-345`). RPM/скорость/передача/руль реплицируются **нативной симуляцией** через
+  `NetworkMoveStrategy.PHYSICS` (`3_game/entities/pawn.c:138-148`: «Sends over a fixed buffer of
+  moves and re-simulates the physics steps on correction as a static scene»). Клиент ведёт свою
+  копию симуляции машины и читает `EngineGetRPM()/GetGear()/GearboxGetMode()` локально
+  (HUD это и делает). Факт, что машины используют PHYSICS, виден в `actionstartengine.c:51`
+  и `carscript.c:3077-3086` (`IsServerOrOwner`).
+
+**Вывод по «поднять обороты»:** единственный способ поднять настоящее `EngineGetRPM()` на
+заведённом моторе — `SetThrottle(value)` (`car.c:198`, «Sets the future throttle value», `<0,1>`),
+плюс отпустить тормоз/ручник и (на МКПП) держать сцепление/нейтраль. `OnSound(RPM)` override
+влияет только на звук, а не на тахометр/симуляцию. На «заведённом, но толкаемом импульсом» моторе
+RPM поднимает именно симуляция (нагрузка колёс/газ), отдельного «задать RPM» нет.
+
+### 3. Руль / поворот колёс
+
+- `proto native float GetSteering();` (`car.c:189`), `proto native void SetSteering(float value, bool unused0 = false);` (`car.c:192`) — диапазон `<-1,1>` (док у deprecated `CarController.SetSteering`, `car.c:466-474`).
+- **`unused0` = флаг `analog`** (из deprecated `CarController.SetSteering(float in, bool analog = false)`: «analog indicates if the input value was taken from analog controller»). Для AI-вождения передавать дефолт (`false`).
+- **Кто вызывает `SetSteering` у ванильного игрока:** никто в скрипте (grep — только объявления).
+  Руль, как и газ/передачи, гонится нативно через `HumanCommandVehicle` (ввод игрока). Скриптовый
+  API `SetSteering` существует именно для AI/автопилота.
+- **Эталон AI:** Expansion `CarScript.c:97-107`: `steering = Math3D.AngleFromPosition(position, GetDirection(), wayPoint) / Math.PI;` → `SetSteering(steering);` (вместе с `SetThrottle`/`SetBrake`/`ShiftTo`).
+- **Репликация поворота колёс:** руль — часть нативной симуляции, реплицируется PHYSICS move
+  стратегией вместе с трансформом машины (см. п.2). `SetSteering(value)` на сервере/авторитете
+  обновляет симуляцию → клиенты видят поворот передних колёс без доп. вызовов.
+  `[нужно подтвердить]` эмпирически (см. гипотезы), т.к. в скрипте нет явного «синка руля».
+
+### 4. `dBodyApplyImpulseAt`
+
+Объявлена в `1_core/proto/enphysics.c:164`:
+
+```c
+/**
+\brief Applies impuls on a pos position in world coordinates
+*/
+proto void dBodyApplyImpulseAt(notnull IEntity body, vector impulse, vector pos);
+```
+
+- Применима к любому `IEntity`-физике, включая `CarScript`/`Transport` (Car — физика).
+  Ванильное доказательство — толчок машины, `4_world/.../actionpushcar.c:52`:
+  `dBodyApplyImpulseAt(car, impulse, car.ModelToWorld(car.GetEnginePos()));` (точка = позиция
+  двигателя в world-space). Это **серверный** continuous-action (`ApplyForce` выполняется на
+  сервере; `OnStartServer`/`OnEndServer` управляют тормозами — `actionpushcar.c:85-112`).
+- **Единицы импульса:** в `actionpushcar.c:38-48` импульс предварительно делится на массу
+  (`impulse = direction * force * invBodyMass`), т.е. ваниль трактует его как **дельту скорости**
+  (m/s), а не сырой импульс. Для «толчка» — считать `impulse = dir * desiredDeltaV` (по аналогии),
+  а не сырой импульс силы.
+- Перед толчком нужно отключить авто-торможение и тормоза:
+  `SetBrake(0)`, `SetHandbrake(0)`, `SetBrakesActivateWithoutDriver(false)` (`actionpushcar.c:93-95`),
+  после — `SetBrakesActivateWithoutDriver(true)` (`:111`).
+- Если тело было «уснуло»/выгружено физикой — активировать: `dBodyActive(this, ActiveState.ACTIVE)`
+  + `DisableSimulation(false)` (Expansion towing, `CarScript_Towing.c:52-57`). `[нужно проверить]`
+  для сценария «машина стоит» — обязателен ли этот пробужающий вызов перед импульсом.
+- `dBodyApplyImpulseAt` — `proto` (не `native`), но вызывается ванилью на сервере; работает на
+  сервере (расширение: `zombiefightlogic.c:365` `dBodyApplyImpulseAt(cs, impulse, hitPosWS)`).
+
+### 5. Двигатель и водитель
+
+- `EngineStart()/EngineStop()/EngineIsOn()` — `proto native` (`car.c:237-243`).
+- **Скриптовый гейт старта не требует водителя:** `OnBeforeEngineStart` (`carscript.c:1811-1816`)
+  возвращает `CheckOperationalRequirements() == OK`; `CheckOperationalRequirements`
+  (`carscript.c:1849-1888`) проверяет только `RUINED/NO_FUEL/NO_BATTERY/NO_IGNITER` — водителя нет.
+- **Требование водителя — в action-гейте игрока**, не в нативе: `ActionStartEngine.ActionCondition`
+  (`actionstartengine.c:26-37`) требует `vehicle.CrewDriver() == player`. Плюс ванильный action
+  **пропускает** `EngineStart()` для серверного экземпляра (`actionstartengine.c:51-63`): при
+  PHYSICS-стратегии, если `GetInstanceType() == INSTANCETYPE_SERVER` (серверный бот) → `return`
+  без `EngineStart()`. Для серверного ИИ **надо вызывать `EngineStart()` напрямую**, а не через
+  action (что и делает Expansion: `CarScript.c:71-75`).
+- **Правила «двигатель глохнет без водителя» — скриптовые, пост-факт:** `OnDriverExit`
+  (`carscript.c:1153-1161`) — если `GetGear() != GetNeutralGear()` → `EngineStop()`;
+  `MarkCrewMemberUnconscious/Dead` (`carscript.c:1756-1776`) — `EngineStop()` при смерти/отключке
+  водителя. Т.е. движок **умеет** работать без водителя в кресле, но ваниль сама глушит его при
+  выходе/смерти водителя (если не нейтраль).
+- **Машина без водителя авто-тормозит:** `SetBrakesActivateWithoutDriver(bool activate = true)`
+  (`car.c:219`) — «Sets if brakes should activate without a driver present». По умолчанию `true`.
+  Для езды/толчка без водителя — `SetBrakesActivateWithoutDriver(false)`.
+- `carscript.c:1249-1259` (`OnUpdate`): если водитель есть, но `!driver.IsControllingVehicle()`
+  (без сознания) — `SetBrake(0.5)`.
+- **Требует ли нативная симуляция газа/передач водителя:** Expansion AI гейтит всё вождение на
+  наличие AI-водителя в кресле 0 (`CarScript.c:62-66`: `if (!Class.CastTo(driver, CrewMember(VEHICLESEAT_DRIVER))) return;`).
+  Значит практически «газ/передачи» применяют при водителе. Без водителя достоверно работает
+  только **толчок импульсом** (ванильный `ActionPushCar`). `[нужно проверить]`, заведётся ли
+  `EngineStart()` + `SetThrottle()` вообще без `CrewMember(0)`.
+
+### 6. Скорость машины
+
+- `proto native float GetSpeedometer();` (`car.c:109`) — «current speed in km/h», **знаковая**
+  (вперёд +, назад −). `GetSpeedometerAbsolute()` (`car.c:112-115`) = `Math.AbsFloat(GetSpeedometer())`.
+- `proto native vector GetVelocity(notnull IEntity ent)` (`1_core/proto/enphysics.c:132`) —
+  физический вектор скорости (m/s). Пересчёт: `GetVelocity(this).Length() * 3.6` = км/ч
+  (используется в crash-дебаге `carscript.c:1378`).
+- Ваниль для «едет ли машина» использует **`GetSpeedometerAbsolute()`**: `IsMoving()` =
+  `GetSpeedometerAbsolute() > 3.5` (`carscript.c:2631-2634`); пороги дверей — `car.c:127-129`.
+- Для **толчка импульсом** обе дают одно и то же по модулю (машина едет вдоль направления);
+  `GetSpeedometerAbsolute()` — уже км/ч и не требует `*3.6`, удобнее для порогов. `GetVelocity`
+  нужен, если важна полная 3D-скорость (напр. после столкновения/полёта) или направление.
+  Знаковая `GetSpeedometer()` — для «едет назад» (реверс).
+
+## Выводы для разработки
+
+- **Газ:** `Car.SetThrottle(0..1)` + `SetBrake(0..1)` + `SetHandbrake(0..1)` в override
+  `Transport.OnInput(float dt)` на `CarScript` (паттерн Expansion AI `CarScript.c:58-114`).
+  Подтверждено (Expansion рабочий мод + сигнатуры `car.c`).
+- **Передачи:** `GearboxGetType()` → если MANUAL: `ShiftTo(CarGear.FIRST/REVERSE/NEUTRAL)`; если
+  AUTOMATIC: `ShiftTo(CarAutomaticGearboxMode.D/R/N)`. `GetGear()` (manual) / `GearboxGetMode()`
+  (auto) — для чтения. Подтверждено сигнатурами + `CarScript_Towing.c:65-73`.
+- **RPM:** задать нельзя; только читать `EngineGetRPM()` и поднимать косвенно `SetThrottle()`.
+  `OnSound(RPM)` — только звук. Подтверждено (`car.c:222-234`, `carhud.c:104`).
+- **Руль:** `SetSteering(value)` (`<-1,1>`, второй параметр `unused0`/`analog` = `false`) в том же
+  `OnInput`. Репликация колёс — через PHYSICS move-стратегию (гипотеза, `[нужно подтвердить]`).
+- **Толчок:** `SetBrake(0)` + `SetHandbrake(0)` + `SetBrakesActivateWithoutDriver(false)` →
+  `dBodyApplyImpulseAt(car, dir*deltaV, car.ModelToWorld(car.GetEnginePos()))` (единицы = дельта
+  скорости, по образцу `actionpushcar.c:38-52`). Подтверждено.
+- **Запуск:** `EngineStart()` напрямую (не через ванильный `ActionStartEngine`, который режет
+  серверных ботов — `actionstartengine.c:54-57`). Подтверждено.
+
+### Гипотезы для эмпирической проверки (`[нужно проверить]` / `[нужно подтвердить]`)
+
+1. `[нужно проверить]` **Тип коробки Sedan_02** — `GearboxGetType()` на заспавненном `Sedan_02`
+   возвращает `MANUAL` или `AUTOMATIC`? (конфиг `type="GEARBOX_MANUAL"` ванили не в script-diff;
+   Expansion-аналог — MANUAL). Probe: `botdump`/лог `GearboxGetType()`.
+2. `[нужно проверить]` **`ShiftTo` на АКПП** — реально ли `ShiftTo(CarAutomaticGearboxMode.D)` меняет
+   `GearboxGetMode()` и заставляет машину ехать (не игнорируется ли нативом, как «будущая передача»
+   для автомата)? Probe: на АКПП-машине `ShiftTo(D)` + `SetThrottle` → `botdump` `GearboxGetMode()`/`GetSpeedometerAbsolute()`.
+3. `[нужно подтвердить]` **Репликация руля на клиент** — достаточно ли серверного `SetSteering(v)`,
+   чтобы клиент визуально видел поворот передних колёс (без доп. вызова)? Probe: сервер крутит
+   руль → наблюдатель видит колёса.
+4. `[нужно проверить]` **Двигатель без водителя** — `EngineStart()` + `SetThrottle(1)` на машине с
+   `CrewMember(0)==null` (после `SetBrakesActivateWithoutDriver(false)`): поднимается ли
+   `EngineGetRPM()`, едет ли машина? Или нативная симуляция газа требует водителя в кресле?
+5. `[нужно проверить]` **Пробуждение физики перед импульсом** — нужен ли `dBodyActive(this, ACTIVE)`
+   + `DisableSimulation(false)` перед `dBodyApplyImpulseAt` на стоящей/уснувшей машине, или импульс
+   будит тело сам? Probe: толчок стоящей машины → `botdump` скорости.
+6. `[нужно подтвердить]` **`OnInput` на сервере для серверного ИИ** — вызывается ли `Transport.OnInput`
+   на сервере для машины с серверным водителем-ботом (не только на клиенте-овнере)? От этого
+   зависит, где крутить `SetThrottle`/`SetSteering`.
