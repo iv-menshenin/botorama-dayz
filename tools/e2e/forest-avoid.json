@@ -1,0 +1,12 @@
+{
+  "Name": "forest-avoid",
+  "Timeout": 300,
+  "Steps": [
+    { "Op": "spawn", "Who": "forester", "Pos": [5909, 0, 11418], "Yaw": 30 },
+    { "Op": "moveto", "Who": "forester", "Pos": [6467, 0, 11739] },
+    { "Op": "wait", "Who": "forester", "Cond": "reached", "Pos": [6467, 0, 11739], "Tolerance": 4.0, "Timeout": 240 },
+    { "Op": "snapshot" },
+    { "Op": "assert", "Who": "forester", "Cond": "reached", "Pos": [6467, 0, 11739], "Tolerance": 4.0 },
+    { "Op": "clearall" }
+  ]
+}
