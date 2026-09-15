@@ -1,0 +1,13 @@
+{
+  "Name": "drive-straight",
+  "Timeout": 200,
+  "Steps": [
+    { "Op": "spawn", "Who": "b1", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawncar", "Who": "c1", "Pos": [4120, 0, 10823], "Yaw": 150 },
+    { "Op": "drive", "Who": "b1", "Obj": "c1", "Pos": [4821, 0, 9616] },
+    { "Op": "wait", "Cond": "carpos", "Obj": "c1", "Pos": [4821, 0, 9616], "Tolerance": 12.0, "Timeout": 150 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}
