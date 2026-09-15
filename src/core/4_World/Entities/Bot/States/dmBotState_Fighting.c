@@ -19,6 +19,7 @@ class dmBotState_Fighting : dmBotState
 	ref dmBotIntent_HitTo m_HitTo;
 	ref dmBotIntent_HoldLook m_Look;
 	float m_RetargetTimer;
+	float m_StallLogCooldown;
 	ref dmInventoryFrame m_EquipRoot;
 
 	override dmBotStateKind GetKind()
@@ -35,10 +36,12 @@ class dmBotState_Fighting : dmBotState
 		m_HitTo = null;
 		m_Look = null;
 		m_RetargetTimer = 0.0;
+		m_StallLogCooldown = 0.0;
 		m_EquipRoot = null;
 
 		dmAISurvivor bot = GetOwner();
 		bot.SetMeleeCooldown(0.0);
+		bot.SetLastMeleeStrikeTime(GetGame().GetTickTime());
 		bot.SetInCombat(true);
 
 		ResolveTarget();
@@ -82,6 +85,20 @@ class dmBotState_Fighting : dmBotState
 		m_HitTo.m_Active = (dist <= reach && bot.GetMeleeCooldown() == 0.0);
 		m_Approach.m_Active = (m_HitTo.m_LastFail == dmHitToFail.TOOFAR) || (dist > reach) || (bot.GetMeleeCooldown() == 0.0 && dist > (reach * 0.9)); // a small gap
 		m_Evasion.m_Active = (bot.GetMeleeCooldown() > 0.0) && !m_Approach.m_Active;
+
+		//! Melee stall oracle (diagnostic): in reach, cooldown ready, but no strike
+		//! requested for DM_MELEE_STALL_THRESHOLD seconds — the "dummy" bug where the
+		//! bot stands and looks without attacking. Logs (throttled to ~1/2s); no
+		//! behavior change.
+		float now = GetGame().GetTickTime();
+		if (dist <= reach && bot.GetMeleeCooldown() == 0.0 && now - bot.GetLastMeleeStrikeTime() > DM_MELEE_STALL_THRESHOLD)
+		{
+			if (now > m_StallLogCooldown)
+			{
+				m_StallLogCooldown = now + 2.0;
+				dmBotLog.Error("Melee stall: in reach, cooldown 0, no strike for " + (now - bot.GetLastMeleeStrikeTime()) + "s (dist=" + dist + ")");
+			}
+		}
 
 		return CONTINUE;
 	}

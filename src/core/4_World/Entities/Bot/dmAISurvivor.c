@@ -117,6 +117,11 @@ class dmAISurvivor
 	//! HitTo/Evasion intents (see GetMeleeCooldown/SetMeleeCooldown).
 	private float m_MeleeCooldown = 0.0;
 
+	//! Melee stall oracle (diagnostic): server tick time of the last melee strike
+	//! request (set in dmAISurvivorBase.RequestMeleeAttack). Read by the Fighting
+	//! state to log when the bot stays in reach without striking.
+	private float m_LastMeleeStrikeTime = 0.0;
+
 	private bool m_IsInCombat= false;
 
 	void dmAISurvivor()
@@ -947,6 +952,17 @@ class dmAISurvivor
 	void SetMeleeCooldown(float seconds)
 	{
 		m_MeleeCooldown = seconds;
+	}
+
+	//! Melee stall oracle (diagnostic): server tick time of the last strike request.
+	float GetLastMeleeStrikeTime()
+	{
+		return m_LastMeleeStrikeTime;
+	}
+
+	void SetLastMeleeStrikeTime(float time)
+	{
+		m_LastMeleeStrikeTime = time;
 	}
 
 	//------------------------------------------------------------------

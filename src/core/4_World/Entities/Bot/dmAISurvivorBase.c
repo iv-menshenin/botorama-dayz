@@ -162,6 +162,14 @@ class dmAISurvivorBase : PlayerBase
 	private bool m_MeleeAttackRequest = false;
 	private EntityAI m_MeleeTarget;
 
+	//! Melee spin oracle (diagnostic): accumulated absolute body-yaw change while
+	//! mid-strike, to detect the "spin" bug where ApplyBodyTurn foot-step turns
+	//! during the swing. Logged by TickMeleeSpinOracle (see DM_MELEE_SPIN_THRESHOLD).
+	private float m_MeleeTurnAccum = 0.0;
+	private float m_LastFrameYaw = 0.0;
+	private bool m_YawInit = false;
+	private bool m_Striking = false;
+
 	//! One-shot fire request from the brain (see RequestFire). Processed by
 	//! TryFireWeapon inside the CommandHandler; m_FireCooldown throttles cadence.
 	private bool m_FireRequest = false;
@@ -184,6 +192,11 @@ class dmAISurvivorBase : PlayerBase
 	void dmAISurvivorBase()
 	{
 		m_DesiredStance = DayZPlayerConstants.STANCEIDX_ERECT;
+
+		m_MeleeTurnAccum = 0.0;
+		m_LastFrameYaw = 0.0;
+		m_YawInit = false;
+		m_Striking = false;
 
 		RegisterNetSyncVariableFloat("m_LookYawDeg", -DM_LOOK_MAX_YAW, DM_LOOK_MAX_YAW, 1);
 		RegisterNetSyncVariableFloat("m_LookPitchDeg", -DM_LOOK_MAX_PITCH, DM_LOOK_MAX_PITCH, 1);
@@ -1010,6 +1023,8 @@ class dmAISurvivorBase : PlayerBase
 
 		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);
 
+		TickMeleeSpinOracle();
+
 		#ifdef SERVER
 		TickTalking(pDt);
 		#endif
@@ -1597,6 +1612,12 @@ class dmAISurvivorBase : PlayerBase
 	{
 		m_MeleeAttackRequest = true;
 		m_MeleeTarget = target;
+
+		//! Melee stall oracle (diagnostic): record the strike-request moment on the
+		//! brain so dmBotState_Fighting can measure "time without a strike".
+		dmAISurvivor brain = dmAISurvivor.Find(this);
+		if (brain)
+			brain.SetLastMeleeStrikeTime(GetGame().GetTickTime());
 	}
 
 	bool HasMeleeAttackRequest()
@@ -1607,6 +1628,40 @@ class dmAISurvivorBase : PlayerBase
 	EntityAI GetMeleeAttackTarget()
 	{
 		return m_MeleeTarget;
+	}
+
+	//! Melee spin oracle (diagnostic): accumulates the absolute body-yaw change
+	//! while the bot is mid-strike (no MOVE command and the body otherwise free)
+	//! and logs when a single strike's accumulated turn exceeds
+	//! DM_MELEE_SPIN_THRESHOLD — the "spin" bug where ApplyBodyTurn foot-step turns
+	//! during the swing. Runs every frame; writes nothing but m_MeleeTurnAccum and
+	//! emits dmBotLog.Error. No behavior change.
+	private void TickMeleeSpinOracle()
+	{
+		float yaw = GetOrientation()[0];
+		if (!m_YawInit)
+		{
+			m_YawInit = true;
+			m_LastFrameYaw = yaw;
+		}
+		float dYaw = Math.AbsFloat(AngleDiff(yaw, m_LastFrameYaw));
+
+		bool striking = (GetCommand_Move() == null) && !IsClimbing() && !IsClimbingLadder() && !IsFalling() && !IsSwimming() && !IsInVehicle();
+
+		if (striking && !m_Striking)
+		{
+			m_Striking = true;
+			m_MeleeTurnAccum = 0.0;
+		}
+		if (striking)
+			m_MeleeTurnAccum = m_MeleeTurnAccum + dYaw;
+		if (!striking && m_Striking)
+		{
+			m_Striking = false;
+			if (m_MeleeTurnAccum > DM_MELEE_SPIN_THRESHOLD)
+				dmBotLog.Error("Melee spin: turn=" + m_MeleeTurnAccum + " deg");
+		}
+		m_LastFrameYaw = yaw;
 	}
 
 	//! Play a gesture/emote animation by EmoteConstants ID. Gated by the vanilla

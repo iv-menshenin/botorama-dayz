@@ -517,6 +517,15 @@ static const int DM_MELEE_DAMAGE_MULT_ZOMBIE = 2;
 //! Melee: fallback strike reach (meters) when the weapon reach can't be read.
 static const float DM_MELEE_REACH = 1.5;
 
+//! Melee spin oracle (diagnostic): accumulated body-yaw (degrees) during a single
+//! strike above which the bot is considered to have "spun" (ApplyBodyTurn foot-step
+//! turn during the swing). Logged by dmAISurvivorBase.TickMeleeSpinOracle.
+static const float DM_MELEE_SPIN_THRESHOLD = 180.0;
+
+//! Melee stall oracle (diagnostic): seconds in reach with cooldown 0 and no strike
+//! request before the bot is considered a "dummy" (in reach but not attacking).
+static const float DM_MELEE_STALL_THRESHOLD = 3.0;
+
 //! Fighting: seconds between target re-resolution (re-pick the nearest hostile).
 static const float DM_FIGHT_RETARGET_INTERVAL = 2.0;
 
