@@ -36,7 +36,7 @@ class dmE2EStep
 	string Cond;      // wait/assert condition: state|reached|distance|alive|moving
 	string Value;     // condition value (state name / "true"/"false" / lineId for say)
 	float Tolerance;  // reached/distance tolerance (meters)
-	float Timeout;    // wait step timeout (seconds)
+	float Timeout;    // wait timeout / sleep duration (seconds)
 	string ClassName; // CfgVehicles class (spawnobj)
 	vector From;      // raycast start point (world)
 	vector To;        // raycast end point (world)
@@ -695,6 +695,7 @@ class dmE2EBridge
 		}
 
 		vector center = ResolveWorldPos(step.Pos);
+		bool settlementFound = false;
 		int i;
 		if (step.Settlement != "")
 		{
@@ -704,10 +705,17 @@ class dmE2EBridge
 				dmWorldPoiLocation loc = registry.GetSettlement(i);
 				if (loc && loc.Name == step.Settlement)
 				{
+					settlementFound = true;
 					center = SnapToGroundExactly(loc.Position);
 					break;
 				}
 			}
+		}
+		if (step.Settlement != "" && !settlementFound)
+		{
+			r.Ok = false;
+			r.Reason = "settlement not found: " + step.Settlement;
+			return;
 		}
 
 		float spread = step.Spread;
@@ -725,6 +733,9 @@ class dmE2EBridge
 		array<ref dmAISurvivor> teamA = new array<ref dmAISurvivor>();
 		array<ref dmAISurvivor> teamB = new array<ref dmAISurvivor>();
 
+		int spawnedA = 0;
+		int spawnedB = 0;
+
 		for (i = 0; i < step.Count; i++)
 		{
 			vector spawnPos = RollArmySpawn(center, radius);
@@ -738,13 +749,15 @@ class dmE2EBridge
 
 			if (i < countA)
 			{
-				m_Named.Insert("army_A_" + i, bot);
+				m_Named.Insert("army_A_" + spawnedA, bot);
 				teamA.Insert(bot);
+				spawnedA = spawnedA + 1;
 			}
 			else
 			{
-				m_Named.Insert("army_B_" + (i - countA), bot);
+				m_Named.Insert("army_B_" + spawnedB, bot);
 				teamB.Insert(bot);
+				spawnedB = spawnedB + 1;
 			}
 
 			if (step.Preset == "combat")
@@ -764,8 +777,15 @@ class dmE2EBridge
 			}
 		}
 
+		if (spawnedA + spawnedB == 0)
+		{
+			r.Ok = false;
+			r.Reason = "no bots spawned";
+			return;
+		}
+
 		r.Ok = true;
-		r.Reason = "spawned " + step.Count + " bots (2 teams)";
+		r.Reason = "spawned " + (spawnedA + spawnedB) + " bots (A=" + spawnedA + ", B=" + spawnedB + ")";
 	}
 
 	//! Random ground-snapped spawn position within ±radius of the center.
