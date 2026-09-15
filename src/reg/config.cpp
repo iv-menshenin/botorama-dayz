@@ -7,6 +7,8 @@ class CfgPatches
 		requiredVersion=0.1;
 		requiredAddons[]= {
 			"dmBotorama_Cons",
+			"DZ_Vehicles_Wheeled",
+			"DZ_Vehicles_Parts",
 		};
 	};
 };

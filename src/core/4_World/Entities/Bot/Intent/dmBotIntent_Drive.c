@@ -2,15 +2,16 @@
 //!
 //! Наследует dmBotIntent_GetInVehicle и переиспользует весь lifecycle посадки
 //! (walk к двери → открыть дверь → GetInVehicle → сел). После посадки переводит
-//! канал на DRIVE и ведёт машину: толчок импульсом (dBodyApplyImpulseAt в точке
-//! двигателя) + нативный газ/тормоз/передачи + боковой рулевой импульс + нативный
-//! руль (SetSteering). Маршрут — дорожный navmesh-путь (FindRoadPathTo), вейпоинт
-//! за вейпоинтом. Graceful-завершение глушит двигатель (StopCar) и высаживает бота
-//! штатным выходом GetInVehicle.
+//! канал на DRIVE и ведёт машину: замкнутый контур скорости (толчок/тормоз
+//! импульсом = ошибка×kp, кэп по дельта-V, в ЦМ) + боковой рулевой импульс
+//! (angle×kp, на носу) + нативный газ/руль через поля dm_Drive* машины (применяются
+//! в CarScript.OnInput). Маршрут — дорожный navmesh-путь (FindRoadPathTo) с
+//! fallback'ом на пеший путь при усечении, вейпоинт за вейпоинтом. Graceful-
+//! завершение глушит двигатель (StopCar) и высаживает бота штатным выходом.
 class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 {
-	//! Уклон: множитель силы толчка при подъёме (аналог SLOPE_FORCE_FACTOR).
-	static const float DRIVE_SLOPE_FACTOR = 8.0;
+	//! Уклон: малый множитель толчка (1.0 + sinPitch * factor), не домножается на массу.
+	static const float DRIVE_SLOPE_FACTOR = 2.0;
 	//! Откат назад: множитель восстановления (аналог ROLL_RECOVERY_FACTOR).
 	static const float DRIVE_ROLL_RECOVERY_FACTOR = 0.5;
 	//! Откат назад: макс. сила восстановления на кг массы.
@@ -39,7 +40,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	int m_StuckCounter = 0;
 	bool m_Reverse = false;
 
-	//! Текущее значение руля (SetSteering), сглаживается.
+	//! Текущее значение руля (пишется в m_Car.dm_DriveSteering), сглаживается.
 	float m_WheelSteer = 0.0;
 
 	//! Последнее время драйв-лога (троттлинг ~2 c).
@@ -119,15 +120,29 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			m_EngineStarted = true;
 		}
 
-		//! 2. Дорожный маршрут (однократно).
+		//! 2. Дорожный маршрут (однократно). При усечённой дороге (последний
+		//! вейпоинт далеко от назначения — ROADWAY-navmesh фрагментирован)
+		//! fallback на пеший путь.
 		if (!m_HasRoadPath)
 		{
 			m_RoadPath = new array<vector>();
-			if (!bot.FindRoadPathTo(m_Car.GetPosition(), m_Destination, m_RoadPath) || m_RoadPath.Count() == 0)
+			bool roadOk = bot.FindRoadPathTo(m_Car.GetPosition(), m_Destination, m_RoadPath);
+			float lastDist = -1.0;
+			if (roadOk && m_RoadPath.Count() > 0)
+				lastDist = vector.Distance(m_RoadPath[m_RoadPath.Count() - 1], m_Destination);
+
+			//! TODO: временный fallback, пока не выясним фрагментацию ROADWAY-navmesh.
+			if (!roadOk || m_RoadPath.Count() == 0 || lastDist > DM_DRIVE_ROAD_FALLBACK_DIST)
 			{
-				dmBotLog.Error("Drive: нет дорожного маршрута к " + m_Destination + ", abort");
-				Fail();
-				return;
+				#ifdef DM_BOT_DEBUG_CAR
+				dmBotLog.Debug("[CAR] Drive: road path truncated, fallback to walk path");
+				#endif
+				if (!bot.FindPathTo(m_Destination, m_RoadPath) || m_RoadPath.Count() == 0)
+				{
+					dmBotLog.Error("Drive: нет маршрута (road+walk) к " + m_Destination + ", abort");
+					Fail();
+					return;
+				}
 			}
 			m_RoadPathIdx = 0;
 			m_HasRoadPath = true;
@@ -217,7 +232,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	}
 
 	//! Газ/тормоз/толчок по отклонению от целевой скорости. Возвращает true, если
-	//! сейчас толкаем (газ) — для детекции застревания.
+	//! сейчас толкаем (газ) — для детекции застревания. Нативный газ/тормоз пишем
+	//! в поля машины dm_Drive* (применяются в CarScript.OnInput), а не зовём
+	//! SetThrottle/SetBrake напрямую (из OnUpdate они мёртвые).
 	bool ApplyDriveForce(float speedAbs, float speedSigned, vector carDir, float carPitch)
 	{
 		float margin = 3.0;
@@ -231,19 +248,20 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			float brakeIntensity = Math.InverseLerp(m_SpeedLimit + margin, m_SpeedLimit + 15.0, speedAbs);
 			brakeIntensity = Math.Clamp(brakeIntensity, 0.2, 0.6);
 			brake = brakeIntensity;
-			ApplyBrakeImpulse(brakeIntensity, speedSigned, carDir);
+			ApplyBrakeImpulse(speedSigned, carDir);
 		}
 		else if (speedAbs < m_SpeedLimit - margin)
 		{
 			//! Ниже цели — разгоняемся.
 			throttle = 0.6;
 			pushing = true;
-			ApplyPushImpulse(throttle, carDir, carPitch);
+			ApplyPushImpulse(speedSigned, carDir, carPitch);
 		}
 		//! Иначе — накат в коридоре (газ/тормоз = 0).
 
-		m_Car.SetThrottle(throttle);
-		m_Car.SetBrake(brake);
+		m_Car.dm_DriveThrottle = throttle;
+		m_Car.dm_DriveBrake = brake;
+		m_Car.dm_DriveActive = true;
 
 		//! Восстановление от отката назад (не в реверсе).
 		if (!m_Reverse)
@@ -252,58 +270,46 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		return pushing;
 	}
 
-	//! Толчок вперёд (или назад в реверсе) с компенсацией уклона.
-	void ApplyPushImpulse(float throttleVal, vector carDir, float carPitch)
+	//! Замкнутый контур скорости: толчок = ошибка × kp (кэп по дельта-V), в ЦМ.
+	//! Знак реверса закодирован в signed-лимите: в реверсе лимит берём со знаком
+	//! минус → при недостаточной задней скорости dv отрицателен → толкаем назад.
+	//! Точка приложения — ЦМ (GetPosition), НЕ точка двигателя (смещена от ЦМ и
+	//! создаёт крутящий момент).
+	void ApplyPushImpulse(float speedSigned, vector carDir, float carPitch)
 	{
-		float bodyMass = dBodyGetMass(m_Car);
-		if (bodyMass <= 0.0)
-			return;
-
-		vector impulseDir = carDir;
+		float limit = m_SpeedLimit;
 		if (m_Reverse)
-			impulseDir = -impulseDir;
+			limit = -m_SpeedLimit;
 
-		//! Компенсация уклона: в горку толкаем сильнее.
-		float sinPitch = carPitch;
-		float slopeMultiplier = 1.0;
-		if (sinPitch > 0.05)
-		{
-			slopeMultiplier = 1.0 + sinPitch * DRIVE_SLOPE_FACTOR;
-			slopeMultiplier = Math.Clamp(slopeMultiplier, 1.0, 3.5);
-		}
+		//! Ошибка скорости (км/ч, знаковая) → дельта-V (м/с) с кэпом.
+		float speedErr = limit - speedSigned;
+		float dv = speedErr / 3.6 * DM_DRIVE_SPEED_KP;
 
-		float forceMag = bodyMass * DM_DRIVE_PUSH_FORCE * throttleVal * slopeMultiplier;
-		if (forceMag > bodyMass * 1000.0)
-			forceMag = bodyMass * 1000.0;
+		//! Малый множитель уклона (не домножаем на массу — это был источник
+		//! нестабильности).
+		float slopeMultiplier = 1.0 + carPitch * DRIVE_SLOPE_FACTOR;
+		slopeMultiplier = Math.Clamp(slopeMultiplier, 0.5, 2.0);
+		dv = dv * slopeMultiplier;
 
-		vector impulse = impulseDir * forceMag * (1.0 / bodyMass);
-		vector applyPoint = m_Car.ModelToWorld(m_Car.GetEnginePos());
-		dBodyApplyImpulseAt(m_Car, impulse, applyPoint);
+		dv = Math.Clamp(dv, -DM_DRIVE_SPEED_MAX_DV, DM_DRIVE_SPEED_MAX_DV);
+
+		vector impulse = carDir * dv;
+		dBodyApplyImpulseAt(m_Car, impulse, m_Car.GetPosition());
 	}
 
-	//! Торможение импульсом против текущей скорости.
-	void ApplyBrakeImpulse(float brakeIntensity, float speedSigned, vector carDir)
+	//! Замкнутый контур торможения (зеркально толчку): ошибка = speedSigned - лимит,
+	//! импульс против движения (в ЦМ). Знак учитывает реверс: в реверсе при переизбытке
+	//! задней скорости speedSigned сильно отрицателен → dv отрицателен → -carDir×dv
+	//! даёт вперёд (против заднего хода). Прежний maxPossibleImpulse = |v|×mass×100
+	//! был фикс-капом и больше не нужен.
+	void ApplyBrakeImpulse(float speedSigned, vector carDir)
 	{
-		float bodyMass = dBodyGetMass(m_Car);
-		if (bodyMass <= 0.0)
-			return;
+		float speedErr = speedSigned - m_SpeedLimit;
+		float dv = speedErr / 3.6 * DM_DRIVE_BRAKE_KP;
+		dv = Math.Clamp(dv, -DM_DRIVE_BRAKE_MAX_DV, DM_DRIVE_BRAKE_MAX_DV);
 
-		vector impulseDir = carDir;
-		if (speedSigned > 0.5)
-			impulseDir = -impulseDir;  // едем вперёд → тормоз назад
-		else if (speedSigned < -0.5)
-			impulseDir = carDir;       // едем назад → тормоз вперёд
-		else
-			return;                    // скорость ~0, тормозить нечего
-
-		float speedMS = speedSigned / 3.6;
-		float maxPossibleImpulse = Math.AbsFloat(speedMS) * bodyMass * 100.0;
-		float desiredForce = bodyMass * DM_DRIVE_BRAKE_FORCE * brakeIntensity;
-		float forceMag = Math.Min(desiredForce, maxPossibleImpulse);
-
-		vector impulse = impulseDir * forceMag * (1.0 / bodyMass);
-		vector applyPoint = m_Car.ModelToWorld(m_Car.GetEnginePos());
-		dBodyApplyImpulseAt(m_Car, impulse, applyPoint);
+		vector impulse = carDir * (-dv);
+		dBodyApplyImpulseAt(m_Car, impulse, m_Car.GetPosition());
 	}
 
 	//! Коррекция отката назад (машина катится назад без реверса) — толкаем вперёд.
@@ -363,40 +369,40 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 	}
 
-	//! Руль: боковой импульс по знаку угла + нативный SetSteering (колёса визуально).
+	//! Руль: боковой импульс (angle×kp) + нативный руль в поле машины (применяется
+	//! в CarScript.OnInput, колёса визуально). steerTarget в <-1,1> от угла (±90°).
 	void ApplySteering(float angle, float speedAbs, vector carDir, float pDt)
 	{
 		float steerTarget = 0.0;
 
 		if (speedAbs >= DM_DRIVE_STEER_MIN_SPEED && Math.AbsFloat(angle) >= DRIVE_STEER_ANGLE_DEADZONE)
 		{
-			int direction = 1;
-			if (angle < 0.0)
-				direction = -1;
-			ApplySideImpulse(direction, DM_DRIVE_SIDE_IMPULSE, carDir);
-			steerTarget = Math.Clamp(angle / 3.14159265, -1.0, 1.0);
+			ApplySideImpulse(angle, carDir);
+			steerTarget = Math.Clamp(angle / 1.57, -1.0, 1.0);
 		}
 
 		float t = Math.Min(1.0, DM_DRIVE_WHEEL_STEER_SPEED * pDt);
 		m_WheelSteer = Math.Lerp(m_WheelSteer, steerTarget, t);
-		m_Car.SetSteering(m_WheelSteer);
+		m_Car.dm_DriveSteering = m_WheelSteer;
 	}
 
-	//! Боковой рулевой импульс (порт AutoCarSteering.ApplySideImpulse).
-	void ApplySideImpulse(int direction, float forceMagnitude, vector carDir)
+	//! Боковой рулевой импульс: толкаем нос ВЛЕВО при angle>0 (цель слева). sideDir
+	//! = (-carDir[2],0,carDir[0]) = ЛЕВО; impulse = sideDir × clamp(angle×kp). БЕЗ
+	//! инверсии знака (прежний ×(-direction) уводил от цели). Приложить на носу.
+	void ApplySideImpulse(float angle, vector carDir)
 	{
-		vector carPos = m_Car.GetPosition();
-		vector applyPoint = carPos + carDir * 1.5;
-
 		vector sideDir;
 		sideDir[0] = -carDir[2];
 		sideDir[1] = 0.0;
 		sideDir[2] = carDir[0];
 		sideDir.Normalize();
 
-		vector finalForceDir = sideDir * (-(float)direction);
-		vector impulseVector = finalForceDir * forceMagnitude;
-		dBodyApplyImpulseAt(m_Car, impulseVector, applyPoint);
+		float steerForce = Math.Clamp(angle * DM_DRIVE_STEER_KP, -DM_DRIVE_STEER_MAX_DV, DM_DRIVE_STEER_MAX_DV);
+		vector impulse = sideDir * steerForce;
+
+		vector carPos = m_Car.GetPosition();
+		vector applyPoint = carPos + carDir * 1.5;
+		dBodyApplyImpulseAt(m_Car, impulse, applyPoint);
 	}
 
 	//! Застревание: не едем, но толкаем → считаем тики; порог → реверс.
@@ -418,16 +424,23 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 	}
 
-	//! Graceful: глушим двигатель, тормозим, включаем авто-тормоз без водителя.
-	//! Гейт по m_EngineStarted: не трогаем машину, в которую бот так и не сел
-	//! (Fail во время WALK-фазы посадки).
+	//! Graceful: гасим поля ввода (OnInput больше не прикладывает газ/руль),
+	//! глушим двигатель, тормозим, включаем авто-тормоз без водителя. Гейт по
+	//! m_EngineStarted: не трогаем машину, в которую бот так и не сел (Fail во
+	//! время WALK-фазы посадки).
 	void StopCar()
 	{
 		if (!m_Car)
 			m_Car = CarScript.Cast(m_Transport);
+		if (m_Car)
+		{
+			m_Car.dm_DriveActive = false;
+			m_Car.dm_DriveThrottle = 0.0;
+			m_Car.dm_DriveBrake = 0.0;
+			m_Car.dm_DriveSteering = 0.0;
+		}
 		if (m_Car && m_EngineStarted)
 		{
-			m_Car.SetThrottle(0.0);
 			m_Car.SetBrake(1.0);
 			m_Car.EngineStop();
 			m_Car.SetBrakesActivateWithoutDriver(true);

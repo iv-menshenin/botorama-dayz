@@ -128,7 +128,12 @@ class dmBotPathfinder
 
 		#ifdef DM_BOT_DEBUG_PATHFINDER
 		dmBotLog.Debug("[PATH-ROAD] FindRoadPath from=" + from + " to=" + to + " found=" + found);
+		dmBotLog.Debug("[PATH-ROAD] FindRoadPath sampledFrom=" + sampledFrom + " sampledTo=" + sampledTo);
 		dmBotLog.Debug("[PATH-ROAD] FindRoadPath n=" + waypoints.Count());
+		float lastDistToTarget = -1.0;
+		if (waypoints.Count() > 0)
+			lastDistToTarget = vector.Distance(waypoints[waypoints.Count() - 1], sampledTo);
+		dmBotLog.Debug("[PATH-ROAD] FindRoadPath lastDistToTarget=" + lastDistToTarget);
 		int wi;
 		for (wi = 0; wi < waypoints.Count(); wi++)
 			dmBotLog.Debug("[PATH-ROAD] FindRoadPath wp[" + wi + "]=" + waypoints[wi]);

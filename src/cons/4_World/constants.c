@@ -25,6 +25,10 @@ static const float DM_GETIN_REACH = 1.0;
 //! Drive: точка назначения достигнута, если машина ближе 10 м.
 static const float DM_DRIVE_REACH = 10.0;
 
+//! Drive: если последний вейпоинт дорожного маршрута дальше этого (м) от назначения,
+//! маршрут считается усечённым (ROADWAY-navmesh фрагментирован) → fallback на пеший путь.
+static const float DM_DRIVE_ROAD_FALLBACK_DIST = 30.0;
+
 //! Drive: радиус снэпа концов дорожного маршрута на navmesh (метры).
 static const float DM_PATH_SAMPLE_ROAD_RADIUS = 5.0;
 
@@ -40,14 +44,23 @@ static const float DM_DRIVE_MAX_SPEED_TURNING = 30.0;
 //! Drive: угол (рад) между курсом машины и вейпоинтом, выше которого считается поворот.
 static const float DM_DRIVE_TURN_ANGLE_THRESHOLD = 0.05;
 
-//! Drive: инкремент толчка вперёд (аналог PUSH_FORCE_INCREMENT).
-static const float DM_DRIVE_PUSH_FORCE = 300.0;
+//! Drive: доля ошибки скорости, прикладываемая за тик (замкнутый контур толчка).
+static const float DM_DRIVE_SPEED_KP = 0.3;
 
-//! Drive: инкремент тормоза.
-static const float DM_DRIVE_BRAKE_FORCE = 600.0;
+//! Drive: кап дельта-V толчка (м/с за тик).
+static const float DM_DRIVE_SPEED_MAX_DV = 4.0;
 
-//! Drive: боковой рулевой импульс (поворот машины).
-static const float DM_DRIVE_SIDE_IMPULSE = 800.0;
+//! Drive: доля ошибки при торможении (замкнутый контур тормоза).
+static const float DM_DRIVE_BRAKE_KP = 0.6;
+
+//! Drive: кап дельта-V тормоза (м/с за тик).
+static const float DM_DRIVE_BRAKE_MAX_DV = 6.0;
+
+//! Drive: усиление руля (боковой импульс = angle * kp).
+static const float DM_DRIVE_STEER_KP = 2.0;
+
+//! Drive: кап бокового рулевого импульса (м/с за тик).
+static const float DM_DRIVE_STEER_MAX_DV = 3.0;
 
 //! Drive: ниже этой скорости (км/ч) руль/боковой импульс не прикладывается.
 static const float DM_DRIVE_STEER_MIN_SPEED = 3.0;
