@@ -1917,3 +1917,147 @@ Expansion-эталон (`eaistate_flank` / `OverrideTargetPosition` в нави�
   `core/3_Game/modded/modded_DayZGame.c:8-18` (`FirearmEffects` → BULLETIMPACT-шум),
   `cons/4_World/constants.c:432-438` (`DM_AI_SHOT_MAX_DISTANCE`, `DM_AI_GRAVITY`,
   `DM_AI_DEFAULT_INIT_SPEED`).
+
+---
+
+# E2E мили: спавн зомби с мозгом + детект MELEE2 + HeadingModel при MELEE2
+
+Три вопроса к фиксу мили-боя (T10/T11/T12). Все сигнатуры подтверждены чтением ванили
+(`/home/devalio/dayz/Work/DayZ Projects/scripts/`) и Expansion.
+
+## 1. Спавн зомби с рабочим ИИ (серверный мозг)
+
+**Причина «истукана»**: текущий тест зовёт `GetGame().CreateObject("ZmbM_PatrolNormal_Autumn",
+pos, false)` — это `create_local=false`, а `init_ai` остаётся **дефолтом `false`**. Зомби без
+`init_ai` не инициализирует нативный AI-агент (мозг) и не ходит/не атакует.
+
+Сигнатура натива (`3_game/global/game.c:690`):
+
+```c
+proto native Object CreateObject(string type, vector pos, bool create_local = false, bool init_ai = false, bool create_physics = true);
+```
+
+**Фикс — 4-й аргумент `init_ai = true`:**
+
+```c
+ZombieBase z = ZombieBase.Cast(g_Game.CreateObject("ZmbM_PatrolNormal_Autumn", pos, false, true));
+```
+
+Подтверждение эталона:
+- Expansion `RPC_SpawnZombie` (`DayZExpansion/AI/Scripts/5_Mission/DayZExpansion_AI/eaicommandmanagerimpl.c:497`):
+  `g_Game.CreateObject(<zombieClass>, pos, false, true, true)` — `create_local=false, init_ai=true, create_physics=true`.
+- Ванильный дебаг-плагин (`4_world/plugins/pluginbase/plugindayzinfecteddebug.c:367`) и
+  `plugindeveloper.c:405`, `playerbase.c:6491` спавнят через `CreateObjectEx(..., ECE_PLACE_ON_SURFACE|ECE_INITAI|ECE_EQUIP_ATTACHMENTS)`.
+
+**Альтернативы (для полноты):**
+- `CreateObjectEx(type, pos, ECE_PLACE_ON_SURFACE | ECE_INITAI | ECE_EQUIP_ATTACHMENTS)` —
+  флаг `ECE_INITAI = 2048` (`3_game/ce/centraleconomy.c:17`).
+- `DayZCreatureAI.InitAIAgent(AIGroup group)` (`3_game/entities/dayzanimal.c:207`) — «Manual ai
+  initialization for creatures created with CreateObject(... init_ai = false...)». **НО** `AIGroup`
+  имеет приватный конструктор (`3_game/ai/aigroup.c:3`) — из скрипта экземпляр не создать, поэтому
+  этот путь практически непригоден; `init_ai=true` проще.
+
+**Кто «мозг»**: `DayZInfected : DayZCreatureAI` (`3_game/entities/dayzinfected.c:103`);
+`DayZCreatureAI.GetAIAgent()` — натив (`dayzanimal.c:193`). `AIAgent` (`3_game/ai/aiagent.c`) —
+native Managed, из скрипта доступны только `SetKeepInIdle(bool)` и `GetGroup()` — **сеттера цели
+нет**, агро целиком нативное (перцепция/зрение/слух).
+
+**Агро на AI-бота**: цель зомби = `DayZInfectedInputController.GetTargetEntity()` (натив,
+`dayzinfectedinputcontroller.c:10`). В `ZombieBase` цель обрабатывается как `PlayerBase.Cast(...)`
+(`zombiebase.c:637/682`), а список таргетируемых типов = `PlayerBase` + `AnimalBase`
+(`zombiebase.c:71-72`). `dmAISurvivorBase : PlayerBase` → тип цели валиден, зомби-атака до бота
+доезжает (урон уже разобран в секции «Получение урона ботом»).
+
+`[нужно проверить]` — агрится ли зомби (`init_ai=true`) на `INSTANCETYPE_AI_SERVER`-бота
+натурно: нативная перцепция может фильтровать только «настоящих» игроков (`INSTANCETYPE_SERVER`).
+Эмпирический сценарий: заспавнить зомби с `init_ai=true` рядом с ботом, наблюдать
+`z.GetInputController().GetMindState()` (CALM→CHASE/FIGHT) и `GetTargetEntity()` — стал ли бот
+целью и перешёл ли в CHASE. Если нет — fallback на амбиентных зомби (уже заспавнены системой
+города с мозгом).
+
+**Амбиентные зомби / реестр**: `dmEntityRegistry.GetZombies()` возвращает `array<ZombieBase>`
+всех живых зомби (регистрируются в `modded_ZombieBase` конструктор/деструктор,
+`src/reg/4_World/modded_ZombieBase.c`, чистятся `Cleanup()`). Это надёжный источник списка живых
+зомби поблизости (фильтровать по дистанции), НО он содержит и зомби без мозга (спавн
+`init_ai=false` тоже проходит через конструктор `ZombieBase`). Для E2E «ходячего и атакующего»
+зомби надёжнее спавнить самому с `init_ai=true` (детерминированная позиция), либо фильтровать
+амбиентных по `GetAIAgent() != null` / `GetInputController().GetMindState()`.
+
+## 2. Точное имя COMMANDID для MELEE2
+
+`DayZPlayerConstants.COMMANDID_MELEE2` — enum `DayZPlayerConstants` (объявлен
+`3_game/dayzplayer.c:601`), значение в `:699`:
+
+```
+COMMANDID_MOVE,    // normal movement
+COMMANDID_ACTION,  // full body action
+COMMANDID_MELEE,   // melee attacks
+COMMANDID_MELEE2,  // melee attacks
+```
+
+**Детект** — два способа (оба используются ванилью):
+- `m_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_MELEE2` — используется ванилью
+  в `dayzplayerimplement.c:1710` (AimingModel), `weapon_base.c:1688`,
+  `dayzplayermeleefightlogic_lightheavy.c:192/285`.
+- `GetCurrentCommandID() == DayZPlayerConstants.COMMANDID_MELEE2` — натив
+  (`3_game/human.c:1439`); «actual command ID» (см. `actionmanagerserver.c:195-199`: `CommandHandler`
+  получает `pCurrentCommandID` на входе, но по ходу может меняться → для живого значения звать
+  `m_Player.GetCurrentCommandID()`).
+
+`GetCommand_Move()` возвращает `null` пока активна MELEE2 — ожидаемо (команда сменилась на
+`HumanCommandMelee2`); это НЕ способ детекта, а следствие.
+
+## 3. Ванильный HeadingModel во время MELEE2 — крутит корпус? ДА
+
+`DayZPlayerImplement.HeadingModel` (`4_world/entities/dayzplayerimplement.c:1619`) **не имеет
+спец-ветки для `COMMANDID_MELEE2`**. Порядок проверок: LADDER/VEHICLE/UNCONSCIOUS/CLIMB →
+`return false`; `RAISEDPRONE` → `return false`; `COMMANDID_MOVE` → только `IsStandingFromBack`;
+затем item-behavior `m_StanceRotation == ROTATION_DISABLE` → `NoHeading`; unconscious →
+`NoHeading`; иначе — **`return DayZPlayerImplementHeading.RotateOrient(...)` (`:1699`)**.
+
+Т.е. для MELEE2 (и всех прочих не перечисленных команд) ваниль падает в `RotateOrient`
+(`dayzplayerimplementheading.c:67`), который **крутит `m_fOrientationAngle`** (корпус) к
+`m_fHeadingAngle`, когда разница превышает `CONST_ROTLIMIT = π·0.95 ≈ 171°` (`:64`). При меньшей
+разнице возвращает `false` (не крутит). Это ровно «слайд-поворот» тела.
+
+- Гейт `m_StanceRotation` для мили-оружия: дефолт `DayzPlayerItemBehaviorCfg` ставит
+  `ROTATION_ENABLE` для ERECT/CROUCH/PRONE/RAISED* (`dayzplayercfgbase.c:118-123`); `ROTATION_DISABLE`
+  только у restraint/surrender/prone-вариантов (`:252/270`). Мачете/нож в ERECT → вращение
+  **включено** → `RotateOrient` достижим.
+
+**Вывод для фикса**: текущий override `dmAISurvivorBase.HeadingModel`
+(`core/4_World/Entities/Bot/dmAISurvivorBase.c:1303-1315`) глушит поворот только для
+`COMMANDID_MOVE`; во время MELEE2 он вызывает `super.HeadingModel` → ваниль крутит корпус →
+«крутится вокруг оси» при ударе. Фикс — глушить так же для `COMMANDID_MELEE2` (добавить
+`m_CommandTypeId == COMMANDID_MELEE2` в то же условие, выставляя `m_fHeadingAngle =
+m_fOrientationAngle = GetOrientation()[0]` и `return true`).
+
+`[нужно подтвердить]` — что наблюдаемое «кручение» вызвано именно `RotateOrient` (а не нативной
+ориентацией анимации MELEE2): симптом `RotateOrient` проявляется только при разнице heading↔orient
+> 171°; если крутит и при малых углах — виновата сама MELEE2-команда, и тогда `HeadingModel`-фикс
+не поможет (проверять логом `Turn: bodyYaw/dBody` под `DM_BOT_DEBUG_BODY` во время удара).
+
+## Источники (файл:строка)
+
+- `3_game/global/game.c:690` — `CreateObject(type, pos, create_local, init_ai, create_physics)`.
+- `3_game/ce/centraleconomy.c:17` — `ECE_INITAI = 2048`; `:37` — `ECE_PLACE_ON_SURFACE`.
+- `3_game/entities/dayzinfected.c:103` — `DayZInfected : DayZCreatureAI`; `:1-18` —
+  `DayZInfectedConstants` (COMMANDID_*/MINDSTATE_*).
+- `3_game/entities/dayzanimal.c:191-208` — `DayZCreatureAI`, `GetAIAgent` L193, `InitAIAgent` L207.
+- `3_game/ai/aiagent.c:1-7` — `AIAgent` (приватный ctor; `SetKeepInIdle`/`GetGroup`).
+- `3_game/ai/aigroup.c:1-15` — `AIGroup` (приватный ctor → `InitAIAgent` непрактичен из скрипта).
+- `3_game/entities/dayzinfectedinputcontroller.c:10` — `GetTargetEntity()`.
+- `4_world/entities/creatures/infected/zombiebase.c:71-72` — `m_TargetableObjects = PlayerBase|AnimalBase`;
+  `:637/682` — цель как `PlayerBase`; `:607-674` — `FightLogic`.
+- `4_world/plugins/pluginbase/plugindayzinfecteddebug.c:367` — `CreateObjectEx(..., ECE_INITAI)`.
+- `3_game/dayzplayer.c:601` (enum `DayZPlayerConstants`), `:699` — `COMMANDID_MELEE2`.
+- `3_game/human.c:1439` — `GetCurrentCommandID()`.
+- `4_world/entities/dayzplayerimplement.c:1619-1700` — `HeadingModel` (нет ветки MELEE2; fall-through
+  в `RotateOrient` `:1699`); `:1710` — AimingModel-детект `COMMANDID_MELEE2`.
+- `4_world/entities/dayzplayerimplementheading.c:64-120` — `RotateOrient` (`CONST_ROTLIMIT=π·0.95`).
+- `4_world/entities/manbase/dayzplayer/dayzplayercfgbase.c:118-123` — дефолт `m_StanceRotation =
+  ROTATION_ENABLE` (ERECT/CROUCH/PRONE/RAISED*).
+- Expansion `DayZExpansion/AI/Scripts/5_Mission/DayZExpansion_AI/eaicommandmanagerimpl.c:497` —
+  `RPC_SpawnZombie` (`CreateObject(..., false, true, true)`).
+- botorama: `core/4_World/Entities/Bot/dmAISurvivorBase.c:1303-1315` (HeadingModel override),
+  `src/reg/4_World/modded_ZombieBase.c` / `dmEntityRegistry.c` (реестр зомби).
