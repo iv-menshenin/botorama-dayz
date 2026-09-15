@@ -2,7 +2,7 @@
   "Name": "untie",
   "Timeout": 60,
   "Steps": [
-    { "Op": "spawn", "Who": "U", "Pos": [6115.91, 0, 3256.36], "Yaw": 0 },
+    { "Op": "spawn", "Who": "U", "Pos": [4117, 0, 10827], "Yaw": 0 },
     { "Op": "restrain", "Who": "U" },
     { "Op": "botdump", "Who": "U" },
     { "Op": "sleep", "Timeout": 6 },

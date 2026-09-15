@@ -2,7 +2,7 @@
   "Name": "knockout-retrieve",
   "Timeout": 120,
   "Steps": [
-    { "Op": "spawn", "Who": "K", "Pos": [6115.91, 0, 3256.36], "Yaw": 0 },
+    { "Op": "spawn", "Who": "K", "Pos": [4117, 0, 10827], "Yaw": 0 },
     { "Op": "give", "Who": "K", "Value": "Machete" },
     { "Op": "botdump", "Who": "K" },
     { "Op": "shock", "Who": "K", "Value": "0.0" },
