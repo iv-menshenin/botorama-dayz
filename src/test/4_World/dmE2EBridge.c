@@ -682,8 +682,9 @@ class dmE2EBridge
 		#endif
 	}
 
-	//! Drop both registries after a job: named bots and named probe objects
-	//! (objects are deleted from the world so they never leak across jobs).
+	//! Drop both registries after a job. Probe objects are deleted from the world;
+	//! spawned BOTS persist (they stay in dmAISurvivor.s_All) so an observer client
+	//! can watch them — a scenario must end with `clearall` to clean them up.
 	void ClearNamed()
 	{
 		m_Named.Clear();

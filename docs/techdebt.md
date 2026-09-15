@@ -84,6 +84,15 @@
   - `clearall`/`killall` дёргают ГЛОБАЛЬНЫЙ `dmAISurvivor.ClearAll()` → чистят и фоновых
     settlement-ботов (spawn-менеджер), а не только named-бота теста. Тест не изолирован.
     Рассмотреть: `clearbot`/`killbot` по имени.
+  - **Находки `dayz-reviewer` (фаза 3, коммиты `96c060a`/`9289be0`)**:
+    - *(важно)* дублирование guard'а «no such bot» ×9 → вынести `FindBot(step, out bot, r)`.
+    - *(важно)* асимметрия очистки: боты намеренно переживают job (для наблюдателя),
+      но `clearall` обязателен как финальный шаг сценария (комментарий `ClearNamed`
+      исправлен, v3.168).
+    - *(косметика)* `Who` (spawnobj) vs `Obj` (getpos/setpos/clearobj) — два имени одного
+      ключа; `ResolveWorldPos` sentinel `Y==0`; `EnsureDir` дублирует `dmJsonFile`; детект
+      `moving` продублирован (`RunSnapshot`/`EvaluateCondition`); `EvaluateCondition`
+      двойной сигнал (bool + `r.Ok`); null-защита `hit.component`; магическая `5` в `BaseName`.
 
 ## F. Движение / качество ходьбы (замечания из тестов)
 
