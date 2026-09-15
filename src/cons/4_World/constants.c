@@ -28,6 +28,39 @@ static const float DM_DRIVE_REACH = 10.0;
 //! Drive: радиус снэпа концов дорожного маршрута на navmesh (метры).
 static const float DM_PATH_SAMPLE_ROAD_RADIUS = 5.0;
 
+//! Drive: радиус прохождения дорожного вейпоинта (метры).
+static const float DM_DRIVE_WAYPOINT_REACH = 5.0;
+
+//! Drive: целевая скорость на прямой (км/ч).
+static const float DM_DRIVE_MAX_SPEED_STRAIGHT = 50.0;
+
+//! Drive: целевая скорость в повороте (км/ч).
+static const float DM_DRIVE_MAX_SPEED_TURNING = 30.0;
+
+//! Drive: угол (рад) между курсом машины и вейпоинтом, выше которого считается поворот.
+static const float DM_DRIVE_TURN_ANGLE_THRESHOLD = 0.05;
+
+//! Drive: инкремент толчка вперёд (аналог PUSH_FORCE_INCREMENT).
+static const float DM_DRIVE_PUSH_FORCE = 300.0;
+
+//! Drive: инкремент тормоза.
+static const float DM_DRIVE_BRAKE_FORCE = 600.0;
+
+//! Drive: боковой рулевой импульс (поворот машины).
+static const float DM_DRIVE_SIDE_IMPULSE = 800.0;
+
+//! Drive: ниже этой скорости (км/ч) руль/боковой импульс не прикладывается.
+static const float DM_DRIVE_STEER_MIN_SPEED = 3.0;
+
+//! Drive: тиков застревания до переключения на реверс.
+static const float DM_DRIVE_STUCK_THRESHOLD = 50.0;
+
+//! Drive: скорость сглаживания руля (1/с).
+static const float DM_DRIVE_WHEEL_STEER_SPEED = 3.0;
+
+//! Drive: сглаживание целевой скорости (доля за тик).
+static const float DM_DRIVE_SPEED_SMOOTH = 0.15;
+
 //! Car door: animation phase at which a door counts as "open".
 static const float DM_CAR_DOOR_OPEN_PHASE   = 0.9;
 

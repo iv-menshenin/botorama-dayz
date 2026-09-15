@@ -894,6 +894,16 @@ class dmAISurvivor
 		return m_Pathfinder.FindPath(GetPosition(), sampled, path);
 	}
 
+	//! Дорожный navmesh-путь от `from` (позиция машины) до `target` — для вождения.
+	//! false — дорожного маршрута нет. Зеркало FindPathTo, но с явным `from` и
+	//! дорожным фильтром (только ROADWAY), без снапа цели на пешеходную навмеш.
+	bool FindRoadPathTo(vector from, vector target, inout array<vector> path)
+	{
+		if (!m_Pathfinder)
+			m_Pathfinder = new dmBotPathfinder();
+		return m_Pathfinder.FindRoadPath(from, target, path);
+	}
+
 	//! Snap a point onto the navmesh (cheap sample, no path). Mirrors the sample
 	//! step inside FindPathTo; use for candidate validation where a full A* is not
 	//! needed. Returns false when off-navmesh (within DM_PATH_SAMPLE_RADIUS).

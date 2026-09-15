@@ -37,6 +37,7 @@
 //!   DM_BOT_DEBUG_BALLISTICS — баллистика выстрела (FIRE → HIT/IMPACT, время полёта).
 //!   DM_BOT_DEBUG_E2E     — файловый мост автотестов (жизненный цикл сценария).
 //!   DM_BOT_DEBUG_PATHFINDER — pathfinding (moving to goal)
+//!   DM_BOT_DEBUG_CAR     — вождение автомобиля (газ/руль/передачи/RPM/толчок/застревание).
 //!   DM_BOT_DEBUG_PERFRAME_MOVING_LOG — per-frame movement speed/angle (ApplyMovement).
 //!
 //!   DM_WEAPON_DEBUG_FSM - debug weapon FSM events
