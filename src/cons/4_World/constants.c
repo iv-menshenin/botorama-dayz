@@ -122,18 +122,14 @@ static const float DM_TREE_RAY_RADIUS = 0.25;
 //! Tree avoidance: tree-candidate flag freshness (seconds) — how long a detected
 //! tree stays "fresh" before the veer trigger ignores it.
 static const float DM_TREE_FLAG_TIMEOUT = 0.5;
-//! Tree avoidance: veer (side-strafe) duration (seconds).
-static const float DM_TREE_VEER_TIME = 0.7;
 //! Tree avoidance: veer direction (degrees) off the movement direction — a forward
 //! diagonal, not a pure 90° sidestep, so the bot still advances through a dense forest.
 static const float DM_TREE_VEER_DIR = 45.0;
-//! Tree avoidance: veer speed (0..3) — jog so the forward component is tangible.
-static const float DM_TREE_VEER_SPEED = 2.0;
-//! Tree avoidance: max speed (0..3) while a tree/bush is ahead — caps the sprint so
-//! the bot can react instead of sliding into trunks.
-static const float DM_TREE_SLOW_SPEED = 2.0;
-//! Tree avoidance: seconds after a tree detection to keep the reduced speed.
-static const float DM_TREE_SLOW_WINDOW = 2.0;
+//! Tree avoidance: veer duration (seconds) by pace — the faster the bot moves, the
+//! shorter the veer so it doesn't overshoot the trunk.
+static const float DM_TREE_VEER_TIME_WALK = 0.7;
+static const float DM_TREE_VEER_TIME_JOG = 0.35;
+static const float DM_TREE_VEER_TIME_SPRINT = 0.2;
 
 //! Collision oracle (test): |moveAngle| (degrees) below this counts as "commanding
 //! forward" — a larger angle means the bot is deliberately strafing/backing, not
