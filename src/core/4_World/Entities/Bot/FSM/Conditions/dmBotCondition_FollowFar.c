@@ -16,7 +16,7 @@ class dmBotCondition_FollowFar : dmBotCondition
 		if ( !bot.GetPawn() ) return false;
 
 		// TODO возможно, это справедливо для Follow но не для других состояний
-		PlayerBase p = PlayerBase.Cast(t)
+		PlayerBase p = PlayerBase.Cast(t);
 		if ( p )
 		{
 			bool botInVehicle;
