@@ -27,6 +27,7 @@ class dmBotPathfinder
 	AIWorld m_AIWorld;
 	ref PGFilter m_Filter;
 	ref PGFilter m_SampleFilter;
+	ref PGFilter m_RoadFilter;
 
 	void dmBotPathfinder()
 	{
@@ -54,6 +55,27 @@ class dmBotPathfinder
 
 		m_SampleFilter = new PGFilter();
 		m_SampleFilter.SetFlags(PGPolyFlags.ALL & ~(PGPolyFlags.CRAWL | PGPolyFlags.CROUCH), PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
+
+		//! Road filter — A* for vehicles over the ROAD only. Roads are WALK
+		//! polygons (with UNREACHABLE so A* can route across detached road navmesh
+		//! islands); everything else is excluded. Roads are cheap, the rest is
+		//! expensive — so A* stays on the road and ignores steppes/fields/rivers/forests.
+		int roadInclude = PGPolyFlags.WALK | PGPolyFlags.UNREACHABLE;
+		int roadExclude = PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.LADDER | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.DISABLED;
+
+		m_RoadFilter = new PGFilter();
+		m_RoadFilter.SetFlags(roadInclude, roadExclude, PGPolyFlags.NONE);
+		m_RoadFilter.SetCost(PGAreaType.ROADWAY, 1.0);
+		m_RoadFilter.SetCost(PGAreaType.ROADWAY_BUILDING, 1.0);
+		m_RoadFilter.SetCost(PGAreaType.TERRAIN, 10000.0);
+		m_RoadFilter.SetCost(PGAreaType.OBJECTS, 10000.0);
+		m_RoadFilter.SetCost(PGAreaType.OBJECTS_NOFFCON, 10000.0);
+		m_RoadFilter.SetCost(PGAreaType.BUILDING, 10000.0);
+		m_RoadFilter.SetCost(PGAreaType.WATER, 10000.0);
+		m_RoadFilter.SetCost(PGAreaType.WATER_DEEP, 10000.0);
+		m_RoadFilter.SetCost(PGAreaType.WATER_SEA, 10000.0);
+		m_RoadFilter.SetCost(PGAreaType.WATER_SEA_DEEP, 10000.0);
+		m_RoadFilter.SetCost(PGAreaType.TREE, 10000.0);
 	}
 
 	//! A* path from `from` to `to`. Fills `waypoints` (cleared first); returns false
@@ -76,6 +98,40 @@ class dmBotPathfinder
 		int wi;
 		for (wi = 0; wi < waypoints.Count(); wi++)
 			dmBotLog.Debug("[PATH] FindPath wp[" + wi + "]=" + waypoints[wi]);
+		#endif
+		return found;
+	}
+
+	//! A* path over the ROAD from `from` to `to` (vehicles). Both ends are snapped
+	//! onto the road navmesh first; returns false when no road path exists (or the
+	//! AIWorld is unavailable, or either end can't be snapped to a road).
+	bool FindRoadPath(vector from, vector to, inout array<vector> waypoints)
+	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Path.FindRoad");
+		#endif
+
+		waypoints.Clear();
+
+		if (!m_AIWorld)
+			return false;
+
+		vector sampledFrom;
+		if (!m_AIWorld.SampleNavmeshPosition(from, DM_PATH_SAMPLE_ROAD_RADIUS, m_RoadFilter, sampledFrom))
+			return false;
+
+		vector sampledTo;
+		if (!m_AIWorld.SampleNavmeshPosition(to, DM_PATH_SAMPLE_ROAD_RADIUS, m_RoadFilter, sampledTo))
+			return false;
+
+		bool found = m_AIWorld.FindPath(sampledFrom, sampledTo, m_RoadFilter, waypoints);
+
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug("[PATH-ROAD] FindRoadPath from=" + from + " to=" + to + " found=" + found);
+		dmBotLog.Debug("[PATH-ROAD] FindRoadPath n=" + waypoints.Count());
+		int wi;
+		for (wi = 0; wi < waypoints.Count(); wi++)
+			dmBotLog.Debug("[PATH-ROAD] FindRoadPath wp[" + wi + "]=" + waypoints[wi]);
 		#endif
 		return found;
 	}

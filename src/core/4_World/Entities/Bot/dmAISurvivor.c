@@ -1670,6 +1670,9 @@ class dmAISurvivor
 		m_Winner.Set(dmBotIntentsChannel.EMOTION, null);
 		m_Winner.Set(dmBotIntentsChannel.ATTACK, null);
 		m_Winner.Set(dmBotIntentsChannel.VOICE, null);
+		//! DRIVE: без default-rest — канал пишет только интент вождения; мобильность
+		//! возвращается graceful-exit'ом самого интента, а не сбросом в «покой».
+		m_Winner.Set(dmBotIntentsChannel.DRIVE, null);
 
 		IntentsArbitrationPool(m_PersonalityIntents, pDt);
 		IntentsArbitrationPool(m_CommandIntents, pDt);

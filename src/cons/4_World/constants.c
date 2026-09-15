@@ -22,6 +22,12 @@ static const float DM_PATROL_REACH_DISTANCE = 1.0;
 //! counts as reached and the bot starts boarding the vehicle.
 static const float DM_GETIN_REACH = 1.0;
 
+//! Drive: точка назначения достигнута, если машина ближе 10 м.
+static const float DM_DRIVE_REACH = 10.0;
+
+//! Drive: радиус снэпа концов дорожного маршрута на navmesh (метры).
+static const float DM_PATH_SAMPLE_ROAD_RADIUS = 5.0;
+
 //! Car door: animation phase at which a door counts as "open".
 static const float DM_CAR_DOOR_OPEN_PHASE   = 0.9;
 
