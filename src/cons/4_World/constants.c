@@ -526,6 +526,19 @@ static const float DM_MELEE_SPIN_THRESHOLD = 180.0;
 //! request before the bot is considered a "dummy" (in reach but not attacking).
 static const float DM_MELEE_STALL_THRESHOLD = 3.0;
 
+//! Retrieve dropped weapon (knockout recovery): seconds to complete a full 360°
+//! ground scan. The look point advances one full circle over this time.
+static const float DM_RETRIEVE_SCAN_TIME = 4.0;
+
+//! Retrieve dropped weapon: distance (meters) of the ground look point ahead of
+//! the bot while sweeping.
+static const float DM_RETRIEVE_LOOK_DIST = 1.0;
+
+//! Retrieve dropped weapon: half-angle (degrees) of the visibility cone for the
+//! raycast to the item — the item is only picked up while within this of the
+//! current sweep direction.
+static const float DM_RETRIEVE_FOV = 30.0;
+
 //! Fighting: seconds between target re-resolution (re-pick the nearest hostile).
 static const float DM_FIGHT_RETARGET_INTERVAL = 2.0;
 

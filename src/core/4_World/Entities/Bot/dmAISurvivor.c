@@ -407,6 +407,18 @@ class dmAISurvivor
 		if (m_Pawn.IsUnconscious() || m_Pawn.IsRestrained())
 			return;
 
+		//! Пробуждение после нокаута: вернуть выпавшее оружие (персональный CRITICAL).
+		if (m_DroppedWeapon)
+		{
+			#ifdef DM_BOT_DEBUG_BODY
+			dmBotLog.Debug("[Body] OnUpdate: пробуждение, вернуть выпавшее оружие " + m_DroppedWeapon.GetType());
+			#endif
+			dmBotIntent_RetrieveWeapon retrieve = new dmBotIntent_RetrieveWeapon();
+			retrieve.m_Item = m_DroppedWeapon;
+			AddPersonalityIntent(retrieve);
+			m_DroppedWeapon = null;
+		}
+
 		if (!m_Vision)
 			m_Vision = new dmVision();
 		m_Vision.Update(this, pDt);
