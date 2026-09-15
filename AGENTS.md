@@ -28,6 +28,7 @@
 ## Документация
 
 - `docs/codeguide.md` — синтаксис/движок Enfusion (готчи, чеклист).
+- `docs/review-guide.md` — гайд «Придиры» (качество кода: смеллы + эталоны из коммитов).
 - `docs/combat.md` — архитектура системы боя (огнестрел): слои, направление пули, режимы, разброс, отдача, cooldown.
 - `docs/tester-guide.md` — руководство тестировщика: все команды чата (`/bot`, `/fsm`, `/test`, `/prof`, `/tp`).
 - `docs/ai-testing-guide.md` — операционный ранбук **ИИ-агента**: сборка/деплой/запуск сервера/чтение логов/автотесты перед фиксацией.
@@ -66,7 +67,12 @@
    Нужны probe-«ручки» моста (`spawnobj`/`raycast`/`scanbox`/`botdump`/…) — расширение `dmE2EBridge`.
 4. **Каталог локаций** (`tools/e2e/locations.md`): если тестировщику не хватает локации — отчёт
    `gap` оркестратору, **человек** предоставляет координаты, запись добавляется в каталог.
-5. **Анти-бесконечный цикл**: бюджет итераций на задачу — ≤3 rework/delegate-цикла, иначе стоп +
+5. **Ревью качества (`dayz-reviewer`)** — по триггеру: нетривиальное изменение; новая
+   функция/метод; добавление/изменение поля класса, где уже >5 полей/методов; пишутся тесты.
+   Отчёт по значимости (критично/важно/косметика); критично/важно → rework у `dayz-dev`,
+   косметика → `docs/techdebt.md`. Один прогон ревьюера на задачу; новые смеллы — оркестратор
+   добавляет в `docs/review-guide.md` по мере появления.
+6. **Анти-бесконечный цикл**: бюджет итераций на задачу — ≤3 rework/delegate-цикла, иначе стоп +
    отчёт; список probe-«ручек» фиксируется заранее (dev делает батчем, не на лету); гипотеза —
    один эмпирический прогон (нет ручки → `blocked on handle`, в очередь, не в цикл).
 
@@ -120,20 +126,25 @@
 ## Субагенты
 
 Определения (source of truth) — `.opencode/agent/dayz-dev.md`, `.opencode/agent/dayz-research.md`,
-`.opencode/agent/dayz-orchestrator.md`, `.opencode/agent/dayz-tester.md` (дублируются в глобальный
-`~/.config/opencode/agent/` для загрузки — держать в синхроне). Скилл `dayz-ai-bot` — `.opencode/skills/dayz-ai-bot/`.
+`.opencode/agent/dayz-orchestrator.md`, `.opencode/agent/dayz-tester.md`, `.opencode/agent/dayz-reviewer.md`
+(дублируются в глобальный `~/.config/opencode/agent/` для загрузки — держать в синхроне).
+Скилл `dayz-ai-bot` — `.opencode/skills/dayz-ai-bot/`.
 
 - **`dayz-orchestrator`** — агент по умолчанию (`default_agent` в `opencode.jsonc`): он сам
   не пишет код, а делегирует реализацию `dayz-dev`, исследование — `dayz-research`,
-  E2E-тестирование — `dayz-tester`, и делает ревью/рефлексию.
+  E2E-тестирование — `dayz-tester`, ревью качества — `dayz-reviewer`, и делает ревью/рефлексию.
 - **`dayz-dev`** — реализует атомарную задачу (код). Пишет тест-сценарий под своё изменение.
 - **`dayz-research`** — исследует ванильный/Expansion API, пишет `docs/research/`.
 - **`dayz-tester`** — гоняет E2E-цикл (сборка/деплой/сервер/сценарии/логи), отчёт PASS/FAIL
   оркестратору. Не пишет код мода. Source of truth — `docs/ai-testing-guide.md`.
+- **`dayz-reviewer`** («Придира») — критическое ревью качества/дизайна (дублирование,
+  сложность, спагетти, имена, «человеческий подход»). Read-only, отчёт по значимости.
+  Source of truth — `docs/review-guide.md`.
 
 ## Разрешения (permission) по ответственности
 
 - `dayz-dev`: `edit` allow; `bash` — `git/mv/cp/mkdir/grep/rg/find/ls` (без build/server); external — deny.
 - `dayz-research`: `edit` allow (заметки); `bash` — read-only (`grep/rg/find/ls/cat/head/tail/strings`); external — `/home/devalio/dayz/Work/**`.
 - `dayz-tester`: `edit` allow; `bash` allow (ops); external — `DayZServer/**`, `Keys/**`, `~/dayz-cherno`, Temp-префикса сборки (`compatdata/830640/.../Temp/**`), клиент DayZ + Proton + runtime (для наблюдателя).
+- `dayz-reviewer`: `edit` deny; `bash` — read-only (`git/grep/rg/find/ls/cat/head/tail/strings`); external — deny.
 - `dayz-orchestrator`: primary, полный доступ (делегирует, ревьюит, коммитит, собирает/деплоит при необходимости).

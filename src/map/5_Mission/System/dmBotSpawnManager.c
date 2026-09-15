@@ -120,7 +120,10 @@ class dmBotSpawnManager
 			{
 				entry.m_RespawnTimer -= DM_SPAWN_TICK_INTERVAL;
 				if (entry.m_RespawnTimer <= 0.0)
+				{
 					SpawnEntry(entry);
+					return;
+				}
 			}
 		}
 	}
