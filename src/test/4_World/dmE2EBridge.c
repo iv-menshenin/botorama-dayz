@@ -646,7 +646,10 @@ class dmE2EBridge
 		}
 
 		pawn.SetRestrained(true);
-		pawn.GetHumanInventory().CreateInHands("RestrainingToolLocked");
+		//! "HandcuffsLocked" — конкретный CfgVehicles-класс наручников (находится в руках
+		//! цели при ванильном связывании). Абстрактный скриптовый "RestrainingToolLocked"
+		//! не имеет config-записи → CreateInHands давал "Bad vehicle type".
+		pawn.GetHumanInventory().CreateInHands("HandcuffsLocked");
 		pawn.OnItemInHandsChanged();
 		r.Ok = true;
 		r.Reason = "restrained";

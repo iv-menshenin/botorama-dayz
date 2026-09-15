@@ -14,6 +14,7 @@ class dmBotIntent_RetrieveWeapon : dmBotIntent
 	EntityAI m_Item;                    // выпавшее оружие (цель поиска)
 	float m_Angle;                      // текущий угол свипа (0..360)
 	float m_Direction;                  // ±1 (направление вращения)
+	float m_StartYaw;                   // стартовый яу корпуса (мир), якорь свипа
 	ref dmBotIntent_HoldLook m_Look;    // круговой взгляд (точка на земле)
 
 	void dmBotIntent_RetrieveWeapon()
@@ -37,6 +38,11 @@ class dmBotIntent_RetrieveWeapon : dmBotIntent
 			m_Direction = -1.0;
 		else
 			m_Direction = 1.0;
+
+		//! Якорь свипа — стартовый яу корпуса в мировых координатах. HoldLook (FULL)
+		//! доворачивает корпус к точке взгляда, поэтому живой GetOrientation()[0]
+		//! дал бы положительную обратную связь (тело догоняет точку, круга нет).
+		m_StartYaw = bot.GetOrientation()[0];
 
 		m_Look = new dmBotIntent_HoldLook();
 		m_Look.m_Turn = dmBotLookTurn.FULL;
@@ -66,7 +72,7 @@ class dmBotIntent_RetrieveWeapon : dmBotIntent
 		}
 
 		vector botPos = bot.GetPosition();
-		float lookYaw = bot.GetOrientation()[0] + m_Direction * m_Angle;
+		float lookYaw = m_StartYaw + m_Direction * m_Angle;
 		vector lookDir = Vector(lookYaw, 0.0, 0.0).AnglesToVector();
 		vector lookPoint = botPos + lookDir * DM_RETRIEVE_LOOK_DIST;
 		lookPoint[1] = GetGame().SurfaceY(lookPoint[0], lookPoint[2]);

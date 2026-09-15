@@ -1196,7 +1196,7 @@ class dmAISurvivorBase : PlayerBase
 				#endif
 			}
 		}
-		else if (IsUnconscious() && shock >= PlayerConstants.CONSCIOUS_THRESHOLD)
+		else if (IsUnconscious() && m_ShouldBeUnconscious && shock >= PlayerConstants.CONSCIOUS_THRESHOLD)
 		{
 			m_ShouldBeUnconscious = false;
 			HumanCommandUnconscious hcu = GetCommand_Unconscious();
@@ -1660,7 +1660,7 @@ class dmAISurvivorBase : PlayerBase
 	//! MOVE (GetCommand_Move()==null) and the body isn't otherwise busy.
 	private bool IsMeleeStriking()
 	{
-		return (GetCommand_Move() == null) && !IsClimbing() && !IsClimbingLadder() && !IsFalling() && !IsSwimming() && !IsInVehicle();
+		return (GetCommand_Move() == null) && !IsUnconscious() && !IsClimbing() && !IsClimbingLadder() && !IsFalling() && !IsSwimming() && !IsInVehicle();
 	}
 
 	//! Melee spin oracle (diagnostic): accumulates the absolute body-yaw change
