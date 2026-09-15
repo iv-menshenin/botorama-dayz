@@ -124,8 +124,11 @@ static const float DM_TREE_RAY_RADIUS = 0.25;
 static const float DM_TREE_FLAG_TIMEOUT = 0.5;
 //! Tree avoidance: veer (side-strafe) duration (seconds).
 static const float DM_TREE_VEER_TIME = 0.7;
-//! Tree avoidance: veer (side-strafe) speed (0..3).
-static const float DM_TREE_VEER_SPEED = 1.0;
+//! Tree avoidance: veer direction (degrees) off the movement direction — a forward
+//! diagonal, not a pure 90° sidestep, so the bot still advances through a dense forest.
+static const float DM_TREE_VEER_DIR = 45.0;
+//! Tree avoidance: veer speed (0..3) — jog so the forward component is tangible.
+static const float DM_TREE_VEER_SPEED = 2.0;
 
 //! Collision oracle (test): |moveAngle| (degrees) below this counts as "commanding
 //! forward" — a larger angle means the bot is deliberately strafing/backing, not

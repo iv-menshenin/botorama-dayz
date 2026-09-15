@@ -221,9 +221,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 			m_TreeCandidate = false;
 			m_Veering = true;
 			m_VeerTimer = DM_TREE_VEER_TIME;
-			m_VeerDir = 90.0;
+			m_VeerDir = DM_TREE_VEER_DIR;
 			if (m_VeerSide)
-				m_VeerDir = -90.0;
+				m_VeerDir = -DM_TREE_VEER_DIR;
 			m_VeerSide = !m_VeerSide;
 			#ifdef DM_BOT_DEBUG_PATHFINDER
 			dmBotLog.Debug("[PATH] Veer start dir=" + m_VeerDir);
