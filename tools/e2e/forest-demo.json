@@ -1,0 +1,12 @@
+{
+  "Name": "forest-demo",
+  "Timeout": 300,
+  "Steps": [
+    { "Op": "observe", "Pos": [5909, 0, 11418], "Yaw": 30 },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "spawn", "Who": "forester", "Pos": [5915, 0, 11425], "Yaw": 30 },
+    { "Op": "moveto", "Who": "forester", "Pos": [6467, 0, 11739] },
+    { "Op": "wait", "Who": "forester", "Cond": "reached", "Pos": [6467, 0, 11739], "Tolerance": 4.0, "Timeout": 240 },
+    { "Op": "clearall" }
+  ]
+}
