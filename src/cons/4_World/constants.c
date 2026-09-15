@@ -549,6 +549,11 @@ static const float DM_RETRIEVE_LOOK_DIST = 1.0;
 //! current sweep direction.
 static const float DM_RETRIEVE_FOV = 30.0;
 
+//! Retrieve dropped weapon: height lift (meters) of the raycast target point above
+//! the item's root position. A flat item's root sits at ground level, so a ray to
+//! it would hit the terrain before the item; lifting the point clears the terrain.
+static const float DM_RETRIEVE_RAY_LIFT = 0.3;
+
 //! Fighting: seconds between target re-resolution (re-pick the nearest hostile).
 static const float DM_FIGHT_RETARGET_INTERVAL = 2.0;
 
