@@ -93,6 +93,12 @@
       ключа; `ResolveWorldPos` sentinel `Y==0`; `EnsureDir` дублирует `dmJsonFile`; детект
       `moving` продублирован (`RunSnapshot`/`EvaluateCondition`); `EvaluateCondition`
       двойной сигнал (bool + `r.Ok`); null-защита `hit.component`; магическая `5` в `BaseName`.
+  - **Находки `dayz-reviewer` (perf-ops, `7207aee`/`678e04e`)**:
+    - *(косметика)* `dmE2EBridge.GiveWeapon` дословно копирует `dmLaunchCommand.GiveWeapon`
+      — вынести общий хелпер `dmTestLoadout.GiveRandomRifle(PlayerBase)` в `test/4_World`
+      (5_Mission может звать 4_World, обратно — нет).
+    - *(косметика)* `RollArmySpawn` повторно снапает уже заснапанный `center` (двойной
+      ground-snap; `center[1]` намеренно отбрасывается — задокументировать или убрать).
 
 ## F. Движение / качество ходьбы (замечания из тестов)
 
