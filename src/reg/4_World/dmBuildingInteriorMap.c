@@ -1,7 +1,7 @@
 //! dmBuildingInteriorMap — интерьер-карта зданий (синглтон, ленивая загрузка).
 //!
 //! Держит dmBuildingInteriorConfig и быстрый индекс по классу здания (m_ByClass).
-//! Данные читаются из $profile:dmBotorama/Map/buildings_interior.json — копию
+//! Данные читаются из $profile:dmBotorama/map/buildings_interior.json — копию
 //! сгенерированного data/map/buildings_interior.json пользователь кладёт сам.
 //!
 //! Интерьер-точки хранятся в локальном пространстве здания; GetRoamWorldPoints

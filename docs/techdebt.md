@@ -77,6 +77,22 @@
 
 - Рабочее дерево чистое (последний коммит `5043847`); дальше инкрементировать версию
   (`DM_BOTORAMA_VERSION`) по соглашению на каждое изменение.
+- **E2E-мост (v3.167)** — два gap'а фазы 3:
+  - `spawn` не применяет FSM-пресет (в отличие от `/bot spawn test`) → `snapshot.State`
+    пуст, а условие `state` бесполезно, пока не задан пресет (только `follow` его ставит).
+    Рассмотреть: поле `Preset` у `spawn` или отдельный op `preset`.
+  - `clearall`/`killall` дёргают ГЛОБАЛЬНЫЙ `dmAISurvivor.ClearAll()` → чистят и фоновых
+    settlement-ботов (spawn-менеджер), а не только named-бота теста. Тест не изолирован.
+    Рассмотреть: `clearbot`/`killbot` по имени.
+  - **Находки `dayz-reviewer` (фаза 3, коммиты `96c060a`/`9289be0`)**:
+    - *(важно)* дублирование guard'а «no such bot» ×9 → вынести `FindBot(step, out bot, r)`.
+    - *(важно)* асимметрия очистки: боты намеренно переживают job (для наблюдателя),
+      но `clearall` обязателен как финальный шаг сценария (комментарий `ClearNamed`
+      исправлен, v3.168).
+    - *(косметика)* `Who` (spawnobj) vs `Obj` (getpos/setpos/clearobj) — два имени одного
+      ключа; `ResolveWorldPos` sentinel `Y==0`; `EnsureDir` дублирует `dmJsonFile`; детект
+      `moving` продублирован (`RunSnapshot`/`EvaluateCondition`); `EvaluateCondition`
+      двойной сигнал (bool + `r.Ok`); null-защита `hit.component`; магическая `5` в `BaseName`.
 
 ## F. Движение / качество ходьбы (замечания из тестов)
 

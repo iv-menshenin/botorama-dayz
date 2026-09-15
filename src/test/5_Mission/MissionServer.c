@@ -3,6 +3,12 @@
 
 modded class MissionServer
 {
+	override void OnUpdate(float timeslice)
+	{
+		super.OnUpdate(timeslice);
+		dmE2EBridge.Get().Tick(timeslice);
+	}
+
 	override void OnEvent(EventType eventTypeId, Param params)
 	{
 		if (eventTypeId == ChatMessageEventTypeID)

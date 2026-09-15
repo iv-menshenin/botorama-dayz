@@ -1,0 +1,9 @@
+{
+  "Name": "ballistics-los",
+  "Timeout": 30,
+  "Steps": [
+    { "Op": "raycast", "From": [4117, 0, 10827], "To": [4388, 0, 10357] },
+    { "Op": "raycast", "From": [4117, 0, 10827], "To": [4540, 0, 10081] },
+    { "Op": "raycast", "From": [4117, 0, 10827], "To": [4612, 0, 9955] }
+  ]
+}

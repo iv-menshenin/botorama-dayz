@@ -244,3 +244,24 @@ static const string DM_CHAT_POI = "poi";
 
 //! SpawnCity command ("/spawncity") — принудительный спавн всех ботов.
 static const string DM_CHAT_SPAWNCITY = "spawncity";
+
+//! E2E file bridge: the agent drops JSON jobs under $profile:dmBotorama/e2e/in/,
+//! the bridge executes them and writes results to e2e/out/. The bridge only runs
+//! while the e2e/enabled marker file exists.
+static const string DM_E2E_DIR = "$profile:dmBotorama/e2e";
+static const string DM_E2E_IN_DIR = "$profile:dmBotorama/e2e/in";
+static const string DM_E2E_OUT_DIR = "$profile:dmBotorama/e2e/out";
+static const string DM_E2E_DONE_DIR = "$profile:dmBotorama/e2e/done";
+static const string DM_E2E_ENABLED_FILE = "$profile:dmBotorama/e2e/enabled";
+
+//! Scan cadence (seconds) of the e2e/in/ directory for new jobs.
+static const float DM_E2E_SCAN_INTERVAL = 0.5;
+
+//! Eye height (meters) added to raycast endpoints after ground snap (LOS probes).
+static const float DM_E2E_EYE_HEIGHT = 1.8;
+
+//! E2E: deadline (seconds) for movement/look intents.
+static const float DM_E2E_MOVE_DEADLINE = 300.0;
+
+//! E2E: velocity threshold (m/s) above which a bot counts as "moving".
+static const float DM_E2E_MOVING_THRESHOLD = 0.5;
