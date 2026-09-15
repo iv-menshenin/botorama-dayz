@@ -33,6 +33,11 @@ class dmBotIntent_RetrieveWeapon : dmBotIntent
 	{
 		super.OnStart(bot);
 
+		if (m_Item)
+			dmBotLog.Error("[Retrieve] start: item=" + m_Item + " itemPos=" + m_Item.GetPosition() + " botPos=" + bot.GetPosition());
+		else
+			dmBotLog.Error("[Retrieve] start: item=null botPos=" + bot.GetPosition());
+
 		m_Angle = 0.0;
 		if (Math.RandomFloat(0.0, 1.0) < 0.5)
 			m_Direction = -1.0;
@@ -67,6 +72,7 @@ class dmBotIntent_RetrieveWeapon : dmBotIntent
 			#ifdef DM_BOT_DEBUG_BODY
 			dmBotLog.Debug("[Body] RetrieveWeapon: прошёл полный круг, оружие не найдено");
 			#endif
+			dmBotLog.Error("[Retrieve] full circle no find: item=" + m_Item + " itemPos=" + m_Item.GetPosition() + " botPos=" + bot.GetPosition());
 			Fail();
 			return;
 		}
@@ -89,7 +95,11 @@ class dmBotIntent_RetrieveWeapon : dmBotIntent
 			float ang = Math.AbsFloat(dmAISurvivor.AngleDiff(itemYaw, lookYaw));
 			if (ang < DM_RETRIEVE_FOV)
 			{
-				if (HasClearLine(bot, botPos, itemPos))
+				dmBotLog.Error("[Retrieve] FOV pass: ang=" + ang + " lookYaw=" + lookYaw + " itemYaw=" + itemYaw);
+				dmBotLog.Error("[Retrieve] FOV pass: itemPos=" + itemPos + " botPos=" + botPos + " dist=" + toItem.Length());
+				bool clear = HasClearLine(bot, botPos, itemPos);
+				dmBotLog.Error("[Retrieve] raycast=" + clear);
+				if (clear)
 				{
 					#ifdef DM_BOT_DEBUG_BODY
 					dmBotLog.Debug("[Body] RetrieveWeapon: оружие видно, подбираю " + m_Item.GetType());
