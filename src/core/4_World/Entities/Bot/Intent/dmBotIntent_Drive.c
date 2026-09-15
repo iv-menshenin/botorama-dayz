@@ -40,6 +40,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	int m_StuckCounter = 0;
 	bool m_Reverse = false;
 
+	//! Длительность текущего реверса (тиков) — ограничивает залипание реверса.
+	int m_ReverseTicks = 0;
+
 	//! Текущее значение руля (пишется в m_Car.dm_DriveSteering), сглаживается.
 	float m_WheelSteer = 0.0;
 
@@ -74,6 +77,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_SpeedLimit = DM_DRIVE_MAX_SPEED_STRAIGHT;
 		m_StuckCounter = 0;
 		m_Reverse = false;
+		m_ReverseTicks = 0;
 		m_WheelSteer = 0.0;
 		m_LastDriveLogTime = 0.0;
 	}
@@ -270,7 +274,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		return pushing;
 	}
 
-	//! Замкнутый контур скорости: толчок = ошибка × kp (кэп по дельта-V), в ЦМ.
+	//! Замкнутый контур скорости: толчок = ошибка × kp (кэп по импульсу), в ЦМ.
 	//! Знак реверса закодирован в signed-лимите: в реверсе лимит берём со знаком
 	//! минус → при недостаточной задней скорости dv отрицателен → толкаем назад.
 	//! Точка приложения — ЦМ (GetPosition), НЕ точка двигателя (смещена от ЦМ и
@@ -281,9 +285,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		if (m_Reverse)
 			limit = -m_SpeedLimit;
 
-		//! Ошибка скорости (км/ч, знаковая) → дельта-V (м/с) с кэпом.
+		//! Ошибка скорости (км/ч, знаковая) → импульс (единицы dBodyApplyImpulseAt)
+		//! с кэпом. Без конвертации в м/с: dBodyApplyImpulseAt даёт ~2 ед. импульса
+		//! на км/ч скорости (эмпирически).
 		float speedErr = limit - speedSigned;
-		float dv = speedErr / 3.6 * DM_DRIVE_SPEED_KP;
+		float dv = speedErr * DM_DRIVE_SPEED_KP;
 
 		//! Малый множитель уклона (не домножаем на массу — это был источник
 		//! нестабильности).
@@ -291,7 +297,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		slopeMultiplier = Math.Clamp(slopeMultiplier, 0.5, 2.0);
 		dv = dv * slopeMultiplier;
 
-		dv = Math.Clamp(dv, -DM_DRIVE_SPEED_MAX_DV, DM_DRIVE_SPEED_MAX_DV);
+		dv = Math.Clamp(dv, -DM_DRIVE_SPEED_MAX_IMPULSE, DM_DRIVE_SPEED_MAX_IMPULSE);
 
 		vector impulse = carDir * dv;
 		dBodyApplyImpulseAt(m_Car, impulse, m_Car.GetPosition());
@@ -305,8 +311,8 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	void ApplyBrakeImpulse(float speedSigned, vector carDir)
 	{
 		float speedErr = speedSigned - m_SpeedLimit;
-		float dv = speedErr / 3.6 * DM_DRIVE_BRAKE_KP;
-		dv = Math.Clamp(dv, -DM_DRIVE_BRAKE_MAX_DV, DM_DRIVE_BRAKE_MAX_DV);
+		float dv = speedErr * DM_DRIVE_BRAKE_KP;
+		dv = Math.Clamp(dv, -DM_DRIVE_BRAKE_MAX_IMPULSE, DM_DRIVE_BRAKE_MAX_IMPULSE);
 
 		vector impulse = carDir * (-dv);
 		dBodyApplyImpulseAt(m_Car, impulse, m_Car.GetPosition());
@@ -339,11 +345,13 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		CarGearboxType type = m_Car.GearboxGetType();
 		if (type == CarGearboxType.MANUAL)
 		{
-			int targetGear = CarGear.NEUTRAL;
+			//! Машина ВСЕГДА в передаче во время вождения: старт с места — сразу
+			//! FIRST (0..15), иначе классика «курица-яйцо» — прежняя ветка
+			//! speedAbs<2.0→NEUTRAL выбивала машину в нейтраль, а на 1-ю она
+			//! переключалась только при speedAbs>=15, которую без 1-й не набрать.
+			int targetGear = CarGear.FIRST;
 			if (m_Reverse)
 				targetGear = CarGear.REVERSE;
-			else if (speedAbs < 2.0)
-				targetGear = CarGear.NEUTRAL;
 			else if (speedAbs < 15.0)
 				targetGear = CarGear.FIRST;
 			else if (speedAbs < 30.0)
@@ -397,7 +405,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		sideDir[2] = carDir[0];
 		sideDir.Normalize();
 
-		float steerForce = Math.Clamp(angle * DM_DRIVE_STEER_KP, -DM_DRIVE_STEER_MAX_DV, DM_DRIVE_STEER_MAX_DV);
+		float steerForce = Math.Clamp(angle * DM_DRIVE_STEER_KP, -DM_DRIVE_STEER_MAX_IMPULSE, DM_DRIVE_STEER_MAX_IMPULSE);
 		vector impulse = sideDir * steerForce;
 
 		vector carPos = m_Car.GetPosition();
@@ -405,9 +413,24 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		dBodyApplyImpulseAt(m_Car, impulse, applyPoint);
 	}
 
-	//! Застревание: не едем, но толкаем → считаем тики; порог → реверс.
+	//! Застревание: не едем, но толкаем → считаем тики; порог → реверс. Реверс
+	//! ограничен по длительности (DM_DRIVE_REVERSE_MAX_TICKS) и имеет грейс-период
+	//! после флипа (m_StuckCounter=20), иначе машина оседает на ~0.9 км/ч и реверс
+	//! залипает навсегда.
 	void TickStuck(float speedAbs, bool pushing)
 	{
+		if (m_Reverse)
+		{
+			m_ReverseTicks = m_ReverseTicks + 1;
+			if ((float)m_ReverseTicks > DM_DRIVE_REVERSE_MAX_TICKS)
+			{
+				//! Реверс длится слишком долго — принудительно возвращаемся вперёд.
+				m_Reverse = false;
+				m_ReverseTicks = 0;
+				m_StuckCounter = 0;
+			}
+		}
+
 		if (speedAbs < 0.5 && pushing)
 		{
 			m_StuckCounter = m_StuckCounter + 1;
@@ -420,7 +443,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		if ((float)m_StuckCounter > DM_DRIVE_STUCK_THRESHOLD)
 		{
 			m_Reverse = !m_Reverse;
-			m_StuckCounter = 0;
+			m_StuckCounter = 20;
+			if (!m_Reverse)
+				m_ReverseTicks = 0;
 		}
 	}
 

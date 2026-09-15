@@ -44,23 +44,32 @@ static const float DM_DRIVE_MAX_SPEED_TURNING = 30.0;
 //! Drive: угол (рад) между курсом машины и вейпоинтом, выше которого считается поворот.
 static const float DM_DRIVE_TURN_ANGLE_THRESHOLD = 0.05;
 
-//! Drive: доля ошибки скорости, прикладываемая за тик (замкнутый контур толчка).
-static const float DM_DRIVE_SPEED_KP = 0.3;
+//! Drive: усиление толчка (импульс за км/ч ошибки скорости; единицы импульса
+//! dBodyApplyImpulseAt, НЕ м/с). Значение подобрано эмпирически (~1.5×50 ≈ 75 на
+//! полном газу при цели 50 км/ч).
+static const float DM_DRIVE_SPEED_KP = 1.5;
 
-//! Drive: кап дельта-V толчка (м/с за тик).
-static const float DM_DRIVE_SPEED_MAX_DV = 4.0;
+//! Drive: кап толчка (единицы импульса dBodyApplyImpulseAt, НЕ м/с; эмпирически).
+static const float DM_DRIVE_SPEED_MAX_IMPULSE = 100.0;
 
-//! Drive: доля ошибки при торможении (замкнутый контур тормоза).
-static const float DM_DRIVE_BRAKE_KP = 0.6;
+//! Drive: усиление торможения (импульс за км/ч ошибки; единицы импульса
+//! dBodyApplyImpulseAt, НЕ м/с). Подобрано эмпирически.
+static const float DM_DRIVE_BRAKE_KP = 3.0;
 
-//! Drive: кап дельта-V тормоза (м/с за тик).
-static const float DM_DRIVE_BRAKE_MAX_DV = 6.0;
+//! Drive: кап тормоза (единицы импульса dBodyApplyImpulseAt, НЕ м/с; эмпирически).
+static const float DM_DRIVE_BRAKE_MAX_IMPULSE = 150.0;
 
-//! Drive: усиление руля (боковой импульс = angle * kp).
-static const float DM_DRIVE_STEER_KP = 2.0;
+//! Drive: усиление руля (боковой импульс за радиан угла; единицы импульса
+//! dBodyApplyImpulseAt, НЕ м/с). Подобрано эмпирически (250×~1.5 рад ≈ 375 при
+//! полном повороте).
+static const float DM_DRIVE_STEER_KP = 250.0;
 
-//! Drive: кап бокового рулевого импульса (м/с за тик).
-static const float DM_DRIVE_STEER_MAX_DV = 3.0;
+//! Drive: кап бокового рулевого импульса (единицы импульса dBodyApplyImpulseAt,
+//! НЕ м/с; референсный BASE_SIDE_IMPULSE = 800).
+static const float DM_DRIVE_STEER_MAX_IMPULSE = 800.0;
+
+//! Drive: макс. тиков в реверсе до принудительного возврата вперёд (анти-залипание).
+static const float DM_DRIVE_REVERSE_MAX_TICKS = 40.0;
 
 //! Drive: ниже этой скорости (км/ч) руль/боковой импульс не прикладывается.
 static const float DM_DRIVE_STEER_MIN_SPEED = 3.0;
