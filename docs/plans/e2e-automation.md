@@ -62,7 +62,7 @@ class dmE2EStep
 {
     string Op;        // ping | spawn | moveto | follow | patrol | speed | loadout |
                       // stance | look | say | wait | assert | snapshot | clearall | killall
-                      // + perf: sleep | prof | army
+                      // + perf: sleep | prof | army | meleefight
                       // + пробы мира: spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj | observe
     string Who;       // имя бота (кем управляем) / имя объекта (spawnobj/botdump)
     string Target;    // имя цели-бота (follow / distance)
@@ -84,8 +84,10 @@ class dmE2EStep
     int Count;        // число ботов (army)
     string Settlement;// имя поселения для центра (army, опционально)
     float Radius;     // радиус разброса спавна вокруг центра (army, default ~50)
-    string Preset;    // боевой пресет: "shooting" (default) | "combat" (army)
+    string Preset;    // боевой пресет: "shooting" (default) | "combat" (army); "nomad" (meleefight)
     float Spread;     // размытие угрозы (army, default DM_INVASION_SPREAD)
+    int Zombies;      // число зомби (meleefight, default 2)
+    float ZombieDist; // дистанция спавна зомби от бота (meleefight, default 2.5)
 }
 ```
 
@@ -123,6 +125,7 @@ class dmE2EStep
 | `sleep` | `Timeout` | **отложенный**: ждёт `Timeout` сек → `Ok`, `Reason="slept"` |
 | `prof` | `Value` (`start`/`stop`/`clear`/`dump`) | управление `dmBotProfiler`; `dump` кладёт путь CSV в `Steps[].Dump` |
 | `army` | `Count`, `Settlement`/`Pos`, `Radius`, `Preset`, `Spread` | спавн `Count` ботов двумя враждебными командами вокруг центра; оружие+патроны; пресет `shooting`/`combat` |
+| `meleefight` | `Who`, `Pos`, `Yaw`, `Zombies`, `ZombieDist`, `Preset` | спавн бота с мачете + `Zombies` зомби с мозгом вокруг (dist `ZombieDist`), зарегистрированных враждебными боту; пресет `survivor` (default) / `nomad` |
 
 Условия (`Cond`): `state` (имя FSM-состояния), `reached` (дистанция до `Pos` <
 `Tolerance`), `distance` (дистанция до `Target` < `Tolerance`), `alive`/`moving`

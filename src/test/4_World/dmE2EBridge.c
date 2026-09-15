@@ -7,9 +7,10 @@
 //!
 //! Ops: ping | spawn | moveto | follow | patrol | speed | loadout | look | say |
 //! wait | assert | snapshot | clearall (named bots) plus the perf ops
-//! sleep | prof | army (two-team fight) and the world/physics probe ops
-//! spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj
-//! (named objects) and observe (teleport a connected player). `wait` and `sleep`
+//! sleep | prof | army (two-team fight) | meleefight (machete bot vs zombies)
+//! and the world/physics probe ops spawnobj | raycast | scanbox | botdump |
+//! getpos | setpos | clearobj (named objects) and observe (teleport a connected
+//! player). `wait` and `sleep`
 //! are the deferred ops: they tick across frames (wait until a condition is met
 //! or its timeout expires; sleep until its timeout). Everything else executes in
 //! a single tick.
@@ -46,8 +47,10 @@ class dmE2EStep
 	int Count;        // number of bots to spawn (army)
 	string Settlement; // settlement name for the army center (optional)
 	float Radius;     // spawn scatter radius around the center (army, default 50)
-	string Preset;    // combat preset: "shooting" (default) | "combat" (army)
+	string Preset;    // combat preset: "shooting" (default) | "combat" (army); "nomad" (meleefight)
 	float Spread;     // hostile threat blur (army, default DM_INVASION_SPREAD)
+	int Zombies;      // number of zombies to spawn (meleefight, default 2)
+	float ZombieDist; // zombie spawn distance from the bot (meleefight, default 2.5)
 }
 
 //! Per-step outcome.
@@ -366,6 +369,10 @@ class dmE2EBridge
 		else if (step.Op == "army")
 		{
 			RunArmy(step, r);
+		}
+		else if (step.Op == "meleefight")
+		{
+			RunMeleeFight(step, r);
 		}
 		else if (step.Op == "spawnobj")
 		{
@@ -817,6 +824,64 @@ class dmE2EBridge
 
 		pawn.GetInventory().CreateInInventory(ammo);
 		pawn.GetInventory().CreateInInventory(ammo);
+	}
+
+	//! "meleefight" — spawn an armed bot (machete) plus Zombies brain-driven
+	//! zombies scattered around it, registered hostile to the bot.
+	private void RunMeleeFight(dmE2EStep step, dmE2EStepResult r)
+	{
+		ref dmAISurvivor bot = new dmAISurvivor();
+		bot.SetModel(dmSurvivor.GetRandom());
+		PlayerBase pawn = bot.Spawn(ResolveWorldPos(step.Pos), Vector(step.Yaw, 0, 0));
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "spawn failed";
+			return;
+		}
+
+		m_Named.Insert(step.Who, bot);
+
+		pawn.GetHumanInventory().CreateInHands("Machete");
+
+		if (step.Preset == "nomad")
+			bot.SetFSM(dmBotPreset_Nomad.Create(bot));
+		else
+			bot.SetFSM(dmBotPreset_Survivor.Create(bot));
+
+		int zombies = step.Zombies;
+		if (zombies <= 0)
+			zombies = 2;
+
+		float zdist = step.ZombieDist;
+		if (zdist <= 0.0)
+			zdist = 2.5;
+
+		vector botPos = bot.GetPosition();
+		vector zpos;
+		int spawned = 0;
+		int i;
+		for (i = 0; i < zombies; i++)
+		{
+			zpos = botPos + Vector(Math.RandomFloat(-zdist, zdist), 0.0, Math.RandomFloat(-zdist, zdist));
+			zpos = SnapToGroundExactly(zpos);
+			ZombieBase z = ZombieBase.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", zpos, false, true));
+			if (z)
+			{
+				bot.RegisterHostile(z, 1.0, DM_INVASION_SPREAD);
+				spawned = spawned + 1;
+			}
+		}
+
+		if (spawned == 0)
+		{
+			r.Ok = false;
+			r.Reason = "no zombies spawned";
+			return;
+		}
+
+		r.Ok = true;
+		r.Reason = "armed bot + " + zombies + " zombies";
 	}
 
 	//! Evaluate a wait/assert condition for the bot named by step.Who. Returns
