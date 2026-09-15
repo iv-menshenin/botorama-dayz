@@ -6,11 +6,11 @@
 //! exists, so there is zero overhead when no agent is driving.
 //!
 //! Ops: ping | spawn | moveto | follow | patrol | speed | loadout | look | say |
-//! wait | assert | snapshot | clearall (named bots) plus the perf ops
-//! sleep | prof | army (two-team fight) | meleefight (machete bot vs zombies)
-//! and the world/physics probe ops spawnobj | raycast | scanbox | botdump |
-//! getpos | setpos | clearobj (named objects) and observe (teleport a connected
-//! player). `wait` and `sleep`
+//! shock | restrain | give | wait | assert | snapshot | clearall (named bots)
+//! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
+//! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
+//! botdump | getpos | setpos | clearobj (named objects) and observe (teleport a
+//! connected player). `wait` and `sleep`
 //! are the deferred ops: they tick across frames (wait until a condition is met
 //! or its timeout expires; sleep until its timeout). Everything else executes in
 //! a single tick.
@@ -350,6 +350,18 @@ class dmE2EBridge
 		{
 			RunSay(step, r);
 		}
+		else if (step.Op == "shock")
+		{
+			RunShock(step, r);
+		}
+		else if (step.Op == "restrain")
+		{
+			RunRestrain(step, r);
+		}
+		else if (step.Op == "give")
+		{
+			RunGive(step, r);
+		}
 		else if (step.Op == "assert")
 		{
 			RunAssert(step, r);
@@ -588,6 +600,80 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "say issued";
+	}
+
+	//! "shock" — set the bot's Shock stat (0..100; <=25 knocks it out).
+	private void RunShock(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		pawn.SetHealth("", "Shock", step.Value.ToFloat());
+		r.Ok = true;
+		r.Reason = "shock set";
+	}
+
+	//! "restrain" — restrain the bot (flag + locked restraint item in hands).
+	private void RunRestrain(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		pawn.SetRestrained(true);
+		pawn.GetHumanInventory().CreateInHands("RestrainingToolLocked");
+		pawn.OnItemInHandsChanged();
+		r.Ok = true;
+		r.Reason = "restrained";
+	}
+
+	//! "give" — place the named item class directly in the bot's hands.
+	private void RunGive(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		pawn.GetHumanInventory().CreateInHands(step.Value);
+		r.Ok = true;
+		r.Reason = "gave " + step.Value;
 	}
 
 	//! "assert" — instantaneous condition check; Ok = condition result.
@@ -1132,7 +1218,12 @@ class dmE2EBridge
 		line = "alive=" + pawn.IsAlive() + " unconscious=" + pawn.IsUnconscious();
 		AppendDump(r, line);
 
-		line = "restrained=" + pawn.IsRestrained() + " bleeding=" + pawn.IsBleeding();
+		EntityAI ih = pawn.GetItemInHands();
+		string inHandsName = "none";
+		if (ih)
+			inHandsName = ih.GetType();
+
+		line = "restrained=" + pawn.IsRestrained() + " bleeding=" + pawn.IsBleeding() + " inHands=" + inHandsName;
 		AppendDump(r, line);
 
 		line = "health=" + pawn.GetHealth01() + " blood=" + pawn.GetHealth("", "Blood") + " shock=" + pawn.GetHealth("", "Shock");

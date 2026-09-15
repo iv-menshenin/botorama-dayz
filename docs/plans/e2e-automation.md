@@ -61,7 +61,7 @@ class dmE2EJob
 class dmE2EStep
 {
     string Op;        // ping | spawn | moveto | follow | patrol | speed | loadout |
-                      // stance | look | say | wait | assert | snapshot | clearall | killall
+                      // stance | look | say | shock | restrain | give | wait | assert | snapshot | clearall | killall
                       // + perf: sleep | prof | army | meleefight
                       // + пробы мира: spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj | observe
     string Who;       // имя бота (кем управляем) / имя объекта (spawnobj/botdump)
@@ -118,6 +118,9 @@ class dmE2EStep
 | `loadout` | `Who`, `Loadout` | `dmLoadoutApplier.Load/Apply` |
 | `look` | `Who`, `Pos`/`Target` | `dmBotIntent_HoldLook` |
 | `say` | `Who`, `Value` | `SpeakLine(int)` |
+| `shock` | `Who`, `Value` | `SetHealth("", "Shock", Value.ToFloat())` — задать шок (0..100; `<= 25` = нокаут) |
+| `restrain` | `Who` | `SetRestrained(true)` + `CreateInHands("RestrainingToolLocked")` + `OnItemInHandsChanged()` |
+| `give` | `Who`, `Value` | `CreateInHands(Value)` — положить класс предмета в руки бота |
 | `wait` | `Who`, `Cond`, `Value`/`Target`/`Pos`, `Tolerance`, `Timeout` | **отложенный**: тикается до условия или таймаута |
 | `assert` | то же | мгновенная проверка → `Ok`/`Reason` |
 | `snapshot` | — | снять состояние всех именованных ботов |
@@ -141,7 +144,7 @@ class dmE2EStep
 | `spawnobj` | `Who` (имя), `ClassName`, `Pos`, `Yaw` | `GetGame().CreateObject(ClassName, SnapToGroundExactly(Pos), false)` + `SetOrientation`; регистрация в `m_Objects[Who]` | `spawned <Class>` |
 | `raycast` | `From`, `To` | снап `From`/`To` на землю + `DM_E2E_EYE_HEIGHT` (1.8м); `DayZPhysics.RaycastRVProxy` с `CollisionFlags.ALLOBJECTS`; дамп всех хитов (obj/parent/pos/dist/component) | `<N> hits` / `0 hits (clear)` |
 | `scanbox` | `Min`, `Max` | `SceneGetEntitiesInBox` **два вызова** (DYNAMIC + STATIC, т.к. `QueryFlags` — не битмаска); дамп `ent[D]`/`ent[S]` | `<N> entities` |
-| `botdump` | `Who` (имя бота) | дамп тела/движения/мозга: pos, alive/unconscious/restrained/bleeding, health/blood/shock, stamina, vel, orient, fsm, fsmIntents | `dumped` |
+| `botdump` | `Who` (имя бота) | дамп тела/движения/мозга: pos, alive/unconscious/restrained/bleeding/inHands, health/blood/shock, stamina, vel, orient, fsm, fsmIntents | `dumped` |
 | `getpos` | `Obj` | позиция + yaw объекта | — |
 | `setpos` | `Obj`, `Pos`, `Yaw` | `SetPosition(SnapToGroundExactly)` + `SetOrientation` | — |
 | `clearobj` | `Obj` (`"*"` — все) | удалить объект(ы) из мира и реестра | `cleared N` |
