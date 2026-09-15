@@ -223,8 +223,11 @@ class dmE2ESnapshot  { string Name; bool Alive; vector Pos; string State; bool M
 2. `[x]` **Пробы мира** — `spawnobj`/`raycast`/`scanbox`/`botdump`/`getpos`/`setpos`/
    `clearobj` (мгновенные, дамп в `Steps[].Dump` + RPT). Для проверки гипотез
    `dayz-research`. `botdump` пока без командных интентов (нет геттера `m_CommandIntents`).
-3. `[ ]` **Движение + follow** — `moveto`, `follow`, `speed`, `patrol` + условия
-   `state`/`reached`/`distance`/`alive`/`moving` (отложенный автомат).
+3. `[x]` **Движение + follow** — `moveto`, `follow`, `speed`, `patrol`, `loadout`,
+   `look`, `say` + условия `state`/`reached`/`distance`/`alive`/`moving` (`wait` —
+   отложенный автомат `m_StepIndex` + таймер; `assert` — мгновенный). Проверено:
+   `moveto`→`wait reached`→`assert alive`→`snapshot` — бот реально прошёл navmesh
+   (PATH-лог, покадровый рост позиции), `wait` тикался ~10 с, `Moving=1`.
 4. `[ ]` **Агентская обвязка** — скрипт «сценарий → poll результата» + tail RPT.
 5. `[ ]` Опционально: `watch` (таймсерия состояния), резолв локаций по
    `dmWorldPOIRegistry`.
