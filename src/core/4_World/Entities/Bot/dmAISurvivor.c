@@ -817,6 +817,16 @@ class dmAISurvivor
 		return m_Pathfinder.FindPath(GetPosition(), sampled, path);
 	}
 
+	//! Snap a point onto the navmesh (cheap sample, no path). Mirrors the sample
+	//! step inside FindPathTo; use for candidate validation where a full A* is not
+	//! needed. Returns false when off-navmesh (within DM_PATH_SAMPLE_RADIUS).
+	bool SampleNavmesh(vector pos, out vector sampled)
+	{
+		if (!m_Pathfinder)
+			m_Pathfinder = new dmBotPathfinder();
+		return m_Pathfinder.SamplePosition(pos, DM_PATH_SAMPLE_RADIUS, sampled);
+	}
+
 	//! Ladder-aware маршрут (сегменты) от бота до цели. false — маршрута нет.
 	bool FindRouteTo(vector target, inout array<ref dmBotRouteSegment> segments)
 	{

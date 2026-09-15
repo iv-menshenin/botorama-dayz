@@ -6,7 +6,7 @@
 //! there is no goal yet; a stuck MoveTo re-routes instead of aborting). The goal
 //! is NOT fixed up front: each tick it sweeps the arc around the target, one
 //! candidate at a time (±DM_FLANK_ANGLE_STEP from DM_FLANK_START_ANGLE up to
-//! DM_FLANK_MAX_ANGLE), validates the candidate (navmesh path + terrain-surface
+//! DM_FLANK_MAX_ANGLE), validates the candidate (navmesh sample + terrain-surface
 //! guard + LOS pre-check from the candidate's neck height to the target's head)
 //! and only then re-paths. As soon as the target becomes visible (positive case)
 //! it finishes early. A whole-attempt stall timeout (DM_FLANK_STALL_TIMEOUT) and
@@ -197,9 +197,9 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 		}
 	}
 
-	//! Build and validate one sweep candidate. Returns true and fills `candidate`
-	//! (the final path point) when the candidate has a navmesh path, sits on the
-	//! terrain surface and has a clear line to the target's head.
+	//! Build and validate one sweep candidate: cheap navmesh sample + terrain-surface
+	//! guard + LOS pre-check; the full A* path happens only in RePath after the
+	//! candidate is accepted.
 	bool FindCandidate(dmAISurvivor bot, int sign, out vector candidate)
 	{
 		vector tPos = m_TargetEntity.GetPosition();
@@ -213,15 +213,9 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 		vector dir = angles.AnglesToVector();
 		vector cand = tPos + dir * flankDist;
 
-		ref array<vector> path = new array<vector>();
-		if (!bot.FindPathTo(cand, path))
+		vector p;
+		if (!bot.SampleNavmesh(cand, p))
 			return false;
-		if (path.Count() == 0)
-			return false;
-
-		//! The last path point is already on the navmesh — use it, not the raw
-		//! candidate (the pathfinder snaps and corrects the height).
-		vector p = path[path.Count() - 1];
 
 		//! Height guard: navmesh path points can hover far above/below the actual
 		//! terrain surface (pathfinder height is unreliable) — reject those.
