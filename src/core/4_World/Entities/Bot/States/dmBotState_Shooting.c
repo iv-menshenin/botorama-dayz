@@ -89,6 +89,10 @@ class dmBotState_Shooting : dmBotState
 
 	override int OnUpdate(float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Shooting.Update");
+		#endif
+
 		dmAISurvivor bot = GetOwner();
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (!pawn || !m_TargetEntity)

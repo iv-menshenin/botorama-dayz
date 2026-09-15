@@ -1121,6 +1121,10 @@ class dmAISurvivor
 	//! Find a tracked target by its entity, or null if it isn't remembered.
 	dmTarget FindTarget(EntityAI entity)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Target.Find");
+		#endif
+
 		int i;
 		for (i = 0; i < m_Targets.Count(); i++)
 		{
@@ -1375,6 +1379,10 @@ class dmAISurvivor
 
 	dmTarget GetHostileTargetEx(bool visible)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Target.Hostile");
+		#endif
+
 		dmTarget best = null;
 		float bestDist = 0.0;
 		float bestThreat = 0.0;

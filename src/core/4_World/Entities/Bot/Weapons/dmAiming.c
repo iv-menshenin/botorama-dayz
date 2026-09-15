@@ -174,6 +174,10 @@ class dmAiming
 
 	void OnUpdate(float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Aiming.Update");
+		#endif
+
 		EntityAI targetEntity;
 		vector targetPos;
 		vector aimPos;
