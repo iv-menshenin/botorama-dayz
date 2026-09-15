@@ -97,6 +97,7 @@ class dmBotIntent_RetrieveWeapon : dmBotIntent
 					#endif
 					dmBotIntent_PickUp pick = new dmBotIntent_PickUp();
 					pick.m_Item = m_Item;
+					pick.m_TakeToHands = true;
 					pick.m_Priority = dmBotIntentPriority.CRITICAL;
 					pick.m_Concurrency = dmBotIntentConcurrency.EXCLUSIVE;
 					bot.AddPersonalityIntent(pick);

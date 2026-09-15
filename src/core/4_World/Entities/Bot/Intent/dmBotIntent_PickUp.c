@@ -10,6 +10,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 	EntityAI m_Item;
 	bool m_PickupQueued = false;
 	bool m_Evacuating = false;
+	bool m_TakeToHands = false;
 	ref array<EntityAI> m_EvacOrder;
 
 	void dmBotIntent_PickUp()
@@ -64,6 +65,15 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 			return;
 		m_PickupQueued = true;
 		m_EvacOrder = null;
+
+		//! Режим «в руки» (возврат выпавшего оружия): кладём предмет прямо в руки,
+		//! а не в слот инвентаря (у голого бота может не быть слота/рюкзака).
+		if (m_TakeToHands)
+		{
+			dmLoot.TakeToHands(pawn, ItemBase.Cast(m_Item));
+			Finish();
+			return;
+		}
 
 		dmInventoryFrame root = pawn.InventoryPickUp(ItemBase.Cast(m_Item));
 		if (!root)
