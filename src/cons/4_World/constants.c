@@ -459,6 +459,13 @@ static const float DM_DAMAGE_THREAT_HP_THRESHOLD = 30.0;
 //! boundary between the fast and slow LOS-refresh cadences in GetRefreshTime.
 static const float DM_ATTACK_THREAT_THRESHOLD = 0.5;
 
+//! Restrain (связывание): угроза, назначаемая restrainer'у при связывании (сознание).
+static const float DM_RESTRAIN_THREAT_RESTRAINER = 0.1;
+//! Restrain (связывание): угроза, назначаемая всем людям в радиусе при связывании из отключки.
+static const float DM_RESTRAIN_THREAT_UNCONSCIOUS = 0.35;
+//! Restrain (связывание): радиус (метры), в котором люди считаются причастными при отключке.
+static const float DM_RESTRAIN_THREAT_RADIUS = 8.0;
+
 //! Target evaluation: attractiveness (0..1) — how interesting a target is.
 static const float DM_TARGET_ATTRACT_PLAYER = 0.1;
 static const float DM_TARGET_ATTRACT_ZOMBIE = 0.2;

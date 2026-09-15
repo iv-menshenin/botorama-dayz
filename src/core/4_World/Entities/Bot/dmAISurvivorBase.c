@@ -1176,11 +1176,16 @@ class dmAISurvivorBase : PlayerBase
 				if (GetMeleeFightLogic()) GetMeleeFightLogic().SetBlock(false);
 				SetMasterAttenuation("UnconsciousAttenuation");
 
+				//! Запомнить, был ли бот в бою до падения — нужно для threat-логики
+				//! связывания из отключки (см. dmAISurvivor.OnUpdate детект restrained).
+				dmAISurvivor brain = dmAISurvivor.Find(this);
+				if (brain)
+					brain.SetWasInCombatAtKnockout(brain.IsInCombat());
+
 				//! Дроп предмета из рук + запоминание (ваниль дропает только на CLIENT-ветке).
 				EntityAI inHands = GetItemInHands();
 				if (inHands)
 				{
-					dmAISurvivor brain = dmAISurvivor.Find(this);
 					if (brain)
 						brain.SetDroppedWeapon(inHands);   //! запомнить для «вернуть оружие»
 					DropItem(ItemBase.Cast(inHands));

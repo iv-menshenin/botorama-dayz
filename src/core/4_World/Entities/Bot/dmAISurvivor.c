@@ -126,6 +126,15 @@ class dmAISurvivor
 	//! dmBotIntent_RetrieveWeapon мог подобрать его обратно. null — ничего не выпадало.
 	private EntityAI m_DroppedWeapon;
 
+	//! Был ли бот связан на прошлом тике (детект перехода в restrained).
+	private bool m_WasRestrained = false;
+
+	//! Кто связал бота (ставит modded ActionRestrainTarget.OnFinishProgressServer).
+	private EntityAI m_RestrainedBy;
+
+	//! Был ли бот в бою до падения в нокаут (ставит UpdateUnconsciousBridge).
+	private bool m_WasInCombatAtKnockout = false;
+
 	private bool m_IsInCombat= false;
 
 	void dmAISurvivor()
@@ -402,10 +411,44 @@ class dmAISurvivor
 		if ( m_MeleeCooldown > 0.0 ) m_MeleeCooldown =- pDt;
 		if (m_MeleeCooldown < 0.0) m_MeleeCooldown = 0.0;
 
-		//! Incapacitated (unconscious/restrained) -> skip the motor; the pawn's
-		//! CommandHandler gate already stops actuation, so don't fight the body.
-		if (m_Pawn.IsUnconscious() || m_Pawn.IsRestrained())
+		//! Unconscious -> skip the brain (the body is out; nothing to decide).
+		//! Restrained stays conscious: the brain keeps ticking so it can detect the
+		//! transition, register a threat and later start "untie"; the pawn's CanAct()
+		//! gate still stops the motor while restrained.
+		if (m_Pawn.IsUnconscious())
 			return;
+
+		//! Детект перехода в связанное состояние: только что связали.
+		bool restrained = m_Pawn.IsRestrained();
+		if (restrained && !m_WasRestrained)
+		{
+			#ifdef DM_BOT_DEBUG_BODY
+			dmBotLog.Debug("[Body] restrained: by=" + m_RestrainedBy + " wasInCombat=" + m_WasInCombatAtKnockout);
+			#endif
+			if (m_RestrainedBy)
+			{
+				//! Сознание-кейс: угроза конкретному restrainer'у.
+				AddThreat(m_RestrainedBy, DM_RESTRAIN_THREAT_RESTRAINER);
+			}
+			else if (!m_WasInCombatAtKnockout)
+			{
+				//! Отключка + не был в бою — угроза всем людям в радиусе.
+				array<PlayerBase> players = dmEntityRegistry.GetPlayers();
+				int i;
+				vector myPos = m_Pawn.GetPosition();
+				for (i = 0; i < players.Count(); i++)
+				{
+					PlayerBase p = players[i];
+					if (p && p != m_Pawn && dmAISurvivorBase.Cast(p) == null)
+					{
+						vector pPos = p.GetPosition();
+						if (vector.Distance(myPos, pPos) <= DM_RESTRAIN_THREAT_RADIUS)
+							AddThreat(p, DM_RESTRAIN_THREAT_UNCONSCIOUS);
+					}
+				}
+			}
+		}
+		m_WasRestrained = restrained;
 
 		//! Пробуждение после нокаута: вернуть выпавшее оружие (персональный CRITICAL).
 		if (m_DroppedWeapon)
@@ -1008,6 +1051,32 @@ class dmAISurvivor
 	bool IsInCombat()
 	{
 		return m_IsInCombat;
+	}
+
+	//------------------------------------------------------------------
+	// Restrain (связывание)
+	//------------------------------------------------------------------
+
+	//! Кто связал бота (ставит modded ActionRestrainTarget.OnFinishProgressServer).
+	void SetRestrainedBy(EntityAI who)
+	{
+		m_RestrainedBy = who;
+	}
+
+	EntityAI GetRestrainedBy()
+	{
+		return m_RestrainedBy;
+	}
+
+	//! Был ли бот в бою до падения в нокаут (ставит UpdateUnconsciousBridge).
+	void SetWasInCombatAtKnockout(bool v)
+	{
+		m_WasInCombatAtKnockout = v;
+	}
+
+	bool WasInCombatAtKnockout()
+	{
+		return m_WasInCombatAtKnockout;
 	}
 
 	//------------------------------------------------------------------
