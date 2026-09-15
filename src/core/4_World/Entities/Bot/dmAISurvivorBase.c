@@ -338,12 +338,22 @@ class dmAISurvivorBase : PlayerBase
 			return InventoryChangeClothes(item);
 
 		InventoryLocation dst = new InventoryLocation();
+		dmInventoryFrame frame;
 		if ( !dmLoot.FindDestination(this, item, dst) )
 		{
+			//! Фолбэк: оружие/мили без слота/рюкзака — класть в руки (HANDS — не слот,
+			//! но у голого бота иначе вещь некуда деть).
+			if (item.IsWeapon() || dmLoot.IsMelee(item))
+			{
+				frame = MakeInventoryAction(dmInventoryDoing.PUTINTOHANDS, item, -1, null);
+				if (m_InventoryFrames)
+					m_InventoryFrames.Enqueue(frame);
+				return frame;
+			}
 			return null;
 		}
 
-		dmInventoryFrame frame = MakeInventoryActionWithDestination(dmInventoryDoing.TAKEINTOCARGO, item, dst);
+		frame = MakeInventoryActionWithDestination(dmInventoryDoing.TAKEINTOCARGO, item, dst);
 		if (m_InventoryFrames)
 			m_InventoryFrames.Enqueue(frame);
 		return frame;
