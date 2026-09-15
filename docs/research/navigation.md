@@ -438,6 +438,129 @@ bot.PlayDoorOpenGesture();        // hand-жест, в том же тике (и�
 
 ---
 
+## Обход деревьев
+
+**Цель**: для `dmBotIntent_MoveTo.ProbeAhead` (райкаст вперёд при движении) научиться
+опознавать дерево в результате райкаста, чтобы вместо vault/climb выполнять обход ствола.
+
+### 1. Класс дерева (что ловится райкастом)
+
+Иерархия классов (ваниль):
+
+- `Object` (`3_game/entities/object.c`) — виртуальные `IsTree()` (`object.c:601`, дефолт
+  `false`) и `IsBush()` (`object.c:619`, дефолт `false`).
+- `Plant extends Object` (`3_game/gameplay.c:246`) — пустой нативный класс (движок), база
+  растительности.
+- `WoodBase extends Plant` (`4_world/entities/woodbase.c:7`); `typedef WoodBase PlantSuper`
+  (`4_world/entities/game/super/plant.c:1`).
+- Листовые (`4_world/entities/core/inherited/plant.c`):
+  - `TreeHard : PlantSuper` (`plant.c:17`) — `override bool IsTree() { return true; }` (`:24-27`).
+  - `TreeSoft : PlantSuper` (`plant.c:42`) — `override bool IsTree() { return true; }` (`:49-52`).
+  - `BushHard : PlantSuper` (`plant.c:68`) — `override bool IsBush() { return true; }` (`:76-79`).
+  - `BushSoft : PlantSuper` (`plant.c:89`) — `override bool IsBush() { return true; }` (`:96-99`).
+- Конкретные классы — `TreeHard_<p3d>`/`TreeSoft_<p3d>` (`4_world/entities/woodbase/trees.c`,
+  напр. `TreeHard_BetulaPendula`, `TreeSoft_t_acer2s`; соглашение имени см. `plant.c:9-15`),
+  кусты — `BushHard_*`/`BushSoft_*` (`4_world/entities/woodbase/bushes.c`).
+
+**Класса `TreeBase` НЕТ.** Дерево = `TreeHard`/`TreeSoft` (оба дают `IsTree()==true`), куст =
+`BushHard`/`BushSoft` (`IsBush()==true`). `TreeHard.Cast(obj) != null` сработает, но покрывает
+только `TreeHard` (не `TreeSoft`); надёжнее и дешевле виртуальный `IsTree()` — покрывает оба
+класса и не требует каста (метод объявлен на `Object`). Поиск по имени класса/`GetType()` НЕ
+нужен и хрупок (модельные имена `TreeHard_t_acer2s` и т.п., паттерн не стабилен).
+
+### 2. Возвращаются ли деревья райкастом (ALLOBJECTS?)
+
+**Да.** Деревья — полноценные `Object`/`EntityAI` с физической коллизией: их срубают
+(`actionminetree.c:91` → `IsTree() && IsCuttable()`, `actionminebush.c:34` → `IsBush() &&
+IsCuttable()`), при срубе ствол падает — это динамический физический объект, а НЕ статическая
+геометрия террейна/клаттера.
+
+Прямые подтверждения, что деревья попадают в результат райкаста:
+
+- `eAIMeleeCombat.c:157-162` (Expansion): `DayZPhysics.RaycastRV(..., ObjIntersectIFire, 0.0,
+  CollisionFlags.ALLOBJECTS)` возвращает деревья/кусты в `hitObjects`, и Expansion их
+  ПРОПУСКАЕТ (`if (hitObject.IsBush() || hitObject.IsTree()) continue;`) — т.е. они реально
+  есть в списке хитов при `ALLOBJECTS`.
+- `eAIBase.c:8305` (LOS-райкаст): ветка `else if (obj.IsTree() || obj.IsBush())` на объекте из
+  результата райкаста.
+- `eAIBase.c:11251` (`eAI_CanClimbOn`): `if (object.IsTree() || object.IsBush() || object.IsMan())
+  return false;` — Expansion явно НЕ клаймбит деревья/кусты.
+
+Используемый `ProbeAhead` флаг `CollisionFlags.ALLOBJECTS` (=5, «first contact for each object»,
+`1_core/proto/endebug.c:140-148`) включает ВСЕ объекты (статику+динамику) — дерево ловится.
+Тип пересечения по умолчанию в `RaycastRVParams` — `ObjIntersectView` (=1, `3_game/global/dayzphysics.c:88`,
+`3_game/constants.c:34`): ловит **view-геометрию** (включая крону/листву). Для препятствия-ствола
+корректнее `ObjIntersectGeom` (=2) / `ObjIntersectIFire` (=3) — **физическая** геометрия ствола
+(именно её бот и не может пройти).
+
+### 3. Высота ствола (хватит ли луча на 1.5 м)
+
+Ствол дерева — вертикальный цилиндр от земли до кроны (типично ~0.2–0.4 м радиусом). Луч на
+1.5 м (текущий «глазной» луч `ProbeAhead`: `pos+(0,1.5,0) → probe+(0,1.5,0)`) попадает в ствол
+обычного дерева. НО:
+
+- ствол **тонкий** — один тонкий луч на ~1 м вперёд легко проскакивает мимо (молодые/изогнутые
+  деревья), если траектория смещена от оси ствола;
+- на 1.5 м у части деревьев уже крона, и `ObjIntersectView` может дать хит по листве, которая
+  движению НЕ мешает (ложное «препятствие»).
+
+Поэтому надёжнее **низкий толстый луч у земли**: `pos+(0,~0.3,0) → probe+(0,~0.3,0)` с
+`radius ≈ 0.2–0.3` и `type = ObjIntersectGeom`/`ObjIntersectIFire` (ловит только ствол, не
+листву). Точную высоту/радиус — [нужно проверить] эмпирически.
+
+### 4. Альтернатива через navmesh `PGAreaType.TREE`
+
+`PGAreaType.TREE` (`3_game/ai/aiworld.c:43`) — **тип площади navmesh** под кроной дерева (земля
+под деревом маркируется TREE; в фильтре уже `SetCost(PGAreaType.TREE, 1.0)` — см.
+`expansionpathfilters.c:147`). Это площадь, НЕ ствол: A* видит «здесь дерево» как дешёвую зону
+(cost 1.0) и может вести путь сквозь неё.
+
+**Запросить тип площади под точкой НЕЛЬЗЯ.** Поверхность нативного API ограничена
+(`3_game/ai/aiworld.c`, весь файл 123 строки):
+- `PGFilter`: только `SetCost(PGAreaType, float)` + `GetIncludeFlags/GetExcludeFlags/
+  GetExlusiveFlags/SetFlags` (`:59-68`) — cost задаётся, НЕ читается по точке.
+- `AIWorld`: `FindPath` / `RaycastNavMesh` / `SampleNavmeshPosition` / группы (`:79-122`).
+  `RaycastNavMesh` возвращает `hitPos`/`hitNormal` (пересечение РЕБРА полигона), НЕ тип площади.
+- **Нет** `GetPolyFlags`/`GetAreaType`/«какой полигон под точкой».
+
+Вывод: `PGAreaType.TREE` применим ТОЛЬКО как вес пути в `SetCost` (уже есть), но НЕ как
+point-query «здесь дерево». Для `ProbeAhead` нужно детектить дерево райкастом (п.1–3).
+
+### Рекомендация для `ProbeAhead`
+
+1. **Опознание**: после райкаста вперёд проверить `hit.obj.IsTree()` (дерево) и
+   `hit.obj.IsBush()` (куст). Метод на `Object`, каст НЕ нужен; дерево прокси не имеет
+   (`hierLevel == 0`), поэтому `obj` и есть растение.
+2. **Исключить дерево из vault/climb**: сейчас `low`-луч (`0.3→1.0`) ставит `m_ClimbCandidate=true`
+   на ЛЮБОЙ объект, в т.ч. на ствол дерева → `TryVaultOrClimb` пытается клаймбить дерево
+   (бесполезно). Перед `m_ClimbCandidate = true` добавить гейт
+   `if (!hit.obj.IsTree() && !hit.obj.IsBush())`.
+3. **Новый флаг «обход дерева»**: отдельный `m_TreeCandidate` (+ `m_TreeCandidateUntil`) по
+   дереву, потребляемый в прогресс-мониторе как «обойти» (переиспользовать `TryDetour` —
+   боковое смещение перпендикулярно направлению + `RePath`), а НЕ vault и НЕ recover назад.
+4. **Луч/высота**: для надёжного детекта ствола — низкий толстый луч
+   `type = ObjIntersectGeom` (или `ObjIntersectIFire`), `radius ≈ 0.25`, высота ~0.3–0.5 м,
+   дистанция `probeDist` как сейчас (`min(1.0, dist+0.1)`). Куст (`IsBush`) мягче: НЕ жёсткое
+   препятствие (эталон `eAICommandMove.c:2489` `ObjectCanLimitStance`: куст НЕ ограничивает
+   стойку; дерево — ограничивает только после grace 1.0 с, `:2484-2487`).
+5. **Константы**: в `cons/4_World/constants.c` — `DM_TREE_PROBE_Y` (~0.3–0.5), `DM_TREE_PROBE_RADIUS`
+   (~0.25), `DM_TREE_FLAG_TIMEOUT` (таймаут флага обхода).
+
+### Гипотезы для эмпирической проверки
+
+- [нужно проверить] Ловит ли `ObjIntersectGeom`/`ObjIntersectIFire`-луч на высоте 0.3–0.5 м с
+  `radius=0.25` тонкий ствол дерева надёжно (а `ObjIntersectView`-луч на 1.5 м — пропускает)?
+  Probe: `raycast` (From/To с явным Y) на дерево, сравнить hit-obj `IsTree()` для Geom vs View
+  vs высоты.
+- [нужно проверить] Даёт ли `ObjIntersectView` на 1.5 м ложный хит по листве (крона без
+  физического препятствия), из-за чего бот «обойдёт» дерево, стоя в ~3 м от ствола?
+- [нужно проверить] Достаточно ли однократного бокового `TryDetour` (90° на `DM_MOVE_DETOUR_TIME`)
+  + `RePath`, чтобы бот обошёл дерево, или нужен двухфазный обход (полукруг, как `Flank`)?
+- [нужно подтвердить] Что `RaycastRVResult.obj` для дерева — само дерево (`hierLevel == 0`), а
+  не прокси (т.е. `IsTree()` на `obj`, без обращения к `parent`).
+
+---
+
 ## Лестницы
 
 ### API / entry-exit / жизненный цикл
