@@ -83,6 +83,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! veer (side-strafe) to walk around it instead of vaulting/climbing.
 	bool m_TreeCandidate = false;
 	float m_TreeCandidateUntil = 0.0;
+	//! Tree avoidance: until this time (GetTickTime) the bot caps its speed while
+	//! a tree/bush is ahead — gives it time to react instead of sprinting into trunks.
+	float m_TreeSlowUntil = 0.0;
 
 	//! Veer in progress: short side-strafe around a tree (body keeps facing forward).
 	bool m_Veering = false;
@@ -170,6 +173,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		m_TreeCandidate = false;
 		m_TreeCandidateUntil = 0.0;
+		m_TreeSlowUntil = 0.0;
 		m_Veering = false;
 		m_VeerTimer = 0.0;
 		m_VeerDir = 90.0;
@@ -598,6 +602,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (KeepLookAtGoal())
 			bot.LookAtPoint(subGoal + Vector(0, DM_EYE_HEIGHT, 0), dmBotLookTurn.NONE);
 		float speed = GetMoveSpeed(bot);
+		if (GetGame().GetTickTime() < m_TreeSlowUntil && speed > DM_TREE_SLOW_SPEED)
+			speed = DM_TREE_SLOW_SPEED;
 		bot.SetMove(moveAngle, speed);
 
 		#ifdef DM_BOT_DEBUG_FSM
@@ -912,6 +918,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			{
 				m_TreeCandidate = true;
 				m_TreeCandidateUntil = now + DM_TREE_FLAG_TIMEOUT;
+				m_TreeSlowUntil = now + DM_TREE_SLOW_WINDOW;
 				#ifdef DM_BOT_DEBUG_PATHFINDER
 				dmBotLog.Debug("[PATH] Tree candidate ahead type=" + to.GetType());
 				#endif
