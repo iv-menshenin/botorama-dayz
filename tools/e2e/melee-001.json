@@ -1,0 +1,11 @@
+{
+  "Name": "melee-001",
+  "Timeout": 150,
+  "Steps": [
+    { "Op": "meleefight", "Who": "M", "Pos": [6115.91, 0, 3256.36], "Yaw": 0, "Zombies": 3, "ZombieDist": 2.5, "Preset": "survivor" },
+    { "Op": "wait", "Who": "M", "Cond": "state", "Value": "Fighting", "Timeout": 30 },
+    { "Op": "sleep", "Timeout": 40 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

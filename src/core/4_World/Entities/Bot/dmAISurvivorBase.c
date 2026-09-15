@@ -1066,7 +1066,7 @@ class dmAISurvivorBase : PlayerBase
 		bool onLadder = IsClimbingLadder();
 
 		ApplyWeaponADS();
-		if (!onLadder)
+		if (!onLadder && !IsMeleeStriking())
 			ApplyBodyTurn(pDt);
 		if (onLadder)
 			m_TurnSharp = false;   // иначе устаревший флаг резкого поворота затормозит подъём
@@ -1318,7 +1318,7 @@ class dmAISurvivorBase : PlayerBase
 	override bool HeadingModel(float pDt, SDayZPlayerHeadingModel pModel)
 	{
 		GetMovementState(m_MovementState);
-		if (m_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_MOVE)
+		if (m_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_MOVE || m_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_MELEE2)
 		{
 			m_fLastHeadingDiff = 0;
 			float angle = GetOrientation()[0] * Math.DEG2RAD;
@@ -1630,6 +1630,13 @@ class dmAISurvivorBase : PlayerBase
 		return m_MeleeTarget;
 	}
 
+	//! True while a melee strike is in progress: the MELEE2 command has replaced
+	//! MOVE (GetCommand_Move()==null) and the body isn't otherwise busy.
+	private bool IsMeleeStriking()
+	{
+		return (GetCommand_Move() == null) && !IsClimbing() && !IsClimbingLadder() && !IsFalling() && !IsSwimming() && !IsInVehicle();
+	}
+
 	//! Melee spin oracle (diagnostic): accumulates the absolute body-yaw change
 	//! while the bot is mid-strike (no MOVE command and the body otherwise free)
 	//! and logs when a single strike's accumulated turn exceeds
@@ -1646,7 +1653,7 @@ class dmAISurvivorBase : PlayerBase
 		}
 		float dYaw = Math.AbsFloat(AngleDiff(yaw, m_LastFrameYaw));
 
-		bool striking = (GetCommand_Move() == null) && !IsClimbing() && !IsClimbingLadder() && !IsFalling() && !IsSwimming() && !IsInVehicle();
+		bool striking = IsMeleeStriking();
 
 		if (striking && !m_Striking)
 		{
