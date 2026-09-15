@@ -6,11 +6,13 @@
 //! exists, so there is zero overhead when no agent is driving.
 //!
 //! Ops: ping | spawn | moveto | follow | patrol | speed | loadout | look | say |
-//! wait | assert | snapshot | clearall (named bots) plus the world/physics probe
-//! ops spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj
-//! (named objects) and observe (teleport a connected player). `wait` is the only
-//! deferred op: it ticks across frames until its condition is met or its timeout
-//! expires. Everything else executes in a single tick.
+//! wait | assert | snapshot | clearall (named bots) plus the perf ops
+//! sleep | prof | army (two-team fight) and the world/physics probe ops
+//! spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj
+//! (named objects) and observe (teleport a connected player). `wait` and `sleep`
+//! are the deferred ops: they tick across frames (wait until a condition is met
+//! or its timeout expires; sleep until its timeout). Everything else executes in
+//! a single tick.
 
 //! A job (input): an id and the list of steps to run.
 class dmE2EJob
@@ -41,6 +43,11 @@ class dmE2EStep
 	vector Min;       // scanbox min corner (world)
 	vector Max;       // scanbox max corner (world)
 	string Obj;       // object name (getpos, setpos, clearobj)
+	int Count;        // number of bots to spawn (army)
+	string Settlement; // settlement name for the army center (optional)
+	float Radius;     // spawn scatter radius around the center (army, default 50)
+	string Preset;    // combat preset: "shooting" (default) | "combat" (army)
+	float Spread;     // hostile threat blur (army, default DM_INVASION_SPREAD)
 }
 
 //! Per-step outcome.
@@ -79,6 +86,10 @@ class dmE2EResult
 class dmE2EBridge
 {
 	static ref dmE2EBridge s_Instance;
+
+	//! Default army spawn scatter radius (meters) when step.Radius is 0.
+	static const float DM_E2E_ARMY_RADIUS = 50.0;
+
 	private ref map<string, ref dmAISurvivor> m_Named;
 	private ref map<string, Object> m_Objects;
 	private float m_ScanAccum;
@@ -199,6 +210,25 @@ class dmE2EBridge
 		}
 
 		dmE2EStep step = m_Job.Steps[m_StepIndex];
+
+		if (step.Op == "sleep")
+		{
+			m_WaitTimer = m_WaitTimer + dt;
+			if (m_WaitTimer < step.Timeout)
+				return;
+
+			dmE2EStepResult sleepResult = new dmE2EStepResult();
+			sleepResult.Index = m_StepIndex;
+			sleepResult.Op = step.Op;
+			sleepResult.Dump = new array<string>();
+			sleepResult.Ok = true;
+			sleepResult.Reason = "slept";
+			m_Result.Steps.Insert(sleepResult);
+			m_WaitTimer = 0.0;
+			m_StepIndex = m_StepIndex + 1;
+			LogStep(sleepResult);
+			return;
+		}
 
 		if (step.Op == "wait")
 		{
@@ -328,6 +358,14 @@ class dmE2EBridge
 		else if (step.Op == "clearall")
 		{
 			RunClearAll(step, r);
+		}
+		else if (step.Op == "prof")
+		{
+			RunProf(step, r);
+		}
+		else if (step.Op == "army")
+		{
+			RunArmy(step, r);
 		}
 		else if (step.Op == "spawnobj")
 		{
@@ -600,6 +638,165 @@ class dmE2EBridge
 		m_Named.Clear();
 		r.Ok = true;
 		r.Reason = "cleared " + cleared;
+	}
+
+	//! "prof" — control the profiler via Value: start | stop | clear | dump.
+	private void RunProf(dmE2EStep step, dmE2EStepResult r)
+	{
+		if (step.Value == "start")
+		{
+			dmBotProfiler.SetEnabled(true);
+			r.Ok = true;
+			r.Reason = "started";
+		}
+		else if (step.Value == "stop")
+		{
+			dmBotProfiler.SetEnabled(false);
+			r.Ok = true;
+			r.Reason = "stopped";
+		}
+		else if (step.Value == "clear")
+		{
+			dmBotProfiler.Clear();
+			r.Ok = true;
+			r.Reason = "cleared";
+		}
+		else if (step.Value == "dump")
+		{
+			string path = dmBotProfiler.Dump();
+			if (path == "")
+			{
+				r.Ok = false;
+				r.Reason = "empty";
+			}
+			else
+			{
+				r.Dump.Insert(path);
+				r.Ok = true;
+				r.Reason = "dumped";
+			}
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "bad action";
+		}
+	}
+
+	//! "army" — spawn Count bots in two mutually hostile teams around a center.
+	//! Center: step.Settlement (resolved via dmWorldPOIRegistry) or step.Pos.
+	private void RunArmy(dmE2EStep step, dmE2EStepResult r)
+	{
+		if (step.Count <= 0)
+		{
+			r.Ok = false;
+			r.Reason = "bad count";
+			return;
+		}
+
+		vector center = ResolveWorldPos(step.Pos);
+		int i;
+		if (step.Settlement != "")
+		{
+			dmWorldPOIRegistry registry = dmWorldPOIRegistry.Get();
+			for (i = 0; i < registry.SettlementCount(); i++)
+			{
+				dmWorldPoiLocation loc = registry.GetSettlement(i);
+				if (loc && loc.Name == step.Settlement)
+				{
+					center = SnapToGroundExactly(loc.Position);
+					break;
+				}
+			}
+		}
+
+		float spread = step.Spread;
+		if (spread <= 0.0)
+			spread = DM_INVASION_SPREAD;
+
+		float radius = step.Radius;
+		if (radius <= 0.0)
+			radius = DM_E2E_ARMY_RADIUS;
+
+		int countA = step.Count / 2;
+		if (step.Count % 2 == 1)
+			countA = countA + 1;
+
+		array<ref dmAISurvivor> teamA = new array<ref dmAISurvivor>();
+		array<ref dmAISurvivor> teamB = new array<ref dmAISurvivor>();
+
+		for (i = 0; i < step.Count; i++)
+		{
+			vector spawnPos = RollArmySpawn(center, radius);
+			ref dmAISurvivor bot = new dmAISurvivor();
+			bot.SetModel(dmSurvivor.GetRandom());
+			PlayerBase pawn = bot.Spawn(spawnPos, Vector(Math.RandomFloat(0.0, 360.0), 0.0, 0.0));
+			if (!pawn)
+				continue;
+
+			GiveWeapon(pawn);
+
+			if (i < countA)
+			{
+				m_Named.Insert("army_A_" + i, bot);
+				teamA.Insert(bot);
+			}
+			else
+			{
+				m_Named.Insert("army_B_" + (i - countA), bot);
+				teamB.Insert(bot);
+			}
+
+			if (step.Preset == "combat")
+				bot.SetFSM(dmBotTestPreset_Combat.Create(bot));
+			else
+				bot.SetFSM(dmBotTestPreset_Shooting.Create(bot));
+		}
+
+		int a;
+		int b;
+		for (a = 0; a < teamA.Count(); a++)
+		{
+			for (b = 0; b < teamB.Count(); b++)
+			{
+				teamA[a].RegisterHostile(teamB[b].GetPawn(), 1.0, spread);
+				teamB[b].RegisterHostile(teamA[a].GetPawn(), 1.0, spread);
+			}
+		}
+
+		r.Ok = true;
+		r.Reason = "spawned " + step.Count + " bots (2 teams)";
+	}
+
+	//! Random ground-snapped spawn position within ±radius of the center.
+	private vector RollArmySpawn(vector center, float radius)
+	{
+		float offX = Math.RandomFloat(-radius, radius);
+		float offZ = Math.RandomFloat(-radius, radius);
+		return SnapToGroundExactly(Vector(center[0] + offX, 0.0, center[2] + offZ));
+	}
+
+	//! Random rifle + matching ammo (mirrors dmLaunchCommand.GiveWeapon).
+	private void GiveWeapon(PlayerBase pawn)
+	{
+		array<string> weapons = {"B95", "Mosin9130", "Izh18", "Repeater"};
+		int idx = Math.RandomIntInclusive(0, weapons.Count() - 1);
+		string weapon = weapons[idx];
+
+		string ammo = "Ammo_308Win";
+		if (weapon == "Mosin9130")
+			ammo = "Ammo_762x54";
+		else if (weapon == "Izh18")
+			ammo = "Ammo_762x39";
+		else if (weapon == "Repeater")
+			ammo = "Ammo_357";
+
+		Weapon_Base w = Weapon_Base.Cast(pawn.GetHumanInventory().CreateInHands(weapon));
+		if (w)
+			w.SpawnAmmo(ammo, WeaponWithAmmoFlags.CHAMBER);
+
+		pawn.GetInventory().CreateInInventory(ammo);
+		pawn.GetInventory().CreateInInventory(ammo);
 	}
 
 	//! Evaluate a wait/assert condition for the bot named by step.Who. Returns

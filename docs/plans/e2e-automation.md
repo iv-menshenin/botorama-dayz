@@ -62,6 +62,7 @@ class dmE2EStep
 {
     string Op;        // ping | spawn | moveto | follow | patrol | speed | loadout |
                       // stance | look | say | wait | assert | snapshot | clearall | killall
+                      // + perf: sleep | prof | army
                       // + пробы мира: spawnobj | raycast | scanbox | botdump | getpos | setpos | clearobj | observe
     string Who;       // имя бота (кем управляем) / имя объекта (spawnobj/botdump)
     string Target;    // имя цели-бота (follow / distance)
@@ -73,13 +74,18 @@ class dmE2EStep
     string Cond;      // условие wait/assert: state|reached|distance|alive|moving
     string Value;     // значение условия ("Follow", "true"/"false", …)
     float Tolerance;  // допуск для reached/distance (метры)
-    float Timeout;    // таймаут шага (wait), секунды
+    float Timeout;    // таймаут шага (wait/sleep), секунды
     string ClassName; // класс CfgVehicles (spawnobj)
     vector From;      // точка A (raycast)
     vector To;        // точка B (raycast)
     vector Min;       // min-угол коробки (scanbox)
     vector Max;       // max-угол коробки (scanbox)
     string Obj;       // имя объекта (getpos/setpos/clearobj)
+    int Count;        // число ботов (army)
+    string Settlement;// имя поселения для центра (army, опционально)
+    float Radius;     // радиус разброса спавна вокруг центра (army, default ~50)
+    string Preset;    // боевой пресет: "shooting" (default) | "combat" (army)
+    float Spread;     // размытие угрозы (army, default DM_INVASION_SPREAD)
 }
 ```
 
@@ -114,6 +120,9 @@ class dmE2EStep
 | `assert` | то же | мгновенная проверка → `Ok`/`Reason` |
 | `snapshot` | — | снять состояние всех именованных ботов |
 | `clearall` / `killall` | — | `dmAISurvivor.ClearAll()` / `KillAll()` |
+| `sleep` | `Timeout` | **отложенный**: ждёт `Timeout` сек → `Ok`, `Reason="slept"` |
+| `prof` | `Value` (`start`/`stop`/`clear`/`dump`) | управление `dmBotProfiler`; `dump` кладёт путь CSV в `Steps[].Dump` |
+| `army` | `Count`, `Settlement`/`Pos`, `Radius`, `Preset`, `Spread` | спавн `Count` ботов двумя враждебными командами вокруг центра; оружие+патроны; пресет `shooting`/`combat` |
 
 Условия (`Cond`): `state` (имя FSM-состояния), `reached` (дистанция до `Pos` <
 `Tolerance`), `distance` (дистанция до `Target` < `Tolerance`), `alive`/`moving`
