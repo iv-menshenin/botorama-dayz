@@ -1427,13 +1427,29 @@ class dmE2EBridge
 		car.SetOrientation(Vector(step.Yaw, 0, 0));
 
 		int i;
+		int attempts = 0;
 		EntityAI wheelEnt;
-		for (i = 0; i < car.WheelCount(); i++)
+		while (car.WheelCountPresent() < car.WheelCount() && attempts < 8)
 		{
-			wheelEnt = car.WheelGetEntity(i);
-			if (!wheelEnt || wheelEnt.IsRuined())
-				car.GetInventory().CreateInInventory(wheel);
+			for (i = 0; i < car.WheelCount(); i++)
+			{
+				wheelEnt = car.WheelGetEntity(i);
+				if (!wheelEnt || wheelEnt.IsRuined())
+				{
+					if (wheelEnt)
+						GetGame().ObjectDelete(wheelEnt);
+					car.GetInventory().CreateInInventory(wheel);
+					break;
+				}
+			}
+			attempts = attempts + 1;
 		}
+
+		car.GetInventory().CreateInInventory(wheel);
+
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] spawncar wheels: hubs=" + car.WheelCountPresent() + "/" + car.WheelCount());
+		#endif
 
 		EntityAI battery = car.GetBattery();
 		if (!battery || battery.IsRuined())
@@ -1524,6 +1540,9 @@ class dmE2EBridge
 		AppendDump(r, line);
 
 		line = "speed=" + car.GetSpeedometerAbsolute();
+		AppendDump(r, line);
+
+		line = "wheels=" + car.WheelCountPresent() + "/" + car.WheelCount();
 		AppendDump(r, line);
 
 		line = "gear=" + car.GetCurrentGear();
