@@ -2,23 +2,16 @@
 //!
 //! Наследует dmBotIntent_GetInVehicle и переиспользует весь lifecycle посадки
 //! (walk к двери → открыть дверь → GetInVehicle → сел). После посадки переводит
-//! канал на DRIVE и ведёт машину: замкнутый контур скорости (толчок/тормоз
-//! импульсом = ошибка×kp, кэп по дельта-V, в точке двигателя) + боковой рулевой
-//! импульс (angle×kp, на носу). Импульс — тяга (толкает колёса); нативный газ
-//! (dm_DriveThrottle) в нейтрали ревит двигатель (звук оборотов) и не толкает
-//! колёса (на МКПП сцепление не замкнуто); передача ShiftTo — только индикатор;
-//! руль SetSteering через dm_DriveSteering — визуальный поворот колёс. Маршрут —
-//! дорожный navmesh-путь (FindRoadPathTo) с fallback'ом на пеший путь при
-//! усечении, вейпоинт за вейпоинтом. Graceful-завершение глушит двигатель
+//! канал на DRIVE и ведёт машину нативным приводом: газ по отклонению от целевой
+//! скорости (dm_DriveThrottle через SetThrottle в CarScript.OnInput) + передачи
+//! ShiftTo (вперёд по скорости) + боковой рулевой импульс (angle×kp, на носу) +
+//! нативный руль SetSteering (через dm_DriveSteering — визуальный поворот колёс).
+//! Маршрут — дорожный navmesh-путь (FindRoadPathTo) с fallback'ом на пеший путь
+//! при усечении, вейпоинт за вейпоинтом; застревание детектится по прогрессу
+//! дистанции (TickStuck) с реверсом. Graceful-завершение глушит двигатель
 //! (StopCar) и высаживает бота штатным выходом.
 class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 {
-	//! Уклон: малый множитель толчка (1.0 + sinPitch * factor), не домножается на массу.
-	static const float DRIVE_SLOPE_FACTOR = 2.0;
-	//! Откат назад: множитель восстановления (аналог ROLL_RECOVERY_FACTOR).
-	static const float DRIVE_ROLL_RECOVERY_FACTOR = 0.5;
-	//! Откат назад: макс. сила восстановления на кг массы.
-	static const float DRIVE_ROLL_RECOVERY_MAX_PER_KG = 0.02;
 	//! Руль: мёртвая зона угла (рад), ниже — не рулим (анти-джиттер).
 	static const float DRIVE_STEER_ANGLE_DEADZONE = 0.01;
 
@@ -110,7 +103,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		super.OnUpdate(bot, pDt);
 	}
 
-	//! Один тик вождения: цель → скорость → толчок/тормоз (импульс) → передача (индикатор) → руль.
+	//! Один тик вождения: цель → скорость → газ/тормоз (нативный) → передача → руль.
 	void TickDriving(dmAISurvivor bot, float pDt)
 	{
 		m_Car = CarScript.Cast(m_Transport);
@@ -212,7 +205,6 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		float angle = Math.Atan2(cross, dot);
 
 		float speedAbs = m_Car.GetSpeedometerAbsolute();
-		float speedSigned = m_Car.GetSpeedometer();
 
 		//! 6. Целевая скорость: ниже в повороте; сглаживаем.
 		float limit = DM_DRIVE_MAX_SPEED_STRAIGHT;
@@ -220,10 +212,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			limit = DM_DRIVE_MAX_SPEED_TURNING;
 		m_SpeedLimit = Math.Lerp(m_SpeedLimit, limit, DM_DRIVE_SPEED_SMOOTH);
 
-		//! 7. Толчок/тормоз (импульс) + симуляция RPM.
-		bool pushing = ApplyDriveForce(speedAbs, speedSigned, carDir, carDirRaw[1]);
+		//! 7. Нативный газ/тормоз (dm_DriveThrottle) + передачи.
+		bool pushing = ApplyDriveForce(speedAbs);
 
-		//! 8. Передачи (только индикатор, без газа).
+		//! 8. Передачи (вперёд по скорости).
 		ShiftGear(speedAbs);
 
 		//! 9. Руль/боковой импульс.
@@ -246,13 +238,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		#endif
 	}
 
-	//! Толчок/тормоз по отклонению от целевой скорости. Возвращает true, если
-	//! сейчас разгоняемся (используется в драйв-логе).
-	//! EXPERIMENT: нативный привод, импульс отключён. Тяга — только нативный газ
-	//! (dm_DriveThrottle через SetThrottle в CarScript.OnInput) + передачи ShiftTo.
-	//! ApplyPushImpulse/ApplyBrakeImpulse/ApplyRollRecovery оставлены в коде, но не
-	//! вызываются — возможно вернёмся к импульсной тяге. Торможение/накат — газ 0.
-	bool ApplyDriveForce(float speedAbs, float speedSigned, vector carDir, float carPitch)
+	//! Нативный привод: газ по отклонению от целевой скорости (dm_DriveThrottle,
+	//! применяется через SetThrottle в CarScript.OnInput) + передачи ShiftTo.
+	//! Торможение/накат — газ 0 (тормоз всегда 0). Возвращает true, если сейчас
+	//! разгоняемся (используется в драйв-логе).
+	bool ApplyDriveForce(float speedAbs)
 	{
 		float margin = 3.0;
 		bool pushing = false;
@@ -286,82 +276,13 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		return pushing;
 	}
 
-	//! Замкнутый контур скорости: толчок = ошибка × kp (кэп по импульсу).
-	//! Знак реверса закодирован в signed-лимите: в реверсе лимит берём со знаком
-	//! минус → при недостаточной задней скорости dv отрицателен → толкаем назад.
-	//! Точка приложения — ДВИГАТЕЛЬ (ModelToWorld(GetEnginePos())): референс доказал,
-	//! что импульс там работоспособен (в ЦМ + native-сопротивление машина ползла).
-	void ApplyPushImpulse(float speedSigned, vector carDir, float carPitch)
-	{
-		float limit = m_SpeedLimit;
-		if (m_Reverse)
-			limit = -m_SpeedLimit;
-
-		//! Ошибка скорости (км/ч, знаковая) → импульс (единицы dBodyApplyImpulseAt)
-		//! с кэпом. Без конвертации в м/с: dBodyApplyImpulseAt даёт ~2 ед. импульса
-		//! на км/ч скорости (эмпирически).
-		float speedErr = limit - speedSigned;
-		float dv = speedErr * DM_DRIVE_SPEED_KP;
-
-		//! Малый множитель уклона (не домножаем на массу — это был источник
-		//! нестабильности).
-		float slopeMultiplier = 1.0 + carPitch * DRIVE_SLOPE_FACTOR;
-		slopeMultiplier = Math.Clamp(slopeMultiplier, 0.5, 2.0);
-		dv = dv * slopeMultiplier;
-
-		dv = Math.Clamp(dv, -DM_DRIVE_SPEED_MAX_IMPULSE, DM_DRIVE_SPEED_MAX_IMPULSE);
-
-		vector impulse = carDir * dv;
-		vector applyPoint = m_Car.ModelToWorld(m_Car.GetEnginePos());
-		dBodyApplyImpulseAt(m_Car, impulse, applyPoint);
-	}
-
-	//! Замкнутый контур торможения (зеркально толчку): ошибка = speedSigned - лимит,
-	//! импульс против движения (в точке двигателя). Знак учитывает реверс: в реверсе
-	//! при переизбытке задней скорости speedSigned сильно отрицателен → dv отрицателен
-	//! → -carDir×dv даёт вперёд (против заднего хода). Прежний maxPossibleImpulse =
-	//! |v|×mass×100 был фикс-капом и больше не нужен.
-	void ApplyBrakeImpulse(float speedSigned, vector carDir)
-	{
-		float speedErr = speedSigned - m_SpeedLimit;
-		float dv = speedErr * DM_DRIVE_BRAKE_KP;
-		dv = Math.Clamp(dv, -DM_DRIVE_BRAKE_MAX_IMPULSE, DM_DRIVE_BRAKE_MAX_IMPULSE);
-
-		vector impulse = carDir * (-dv);
-		vector applyPoint = m_Car.ModelToWorld(m_Car.GetEnginePos());
-		dBodyApplyImpulseAt(m_Car, impulse, applyPoint);
-	}
-
-	//! Коррекция отката назад (машина катится назад без реверса) — толкаем вперёд.
-	void ApplyRollRecovery(float speedSigned, vector carDir)
-	{
-		if (speedSigned >= -0.5)
-			return;
-
-		float bodyMass = dBodyGetMass(m_Car);
-		if (bodyMass <= 0.0)
-			return;
-
-		float speedBackwards = Math.AbsFloat(speedSigned);
-		float recoveryMag = speedBackwards * bodyMass * DRIVE_ROLL_RECOVERY_FACTOR;
-		float maxAllowed = bodyMass * DRIVE_ROLL_RECOVERY_MAX_PER_KG;
-		if (recoveryMag > maxAllowed)
-			recoveryMag = maxAllowed;
-
-		vector impulse = carDir * recoveryMag * (1.0 / bodyMass);
-		vector applyPoint = m_Car.ModelToWorld(m_Car.GetEnginePos());
-		dBodyApplyImpulseAt(m_Car, impulse, applyPoint);
-	}
-
 	//! Передачи: МКПП по скорости, АКПП по режиму D/R/N.
 	void ShiftGear(float speedAbs)
 	{
 		CarGearboxType type = m_Car.GearboxGetType();
 		if (type == CarGearboxType.MANUAL)
 		{
-			//! EXPERIMENT: нативный привод — переключение передач ВПЕРЁД по скорости.
-			//! Ранее ездили в NEUTRAL на импульсе (сцепление не замыкалось на трёх
-			//! колёсах); колёса починены (4/4), проверяем нативную коробку.
+			//! МКПП: передача вперёд по скорости, реверс при m_Reverse.
 			int targetGear = CarGear.FIRST;
 			if (m_Reverse)
 				targetGear = CarGear.REVERSE;

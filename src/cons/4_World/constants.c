@@ -44,23 +44,6 @@ static const float DM_DRIVE_MAX_SPEED_TURNING = 30.0;
 //! Drive: угол (рад) между курсом машины и вейпоинтом, выше которого считается поворот.
 static const float DM_DRIVE_TURN_ANGLE_THRESHOLD = 0.05;
 
-//! Drive: усиление толчка (импульс за км/ч ошибки скорости; единицы импульса
-//! dBodyApplyImpulseAt, НЕ м/с). Калибровочное стартовое значение (2.0×50 ≈ 100
-//! на полном газу при цели 50 км/ч). Сопротивления нативного газа больше нет —
-//! толчок в точке двигателя работает на референсном масштабе.
-static const float DM_DRIVE_SPEED_KP = 2.0;
-
-//! Drive: кап толчка (единицы импульса dBodyApplyImpulseAt, НЕ м/с). Калибровочное
-//! стартовое значение; тормоз/руль (150/800) оставляем.
-static const float DM_DRIVE_SPEED_MAX_IMPULSE = 150.0;
-
-//! Drive: усиление торможения (импульс за км/ч ошибки; единицы импульса
-//! dBodyApplyImpulseAt, НЕ м/с). Подобрано эмпирически.
-static const float DM_DRIVE_BRAKE_KP = 3.0;
-
-//! Drive: кап тормоза (единицы импульса dBodyApplyImpulseAt, НЕ м/с; эмпирически).
-static const float DM_DRIVE_BRAKE_MAX_IMPULSE = 150.0;
-
 //! Drive: усиление руля (боковой импульс за радиан угла; единицы импульса
 //! dBodyApplyImpulseAt, НЕ м/с). Подобрано эмпирически (250×~1.5 рад ≈ 375 при
 //! полном повороте).
@@ -82,9 +65,6 @@ static const float DM_DRIVE_STUCK_THRESHOLD = 50.0;
 
 //! Drive: мин. уменьшение дистанции до вейпоинта (м) за тик, иначе считаем «нет прогресса».
 static const float DM_DRIVE_PROGRESS_EPS = 0.5;
-
-//! Drive: газ в нейтрали — только звук оборотов, не тяга; умеренный, чтобы не выть в красной зоне.
-static const float DM_DRIVE_GAS = 0.25;
 
 //! Drive: скорость сглаживания руля (1/с).
 static const float DM_DRIVE_WHEEL_STEER_SPEED = 3.0;
