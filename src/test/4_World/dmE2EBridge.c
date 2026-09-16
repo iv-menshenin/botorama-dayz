@@ -1485,7 +1485,7 @@ class dmE2EBridge
 	}
 
 	//! "drive" — issue a dmBotIntent_Drive: the named bot boards the named car
-	//! and drives to Pos.
+	//! and drives along the route from Points (or the single Pos if Points is empty).
 	private void RunDrive(dmE2EStep step, dmE2EStepResult r)
 	{
 		dmAISurvivor bot;
@@ -1515,7 +1515,17 @@ class dmE2EBridge
 		dmBotIntent_Drive drive = new dmBotIntent_Drive();
 		drive.m_Transport = transport;
 		drive.m_Seat = 0;
-		drive.m_Destination = ResolveWorldPos(step.Pos);
+		drive.m_Route = new array<vector>();
+		if (step.Points.Count() > 0)
+		{
+			int i;
+			for (i = 0; i < step.Points.Count(); i++)
+				drive.m_Route.Insert(ResolveWorldPos(step.Points[i]));
+		}
+		else
+		{
+			drive.m_Route.Insert(ResolveWorldPos(step.Pos));
+		}
 		bot.AddCommandIntent(drive);
 
 		r.Ok = true;

@@ -1,4 +1,4 @@
-//! dmBotIntent_Drive — бот садится за руль и едет по ДОРОГЕ к точке назначения.
+//! dmBotIntent_Drive — бот садится за руль и едет по маршруту из точек.
 //!
 //! Наследует dmBotIntent_GetInVehicle и переиспользует весь lifecycle посадки
 //! (walk к двери → открыть дверь → GetInVehicle → сел). После посадки переводит
@@ -6,22 +6,19 @@
 //! скорости (dm_DriveThrottle через SetThrottle в CarScript.OnInput) + передачи
 //! ShiftTo (вперёд по скорости) + нативный руль SetSteering (через
 //! dm_DriveSteering) — поворот делает нативный руль, как у реальной машины.
-//! Маршрут — дорожный navmesh-путь (FindRoadPathTo) с fallback'ом на пеший путь
-//! при усечении, вейпоинт за вейпоинтом; застревание детектится по прогрессу
-//! дистанции (TickStuck) с реверсом. Graceful-завершение глушит двигатель
-//! (StopCar) и высаживает бота штатным выходом.
+//! Маршрут — явный список точек (m_Route, выставляет владелец до OnStart), точка
+//! за точкой; застревание детектится по прогрессу дистанции (TickStuck) с реверсом.
+//! Graceful-завершение глушит двигатель (StopCar) и высаживает бота штатным выходом.
 class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 {
 	//! Руль: мёртвая зона угла (рад), ниже — не рулим (анти-джиттер).
 	static const float DRIVE_STEER_ANGLE_DEADZONE = 0.01;
 
-	//! Конечная точка назначения (выставляет владелец/команда до OnStart).
-	vector m_Destination;
+	//! Маршрут из точек (выставляет владелец/команда до OnStart).
+	ref array<vector> m_Route;
 
-	//! Дорожный маршрут (вейпоинты по ROADWAY-навмеш).
-	ref array<vector> m_RoadPath;
-	int m_RoadPathIdx = 0;
-	bool m_HasRoadPath = false;
+	//! Индекс текущей точки маршрута.
+	int m_RouteIdx = 0;
 
 	//! Машина (получаем из m_Transport после посадки).
 	CarScript m_Car;
@@ -65,13 +62,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 	override void OnStart(dmAISurvivor bot)
 	{
-		//! m_Destination уже выставлен владельцем (как m_Transport/m_Seat);
+		//! m_Route уже выставлен владельцем (как m_Transport/m_Seat);
 		//! super.OnStart наследует точку входа у двери (m_Goal) и walk к ней.
 		super.OnStart(bot);
 
-		m_RoadPath = new array<vector>();
-		m_RoadPathIdx = 0;
-		m_HasRoadPath = false;
+		m_RouteIdx = 0;
 		m_Car = null;
 		m_EngineStarted = false;
 		m_SpeedLimit = DM_DRIVE_MAX_SPEED_STRAIGHT;
@@ -125,60 +120,40 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			m_EngineStarted = true;
 		}
 
-		//! 2. Дорожный маршрут (однократно). При усечённой дороге (последний
-		//! вейпоинт далеко от назначения — ROADWAY-navmesh фрагментирован)
-		//! fallback на пеший путь.
-		if (!m_HasRoadPath)
+		//! 2. Пустой маршрут — нечего вести (посадка всё равно нужна; фейлим здесь).
+		if (!m_Route || m_Route.Count() == 0)
 		{
-			m_RoadPath = new array<vector>();
-			bool roadOk = bot.FindRoadPathTo(m_Car.GetPosition(), m_Destination, m_RoadPath);
-			float lastDist = -1.0;
-			if (roadOk && m_RoadPath.Count() > 0)
-				lastDist = vector.Distance(m_RoadPath[m_RoadPath.Count() - 1], m_Destination);
-
-			//! TODO: временный fallback, пока не выясним фрагментацию ROADWAY-navmesh.
-			if (!roadOk || m_RoadPath.Count() == 0 || lastDist > DM_DRIVE_ROAD_FALLBACK_DIST)
-			{
-				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] Drive: road path truncated, fallback to walk path");
-				#endif
-				if (!bot.FindPathTo(m_Destination, m_RoadPath) || m_RoadPath.Count() == 0)
-				{
-					dmBotLog.Error("Drive: нет маршрута (road+walk) к " + m_Destination + ", abort");
-					Fail();
-					return;
-				}
-			}
-			m_RoadPathIdx = 0;
-			m_HasRoadPath = true;
+			dmBotLog.Error("Drive: маршрут пуст, abort");
+			Fail();
+			return;
 		}
 
 		vector carPos = m_Car.GetPosition();
-		vector target = m_RoadPath[m_RoadPathIdx];
+		vector target = m_Route[m_RouteIdx];
 		vector toTarget = target - carPos;
 		toTarget[1] = 0.0;
 		float dist = toTarget.Length();
 
-		//! 3-4. Вейпоинт достигнут → следующий.
+		//! 3-4. Точка достигнута → следующая.
 		if (dist < DM_DRIVE_WAYPOINT_REACH)
 		{
-			m_RoadPathIdx = m_RoadPathIdx + 1;
-			if (m_RoadPathIdx >= m_RoadPath.Count())
+			m_RouteIdx = m_RouteIdx + 1;
+			if (m_RouteIdx >= m_Route.Count())
 			{
 				Finish();
 				return;
 			}
-			//! Сменили вейпоинт — дистанция до нового резко прыгнула вверх; сброс
+			//! Сменили точку — дистанция до новой резко прыгнула вверх; сброс
 			//! «лучшей» дистанции, иначе TickStuck примет скачок за «нет прогресса».
 			m_LastWaypointDist = -1.0;
-			target = m_RoadPath[m_RoadPathIdx];
+			target = m_Route[m_RouteIdx];
 			toTarget = target - carPos;
 			toTarget[1] = 0.0;
 			dist = toTarget.Length();
 		}
 
-		//! 5. Конец маршрута / достигли назначения.
-		if (vector.Distance(carPos, m_Destination) < DM_DRIVE_REACH)
+		//! 5. Конец маршрута / достигли последней точки (гэп DM_DRIVE_REACH).
+		if (vector.Distance(carPos, m_Route[m_Route.Count() - 1]) < DM_DRIVE_REACH)
 		{
 			Finish();
 			return;
