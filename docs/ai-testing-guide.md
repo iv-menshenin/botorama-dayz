@@ -226,6 +226,11 @@ EOF
 
 - Запуск клиента: `bash tools/run-client.sh` (Proton, appid 221100, `-connect=127.0.0.1:2302`,
   `-name=e2e-observer`, `-mod=Z:\...\DayZServer\@Botorama`, `-window -noPause -nosplash -skipIntro`).
+- **Ожидание входа наблюдателя — ПОЛЛИНГОМ ЛОГА, не фиксированным sleep.** Игрок заходит
+  за ~20–30 с. Вместо `sleep 60` гоняй цикл: grep свежего RPT на `Player "e2e-observer"`
+  (или `is connected`) раз в ~2 с, таймаут ~120 с; как только строка появилась — наблюдатель
+  в игре, можно дропать сценарий. Аналогично сервер: ждать по RPT `Botorama initialized`,
+  а не по таймеру. Это режет пустое ожидание «минута+» до реального времени входа.
 - Op `observe` (в сценарии): телепорт **первого** подключённого игрока
   (`Pos` + `Yaw`) — `SetPosition(SnapToGroundExactly)` + `SetOrientation(Vector(Yaw,0,0))`.
   Если игрок ещё не зашёл — `Reason="no player connected"`, повторить после подключения.
