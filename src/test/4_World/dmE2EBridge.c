@@ -1515,16 +1515,16 @@ class dmE2EBridge
 		dmBotIntent_Drive drive = new dmBotIntent_Drive();
 		drive.m_Transport = transport;
 		drive.m_Seat = 0;
-		drive.m_Route = new array<vector>();
+		drive.m_DriveRoute = new array<vector>();
 		if (step.Points.Count() > 0)
 		{
 			int i;
 			for (i = 0; i < step.Points.Count(); i++)
-				drive.m_Route.Insert(ResolveWorldPos(step.Points[i]));
+				drive.m_DriveRoute.Insert(ResolveWorldPos(step.Points[i]));
 		}
 		else
 		{
-			drive.m_Route.Insert(ResolveWorldPos(step.Pos));
+			drive.m_DriveRoute.Insert(ResolveWorldPos(step.Pos));
 		}
 		bot.AddCommandIntent(drive);
 

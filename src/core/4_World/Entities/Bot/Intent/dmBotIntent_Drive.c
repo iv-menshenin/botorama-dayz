@@ -6,7 +6,7 @@
 //! скорости (dm_DriveThrottle через SetThrottle в CarScript.OnInput) + передачи
 //! ShiftTo (вперёд по скорости) + нативный руль SetSteering (через
 //! dm_DriveSteering) — поворот делает нативный руль, как у реальной машины.
-//! Маршрут — явный список точек (m_Route, выставляет владелец до OnStart), точка
+//! Маршрут — явный список точек (m_DriveRoute, выставляет владелец до OnStart), точка
 //! за точкой; застревание детектится по прогрессу дистанции (TickStuck) с реверсом.
 //! Graceful-завершение глушит двигатель (StopCar) и высаживает бота штатным выходом.
 class dmBotIntent_Drive : dmBotIntent_GetInVehicle
@@ -15,10 +15,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	static const float DRIVE_STEER_ANGLE_DEADZONE = 0.01;
 
 	//! Маршрут из точек (выставляет владелец/команда до OnStart).
-	ref array<vector> m_Route;
+	ref array<vector> m_DriveRoute;
 
 	//! Индекс текущей точки маршрута.
-	int m_RouteIdx = 0;
+	int m_DriveRouteIdx = 0;
 
 	//! Машина (получаем из m_Transport после посадки).
 	CarScript m_Car;
@@ -62,11 +62,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 	override void OnStart(dmAISurvivor bot)
 	{
-		//! m_Route уже выставлен владельцем (как m_Transport/m_Seat);
+		//! m_DriveRoute уже выставлен владельцем (как m_Transport/m_Seat);
 		//! super.OnStart наследует точку входа у двери (m_Goal) и walk к ней.
 		super.OnStart(bot);
 
-		m_RouteIdx = 0;
+		m_DriveRouteIdx = 0;
 		m_Car = null;
 		m_EngineStarted = false;
 		m_SpeedLimit = DM_DRIVE_MAX_SPEED_STRAIGHT;
@@ -121,7 +121,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 
 		//! 2. Пустой маршрут — нечего вести (посадка всё равно нужна; фейлим здесь).
-		if (!m_Route || m_Route.Count() == 0)
+		if (!m_DriveRoute || m_DriveRoute.Count() == 0)
 		{
 			dmBotLog.Error("Drive: маршрут пуст, abort");
 			Fail();
@@ -129,7 +129,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 
 		vector carPos = m_Car.GetPosition();
-		vector target = m_Route[m_RouteIdx];
+		vector target = m_DriveRoute[m_DriveRouteIdx];
 		vector toTarget = target - carPos;
 		toTarget[1] = 0.0;
 		float dist = toTarget.Length();
@@ -137,8 +137,8 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		//! 3-4. Точка достигнута → следующая.
 		if (dist < DM_DRIVE_WAYPOINT_REACH)
 		{
-			m_RouteIdx = m_RouteIdx + 1;
-			if (m_RouteIdx >= m_Route.Count())
+			m_DriveRouteIdx = m_DriveRouteIdx + 1;
+			if (m_DriveRouteIdx >= m_DriveRoute.Count())
 			{
 				Finish();
 				return;
@@ -146,14 +146,14 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			//! Сменили точку — дистанция до новой резко прыгнула вверх; сброс
 			//! «лучшей» дистанции, иначе TickStuck примет скачок за «нет прогресса».
 			m_LastWaypointDist = -1.0;
-			target = m_Route[m_RouteIdx];
+			target = m_DriveRoute[m_DriveRouteIdx];
 			toTarget = target - carPos;
 			toTarget[1] = 0.0;
 			dist = toTarget.Length();
 		}
 
 		//! 5. Конец маршрута / достигли последней точки (гэп DM_DRIVE_REACH).
-		if (vector.Distance(carPos, m_Route[m_Route.Count() - 1]) < DM_DRIVE_REACH)
+		if (vector.Distance(carPos, m_DriveRoute[m_DriveRoute.Count() - 1]) < DM_DRIVE_REACH)
 		{
 			Finish();
 			return;
