@@ -26,6 +26,12 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Флаг, что EngineStart() уже вызван.
 	bool m_EngineStarted = false;
 
+	//! Секунд с момента посадки (до запуска двигателя).
+	float m_SeatedFor = 0.0;
+
+	//! Секунд после запуска двигателя (прогрев до трогания).
+	float m_WarmupFor = 0.0;
+
 	//! Текущий лимит скорости (км/ч, сглаживается).
 	float m_SpeedLimit = DM_DRIVE_MAX_SPEED_STRAIGHT;
 
@@ -69,6 +75,8 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_DriveRouteIdx = 0;
 		m_Car = null;
 		m_EngineStarted = false;
+		m_SeatedFor = 0.0;
+		m_WarmupFor = 0.0;
 		m_SpeedLimit = DM_DRIVE_MAX_SPEED_STRAIGHT;
 		m_StuckCounter = 0;
 		m_Reverse = false;
@@ -109,7 +117,20 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			return;
 		}
 
-		//! 1. Старт двигателя (однократно; напрямую — ванильный ActionStartEngine
+		//! 1. Пустой маршрут — нечего вести (фейлим сразу, до пауз старта).
+		if (!m_DriveRoute || m_DriveRoute.Count() == 0)
+		{
+			dmBotLog.Error("Drive: маршрут пуст, abort");
+			Fail();
+			return;
+		}
+
+		//! 2. Пауза после посадки: сидим, двигатель ещё не заводим (газ/руль не трогаем).
+		m_SeatedFor += pDt;
+		if (m_SeatedFor < DM_DRIVE_START_DELAY)
+			return;
+
+		//! 3. Старт двигателя (однократно; напрямую — ванильный ActionStartEngine
 		//!    режет серверных ботов).
 		if (!m_EngineStarted)
 		{
@@ -118,15 +139,16 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			m_Car.SetHandbrake(0.0);
 			m_Car.SetBrakesActivateWithoutDriver(false);
 			m_EngineStarted = true;
-		}
-
-		//! 2. Пустой маршрут — нечего вести (посадка всё равно нужна; фейлим здесь).
-		if (!m_DriveRoute || m_DriveRoute.Count() == 0)
-		{
-			dmBotLog.Error("Drive: маршрут пуст, abort");
-			Fail();
+			#ifdef DM_BOT_DEBUG_CAR
+			dmBotLog.Debug("[CAR] Drive: двигатель запущен, прогрев " + DM_DRIVE_ENGINE_WARMUP + " с");
+			#endif
 			return;
 		}
+
+		//! 4. Прогрев двигателя: стоим, не трогаемся.
+		m_WarmupFor += pDt;
+		if (m_WarmupFor < DM_DRIVE_ENGINE_WARMUP)
+			return;
 
 		vector carPos = m_Car.GetPosition();
 		vector target = m_DriveRoute[m_DriveRouteIdx];

@@ -25,6 +25,12 @@ static const float DM_GETIN_REACH = 1.0;
 //! Drive: точка назначения достигнута, если машина ближе 10 м.
 static const float DM_DRIVE_REACH = 10.0;
 
+//! Drive: пауза после посадки до запуска двигателя (с). Бот сидит, не заводит.
+static const float DM_DRIVE_START_DELAY = 2.0;
+
+//! Drive: пауза после запуска двигателя до трогания (с). Прогрев, машина не едет.
+static const float DM_DRIVE_ENGINE_WARMUP = 5.0;
+
 //! Drive: если последний вейпоинт дорожного маршрута дальше этого (м) от назначения,
 //! маршрут считается усечённым (ROADWAY-navmesh фрагментирован) → fallback на пеший путь.
 static const float DM_DRIVE_ROAD_FALLBACK_DIST = 30.0;
