@@ -80,6 +80,12 @@ static const float DM_DRIVE_STEER_MIN_SPEED = 0.5;
 //! Drive: тиков застревания до переключения на реверс.
 static const float DM_DRIVE_STUCK_THRESHOLD = 50.0;
 
+//! Drive: мин. уменьшение дистанции до вейпоинта (м) за тик, иначе считаем «нет прогресса».
+static const float DM_DRIVE_PROGRESS_EPS = 0.5;
+
+//! Drive: газ в нейтрали — только звук оборотов, не тяга; умеренный, чтобы не выть в красной зоне.
+static const float DM_DRIVE_GAS = 0.25;
+
 //! Drive: скорость сглаживания руля (1/с).
 static const float DM_DRIVE_WHEEL_STEER_SPEED = 3.0;
 

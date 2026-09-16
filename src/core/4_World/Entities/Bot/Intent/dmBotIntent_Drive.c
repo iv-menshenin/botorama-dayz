@@ -43,6 +43,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	int m_StuckCounter = 0;
 	bool m_Reverse = false;
 
+	//! Прогресс по дистанции до текущего вейпоинта: последняя дистанция (м),
+	//! -1.0 = «не измерена» (первый тик / сброс при смене вейпоинта/курса).
+	float m_LastWaypointDist = -1.0;
+
 	//! Длительность текущего реверса (тиков) — ограничивает залипание реверса.
 	int m_ReverseTicks = 0;
 
@@ -80,6 +84,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_SpeedLimit = DM_DRIVE_MAX_SPEED_STRAIGHT;
 		m_StuckCounter = 0;
 		m_Reverse = false;
+		m_LastWaypointDist = -1.0;
 		m_ReverseTicks = 0;
 		m_WheelSteer = 0.0;
 		m_LastDriveLogTime = 0.0;
@@ -170,6 +175,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				Finish();
 				return;
 			}
+			//! Сменили вейпоинт — дистанция до нового резко прыгнула вверх; сброс
+			//! «лучшей» дистанции, иначе TickStuck примет скачок за «нет прогресса».
+			m_LastWaypointDist = -1.0;
 			target = m_RoadPath[m_RoadPathIdx];
 			toTarget = target - carPos;
 			toTarget[1] = 0.0;
@@ -222,7 +230,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		ApplySteering(angle, speedAbs, carDir, pDt);
 
 		//! 10. Застревание → реверс.
-		TickStuck(speedAbs, pushing);
+		TickStuck(dist);
 
 		#ifdef DM_BOT_DEBUG_CAR
 		float now = GetGame().GetTickTime();
@@ -239,11 +247,12 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	}
 
 	//! Толчок/тормоз по отклонению от целевой скорости. Возвращает true, если
-	//! сейчас толкаем — для детекции застревания. Импульс — тяга (толкает колёса);
-	//! нативный газ пишем только при разгоне (0.6 — в нейтрали ревит двигатель,
-	//! звук оборотов, но не толкает колёса), при торможении/накате — 0. Нативный
-	//! тормоз — всегда 0 (тормозим импульсом). dm_DriveActive оставляем true (нужен
-	//! для руля в CarScript.OnInput). dm_DriveSimRPM выключен (-1) — RPM нативный.
+	//! сейчас толкаем (используется в драйв-логе). Импульс — тяга (толкает колёса);
+	//! нативный газ пишем только при разгоне (DM_DRIVE_GAS — в нейтрали ревит
+	//! двигатель, звук оборотов, но не толкает колёса), при торможении/накате — 0.
+	//! Нативный тормоз — всегда 0 (тормозим импульсом). dm_DriveActive оставляем
+	//! true (нужен для руля в CarScript.OnInput). dm_DriveSimRPM выключен (-1) —
+	//! RPM нативный.
 	bool ApplyDriveForce(float speedAbs, float speedSigned, vector carDir, float carPitch)
 	{
 		float margin = 3.0;
@@ -262,7 +271,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			ApplyPushImpulse(speedSigned, carDir, carPitch);
 			//! Газ в нейтрали ревит двигатель (звук оборотов), но не толкает
 			//! колёса (на МКПП сцепление не замкнуто); тягу даёт импульс.
-			m_Car.dm_DriveThrottle = 0.6;
+			m_Car.dm_DriveThrottle = DM_DRIVE_GAS;
 		}
 		else
 		{
@@ -423,11 +432,13 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		dBodyApplyImpulseAt(m_Car, impulse, applyPoint);
 	}
 
-	//! Застревание: не едем, но толкаем → считаем тики; порог → реверс. Реверс
-	//! ограничен по длительности (DM_DRIVE_REVERSE_MAX_TICKS) и имеет грейс-период
-	//! после флипа (m_StuckCounter=20), иначе машина оседает на ~0.9 км/ч и реверс
-	//! залипает навсегда.
-	void TickStuck(float speedAbs, bool pushing)
+	//! Застревание: не уменьшается дистанция до вейпоинта (прогресс < EPS за тик)
+	//! → считаем тики; порог → реверс. Ловит и медленное ползание (~1.4 км/ч),
+	//! которое старый порог speedAbs<0.5 пропускал. Реверс ограничен по длительности
+	//! (DM_DRIVE_REVERSE_MAX_TICKS) и имеет грейс-период после флипа
+	//! (m_StuckCounter=20), иначе машина оседает на ~0.9 км/ч и реверс залипает
+	//! навсегда.
+	void TickStuck(float dist)
 	{
 		if (m_Reverse)
 		{
@@ -441,19 +452,30 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			}
 		}
 
-		if (speedAbs < 0.5 && pushing)
+		if (m_LastWaypointDist < 0.0)
 		{
-			m_StuckCounter = m_StuckCounter + 1;
+			//! Первый тик (или после сброса) — только запоминаем дистанцию.
+			m_LastWaypointDist = dist;
+			return;
+		}
+
+		if (dist < m_LastWaypointDist - DM_DRIVE_PROGRESS_EPS)
+		{
+			//! Есть прогресс — дистанция до вейпоинта падает.
+			m_LastWaypointDist = dist;
+			m_StuckCounter = 0;
 		}
 		else
 		{
-			m_StuckCounter = 0;
+			//! Дистанция не падает (стоим/ползём/откатываемся) — копим тики.
+			m_StuckCounter = m_StuckCounter + 1;
 		}
 
 		if ((float)m_StuckCounter > DM_DRIVE_STUCK_THRESHOLD)
 		{
 			m_Reverse = !m_Reverse;
 			m_StuckCounter = 20;
+			m_LastWaypointDist = -1.0;
 			if (!m_Reverse)
 				m_ReverseTicks = 0;
 		}
