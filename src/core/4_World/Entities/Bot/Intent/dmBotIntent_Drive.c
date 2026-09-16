@@ -134,32 +134,8 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		toTarget[1] = 0.0;
 		float dist = toTarget.Length();
 
-		//! 3-4. Точка достигнута → следующая.
-		if (dist < DM_DRIVE_WAYPOINT_REACH)
-		{
-			m_DriveRouteIdx = m_DriveRouteIdx + 1;
-			if (m_DriveRouteIdx >= m_DriveRoute.Count())
-			{
-				Finish();
-				return;
-			}
-			//! Сменили точку — дистанция до новой резко прыгнула вверх; сброс
-			//! «лучшей» дистанции, иначе TickStuck примет скачок за «нет прогресса».
-			m_LastWaypointDist = -1.0;
-			target = m_DriveRoute[m_DriveRouteIdx];
-			toTarget = target - carPos;
-			toTarget[1] = 0.0;
-			dist = toTarget.Length();
-		}
-
-		//! 5. Конец маршрута / достигли последней точки (гэп DM_DRIVE_REACH).
-		if (vector.Distance(carPos, m_DriveRoute[m_DriveRoute.Count() - 1]) < DM_DRIVE_REACH)
-		{
-			Finish();
-			return;
-		}
-
-		//! Направление машины (горизонталь) и курс к вейпоинту.
+		//! Направление машины (горизонталь) — считаем ДО проверки достижения точки,
+		//! чтобы dot (косинус угла к цели) был известен для гейта «проехали мимо».
 		vector carDirRaw = m_Car.GetDirection();
 		vector carDir = carDirRaw;
 		carDir[1] = 0.0;
@@ -174,10 +150,44 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		float toDirX = toTarget[0] / toLen;
 		float toDirZ = toTarget[2] / toLen;
 
-		//! Угол до вейпоинта (знак через cross-произведение).
+		//! Угол до вейпоинта (знак через cross-произведение) — один раз на точку.
 		float cross = carDir[0] * toDirZ - carDir[2] * toDirX;
 		float dot = carDir[0] * toDirX + carDir[2] * toDirZ;
 		float angle = Math.Atan2(cross, dot);
+
+		//! 3-4. Промежуточная точка считается пройденной, если корпус заехал на неё
+		//! (dist < REACH) ИЛИ проехали мимо (точка позади, dot < PASSED_DOT) — тогда
+		//! пропускаем её и едем к следующей, не разворачиваясь. Конечную точку по dot
+		//! не пропускаем (isLast-гейт): до неё нужно доехать (см. DM_DRIVE_REACH).
+		bool isLast = (m_DriveRouteIdx >= m_DriveRoute.Count() - 1);
+		if (!isLast && (dist < DM_DRIVE_WAYPOINT_REACH || dot < DM_DRIVE_PASSED_DOT))
+		{
+			m_DriveRouteIdx = m_DriveRouteIdx + 1;
+			//! Сменили точку — дистанция до новой резко прыгнула вверх; сброс
+			//! «лучшей» дистанции, иначе TickStuck примет скачок за «нет прогресса».
+			m_LastWaypointDist = -1.0;
+			target = m_DriveRoute[m_DriveRouteIdx];
+			toTarget = target - carPos;
+			toTarget[1] = 0.0;
+			dist = toTarget.Length();
+
+			//! Пересчёт курса к новой точке (одна точка = один набор cross/dot/angle).
+			toLen = toTarget.Length();
+			if (toLen < 0.01)
+				toLen = 1.0;
+			toDirX = toTarget[0] / toLen;
+			toDirZ = toTarget[2] / toLen;
+			cross = carDir[0] * toDirZ - carDir[2] * toDirX;
+			dot = carDir[0] * toDirX + carDir[2] * toDirZ;
+			angle = Math.Atan2(cross, dot);
+		}
+
+		//! 5. Конец маршрута / достигли последней точки (гэп DM_DRIVE_REACH).
+		if (vector.Distance(carPos, m_DriveRoute[m_DriveRoute.Count() - 1]) < DM_DRIVE_REACH)
+		{
+			Finish();
+			return;
+		}
 
 		float speedAbs = m_Car.GetSpeedometerAbsolute();
 

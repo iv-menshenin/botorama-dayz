@@ -32,8 +32,15 @@ static const float DM_DRIVE_ROAD_FALLBACK_DIST = 30.0;
 //! Drive: радиус снэпа концов дорожного маршрута на navmesh (метры).
 static const float DM_PATH_SAMPLE_ROAD_RADIUS = 5.0;
 
-//! Drive: радиус прохождения дорожного вейпоинта (метры).
-static const float DM_DRIVE_WAYPOINT_REACH = 5.0;
+//! Drive: радиус (м), внутри которого корпус машины считается «заехавшим» на
+//! промежуточную точку маршрута (пол-диагонали ~2×4 м ≈ 2.2 м + запас). Точки —
+//! только ориентир, важна конечная.
+static const float DM_DRIVE_WAYPOINT_REACH = 4.0;
+
+//! Drive: косинус угла к точке, ниже которого точка считается «позади» (проехали
+//! мимо — не разворачиваться, а пропустить точку и ехать к следующей).
+//! cos(101°) ≈ -0.19.
+static const float DM_DRIVE_PASSED_DOT = -0.2;
 
 //! Drive: целевая скорость на прямой (км/ч).
 static const float DM_DRIVE_MAX_SPEED_STRAIGHT = 50.0;
