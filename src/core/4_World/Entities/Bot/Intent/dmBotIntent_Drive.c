@@ -247,12 +247,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	}
 
 	//! Толчок/тормоз по отклонению от целевой скорости. Возвращает true, если
-	//! сейчас толкаем (используется в драйв-логе). Импульс — тяга (толкает колёса);
-	//! нативный газ пишем только при разгоне (DM_DRIVE_GAS — в нейтрали ревит
-	//! двигатель, звук оборотов, но не толкает колёса), при торможении/накате — 0.
-	//! Нативный тормоз — всегда 0 (тормозим импульсом). dm_DriveActive оставляем
-	//! true (нужен для руля в CarScript.OnInput). dm_DriveSimRPM выключен (-1) —
-	//! RPM нативный.
+	//! сейчас разгоняемся (используется в драйв-логе).
+	//! EXPERIMENT: нативный привод, импульс отключён. Тяга — только нативный газ
+	//! (dm_DriveThrottle через SetThrottle в CarScript.OnInput) + передачи ShiftTo.
+	//! ApplyPushImpulse/ApplyBrakeImpulse/ApplyRollRecovery оставлены в коде, но не
+	//! вызываются — возможно вернёмся к импульсной тяге. Торможение/накат — газ 0.
 	bool ApplyDriveForce(float speedAbs, float speedSigned, vector carDir, float carPitch)
 	{
 		float margin = 3.0;
@@ -260,38 +259,29 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 		if (speedAbs > m_SpeedLimit + margin)
 		{
-			//! Превышаем — тормозим.
-			ApplyBrakeImpulse(speedSigned, carDir);
+			//! Превышаем — газ убираем (торможение двигателем).
 			m_Car.dm_DriveThrottle = 0.0;
 		}
 		else if (speedAbs < m_SpeedLimit - margin)
 		{
-			//! Ниже цели — разгоняемся.
+			//! Ниже цели — разгоняемся нативным газом (реальная тяга от двигателя).
 			pushing = true;
-			ApplyPushImpulse(speedSigned, carDir, carPitch);
-			//! Газ в нейтрали ревит двигатель (звук оборотов), но не толкает
-			//! колёса (на МКПП сцепление не замкнуто); тягу даёт импульс.
-			m_Car.dm_DriveThrottle = DM_DRIVE_GAS;
+			m_Car.dm_DriveThrottle = 0.6;
 		}
 		else
 		{
-			//! Накат в коридоре (импульс не прикладываем, газ убираем).
+			//! Накат в коридоре — газ убираем.
 			m_Car.dm_DriveThrottle = 0.0;
 		}
 
-		//! Тормоз — всегда 0 (тормозим импульсом); руль остаётся активным через
-		//! dm_DriveActive (SetSteering в CarScript.OnInput).
+		//! Тормоз — всегда 0 (тормозим отпусканием газа); руль остаётся активным
+		//! через dm_DriveActive (SetSteering в CarScript.OnInput).
 		m_Car.dm_DriveBrake = 0.0;
 		m_Car.dm_DriveActive = true;
 
-		//! Симуляция оборотов звука больше не нужна: газ нативный (dm_DriveThrottle
-		//! поднимает EngineGetRPM через OnInput), RPM-звук — нативный. Оставляем
-		//! dm_DriveSimRPM выключенным (-1), OnSound отдаёт нативный RPM.
+		//! RPM-звук — нативный (dm_DriveThrottle поднимает EngineGetRPM через
+		//! OnInput); dm_DriveSimRPM остаётся выключенным (-1).
 		m_Car.dm_DriveSimRPM = -1.0;
-
-		//! Восстановление от отката назад (не в реверсе).
-		if (!m_Reverse)
-			ApplyRollRecovery(speedSigned, carDir);
 
 		return pushing;
 	}
@@ -369,16 +359,20 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		CarGearboxType type = m_Car.GearboxGetType();
 		if (type == CarGearboxType.MANUAL)
 		{
-			//! На МКПП у серверного ИИ сцепление не замыкается (ваниль делает это
-			//! через HumanCommandVehicle.SetClutchState), включённая передача
-			//! замыкает трансмиссию на холостой двигатель и сопротивляется
-			//! импульсному толчку; поэтому ездим в NEUTRAL на импульсе (как
-			//! референс AutoCarMod и ванильный ActionPushCar). Переключение передач
-			//! вперёд по скорости — отложено (нужна АКПП-машина либо симуляция
-			//! индикатора).
-			int targetGear = CarGear.NEUTRAL;
+			//! EXPERIMENT: нативный привод — переключение передач ВПЕРЁД по скорости.
+			//! Ранее ездили в NEUTRAL на импульсе (сцепление не замыкалось на трёх
+			//! колёсах); колёса починены (4/4), проверяем нативную коробку.
+			int targetGear = CarGear.FIRST;
 			if (m_Reverse)
 				targetGear = CarGear.REVERSE;
+			else if (speedAbs < 15.0)
+				targetGear = CarGear.FIRST;
+			else if (speedAbs < 30.0)
+				targetGear = CarGear.SECOND;
+			else if (speedAbs < 45.0)
+				targetGear = CarGear.THIRD;
+			else
+				targetGear = CarGear.FOURTH;
 
 			if (m_Car.GetCurrentGear() != targetGear)
 				m_Car.ShiftTo(targetGear);
