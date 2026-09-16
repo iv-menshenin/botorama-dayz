@@ -4,13 +4,13 @@
 //! (walk к двери → открыть дверь → GetInVehicle → сел). После посадки переводит
 //! канал на DRIVE и ведёт машину: замкнутый контур скорости (толчок/тормоз
 //! импульсом = ошибка×kp, кэп по дельта-V, в точке двигателя) + боковой рулевой
-//! импульс (angle×kp, на носу). Импульс — ЕДИНСТВЕННАЯ тяга (нативный газ/тормоз
-//! сопротивляются импульсу и не пишутся); передача ShiftTo — только индикатор;
-//! руль SetSteering через dm_DriveSteering — визуальный поворот колёс. Обороты
-//! двигателя (звук) — симуляция dm_DriveSimRPM по скорости (применяется в
-//! CarScript.OnSound). Маршрут — дорожный navmesh-путь (FindRoadPathTo) с
-//! fallback'ом на пеший путь при усечении, вейпоинт за вейпоинтом. Graceful-
-//! завершение глушит двигатель (StopCar) и высаживает бота штатным выходом.
+//! импульс (angle×kp, на носу). Импульс — тяга (толкает колёса); нативный газ
+//! (dm_DriveThrottle) в нейтрали ревит двигатель (звук оборотов) и не толкает
+//! колёса (на МКПП сцепление не замкнуто); передача ShiftTo — только индикатор;
+//! руль SetSteering через dm_DriveSteering — визуальный поворот колёс. Маршрут —
+//! дорожный navmesh-путь (FindRoadPathTo) с fallback'ом на пеший путь при
+//! усечении, вейпоинт за вейпоинтом. Graceful-завершение глушит двигатель
+//! (StopCar) и высаживает бота штатным выходом.
 class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 {
 	//! Уклон: малый множитель толчка (1.0 + sinPitch * factor), не домножается на массу.
@@ -239,10 +239,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	}
 
 	//! Толчок/тормоз по отклонению от целевой скорости. Возвращает true, если
-	//! сейчас толкаем — для детекции застревания. Нативный газ/тормоз НЕ пишем
-	//! (сопротивляются импульсу): dm_DriveThrottle/Brake = 0, импульс — единственная
-	//! тяга. dm_DriveActive оставляем true (нужен для руля в CarScript.OnInput).
-	//! Здесь же пишем симуляцию оборотов звука dm_DriveSimRPM по скорости.
+	//! сейчас толкаем — для детекции застревания. Импульс — тяга (толкает колёса);
+	//! нативный газ пишем только при разгоне (0.6 — в нейтрали ревит двигатель,
+	//! звук оборотов, но не толкает колёса), при торможении/накате — 0. Нативный
+	//! тормоз — всегда 0 (тормозим импульсом). dm_DriveActive оставляем true (нужен
+	//! для руля в CarScript.OnInput). dm_DriveSimRPM выключен (-1) — RPM нативный.
 	bool ApplyDriveForce(float speedAbs, float speedSigned, vector carDir, float carPitch)
 	{
 		float margin = 3.0;
@@ -252,26 +253,32 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		{
 			//! Превышаем — тормозим.
 			ApplyBrakeImpulse(speedSigned, carDir);
+			m_Car.dm_DriveThrottle = 0.0;
 		}
 		else if (speedAbs < m_SpeedLimit - margin)
 		{
 			//! Ниже цели — разгоняемся.
 			pushing = true;
 			ApplyPushImpulse(speedSigned, carDir, carPitch);
+			//! Газ в нейтрали ревит двигатель (звук оборотов), но не толкает
+			//! колёса (на МКПП сцепление не замкнуто); тягу даёт импульс.
+			m_Car.dm_DriveThrottle = 0.6;
 		}
-		//! Иначе — накат в коридоре (импульс не прикладываем).
+		else
+		{
+			//! Накат в коридоре (импульс не прикладываем, газ убираем).
+			m_Car.dm_DriveThrottle = 0.0;
+		}
 
-		//! Нативный газ/тормоз — всегда 0 (сопротивляются импульсу); руль остаётся
-		//! активным через dm_DriveActive (SetSteering в CarScript.OnInput).
-		m_Car.dm_DriveThrottle = 0.0;
+		//! Тормоз — всегда 0 (тормозим импульсом); руль остаётся активным через
+		//! dm_DriveActive (SetSteering в CarScript.OnInput).
 		m_Car.dm_DriveBrake = 0.0;
 		m_Car.dm_DriveActive = true;
 
-		//! Симуляция оборотов звука по скорости (нативный газ убран).
-		float idle = m_Car.EngineGetRPMIdle();
-		float maxR = m_Car.EngineGetRPMMax();
-		float t = Math.Clamp(speedAbs / DM_DRIVE_MAX_SPEED_STRAIGHT, 0.0, 1.0);
-		m_Car.dm_DriveSimRPM = idle + (maxR - idle) * t;
+		//! Симуляция оборотов звука больше не нужна: газ нативный (dm_DriveThrottle
+		//! поднимает EngineGetRPM через OnInput), RPM-звук — нативный. Оставляем
+		//! dm_DriveSimRPM выключенным (-1), OnSound отдаёт нативный RPM.
+		m_Car.dm_DriveSimRPM = -1.0;
 
 		//! Восстановление от отката назад (не в реверсе).
 		if (!m_Reverse)

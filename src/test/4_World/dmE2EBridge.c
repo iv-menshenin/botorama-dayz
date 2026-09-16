@@ -1426,29 +1426,34 @@ class dmE2EBridge
 
 		car.SetOrientation(Vector(step.Yaw, 0, 0));
 
-		int i;
-		int attempts = 0;
-		EntityAI wheelEnt;
-		while (car.WheelCountPresent() < car.WheelCount() && attempts < 8)
-		{
-			for (i = 0; i < car.WheelCount(); i++)
-			{
-				wheelEnt = car.WheelGetEntity(i);
-				if (!wheelEnt || wheelEnt.IsRuined())
-				{
-					if (wheelEnt)
-						GetGame().ObjectDelete(wheelEnt);
-					car.GetInventory().CreateInInventory(wheel);
-					break;
-				}
-			}
-			attempts = attempts + 1;
-		}
-
+		//! 4 колеса подряд без guard'ов (как ванильный CivilianSedan.OnDebugSpawn:
+		//! первые CreateInInventory заполняют хабы), затем 1 запасное в карго.
+		car.GetInventory().CreateInInventory(wheel);
+		car.GetInventory().CreateInInventory(wheel);
+		car.GetInventory().CreateInInventory(wheel);
+		car.GetInventory().CreateInInventory(wheel);
 		car.GetInventory().CreateInInventory(wheel);
 
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] spawncar wheels: hubs=" + car.WheelCountPresent() + "/" + car.WheelCount());
+		dmBotLog.Debug("[E2E] spawncar wheels: present=" + car.WheelCountPresent() + " count=" + car.WheelCount());
+		int i;
+		EntityAI wheelEnt;
+		string wheelStatus;
+		for (i = 0; i < car.WheelCount(); i++)
+		{
+			wheelEnt = car.WheelGetEntity(i);
+			if (wheelEnt)
+			{
+				wheelStatus = "ok";
+				if (wheelEnt.IsRuined())
+					wheelStatus = "ruined";
+				dmBotLog.Debug("[E2E] spawncar wheel[" + i + "] " + wheelStatus + " " + wheelEnt.GetType());
+			}
+			else
+			{
+				dmBotLog.Debug("[E2E] spawncar wheel[" + i + "] null");
+			}
+		}
 		#endif
 
 		EntityAI battery = car.GetBattery();
