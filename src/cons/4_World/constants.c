@@ -44,20 +44,11 @@ static const float DM_DRIVE_MAX_SPEED_TURNING = 30.0;
 //! Drive: угол (рад) между курсом машины и вейпоинтом, выше которого считается поворот.
 static const float DM_DRIVE_TURN_ANGLE_THRESHOLD = 0.05;
 
-//! Drive: усиление руля (боковой импульс за радиан угла; единицы импульса
-//! dBodyApplyImpulseAt, НЕ м/с). Подобрано эмпирически (250×~1.5 рад ≈ 375 при
-//! полном повороте).
-static const float DM_DRIVE_STEER_KP = 250.0;
-
-//! Drive: кап бокового рулевого импульса (единицы импульса dBodyApplyImpulseAt,
-//! НЕ м/с; референсный BASE_SIDE_IMPULSE = 800).
-static const float DM_DRIVE_STEER_MAX_IMPULSE = 800.0;
-
 //! Drive: макс. тиков в реверсе до принудительного возврата вперёд (анти-залипание).
 static const float DM_DRIVE_REVERSE_MAX_TICKS = 40.0;
 
-//! Drive: ниже этой скорости (км/ч) руль/боковой импульс не прикладывается
-//! (анти-джиттер на месте, но не блокирует разворот к цели на малой скорости).
+//! Drive: ниже этой скорости (км/ч) руль не прикладывается (анти-джиттер на
+//! месте, но не блокирует разворот к цели на малой скорости).
 static const float DM_DRIVE_STEER_MIN_SPEED = 0.5;
 
 //! Drive: тиков застревания до переключения на реверс.

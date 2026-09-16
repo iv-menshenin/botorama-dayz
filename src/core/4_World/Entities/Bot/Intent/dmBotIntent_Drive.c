@@ -4,8 +4,8 @@
 //! (walk к двери → открыть дверь → GetInVehicle → сел). После посадки переводит
 //! канал на DRIVE и ведёт машину нативным приводом: газ по отклонению от целевой
 //! скорости (dm_DriveThrottle через SetThrottle в CarScript.OnInput) + передачи
-//! ShiftTo (вперёд по скорости) + боковой рулевой импульс (angle×kp, на носу) +
-//! нативный руль SetSteering (через dm_DriveSteering — визуальный поворот колёс).
+//! ShiftTo (вперёд по скорости) + нативный руль SetSteering (через
+//! dm_DriveSteering) — поворот делает нативный руль, как у реальной машины.
 //! Маршрут — дорожный navmesh-путь (FindRoadPathTo) с fallback'ом на пеший путь
 //! при усечении, вейпоинт за вейпоинтом; застревание детектится по прогрессу
 //! дистанции (TickStuck) с реверсом. Graceful-завершение глушит двигатель
@@ -218,8 +218,8 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		//! 8. Передачи (вперёд по скорости).
 		ShiftGear(speedAbs);
 
-		//! 9. Руль/боковой импульс.
-		ApplySteering(angle, speedAbs, carDir, pDt);
+		//! 9. Руль (нативный).
+		ApplySteering(angle, speedAbs, pDt);
 
 		//! 10. Застревание → реверс.
 		TickStuck(dist);
@@ -311,40 +311,20 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 	}
 
-	//! Руль: боковой импульс (angle×kp) + нативный руль в поле машины (применяется
-	//! в CarScript.OnInput, колёса визуально). steerTarget в <-1,1> от угла (±90°).
-	void ApplySteering(float angle, float speedAbs, vector carDir, float pDt)
+	//! Руль: нативный (пишется в m_Car.dm_DriveSteering, применяется через
+	//! SetSteering в CarScript.OnInput). steerTarget в <-1,1> от угла (±90°).
+	//! Поворот делает нативный руль — боковой импульс не нужен (на низком
+	//! сцеплении он толкал кузов поперёк вместо вращения).
+	void ApplySteering(float angle, float speedAbs, float pDt)
 	{
 		float steerTarget = 0.0;
 
 		if (speedAbs >= DM_DRIVE_STEER_MIN_SPEED && Math.AbsFloat(angle) >= DRIVE_STEER_ANGLE_DEADZONE)
-		{
-			ApplySideImpulse(angle, carDir);
 			steerTarget = Math.Clamp(angle / 1.57, -1.0, 1.0);
-		}
 
 		float t = Math.Min(1.0, DM_DRIVE_WHEEL_STEER_SPEED * pDt);
 		m_WheelSteer = Math.Lerp(m_WheelSteer, steerTarget, t);
 		m_Car.dm_DriveSteering = m_WheelSteer;
-	}
-
-	//! Боковой рулевой импульс: толкаем нос ВЛЕВО при angle>0 (цель слева). sideDir
-	//! = (-carDir[2],0,carDir[0]) = ЛЕВО; impulse = sideDir × clamp(angle×kp). БЕЗ
-	//! инверсии знака (прежний ×(-direction) уводил от цели). Приложить на носу.
-	void ApplySideImpulse(float angle, vector carDir)
-	{
-		vector sideDir;
-		sideDir[0] = -carDir[2];
-		sideDir[1] = 0.0;
-		sideDir[2] = carDir[0];
-		sideDir.Normalize();
-
-		float steerForce = Math.Clamp(angle * DM_DRIVE_STEER_KP, -DM_DRIVE_STEER_MAX_IMPULSE, DM_DRIVE_STEER_MAX_IMPULSE);
-		vector impulse = sideDir * steerForce;
-
-		vector carPos = m_Car.GetPosition();
-		vector applyPoint = carPos + carDir * 1.5;
-		dBodyApplyImpulseAt(m_Car, impulse, applyPoint);
 	}
 
 	//! Застревание: не уменьшается дистанция до вейпоинта (прогресс < EPS за тик)
