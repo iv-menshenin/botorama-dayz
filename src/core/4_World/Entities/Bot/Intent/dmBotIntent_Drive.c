@@ -330,14 +330,17 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 	//! Руль: нативный (пишется в m_Car.dm_DriveSteering, применяется через
 	//! SetSteering в CarScript.OnInput). steerTarget в <-1,1> от угла (±90°).
-	//! Поворот делает нативный руль — боковой импульс не нужен (на низком
-	//! сцеплении он толкал кузов поперёк вместо вращения).
+	//! ВАЖНО (знак, телеметрия DRIVE-TELE): angle=Atan2(cross,dot) положителен,
+	//! когда цель СЛЕВА от курса, а SetSteering положителен = поворот ВПРАВО —
+	//! поэтому steerTarget = -angle/1.57 (иначе руль отворачивает от цели и
+	//! траектория уходит в спираль ±π). Поворот делает нативный руль —
+	//! боковой импульс не нужен (на низком сцеплении он толкал кузов поперёк).
 	void ApplySteering(float angle, float speedAbs, float pDt)
 	{
 		float steerTarget = 0.0;
 
 		if (speedAbs >= DM_DRIVE_STEER_MIN_SPEED && Math.AbsFloat(angle) >= DRIVE_STEER_ANGLE_DEADZONE)
-			steerTarget = Math.Clamp(angle / 1.57, -1.0, 1.0);
+			steerTarget = Math.Clamp(-angle / 1.57, -1.0, 1.0);
 
 		float t = Math.Min(1.0, DM_DRIVE_WHEEL_STEER_SPEED * pDt);
 		m_WheelSteer = Math.Lerp(m_WheelSteer, steerTarget, t);
