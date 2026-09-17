@@ -178,6 +178,8 @@ class dmRoadProbe
 		int step = 0;
 		float fx;
 		float fz;
+		float sx;
+		float sz;
 		vector next;
 		float width;
 		vector center;
@@ -189,18 +191,29 @@ class dmRoadProbe
 			fz = p[2] + dir[2] * DM_ROAD_STEP;
 			if (!dmRoadSensor.IsDrivable(fx, fz))
 			{
-				dir = TurnFan(p, dir);
-				if (dir == vector.Zero)
+				// boundary protection: short hop in the same direction (torn road boundary)
+				sx = p[0] + dir[0] * DM_ROAD_SMALL_STEP;
+				sz = p[2] + dir[2] * DM_ROAD_SMALL_STEP;
+				if (dmRoadSensor.IsDrivable(sx, sz))
 				{
-					branch.Status = "deadend";
-					break;
+					fx = sx;
+					fz = sz;
 				}
-				fx = p[0] + dir[0] * DM_ROAD_STEP;
-				fz = p[2] + dir[2] * DM_ROAD_STEP;
-				if (!dmRoadSensor.IsDrivable(fx, fz))
+				else
 				{
-					branch.Status = "deadend";
-					break;
+					dir = TurnFan(p, dir);
+					if (dir == vector.Zero)
+					{
+						branch.Status = "deadend";
+						break;
+					}
+					fx = p[0] + dir[0] * DM_ROAD_STEP;
+					fz = p[2] + dir[2] * DM_ROAD_STEP;
+					if (!dmRoadSensor.IsDrivable(fx, fz))
+					{
+						branch.Status = "deadend";
+						break;
+					}
 				}
 			}
 
@@ -382,6 +395,8 @@ class dmRoadProbe
 		int step = 0;
 		float fx;
 		float fz;
+		float sx;
+		float sz;
 		vector next;
 		float width;
 		vector center;
@@ -395,18 +410,29 @@ class dmRoadProbe
 			fz = p[2] + dir[2] * DM_ROAD_STEP;
 			if (!dmRoadSensor.IsDrivable(fx, fz))
 			{
-				dir = TurnFan(p, dir);
-				if (dir == vector.Zero)
+				// boundary protection: short hop in the same direction (torn road boundary)
+				sx = p[0] + dir[0] * DM_ROAD_SMALL_STEP;
+				sz = p[2] + dir[2] * DM_ROAD_SMALL_STEP;
+				if (dmRoadSensor.IsDrivable(sx, sz))
 				{
-					branch.Status = "deadend";
-					break;
+					fx = sx;
+					fz = sz;
 				}
-				fx = p[0] + dir[0] * DM_ROAD_STEP;
-				fz = p[2] + dir[2] * DM_ROAD_STEP;
-				if (!dmRoadSensor.IsDrivable(fx, fz))
+				else
 				{
-					branch.Status = "deadend";
-					break;
+					dir = TurnFan(p, dir);
+					if (dir == vector.Zero)
+					{
+						branch.Status = "deadend";
+						break;
+					}
+					fx = p[0] + dir[0] * DM_ROAD_STEP;
+					fz = p[2] + dir[2] * DM_ROAD_STEP;
+					if (!dmRoadSensor.IsDrivable(fx, fz))
+					{
+						branch.Status = "deadend";
+						break;
+					}
 				}
 			}
 

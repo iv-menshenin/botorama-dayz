@@ -7,12 +7,15 @@ static const float DM_ROAD_FRICTION_PAVED = 0.95;
 
 //! Probe step along the road centerline (meters).
 static const float DM_ROAD_STEP = 3.0;
+//! Short probe step (meters) for boundary protection: a shorter hop in the
+//! same direction through a torn road boundary before turning.
+static const float DM_ROAD_SMALL_STEP = 2.0;
 //! Edge scan step along the perpendicular (meters).
 static const float DM_ROAD_EDGE_STEP = 1.0;
 //! Max edge scan half-width from the center (meters).
 static const float DM_ROAD_MAX_HALF_WIDTH = 12.0;
-//! Min road width for a branch to count as a road (vs a narrow gap/driveway).
-static const float DM_ROAD_MIN_WIDTH = 4.0;
+//! Min road width for a branch to count as a road (vs a sidewalk/driveway).
+static const float DM_ROAD_MIN_WIDTH = 6.0;
 //! Hard cap on probe steps.
 static const int   DM_ROAD_MAX_STEPS = 800;
 //! Min steps before the loop-closure check kicks in.
@@ -33,7 +36,7 @@ static const float DM_ROAD_NODE_CELL = 3.0;
 //! Angle below which a branch is considered "going back" (degrees).
 static const float DM_ROAD_BACK_ANGLE = 30.0;
 //! Angle below which two road directions are considered the same (degrees).
-static const float DM_ROAD_BRANCH_MATCH_ANGLE = 45.0;
+static const float DM_ROAD_BRANCH_MATCH_ANGLE = 60.0;
 //! Every N steps, check the current point for a junction (side branch).
 static const int   DM_ROAD_JUNCTION_CHECK_STEP = 5;
 //! Branches shorter than this (in steps) are discarded as garbage.
