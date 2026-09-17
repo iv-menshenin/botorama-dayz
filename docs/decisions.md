@@ -136,6 +136,17 @@ RPM реалистичный (idle 900 → круиз ~1500, без красно
 СОБСТВЕННЫЙ граф дорог (`eAIRoadNetwork`) из road-объектов (`ObjectIsRoad`), а не navmesh-ROADWAY.
 Действует пока: не портирован road-graph по образцу Expansion `eAIRoadNetwork` (крупная задача).
 
+### drive: знак руля — `SetSteering` и `Atan2(cross,dot)` имеют ПРОТИВОПОЛОЖНЫЕ знаки
+Решение: `steerTarget = -angle / 1.57` (минус), где `angle = Atan2(cross, dot)`,
+`cross = carDir.x·toDirZ − carDir.z·toDirX`.
+Почему: телеметрия `DRIVE-TELE` показала положительную обратную связь — `angle>0`
+(цель СЛЕВА от курса) давал `steer>0` (поворот ВПРАВО), машина отворачивалась от цели
+и уходила в спираль ±π (главная причина осцилляции/«дёрганья»). `SetSteering(+)=вправо`,
+`Atan2(cross,dot)(+)=цель слева` — знаки противоположны (эталон Expansion использует
+`Math3D.AngleFromPosition`, знак которой совпадает с `SetSteering`).
+Действует пока: используется нативный `SetSteering` и этот расчёт угла; при смене
+конвенции угла (напр. на `AngleFromPosition`) минус убрать.
+
 ### drive: руление — только нативный SetSteering, без бокового импульса
 Решение: поворот делает только нативный `SetSteering` (через `dm_DriveSteering` в
 `CarScript.OnInput`); боковой импульс `ApplySideImpulse` (lateral `dBodyApplyImpulseAt`
