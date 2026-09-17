@@ -82,26 +82,17 @@ class dmRoadSensor
 		return IsDrivable(Classify(x, z));
 	}
 
-	//! True if the object is a road (property class=="road" in the "geometry" LOD).
+	//! True if the object is a road. Road proxies carry LB/PB (one segment end) and
+	//! LE/PE (the other). GetLODByName crashes on some road proxies (streaming race),
+	//! so detect via memory points instead of the "geometry" LOD.
 	static bool IsRoadObject(Object obj)
 	{
 		if (!obj)
 			return false;
-		LOD geometry = obj.GetLODByName("geometry");
-		if (!geometry)
-			return false;
-		int i;
-		for (i = 0; i < geometry.GetPropertyCount(); i++)
-		{
-			string name = geometry.GetPropertyName(i);
-			string value = geometry.GetPropertyValue(i);
-			if (name == "" || value == "")
-				continue;
-			name.ToLower();
-			value.ToLower();
-			if (name == "class" && value == "road")
-				return true;
-		}
+		if (obj.MemoryPointExists("LB") && obj.MemoryPointExists("PB"))
+			return true;
+		if (obj.MemoryPointExists("LE") && obj.MemoryPointExists("PE"))
+			return true;
 		return false;
 	}
 };
