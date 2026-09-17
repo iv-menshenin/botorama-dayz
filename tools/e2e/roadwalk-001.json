@@ -1,0 +1,15 @@
+{
+  "Name": "roadwalk-001",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "roadwalk", "Pos": [3010, 0, 12635] },
+    { "Op": "roadwalk", "Pos": [3020, 0, 12575] },
+    { "Op": "roadwalk", "Pos": [2804, 0, 12422] },
+    { "Op": "roadwalk", "Pos": [5909, 0, 11409] },
+    { "Op": "roadwalk", "Pos": [2982, 0, 12467] },
+    { "Op": "roadwalk", "Pos": [2471, 0, 12942] },
+    { "Op": "roadwalk", "Pos": [2415, 0, 13019] },
+    { "Op": "roadwalk", "Pos": [5864, 0, 11474] },
+    { "Op": "roadwalk", "Pos": [1149.43, 0, 12172.34] }
+  ]
+}

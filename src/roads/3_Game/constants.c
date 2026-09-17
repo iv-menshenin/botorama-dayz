@@ -2,8 +2,6 @@
 
 //! Probe step along the road centerline (meters).
 static const float DM_ROAD_STEP = 3.0;
-//! Direction search radius around a point (meters).
-static const float DM_ROAD_DIR_RADIUS = 4.0;
 //! Edge scan step along the perpendicular (meters).
 static const float DM_ROAD_EDGE_STEP = 1.0;
 //! Max edge scan half-width from the center (meters).
@@ -14,3 +12,9 @@ static const int   DM_ROAD_MAX_STEPS = 200;
 static const int   DM_ROAD_MIN_CLOSE_STEPS = 10;
 //! Distance below which the walker considers the road a closed loop (meters).
 static const float DM_ROAD_CLOSE_DIST = 6.0;
+//! Branch detection circle radius around the seed (meters).
+static const float DM_ROAD_BRANCH_RADIUS = 6.0;
+//! Min drivable density in the ±3-sample window for a branch peak.
+static const int   DM_ROAD_BRANCH_MIN_DENSITY = 3;
+//! Min sample gap between branch peaks (samples, 10° each).
+static const int   DM_ROAD_BRANCH_MIN_GAP = 4;

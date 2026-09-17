@@ -1349,36 +1349,50 @@ class dmE2EBridge
 		AppendDump(r, line);
 	}
 
-	//! "roadwalk" — run the road discovery probe from step.Pos and dump the
-	//! centerline polyline (status, then one line per point).
+	//! "roadwalk" — run the road discovery probe from step.Pos and dump every
+	//! branch's centerline polyline: status+branch count, then per branch a
+	//! "b=" header line followed by one "pt=" line per point.
 	private void RunRoadWalk(dmE2EStep step, dmE2EStepResult r)
 	{
 		dmRoadProbeResult res = dmRoadProbe.Walk(Vector(step.Pos[0], 0.0, step.Pos[2]));
-		AppendDump(r, "status=" + res.Status + " steps=" + res.Steps);
-		if (res.Points)
+		int branchCount = 0;
+		if (res.Branches)
+			branchCount = res.Branches.Count();
+		AppendDump(r, "status=" + res.Status + " branches=" + branchCount);
+
+		int i;
+		int bi;
+		string line;
+		vector p;
+		float w;
+		int c;
+		if (res.Branches)
 		{
-			int i;
-			string line;
-			vector p;
-			float w;
-			int c;
-			for (i = 0; i < res.Points.Count(); i++)
+			for (bi = 0; bi < res.Branches.Count(); bi++)
 			{
-				p = res.Points[i];
-				w = 0.0;
-				if (res.Widths && i < res.Widths.Count())
-					w = res.Widths[i];
-				c = dmRoadSurfaceClass.ROAD_UNKNOWN;
-				if (res.Surfaces && i < res.Surfaces.Count())
-					c = res.Surfaces[i];
-				line = "pt=(" + p[0] + "," + p[2] + ")";
-				line += " y=" + p[1];
-				line += " w=" + w + " c=" + c;
-				AppendDump(r, line);
+				dmRoadBranch b = res.Branches[bi];
+				AppendDump(r, "b=" + bi + " status=" + b.Status + " steps=" + b.Steps);
+				if (b.Points)
+				{
+					for (i = 0; i < b.Points.Count(); i++)
+					{
+						p = b.Points[i];
+						w = 0.0;
+						if (b.Widths && i < b.Widths.Count())
+							w = b.Widths[i];
+						c = dmRoadSurfaceClass.ROAD_UNKNOWN;
+						if (b.Surfaces && i < b.Surfaces.Count())
+							c = b.Surfaces[i];
+						line = "pt=(" + p[0] + "," + p[2] + ")";
+						line += " y=" + p[1];
+						line += " w=" + w + " c=" + c;
+						AppendDump(r, line);
+					}
+				}
 			}
 		}
-		r.Ok = (res.Status == "ok" || res.Status == "loop");
-		r.Reason = res.Status + " / " + res.Steps + " pts";
+		r.Ok = (res.Status == "ok");
+		r.Reason = res.Status + " / " + branchCount + " branches / " + res.TotalSteps + " pts";
 	}
 
 	//! Dump the named bot's body/motion/brain state as a set of lines.
