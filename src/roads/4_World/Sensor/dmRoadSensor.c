@@ -1,8 +1,10 @@
 //! dmRoadSensor — surface material classification for road discovery.
 //!
 //! Single source of truth is GetGame().SurfaceGetType(x, z, out string type):
-//! the engine fills the surface material name, which we classify by substring
-//! (order matters — see docs/plans/road-discovery.md).
+//! the engine fills the surface material name, whose friction (CfgSurfaces
+//! friction) drives the drivable/non-drivable split: >= DM_ROAD_FRICTION_MIN is a
+//! road (paved if >= DM_ROAD_FRICTION_PAVED, otherwise dirt). Non-drivable
+//! surfaces keep a name-based material taxonomy (see docs/plans/road-discovery.md).
 
 enum dmRoadSurfaceClass
 {
@@ -17,25 +19,45 @@ enum dmRoadSurfaceClass
 
 class dmRoadSensor
 {
+	private static ref map<string,float> s_Friction;
+
 	//! Classify the surface material at (x,z).
 	static int Classify(float x, float z)
 	{
 		string type = "";
 		GetGame().SurfaceGetType(x, z, type);
 		type.ToLower();
+		float f = GetFriction(type);
+		if (f >= DM_ROAD_FRICTION_MIN)
+		{
+			if (f >= DM_ROAD_FRICTION_PAVED)
+				return dmRoadSurfaceClass.ROAD_PAVED;
+			return dmRoadSurfaceClass.ROAD_DIRT;
+		}
+		// Not a road: keep the material taxonomy by name.
 		if (type.Contains("roof") || type.Contains("planks") || type.Contains("tiles"))
 			return dmRoadSurfaceClass.ROAD_STRUCTURE;
 		if (type.Contains("water") || type.Contains("pond") || type.Contains("sea"))
 			return dmRoadSurfaceClass.ROAD_WATER;
-		if (type.Contains("concrete"))
-			return dmRoadSurfaceClass.ROAD_PAVED;
-		if (type.Contains("dirt"))
-			return dmRoadSurfaceClass.ROAD_DIRT;
 		if (type.Contains("broadleaf") || type.Contains("conifer"))
 			return dmRoadSurfaceClass.ROAD_FOREST;
 		if (type.Contains("grass"))
 			return dmRoadSurfaceClass.ROAD_GRASS;
+		// Bare earth (dirt) and anything else: not a road.
 		return dmRoadSurfaceClass.ROAD_UNKNOWN;
+	}
+
+	//! Friction of a surface type (CfgSurfaces), cached per type.
+	private static float GetFriction(string type)
+	{
+		if (!s_Friction)
+			s_Friction = new map<string,float>();
+		float f;
+		if (s_Friction.Find(type, f))
+			return f;
+		f = GetGame().ConfigGetFloat("CfgSurfaces " + type + " friction");
+		s_Friction.Insert(type, f);
+		return f;
 	}
 
 	//! Is a surface class drivable (a road / dirt track)?

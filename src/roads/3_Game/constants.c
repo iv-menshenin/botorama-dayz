@@ -1,5 +1,10 @@
 //! dmRoads — road discovery probe constants (game module, compiles first).
 
+//! Friction threshold (CfgSurfaces): >= this is a road / drivable surface.
+static const float DM_ROAD_FRICTION_MIN = 0.90;
+//! Friction threshold: >= this is asphalt/concrete (otherwise dirt/gravel).
+static const float DM_ROAD_FRICTION_PAVED = 0.95;
+
 //! Probe step along the road centerline (meters).
 static const float DM_ROAD_STEP = 3.0;
 //! Edge scan step along the perpendicular (meters).
