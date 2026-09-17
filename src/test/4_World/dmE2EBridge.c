@@ -1408,10 +1408,11 @@ class dmE2EBridge
 		// 2. GetSurface(Scenery) and GetSurface(Roadway), traced from above.
 		terrainY = GetGame().SurfaceY(x, z);
 		p = new SurfaceDetectionParameters();
-		p.position = Vector(x, terrainY + 50.0, z);
+		p.position = Vector(x, terrainY, z);
 		res = new SurfaceDetectionResult();
 
 		p.type = SurfaceDetectionType.Scenery;
+		p.rsd = RoadSurfaceDetection.CLOSEST;
 		GetGame().GetSurface(p, res);
 		surfName = "null";
 		surfType = "null";
@@ -1428,6 +1429,7 @@ class dmE2EBridge
 		AppendDump(r, line);
 
 		p.type = SurfaceDetectionType.Roadway;
+		p.rsd = RoadSurfaceDetection.CLOSEST;
 		GetGame().GetSurface(p, res);
 		surfName = "null";
 		surfType = "null";
