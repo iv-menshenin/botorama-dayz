@@ -76,6 +76,14 @@
    (`SceneGetEntitiesInBox(..., QueryFlags.DYNAMIC)` + `...(..., QueryFlags.STATIC)`).
    Один флаг на вызов — эталон `dmLoot.c`/`dmRedZone.c` (DYNAMIC), `dmExplorer.c` (STATIC).
 
+5. **Имя поля/переменной НЕ должно совпадать с именем встроенного ТИПА/класса** —
+   движок компилирует скрипты на загрузке и падает `Variable name '<X>' already used
+   as type name` → `Can't compile "World" script module!` → segfault на старте сервера.
+   Пример: поле `int Surface;` конфликтует со встроенным классом `Surface`
+   (`4_world/static/surface.c`). **AddonBuilder это НЕ ловит** (билд `exit=0`) — ошибка
+   только при загрузке на сервере. Переименуй поле (напр. `SurfaceType`/`SurfaceName`).
+   Другие рискованные имена полей: `Object`, `Game`, `Shape`, `LOD`, `Car`, `Human`.
+
 ## Типы и ссылки (`ref`)
 
 - **Managed-классы** (наследуют `Managed`, напр. `EntityAI` → `PlayerBase`) — ссылки

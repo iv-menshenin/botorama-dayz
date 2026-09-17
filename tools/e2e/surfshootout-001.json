@@ -1,0 +1,15 @@
+{
+  "Name": "surfshootout-001",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "surfshootout", "Pos": [3010, 0, 12635] },
+    { "Op": "surfshootout", "Pos": [3020, 0, 12575] },
+    { "Op": "surfshootout", "Pos": [2804, 0, 12422] },
+    { "Op": "surfshootout", "Pos": [5909, 0, 11409] },
+    { "Op": "surfshootout", "Pos": [2982, 0, 12467] },
+    { "Op": "surfshootout", "Pos": [2471, 0, 12942] },
+    { "Op": "surfshootout", "Pos": [2415, 0, 13019] },
+    { "Op": "surfshootout", "Pos": [5864, 0, 11474] },
+    { "Op": "surfshootout", "Pos": [1149.43, 0, 12172.34] }
+  ]
+}

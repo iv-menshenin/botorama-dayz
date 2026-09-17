@@ -23,7 +23,7 @@ class dmRoadGraphEdge
 	int To;
 	ref array<vector> Points;
 	float Length;
-	int Surface;
+	int SurfaceType;
 }
 
 //! The discovered road graph (root of road_graph.json).
@@ -195,7 +195,7 @@ class dmRoadGraphBuilder
 		for (i = 0; i < walk.Points.Count(); i++)
 			edge.Points.Insert(walk.Points[i]);
 		edge.Length = PolylineLength(walk.Points);
-		edge.Surface = DominantSurface(walk.Surfaces);
+		edge.SurfaceType = DominantSurface(walk.Surfaces);
 		m_Graph.Edges.Insert(edge);
 		m_NextEdgeId = m_NextEdgeId + 1;
 	}
