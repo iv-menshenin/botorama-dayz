@@ -1567,9 +1567,11 @@ class dmE2EBridge
 		}
 
 		int ei;
+		float total = 0.0;
 		for (ei = 0; ei < edgeCount; ei++)
 		{
 			dmRoadGraphEdge e = graph.Edges[ei];
+			total = total + e.Length;
 			string eline = "e=" + e.Id + " from=" + e.From + " to=" + e.To;
 			eline = eline + " len=" + e.Length + " surf=" + e.SurfaceType + " pts=" + e.Points.Count();
 			AppendDump(r, eline);
@@ -1584,6 +1586,7 @@ class dmE2EBridge
 			}
 			AppendDump(r, pline);
 		}
+		AppendDump(r, "totalLen=" + total);
 
 		r.Ok = saved;
 		r.Reason = "" + nodeCount + " nodes / " + edgeCount + " edges";
