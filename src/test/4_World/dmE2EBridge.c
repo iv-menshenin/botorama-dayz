@@ -9,7 +9,7 @@
 //! shock | restrain | give | wait | assert | snapshot | clearall (named bots)
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
-//! surfprobe | surfshootout | roadwalk | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
+//! surfprobe | surfshootout | roadwalk | roadobj | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
 //! drive | cardump, and observe (teleport a connected player). `wait` and `sleep`
 //! are the deferred ops: they tick across frames (wait until a condition is met
 //! or its timeout expires; sleep until its timeout). Everything else executes in
@@ -414,6 +414,10 @@ class dmE2EBridge
 		else if (step.Op == "roadgraph")
 		{
 			RunRoadGraph(step, r);
+		}
+		else if (step.Op == "roadobj")
+		{
+			RunRoadObj(step, r);
 		}
 		else if (step.Op == "botdump")
 		{
@@ -1590,6 +1594,68 @@ class dmE2EBridge
 
 		r.Ok = saved;
 		r.Reason = "" + nodeCount + " nodes / " + edgeCount + " edges";
+	}
+
+	//! "roadobj" — dump the road objects (class=="road") near a point: position,
+	//! the segment-end memory points (LB/PB/LE/PE/LD/LH/PD/PH) and the bounding
+	//! box. Research probe for road-object geometry: roads are class=="road"
+	//! proxies with an empty GetType(), so their geometry is read from the memory
+	//! points and ClippingInfo.
+	private void RunRoadObj(dmE2EStep step, dmE2EStepResult r)
+	{
+		float x = step.Pos[0];
+		float z = step.Pos[2];
+		float terrainY = GetGame().SurfaceY(x, z);
+
+		array<Object> objs = new array<Object>();
+		array<CargoBase> cargos = new array<CargoBase>();
+		GetGame().GetObjectsAtPosition(Vector(x, terrainY, z), 12.0, objs, cargos);
+
+		array<string> memPoints = {"LB", "PB", "LE", "PE", "LD", "LH", "PD", "PH"};
+
+		int roadCount = 0;
+		int i;
+		int mi;
+		Object obj;
+		bool isRoad;
+		string line;
+		vector mp;
+		vector mm[2];
+		float rad;
+
+		for (i = 0; i < objs.Count(); i++)
+		{
+			obj = objs[i];
+			isRoad = dmRoadSensor.IsRoadObject(obj);
+			if (isRoad)
+			{
+				roadCount = roadCount + 1;
+				line = "robj i=" + i + " type=\"" + obj.GetType() + "\" pos=" + obj.GetPosition();
+				AppendDump(r, line);
+
+				for (mi = 0; mi < memPoints.Count(); mi++)
+				{
+					if (obj.MemoryPointExists(memPoints[mi]))
+					{
+						mp = obj.ModelToWorld(obj.GetMemoryPointPos(memPoints[mi]));
+						line = "  mp " + memPoints[mi] + "=" + mp;
+						AppendDump(r, line);
+					}
+				}
+
+				rad = obj.ClippingInfo(mm);
+				line = "  clip min=" + mm[0] + " max=" + mm[1] + " rad=" + rad;
+				AppendDump(r, line);
+			}
+			else
+			{
+				line = "obj i=" + i + " type=\"" + obj.GetType() + "\" isRoad=false";
+				AppendDump(r, line);
+			}
+		}
+
+		r.Ok = true;
+		r.Reason = roadCount.ToString() + " road objects";
 	}
 
 	//! Dump the named bot's body/motion/brain state as a set of lines.
