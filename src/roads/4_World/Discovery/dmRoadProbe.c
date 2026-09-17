@@ -86,6 +86,7 @@ class dmRoadProbe
 		float angle;
 		float px;
 		float pz;
+		vector dir;
 
 		for (i = 0; i < n; i++)
 		{
@@ -142,9 +143,13 @@ class dmRoadProbe
 			if (!farEnough)
 				continue;
 
-			peaks.Insert(i);
 			angle = i * 10.0 * Math.DEG2RAD;
-			result.Insert(Vector(Math.Cos(angle), 0.0, Math.Sin(angle)));
+			dir = Vector(Math.Cos(angle), 0.0, Math.Sin(angle));
+			if (RoadWidth(p, dir) < DM_ROAD_MIN_WIDTH)
+				continue;
+
+			peaks.Insert(i);
+			result.Insert(dir);
 		}
 
 		return result;
@@ -275,6 +280,44 @@ class dmRoadProbe
 		return Vector(p[0] + nx * shift, 0.0, p[2] + nz * shift);
 	}
 
+	//! Road width at P measured along the perpendicular to dir: scans
+	//! DM_ROAD_EDGE_STEP to DM_ROAD_MAX_HALF_WIDTH in ±N and returns left+right
+	//! (sum of the drivable distances to each edge).
+	private static float RoadWidth(vector p, vector dir)
+	{
+		float nx = -dir[2];
+		float nz = dir[0];
+
+		float left = 0.0;
+		float right = 0.0;
+		float dist = DM_ROAD_EDGE_STEP;
+		float px;
+		float pz;
+
+		while (dist <= DM_ROAD_MAX_HALF_WIDTH)
+		{
+			px = p[0] + nx * dist;
+			pz = p[2] + nz * dist;
+			if (!dmRoadSensor.IsDrivable(px, pz))
+				break;
+			left = dist;
+			dist = dist + DM_ROAD_EDGE_STEP;
+		}
+
+		dist = DM_ROAD_EDGE_STEP;
+		while (dist <= DM_ROAD_MAX_HALF_WIDTH)
+		{
+			px = p[0] - nx * dist;
+			pz = p[2] - nz * dist;
+			if (!dmRoadSensor.IsDrivable(px, pz))
+				break;
+			right = dist;
+			dist = dist + DM_ROAD_EDGE_STEP;
+		}
+
+		return left + right;
+	}
+
 	//! Turn fan: try turning D by ±{15,30,45,60,75}°; return the first direction whose
 	//! STEP-ahead point is drivable, else vector.Zero (dead end).
 	private static vector TurnFan(vector p, vector dir)
@@ -318,8 +361,10 @@ class dmRoadProbe
 	//! is already in `visited` stops with Status="visited"). Otherwise the
 	//! statuses match WalkDir (ok/deadend/loop/maxsteps). cameFrom is the
 	//! direction travelled to reach the seed (vector.Zero for a fresh seed).
-	static dmRoadBranch WalkDirBranch(vector seed, vector dir, vector cameFrom, map<string,bool> visited)
+	static dmRoadBranch WalkDirBranch(vector seed, vector dir, vector cameFrom, map<string,int> visited, out int visitedNode)
 	{
+		visitedNode = -1;
+
 		dmRoadBranch branch = new dmRoadBranch();
 		branch.Points = new array<vector>();
 		branch.Widths = new array<float>();
@@ -343,6 +388,7 @@ class dmRoadProbe
 		vector toCenter;
 		int surf;
 		string key;
+		int visitedId;
 		while (step < DM_ROAD_MAX_STEPS)
 		{
 			fx = p[0] + dir[0] * DM_ROAD_STEP;
@@ -382,8 +428,9 @@ class dmRoadProbe
 			}
 
 			key = CellKey(p[0], p[2], DM_ROAD_DEDUP_CELL);
-			if (visited.Contains(key))
+			if (visited.Find(key, visitedId))
 			{
+				visitedNode = visitedId;
 				branch.Status = "visited";
 				break;
 			}

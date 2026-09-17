@@ -11,6 +11,8 @@ static const float DM_ROAD_STEP = 3.0;
 static const float DM_ROAD_EDGE_STEP = 1.0;
 //! Max edge scan half-width from the center (meters).
 static const float DM_ROAD_MAX_HALF_WIDTH = 12.0;
+//! Min road width for a branch to count as a road (vs a narrow gap/driveway).
+static const float DM_ROAD_MIN_WIDTH = 4.0;
 //! Hard cap on probe steps.
 static const int   DM_ROAD_MAX_STEPS = 800;
 //! Min steps before the loop-closure check kicks in.

@@ -52,7 +52,7 @@ class dmRoadGraphBuilder
 	}
 
 	private ref dmRoadGraph m_Graph;
-	private ref map<string, bool> m_Visited;
+	private ref map<string, int> m_Visited;
 	private ref map<string, int> m_NodeCells;
 	private ref array<ref dmRoadGraphQueueItem> m_Queue;
 	private int m_QueueHead;
@@ -62,7 +62,7 @@ class dmRoadGraphBuilder
 	void dmRoadGraphBuilder()
 	{
 		m_Graph = null;
-		m_Visited = new map<string, bool>();
+		m_Visited = new map<string, int>();
 		m_NodeCells = new map<string, int>();
 		m_Queue = new array<ref dmRoadGraphQueueItem>();
 		m_QueueHead = 0;
@@ -88,7 +88,7 @@ class dmRoadGraphBuilder
 			}
 			int nodeId = AddNode(seed, "seed");
 			Enqueue(seed, vector.Zero, nodeId);
-			m_Visited.Set(dmRoadProbe.CellKey(seed[0], seed[2], DM_ROAD_DEDUP_CELL), true);
+			m_Visited.Set(dmRoadProbe.CellKey(seed[0], seed[2], DM_ROAD_DEDUP_CELL), nodeId);
 		}
 
 		while (m_QueueHead < m_Queue.Count())
@@ -113,6 +113,7 @@ class dmRoadGraphBuilder
 
 		array<vector> dirs = dmRoadProbe.FindBranches(p);
 		int i;
+		int visitedNode;
 		for (i = 0; i < dirs.Count(); i++)
 		{
 			vector dir = dirs[i];
@@ -124,35 +125,39 @@ class dmRoadGraphBuilder
 					continue;
 			}
 
-			dmRoadBranch walk = dmRoadProbe.WalkDirBranch(p, dir, cameFrom, m_Visited);
+			dmRoadBranch walk = dmRoadProbe.WalkDirBranch(p, dir, cameFrom, m_Visited, visitedNode);
 			if (walk.Steps < DM_ROAD_MIN_BRANCH_STEPS)
 				continue;
 
-			HandleBranch(p, dir, fromNode, walk);
+			HandleBranch(dir, fromNode, walk, visitedNode);
 		}
 	}
 
 	//! Turn a finished branch into an edge (and possibly a vertex), then recurse
-	//! from a junction. Visited branches (road already covered) add nothing.
-	private void HandleBranch(vector seed, vector dir, int fromNode, dmRoadBranch walk)
+	//! from a junction. A visited branch (road already covered) connects to the
+	//! node id recorded for that cell instead of adding nothing. A loop branch
+	//! (closed ring) adds no edge for now.
+	private void HandleBranch(vector dir, int fromNode, dmRoadBranch walk, int visitedNode)
 	{
 		if (walk.Status == "visited")
-			return;
-
-		int endNode = fromNode;
-		vector endPos = seed;
-
-		if (walk.Status != "loop")
 		{
-			endPos = walk.Points[walk.Points.Count() - 1];
-			if (walk.Status == "junction")
-				endNode = FindOrCreateNode(endPos, "junction");
-			else
-				endNode = FindOrCreateNode(endPos, "deadend");
+			if (visitedNode >= 0)
+				AddEdge(fromNode, visitedNode, walk);
+			return;
 		}
 
+		if (walk.Status == "loop")
+			return;
+
+		vector endPos = walk.Points[walk.Points.Count() - 1];
+		int endNode;
+		if (walk.Status == "junction")
+			endNode = FindOrCreateNode(endPos, "junction");
+		else
+			endNode = FindOrCreateNode(endPos, "deadend");
+
 		AddEdge(fromNode, endNode, walk);
-		MarkWalkCells(walk);
+		MarkWalkCells(walk, endNode);
 
 		if (walk.Status == "junction")
 			Enqueue(endPos, dir, endNode);
@@ -186,6 +191,9 @@ class dmRoadGraphBuilder
 	//! Create an edge from a walked branch (polyline, length, dominant surface).
 	private void AddEdge(int fromNode, int toNode, dmRoadBranch walk)
 	{
+		if (HasEdge(fromNode, toNode))
+			return;
+
 		dmRoadGraphEdge edge = new dmRoadGraphEdge();
 		edge.Id = m_NextEdgeId;
 		edge.From = fromNode;
@@ -200,14 +208,27 @@ class dmRoadGraphBuilder
 		m_NextEdgeId = m_NextEdgeId + 1;
 	}
 
+	//! True when an edge already connects a and b in either direction.
+	private bool HasEdge(int a, int b)
+	{
+		int i;
+		for (i = 0; i < m_Graph.Edges.Count(); i++)
+		{
+			if ((m_Graph.Edges[i].From == a && m_Graph.Edges[i].To == b) || (m_Graph.Edges[i].From == b && m_Graph.Edges[i].To == a))
+				return true;
+		}
+		return false;
+	}
+
 	//! Mark the interior cells of a walked polyline (not the endpoints, which are
-	//! vertices) as visited so other branches dedup against them.
-	private void MarkWalkCells(dmRoadBranch walk)
+	//! vertices) as visited, keyed to the node id of the branch's END vertex so a
+	//! later walk that reaches this road can connect to it.
+	private void MarkWalkCells(dmRoadBranch walk, int nodeId)
 	{
 		int last = walk.Points.Count() - 1;
 		int i;
 		for (i = 1; i < last; i++)
-			m_Visited.Set(dmRoadProbe.CellKey(walk.Points[i][0], walk.Points[i][2], DM_ROAD_DEDUP_CELL), true);
+			m_Visited.Set(dmRoadProbe.CellKey(walk.Points[i][0], walk.Points[i][2], DM_ROAD_DEDUP_CELL), nodeId);
 	}
 
 	//! Total 3D length of a polyline.
