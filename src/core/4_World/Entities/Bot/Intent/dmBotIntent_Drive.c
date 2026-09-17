@@ -231,6 +231,16 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		//! 10. Застревание → реверс.
 		TickStuck(dist);
 
+		#ifdef DM_BOT_DEBUG_DRIVE_TELEMETRY
+		{
+			float headYaw = carDir.VectorToAngles()[0];
+			vector toDirV = Vector(toDirX, 0.0, toDirZ);
+			float bearYaw = toDirV.VectorToAngles()[0];
+			dmBotLog.Debug("[DRIVE-TELE] pos=" + Vector(carPos[0], 0.0, carPos[2]) + " head=" + headYaw + " bear=" + bearYaw);
+			dmBotLog.Debug("[DRIVE-TELE] angle=" + angle + " steer=" + m_WheelSteer + " speed=" + speedAbs + " dist=" + dist + " idx=" + m_DriveRouteIdx + " last=" + isLast);
+		}
+		#endif
+
 		#ifdef DM_BOT_DEBUG_CAR
 		float now = GetGame().GetTickTime();
 		if (now - m_LastDriveLogTime >= 2.0)

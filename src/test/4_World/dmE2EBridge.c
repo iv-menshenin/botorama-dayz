@@ -427,6 +427,10 @@ class dmE2EBridge
 		{
 			RunDrive(step, r);
 		}
+		else if (step.Op == "markroute")
+		{
+			RunMarkRoute(step, r);
+		}
 		else if (step.Op == "cardump")
 		{
 			RunCarDump(step, r);
@@ -523,6 +527,30 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "patrol issued";
+	}
+
+	//! "markroute" — расставить бочки-маркеры по точкам маршрута (диагностика
+	//! вождения): первая — зелёная, последняя — красная, остальные — жёлтые.
+	//! Бочки декоративные (без физики/коллизии) — машине не мешают.
+	private void RunMarkRoute(dmE2EStep step, dmE2EStepResult r)
+	{
+		int count = step.Points.Count();
+		int i;
+		for (i = 0; i < count; i++)
+		{
+			string cls = "Barrel_Yellow";
+			if (i == 0)
+				cls = "Barrel_Green";
+			if (i == count - 1)
+				cls = "Barrel_Red";
+
+			Object obj = GetGame().CreateObject(cls, ResolveWorldPos(step.Points[i]), false);
+			if (obj)
+				m_Objects.Insert(step.Who + "_" + i, obj);
+		}
+
+		r.Ok = true;
+		r.Reason = "marked " + count;
 	}
 
 	//! "speed" — set the bot's preferred movement speed.

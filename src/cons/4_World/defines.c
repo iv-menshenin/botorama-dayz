@@ -46,6 +46,7 @@
 //!
 //! TRACE — per-frame, verbose:
 //!   DM_BOT_TRACE_LOOK — head look steering (LookAtPoint, UpdateLook).
+//!   DM_BOT_DEBUG_DRIVE_TELEMETRY — per-tick телеметрия вождения (pos/heading/bearing/angle/steer/speed).
 //!
 //! PROFILING:
 //!   DM_BOT_PROFILE — accumulate per-frame timings; dump via "/prof dump".
