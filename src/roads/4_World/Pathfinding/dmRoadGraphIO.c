@@ -7,18 +7,17 @@ class dmRoadGraphIO
 	static bool Save(dmRoadGraph graph, string path)
 	{
 		EnsureDirectory(path);
-
-		dmJsonFile<dmRoadGraph> writer = new dmJsonFile<dmRoadGraph>(path);
-		if (!writer.Save(graph))
+		string error;
+		if (!JsonFileLoader<dmRoadGraph>.SaveFile(path, graph, error))
 		{
-			dmBotLog.Error("[ROADG] save failed: " + path + ": " + writer.Errors());
+			dmBotLog.Error("[ROADG] save failed: " + path + ": " + error);
 			return false;
 		}
 		return true;
 	}
 
 	//! Create the parent directory chain of a file path (handles the "$profile:"
-	//! prefix and relative paths alike). Mirrors dmJsonFile.EnsureDirectory.
+	//! prefix and relative paths alike).
 	private static void EnsureDirectory(string path)
 	{
 		int lastSlash = path.LastIndexOf("/");

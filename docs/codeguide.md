@@ -212,6 +212,13 @@ class CfgSoundSets
 
 - `JsonFileLoader<T>.LoadFile(path, out data, out error)` / `SaveFile(...)`;
   внутри — `JsonSerializer.ReadFromString`.
+- **Бот-обёртка `dmJsonFile<T>` (`src/reg/3_Game/Config/dmJsonFile.c`) требует, чтобы `T`
+  наследовал `dmJsonConfigBase`** — внутри она делает `dmJsonConfigBase.Cast(config)`
+  (версионирование). Для plain-структур БЕЗ наследования инстанцирование `dmJsonFile<T>`
+  падает на компиляции: `Types 'dmJsonConfigBase' and '<T>' are not related`. Для таких
+  структур используй `JsonFileLoader<T>` напрямую (эталон — `dmE2EBridge` для
+  `dmE2EJob`/`dmE2EResult`). `dmJsonFile<T>` — только для версионируемых конфигов с
+  полем `Version`.
 - Каталог `*.json`: `FindFile(path + "/*.json", fileName, fileAttr, FindFileFlags.DIRECTORIES)`
   → `FindNextFile` → `CloseFindFile`. `FindFileHandle` — `typedef int[]`.
 - Поля конфиг-структур сериализуются по точному имени, без префикса `m_` (напр.
