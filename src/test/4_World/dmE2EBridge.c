@@ -1586,7 +1586,7 @@ class dmE2EBridge
 		}
 
 		r.Ok = saved;
-		r.Reason = nodeCount + " nodes / " + edgeCount + " edges";
+		r.Reason = "" + nodeCount + " nodes / " + edgeCount + " edges";
 	}
 
 	//! Dump the named bot's body/motion/brain state as a set of lines.

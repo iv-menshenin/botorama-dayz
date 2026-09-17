@@ -207,6 +207,14 @@ class CfgSoundSets
   dmBotLog.Debug("[FSM] MoveTo: subGoal=" + subGoal + " pos=" + pos + " dist=" + dist);
   dmBotLog.Debug("[FSM] MoveTo: moveAngle=" + moveAngle + " speed=" + speed + " deadline=" + deadline);
   ```
+- **Конкатенация должна начинаться со `string`**: выражение `int + string` не компилируется
+  (`Incompatible parameter '<строка>'`). Число-первое слагаемое — ошибка:
+  ```c
+  // НЕЛЬЗЯ
+  string s = nodeCount + " nodes / " + edgeCount + " edges";
+  // НАДО — ведущий строковый литерал (или .ToString())
+  string s = "" + nodeCount + " nodes / " + edgeCount + " edges";
+  ```
 
 ## JSON (конфиги)
 

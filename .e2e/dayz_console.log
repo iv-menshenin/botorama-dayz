@@ -1,0 +1,482 @@
+20:40:05 String "STR_server_shutdown" listed twice in "Global"
+20:40:05 Localization not present: STR_DATE_FORMAT_SHORT
+20:40:05 Localization not present: STR_TIME_FORMAT
+20:40:05 Localization not present: STR_CONFIG_CONTROLLER_NORMAL_LOOK
+20:40:05 Localization not present: STR_CONFIG_CONTROLLER_REVERSED_LOOK
+20:40:05 Localization not present: STR_MP_VALIDERROR
+20:40:05 Localization not present: STR_MP_CONNECTION_LOOSING
+20:40:05 Localization not present: STR_MSG_MP_NO_PASSWORD
+20:40:05 Localization not present: STR_MSG_LAUNCH_GAME
+20:40:05 Localization not present: STR_LOAD_INIT
+20:40:05 Localization not present: STR_LOAD_WORLD
+20:40:05 Localization not present: STR_LOAD_GAME
+20:40:05 Localization not present: STR_SAVE_GAME
+20:40:05 Localization not present: STR_MP_CONNECT
+20:40:05 Localization not present: STR_MP_DISCONNECT
+20:40:05 Localization not present: STR_MP_CONNECTING
+20:40:05 Localization not present: STR_MP_TIMEOUT
+20:40:05 Localization not present: STR_DISP_CLIENT_TEXT_EDIT
+20:40:05 Localization not present: STR_MP_LOGIN_QUEUE_FULL
+20:40:05 Localization not present: STR_DATE_FORMAT_SHORT
+20:40:05 Localization not present: STR_TIME_FORMAT
+20:40:05 Localization not present: STR_CONFIG_CONTROLLER_NORMAL_LOOK
+20:40:05 Localization not present: STR_CONFIG_CONTROLLER_REVERSED_LOOK
+20:40:05 Localization not present: STR_MP_VALIDERROR
+20:40:05 Localization not present: STR_MP_CONNECTION_LOOSING
+20:40:05 Localization not present: STR_MSG_MP_NO_PASSWORD
+20:40:05 Localization not present: STR_MSG_LAUNCH_GAME
+20:40:05 Localization not present: STR_LOAD_INIT
+20:40:05 Localization not present: STR_LOAD_WORLD
+20:40:05 Localization not present: STR_LOAD_GAME
+20:40:05 Localization not present: STR_SAVE_GAME
+20:40:05 Localization not present: STR_MP_CONNECT
+20:40:05 Localization not present: STR_MP_DISCONNECT
+20:40:05 Localization not present: STR_MP_CONNECTING
+20:40:05 Localization not present: STR_MP_TIMEOUT
+20:40:05 Localization not present: STR_DISP_CLIENT_TEXT_EDIT
+20:40:05 Localization not present: STR_MP_LOGIN_QUEUE_FULL
+20:40:05 Initializing stats manager.
+20:40:05 Stats config disabled.
+20:40:06 Updating base class All->AllVehicles, by DZ\data\config.bin/CfgVehicles/Man/
+20:40:06 Updating base class Name->NameIcon, by DZ\gear\navigation\config.bin/CfgLocationTypes/Hill/
+20:40:06 Updating base class Hill->NameIcon, by DZ\gear\navigation\config.bin/CfgLocationTypes/ViewPoint/
+20:40:06 Updating base class Hill->NameIcon, by DZ\gear\navigation\config.bin/CfgLocationTypes/RockArea/
+20:40:06 Updating base class Hill->NameIcon, by DZ\gear\navigation\config.bin/CfgLocationTypes/BorderCrossing/
+20:40:06 Updating base class Hill->NameIcon, by DZ\gear\navigation\config.bin/CfgLocationTypes/VegetationBroadleaf/
+20:40:06 Updating base class Hill->NameIcon, by DZ\gear\navigation\config.bin/CfgLocationTypes/VegetationFir/
+20:40:06 Updating base class Hill->NameIcon, by DZ\gear\navigation\config.bin/CfgLocationTypes/VegetationPalm/
+20:40:06 Updating base class Hill->NameIcon, by DZ\gear\navigation\config.bin/CfgLocationTypes/VegetationVineyard/
+20:40:07 Updating base class ->Rifle_Base, by DZ\weapons\firearms\m4\config.bin/cfgWeapons/M4A1_Base/
+20:40:07 Updating base class ->M4A1_Base, by DZ\weapons\firearms\m4\config.bin/cfgWeapons/M4A1/
+20:40:07 Updating base class Weather->, by DZ\worlds\chernarusplus\world\config.bin/CfgWorlds/CAWorld/Weather/
+20:40:07 Updating base class Overcast->, by DZ\worlds\chernarusplus\world\config.bin/CfgWorlds/CAWorld/Weather/Overcast/
+20:40:07 
+20:40:07 ==== Loaded addons ====
+20:40:07 
+20:40:07 dta/scripts.pbo - 125372
+20:40:07 dta/core.pbo - 120565
+20:40:07 dta/languagecore.pbo - 125372
+20:40:07 dta/gui.pbo - 125372
+20:40:07 dta/bin.pbo - 120569
+20:40:07 dta/system.pbo - 125372
+20:40:07 dta/graphics.pbo - 125372
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/roads.pbo - unknown
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/core.pbo - unknown
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/test.pbo - unknown
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/map.pbo - unknown
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/cons.pbo - unknown
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/loadout.pbo - unknown
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/reg.pbo - unknown
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/plants_sakhal.pbo - 120613
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/water_sakhal.pbo - 120564
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/worlds_sakhal.ebo - 120940
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/data_sakhal.pbo - 120565
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/worlds_sakhal_nav.pbo - 125702
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/structures_sakhal.pbo - 120570
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/surfaces_sakhal.pbo - 120570
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/rocks_sakhal.pbo - 120571
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/worlds_sakhal_data.pbo - 120940
+20:40:07 /mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/worlds_sakhal_ce.pbo - 124244
+20:40:07 addons/plants_bliss.pbo - 120571
+20:40:07 addons/anims_anm_player.pbo - 124413
+20:40:07 addons/sounds_music.pbo - 124212
+20:40:07 addons/weapons_melee.pbo - 124356
+20:40:07 addons/ui.pbo - 120570
+20:40:07 addons/weapons_launchers.pbo - 120565
+20:40:07 addons/structures_roads.pbo - 120563
+20:40:07 addons/structures_furniture.pbo - 120563
+20:40:07 addons/water_bliss.pbo - 120564
+20:40:07 addons/structures_industrial_bliss.pbo - 120563
+20:40:07 addons/weapons_misc.pbo - 120565
+20:40:07 addons/structures_military.pbo - 120932
+20:40:07 addons/characters_gloves.pbo - 120565
+20:40:07 addons/gear_drinks.pbo - 120563
+20:40:07 addons/rocks.pbo - 120571
+20:40:07 addons/structures_data_bliss.pbo - 120563
+20:40:07 addons/structures_walls.pbo - 120563
+20:40:07 addons/characters_belts.pbo - 120565
+20:40:07 addons/structures_proxy_parts.pbo - 120563
+20:40:07 addons/characters_bodies.pbo - 120565
+20:40:07 addons/worlds_enoch_data.pbo - 120935
+20:40:07 addons/ai.pbo - 120565
+20:40:07 addons/gear_containers.pbo - 124346
+20:40:07 addons/characters_tops.pbo - 120565
+20:40:07 addons/sounds_ai.pbo - 120571
+20:40:07 addons/gear_optics.pbo - 120563
+20:40:07 addons/structures_residential_bliss.pbo - 120563
+20:40:07 addons/weapons_pistols.pbo - 120565
+20:40:07 addons/worlds_chernarusplus_nav.pbo - 120834
+20:40:07 addons/weapons_projectiles.pbo - 120565
+20:40:07 addons/sounds_hpp.pbo - 124215
+20:40:07 addons/weapon_underslung.pbo - 120565
+20:40:07 addons/surfaces_bliss.pbo - 120570
+20:40:07 addons/gear_tools.pbo - 120563
+20:40:07 addons/weapons_data.pbo - 120565
+20:40:07 addons/characters_pants.pbo - 120565
+20:40:07 addons/gear_cultivation.pbo - 120563
+20:40:07 addons/modules_dayz.pbo - 120571
+20:40:07 addons/plants.pbo - 120571
+20:40:07 addons/vehicles_water.pbo - 120564
+20:40:07 addons/weapon_attachments_textures.pbo - 120565
+20:40:07 addons/characters_vests.pbo - 124345
+20:40:07 addons/vehicles_data.pbo - 120571
+20:40:07 addons/weapons_ammunition.pbo - 120565
+20:40:07 addons/weapon_muzzles.pbo - 120565
+20:40:07 addons/structures_underground_bliss.pbo - 120570
+20:40:07 addons/worlds_chernarusplus_ce.pbo - 125393
+20:40:07 addons/weapon_lights.pbo - 120565
+20:40:07 addons/animals.pbo - 120565
+20:40:07 addons/vehicles_parts.pbo - 120564
+20:40:07 addons/weapon_magazines.pbo - 124475
+20:40:07 addons/sounds_environment.pbo - 120563
+20:40:07 addons/structures_specific_bliss.pbo - 120563
+20:40:07 addons/anims_workspaces.pbo - 124267
+20:40:07 addons/gear_consumables.pbo - 124737
+20:40:07 addons/ai_bliss.pbo - 120565
+20:40:07 addons/structures_rail_bliss.pbo - 120563
+20:40:07 addons/structures_residential.pbo - 120932
+20:40:07 addons/anims_anm_infected.pbo - 120565
+20:40:07 addons/characters_heads.pbo - 120565
+20:40:07 addons/gear_crafting.pbo - 123577
+20:40:07 addons/structures_industrial.pbo - 120933
+20:40:07 addons/structures_signs.pbo - 120563
+20:40:07 addons/weapons_firearms.pbo - 125374
+20:40:07 addons/weapons_nonlethal.pbo - 120565
+20:40:07 addons/rocks_bliss.pbo - 120571
+20:40:07 addons/gear_medical.pbo - 120563
+20:40:07 addons/weapon_supports.pbo - 124475
+20:40:07 addons/weapons_animations.pbo - 120565
+20:40:07 addons/characters_data.pbo - 124208
+20:40:07 addons/structures_rail.pbo - 120563
+20:40:07 addons/gear_books.pbo - 120565
+20:40:07 addons/characters_proxies.pbo - 120565
+20:40:07 addons/gear_traps.pbo - 120571
+20:40:07 addons/dz.pbo - 120565
+20:40:07 addons/structures_military_bliss.pbo - 120563
+20:40:07 addons/server_data.pbo - 120571
+20:40:07 addons/structures_data.pbo - 120563
+20:40:07 addons/gear_food.pbo - 120563
+20:40:07 addons/structures_wrecks.pbo - 124444
+20:40:07 addons/worlds_chernarusplus_data.pbo - 120564
+20:40:07 addons/weapons_explosives.pbo - 120565
+20:40:07 addons/structures_ruins_bliss.pbo - 120563
+20:40:07 addons/structures_specific.pbo - 120563
+20:40:07 addons/worlds_chernarusplus.pbo - 120564
+20:40:07 addons/worlds_enoch_nav.pbo - 125701
+20:40:07 addons/structures_roads_bliss.pbo - 120563
+20:40:07 addons/weapons_shotguns.pbo - 120565
+20:40:07 addons/gear_radio.pbo - 120563
+20:40:07 addons/weapon_optics.pbo - 125410
+20:40:07 addons/structures_signs_bliss.pbo - 120563
+20:40:07 addons/sounds_bliss.pbo - 120563
+20:40:07 addons/characters_shoes.pbo - 120565
+20:40:07 addons/animals_bliss.pbo - 120565
+20:40:07 addons/gear_camping.pbo - 124277
+20:40:07 addons/worlds_enoch.pbo - 120935
+20:40:07 addons/characters_masks.pbo - 120565
+20:40:07 addons/weapons_proxies.pbo - 120565
+20:40:07 addons/data_bliss.pbo - 120565
+20:40:07 addons/characters_zombies.pbo - 124275
+20:40:07 addons/structures_ruins.pbo - 120563
+20:40:07 addons/sounds_vehicles.pbo - 120563
+20:40:07 addons/weapons_archery.pbo - 120565
+20:40:07 addons/characters_headgear.pbo - 124736
+20:40:07 addons/gear_navigation.pbo - 120563
+20:40:07 addons/vehicles_wheeled.pbo - 120564
+20:40:07 addons/worlds_enoch_ce.pbo - 125393
+20:40:07 addons/characters_backpacks.pbo - 124178
+20:40:07 addons/gear_cooking.pbo - 120563
+20:40:07 addons/sounds_weapons.pbo - 124208
+20:40:07 addons/structures_wrecks_bliss.pbo - 120570
+20:40:07 addons/anims_cfg.pbo - 124267
+20:40:07 addons/sounds_characters.pbo - 120563
+20:40:07 addons/characters_glasses.pbo - 120565
+20:40:07 addons/structures_walls_bliss.pbo - 120570
+20:40:07 addons/water.pbo - 120564
+20:40:07 addons/surfaces.pbo - 120570
+20:40:07 
+20:40:07 =======================
+20:40:07 
+20:40:07 Dedicated host created.
+20:40:07 ENGINE       : Enfusion engine version 0.1
+20:40:07 ENGINE       : FileSystem: Adding relative directory '/mnt/deep-space/Steam/steamapps/common/DayZServer' to RV filesystem under name CurrentDir
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_proxy_parts.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapon_underslung.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/worlds_chernarusplus_nav.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapon_magazines.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_underground_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_residential_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapon_supports.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_industrial_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/worlds_chernarusplus.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapon_muzzles.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapon_optics.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_military_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_specific_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/worlds_chernarusplus_data.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapon_lights.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapon_attachments_textures.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/worlds_chernarusplus_ce.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_wrecks_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_residential.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_walls_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_signs_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_ruins_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_roads_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_industrial.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_rail_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/worlds_sakhal_nav.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_data_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_furniture.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_backpacks.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/worlds_enoch_nav.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_specific.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/worlds_sakhal.ebo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_projectiles.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_headgear.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_military.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/sounds_environment.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_zombies.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/worlds_enoch.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_explosives.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_glasses.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/anims_anm_infected.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_ammunition.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_proxies.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_animations.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/worlds_sakhal_data.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_nonlethal.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_gloves.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/sounds_characters.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_launchers.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/structures_sakhal.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/worlds_enoch_data.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_wrecks.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_bodies.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_belts.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_masks.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_walls.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/vehicles_wheeled.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_shotguns.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_firearms.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_pants.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_signs.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_heads.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/worlds_sakhal_ce.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/anims_anm_player.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_shoes.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_vests.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_consumables.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/anims_workspaces.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_ruins.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_roads.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_cultivation.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_containers.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/worlds_enoch_ce.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_navigation.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_archery.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_pistols.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_data.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_proxies.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/structures_rail.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_data.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/characters_tops.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/surfaces_sakhal.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/sounds_vehicles.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/surfaces_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/vehicles_parts.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/vehicles_water.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/sounds_weapons.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/vehicles_data.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_melee.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/plants_sakhal.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_crafting.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/animals_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/rocks_sakhal.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_camping.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/plants_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_medical.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_cooking.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/sounds_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_misc.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/water_sakhal.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/weapons_data.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/sounds_music.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/rocks_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_drinks.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/sakhal/addons/data_sakhal.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/water_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_optics.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/modules_dayz.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_tools.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_books.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_traps.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_radio.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/sounds_hpp.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/data_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/sounds_ai.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/anims_cfg.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/gear_food.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/dta/languagecore.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/surfaces.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/ai_bliss.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/animals.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/loadout.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/server_data.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/plants.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/rocks.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/dta/graphics.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/roads.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/water.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/dz.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/cons.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/dta/scripts.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/test.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/core.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/map.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/dta/system.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/reg.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/ai.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/addons/ui.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/dta/core.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/dta/gui.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Adding package '/mnt/deep-space/Steam/steamapps/common/DayZServer/dta/bin.pbo' to RV filesystem
+20:40:07 ENGINE       : FileSystem: Added 141 RV banks
+20:40:07 ENGINE       : Enfusion engine version 0.1
+20:40:07 ENGINE       : CPU vendor         : GenuineIntel
+20:40:07 ENGINE       : CPU type           : 1
+20:40:07 ENGINE       : CPU name           : Intel(R) Core(TM) i7-9700F CPU @ 3.00GHz
+20:40:07 ENGINE       : CPU cache info     : Unknown cache
+20:40:07 ENGINE       : CPU count logical  : 8
+20:40:07 ENGINE       : CPU count physical : 8
+20:40:07 ENGINE       : CPU features       : mmx sse sse2 sse3 ssse3 sse4_1 sse4_2 aesni pclmulqdq osxsave avx avx2
+20:40:07 ENGINE       : FileSystem: Adding relative directory '/mnt/deep-space/Steam/steamapps/common/DayZServer/profiles-cherno' to RV filesystem under name profile
+20:40:07 ENGINE       : FileSystem: Adding relative directory '/mnt/deep-space/Steam/steamapps/common/DayZServer/profiles-cherno/users/Server' to RV filesystem under name saves
+20:40:07 SCRIPT       : Module: GameLib; loaded 13x files; 13x classes; used 7/2097 kB (0%) of static memory; defines: "DAYZ_1_29,SERVER_FOR_WINDOWS,SERVER,PLATFORM_LINUX,RELEASE,NO_GUI,NO_GUI_INGAME,dmBotorama_Cons,sakhal,dmBotorama_Reg,dmBotorama_Core,DM_BOT_PROFILE,DM_BOT_DEBUG_SPAWN,DM_BOT_DEBUG_BRAIN,DM_BOT_DEBUG_FSM,DM_BOT_DEBUG_PAWN,DM_BOT_DEBUG_BODY,DM_BOT_DEBUG_LOADOUT,DM_BOT_DEBUG_VISION,DM_BOT_DEBUG_EVADE,DM_BOT_DEBUG_MEDICAL,DM_BOT_DEBUG_VOICE,DM_BOT_DEBUG_LOOTING,DM_BOT_DEBUG_BALLISTICS,DM_BOT_DEBUG_E2E,DM_BOT_DEBUG_PATHFINDER,DM_BOT_DEBUG_CAR,DM_WEAPON_DEBUG_FSM,DM_PERCEPTION_DEBUG,DM_BOT_DEBUG_DRIVE_TELEMETRY,DM_BOT_DEBUG_ROADS,dmBotorama_Loadout,dmBotorama_Map,dmBotorama_Roads,dmBotorama_Test,DayZ,FEATURE_CURSOR,FEATURE_NETWORK_RECONCILIATION,FEATURE_NETWORK_RECONCILATION"; CRC32: 00000000
+20:40:07 [Inputs] Loading inputs default "bin/constants.xml"
+20:40:07 [Inputs] Loading inputs default "bin/constants.xml"
+20:40:07 [Inputs] Loading inputs default "bin/specific.xml"
+20:40:07 [Inputs] Loading inputs default "bin/specific.xml"
+20:40:07 [Inputs] Loading inputs cfg "./profiles-cherno/users/Survivor\Server.core.xml"
+20:40:07 [Inputs] Loading inputs cfg "./profiles-cherno/users/Survivor\Server.core.xml"
+20:40:07 [Inputs] Exporting inputs cfg "./profiles-cherno/users/Survivor\Server.core.xml"
+20:40:07 [Inputs] Exporting inputs cfg "./profiles-cherno/users/Survivor\Server.core.xml"
+20:40:07 SCRIPT       : Registered 305 temporary action enum(s), UAN==305
+20:40:08 SCRIPT       : Module: Game; loaded 430x files; 1411x classes; used 3733/33554 kB (11%) of static memory; defines: "DAYZ_1_29,SERVER_FOR_WINDOWS,SERVER,PLATFORM_LINUX,RELEASE,NO_GUI,NO_GUI_INGAME,dmBotorama_Cons,sakhal,dmBotorama_Reg,dmBotorama_Core,DM_BOT_PROFILE,DM_BOT_DEBUG_SPAWN,DM_BOT_DEBUG_BRAIN,DM_BOT_DEBUG_FSM,DM_BOT_DEBUG_PAWN,DM_BOT_DEBUG_BODY,DM_BOT_DEBUG_LOADOUT,DM_BOT_DEBUG_VISION,DM_BOT_DEBUG_EVADE,DM_BOT_DEBUG_MEDICAL,DM_BOT_DEBUG_VOICE,DM_BOT_DEBUG_LOOTING,DM_BOT_DEBUG_BALLISTICS,DM_BOT_DEBUG_E2E,DM_BOT_DEBUG_PATHFINDER,DM_BOT_DEBUG_CAR,DM_WEAPON_DEBUG_FSM,DM_PERCEPTION_DEBUG,DM_BOT_DEBUG_DRIVE_TELEMETRY,DM_BOT_DEBUG_ROADS,dmBotorama_Loadout,dmBotorama_Map,dmBotorama_Roads,dmBotorama_Test,DayZ,FEATURE_CURSOR,FEATURE_NETWORK_RECONCILIATION,FEATURE_NETWORK_RECONCILATION"; CRC32: 00000000
+20:40:08 SCRIPT       : ... Backlit Effects Enabled
+20:40:08 ANIMATION (E): Can't load @Botorama/Anims/cfg/skeletons.anim.xml
+20:40:08 ANIMATION (E): Failed to open file, line 0, column 0
+20:40:08 ANIMATION (E): Can't load sakhal/Anims/cfg/skeletons.anim.xml
+20:40:08 ANIMATION (E): Failed to open file, line 0, column 0
+20:40:08 ENGINE       : Skeleton definition successfully loaded (DZ/Anims/cfg/skeletons.anim.xml)
+20:40:08 ENGINE       : Enfusion engine successfully created
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather1.farCloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather1.cloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather2.farCloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather2.cloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather3.farCloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather3.cloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather4.farCloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather4.cloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather5.farCloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather5.cloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/LightingNew/C_Day60.spaceIntensity'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/LightingNew/C_Day60.starsIntensity'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/LightingNew/C_Day60.atmosphereIntensity'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/LightingNew/C_Day60.NearCloud'.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather1.farCloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather1.cloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather2.farCloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather2.cloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather3.farCloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather3.cloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather4.farCloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather4.cloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather5.farCloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/Overcast/Weather5.cloud'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/LightingNew/C_Day60.spaceIntensity'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/LightingNew/C_Day60.starsIntensity'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/LightingNew/C_Day60.atmosphereIntensity'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld/Weather/LightingNew/C_Day60.NearCloud'.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld.volFogOffset'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld.spaceObject'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld.atmosphereObject'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Atmosphere not loaded, using old 'sky'.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld.nearCloudObject'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld.cloudObject'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 Warning Message: No entry 'bin\config.bin/CfgWorlds/DefaultWorld.horizonObject'.
+20:40:08 Warning Message: Trying to access error value.
+20:40:08 WORLD        : PreloadVehicles
+20:40:08 PROFILING    : PreloadVehicles took: 3.922000 ms
+20:40:09 SCRIPT    (W): @"dm_reg/3_Game/config\dmjsonfile.c,166": No need to use 'Cast' for up-casting
+20:40:09 SCRIPT    (W): @"dm_core/4_World/entities\bot\dmaisurvivor.c,205": FIX-ME: Unsafe down-casting, use 'dmAISurvivorBase.Cast' for safe down-casting
+20:40:09 SCRIPT    (W): @"dm_reg/3_Game/config\dmjsonfile.c,166": No need to use 'Cast' for up-casting
+20:40:09 SCRIPT    (W): @"dm_reg/3_Game/config\dmjsonfile.c,166": No need to use 'Cast' for up-casting
+20:40:09 SCRIPT    (E): @"dm_test/4_World/dme2ebridge.c,1589": Incompatible parameter ' nodes / '
+20:40:09 SCRIPT    (E): @"dm_test/4_World/dme2ebridge.c,1981": Bad type 'JsonFileLoader'
+20:40:09 SCRIPT    (E): Can't compile "World" script module!
+
+dm_test/4_World/dme2ebridge.c(1589): Incompatible parameter ' nodes / '
+20:40:09 SCRIPT    (E): Failed to load entities script!
+20:40:09 Warning: CfgWeapons missing in PreloadConfig - may slow down vehicle creation
+20:40:09 Warning: CfgMagazines missing in PreloadConfig - may slow down vehicle creation
+20:40:09 String "STR_DN_UNKNOWN" not found (not in localization table)
+20:40:09 String "STR_DN_TRANSPORT" not found (not in localization table)
+20:40:09 String "STR_DN_CAR" not found (not in localization table)
+20:40:09 String "STR_DN_BOAT" not found (not in localization table)
+20:40:09 String "STR_DN_HELICOPTER" not found (not in localization table)
+20:40:09 String "STR_DN_HELICOPTER" not found (not in localization table)
+20:40:09 String "STR_DN_UNKNOWN" not found (not in localization table)
+20:40:09 String "STR_DN_MAN" not found (not in localization table)
+20:40:09 String "STR_DN_ANIMAL" not found (not in localization table)
+20:40:09 String "STR_DN_UNKNOWN" not found (not in localization table)
+20:40:09 String "STR_DN_BUNKER" not found (not in localization table)
+20:40:09 String "STR_DN_UNKNOWN" not found (not in localization table)
+20:40:09 String "STR_DN_UNKNOWN" not found (not in localization table)
+20:40:09 String "STR_DN_UNKNOWN" not found (not in localization table)
+20:40:09 String "STR_DN_UNKNOWN" not found (not in localization table)
+20:40:09 String "STR_DN_MAN" not found (not in localization table)
+20:40:09 String "STR_DN_MAN" not found (not in localization table)
+20:40:09 String "STR_DN_MAN" not found (not in localization table)
+20:40:09 String "STR_DN_ANIMAL" not found (not in localization table)
+20:40:09 String "STR_DN_ANIMAL" not found (not in localization table)
+20:40:09 String "STR_DN_MAN" not found (not in localization table)
+20:40:09 String "STR_DN_BOAT" not found (not in localization table)
+20:40:09 String "STR_DN_CAR" not found (not in localization table)
+20:40:09 String "STR_DN_CAR" not found (not in localization table)
+20:40:09 String "STR_DN_CAR" not found (not in localization table)
+20:40:09 String "STR_DN_CAR" not found (not in localization table)
+20:40:09 String "STR_DN_CAR" not found (not in localization table)
+sh: 1: /mnt/deep-space/Steam/steamapps/common/DayZServer/CrashReporter: not found
+/home/devalio/dayz-cherno: строка 15: 60849 Ошибка сегментирования                   (образ памяти сброшен на диск) ./DayZServer -cpuCount="6" "-config=./chernoDZ.cfg" "-profiles=./profiles-cherno" "-mod=@Botorama;" "-doLogs" "-adminlog" "-port=2302"
