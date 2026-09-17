@@ -1,0 +1,14 @@
+{
+  "Name": "surfprobe-roads",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "surfprobe", "Pos": [3010, 0, 12635] },
+    { "Op": "surfprobe", "Pos": [3020, 0, 12575] },
+    { "Op": "surfprobe", "Pos": [2804, 0, 12422] },
+    { "Op": "surfprobe", "Pos": [5909, 0, 11409] },
+    { "Op": "surfprobe", "Pos": [2982, 0, 12467] },
+    { "Op": "surfprobe", "Pos": [2471, 0, 12942] },
+    { "Op": "surfprobe", "Pos": [2415, 0, 13019] },
+    { "Op": "surfprobe", "Pos": [5864, 0, 11474] }
+  ]
+}

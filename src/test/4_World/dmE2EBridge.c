@@ -9,7 +9,7 @@
 //! shock | restrain | give | wait | assert | snapshot | clearall (named bots)
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
-//! botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
+//! surfprobe | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
 //! drive | cardump, and observe (teleport a connected player). `wait` and `sleep`
 //! are the deferred ops: they tick across frames (wait until a condition is met
 //! or its timeout expires; sleep until its timeout). Everything else executes in
@@ -398,6 +398,10 @@ class dmE2EBridge
 		else if (step.Op == "scanbox")
 		{
 			RunScanBox(step, r);
+		}
+		else if (step.Op == "surfprobe")
+		{
+			RunSurfProbe(step, r);
 		}
 		else if (step.Op == "botdump")
 		{
@@ -1270,6 +1274,75 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = (dynamics.Count() + statics.Count()).ToString() + " entities";
+	}
+
+	//! "surfprobe" — dump raw surface-sensor readings on a 29-point cross around
+	//! step.Pos (center + ±X/±Z at {1,2,3,5,8,12,16} m). Research probe: raw
+	//! SurfaceGetType / SurfaceY / SurfaceRoadY / GetSurface(Roadway) values only,
+	//! no classification.
+	private void RunSurfProbe(dmE2EStep step, dmE2EStepResult r)
+	{
+		float cx = step.Pos[0];
+		float cz = step.Pos[2];
+
+		array<float> dists = {1.0, 2.0, 3.0, 5.0, 8.0, 12.0, 16.0};
+		array<vector> dirs = new array<vector>();
+		dirs.Insert(Vector(1, 0, 0));
+		dirs.Insert(Vector(-1, 0, 0));
+		dirs.Insert(Vector(0, 0, 1));
+		dirs.Insert(Vector(0, 0, -1));
+
+		int i;
+		int d;
+
+		ProbeSample(cx, cz, 0.0, 0.0, r);
+
+		for (i = 0; i < dirs.Count(); i++)
+		{
+			for (d = 0; d < dists.Count(); d++)
+			{
+				ProbeSample(cx + dirs[i][0] * dists[d], cz + dirs[i][2] * dists[d], dirs[i][0] * dists[d], dirs[i][2] * dists[d], r);
+			}
+		}
+
+		r.Ok = true;
+		r.Reason = "29 samples";
+	}
+
+	//! One surfprobe sample: raw surface sensors at (wx,wz), offset (dx,dz) from
+	//! the probe center. Appends one parseable dump line.
+	private void ProbeSample(float wx, float wz, float dx, float dz, dmE2EStepResult r)
+	{
+		float terrainY = GetGame().SurfaceY(wx, wz);
+		float roadY = GetGame().SurfaceRoadY(wx, wz);
+		float dy = roadY - terrainY;
+
+		string stype = "";
+		float surfY = GetGame().SurfaceGetType(wx, wz, stype);
+
+		SurfaceDetectionParameters p = new SurfaceDetectionParameters();
+		p.type = SurfaceDetectionType.Roadway;
+		p.position = Vector(wx, terrainY + 50.0, wz);
+		SurfaceDetectionResult res = new SurfaceDetectionResult();
+		bool ok = GetGame().GetSurface(p, res);
+
+		string objType = "null";
+		if (res.object)
+			objType = res.object.GetType();
+		string objSurf = "null";
+		if (res.surface)
+			objSurf = res.surface.GetName();
+		string objSurfType = "null";
+		if (res.surface)
+			objSurfType = res.surface.GetSurfaceType();
+
+		string line = "off=(" + dx + "," + dz + ")";
+		line += " type=\"" + stype + "\"";
+		line += " surfY=" + surfY + " terrainY=" + terrainY + " roadY=" + roadY;
+		line += " dy=" + dy + " obj=" + objType;
+		line += " objSurf=\"" + objSurf + "\" objSurfType=\"" + objSurfType + "\"";
+		line += " roadH=" + res.height + " ok=" + ok;
+		AppendDump(r, line);
 	}
 
 	//! Dump the named bot's body/motion/brain state as a set of lines.
