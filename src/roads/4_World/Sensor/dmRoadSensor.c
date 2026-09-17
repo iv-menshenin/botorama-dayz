@@ -95,6 +95,8 @@ class dmRoadSensor
 		{
 			string name = geometry.GetPropertyName(i);
 			string value = geometry.GetPropertyValue(i);
+			if (name == "" || value == "")
+				continue;
 			name.ToLower();
 			value.ToLower();
 			if (name == "class" && value == "road")

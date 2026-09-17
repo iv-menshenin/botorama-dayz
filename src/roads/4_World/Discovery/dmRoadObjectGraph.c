@@ -60,8 +60,8 @@ class dmRoadObjectGraphBuilder
 		float x;
 		float z;
 		float terrainY;
-		array<Object> objs;
-		array<CargoBase> cargos;
+		array<Object> objs = new array<Object>();
+		array<CargoBase> cargos = new array<CargoBase>();
 		int i;
 		Object obj;
 		vector p;
@@ -71,10 +71,16 @@ class dmRoadObjectGraphBuilder
 		{
 			for (z = min[2]; z <= max[2]; z = z + DM_ROAD_SCAN_STEP)
 			{
+				#ifdef DM_BOT_DEBUG_ROADS
+				dmBotLog.Debug("[ROADNET] grid (" + x + "," + z + ")");
+				#endif
 				terrainY = GetGame().SurfaceY(x, z);
-				objs = new array<Object>();
-				cargos = new array<CargoBase>();
+				objs.Clear();
+				cargos.Clear();
 				GetGame().GetObjectsAtPosition(Vector(x, terrainY, z), 12.0, objs, cargos);
+				#ifdef DM_BOT_DEBUG_ROADS
+				dmBotLog.Debug("[ROADNET] (" + x + "," + z + ") objs=" + objs.Count());
+				#endif
 				for (i = 0; i < objs.Count(); i++)
 				{
 					obj = objs[i];
@@ -103,19 +109,30 @@ class dmRoadObjectGraphBuilder
 		bool haveA = false;
 		bool haveB = false;
 
+		vector lb;
+		vector pb;
+		vector le;
+		vector pe;
+
 		if (hasA)
 		{
-			vector lb = obj.ModelToWorld(obj.GetMemoryPointPos("LB"));
-			vector pb = obj.ModelToWorld(obj.GetMemoryPointPos("PB"));
-			endA = (lb + pb) * 0.5;
-			haveA = true;
+			lb = obj.ModelToWorld(obj.GetMemoryPointPos("LB"));
+			pb = obj.ModelToWorld(obj.GetMemoryPointPos("PB"));
+			if (lb != vector.Zero && pb != vector.Zero)
+			{
+				endA = (lb + pb) * 0.5;
+				haveA = true;
+			}
 		}
 		if (hasB)
 		{
-			vector le = obj.ModelToWorld(obj.GetMemoryPointPos("LE"));
-			vector pe = obj.ModelToWorld(obj.GetMemoryPointPos("PE"));
-			endB = (le + pe) * 0.5;
-			haveB = true;
+			le = obj.ModelToWorld(obj.GetMemoryPointPos("LE"));
+			pe = obj.ModelToWorld(obj.GetMemoryPointPos("PE"));
+			if (le != vector.Zero && pe != vector.Zero)
+			{
+				endB = (le + pe) * 0.5;
+				haveB = true;
+			}
 		}
 
 		if (!haveA || !haveB)
