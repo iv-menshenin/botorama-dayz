@@ -7,6 +7,7 @@ class CfgPatches
 		requiredVersion=0.1;
 		requiredAddons[]= {
 			"dmBotorama_Cons",
+			"dmBotorama_Reg",
 			"dmBotorama_Core",
 		};
 	};

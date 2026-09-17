@@ -9,7 +9,7 @@
 //! shock | restrain | give | wait | assert | snapshot | clearall (named bots)
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
-//! surfprobe | roadwalk | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
+//! surfprobe | surfshootout | roadwalk | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
 //! drive | cardump, and observe (teleport a connected player). `wait` and `sleep`
 //! are the deferred ops: they tick across frames (wait until a condition is met
 //! or its timeout expires; sleep until its timeout). Everything else executes in
@@ -403,9 +403,17 @@ class dmE2EBridge
 		{
 			RunSurfProbe(step, r);
 		}
+		else if (step.Op == "surfshootout")
+		{
+			RunSurfShootout(step, r);
+		}
 		else if (step.Op == "roadwalk")
 		{
 			RunRoadWalk(step, r);
+		}
+		else if (step.Op == "roadgraph")
+		{
+			RunRoadGraph(step, r);
 		}
 		else if (step.Op == "botdump")
 		{
@@ -1349,6 +1357,144 @@ class dmE2EBridge
 		AppendDump(r, line);
 	}
 
+	//! "surfshootout" — one-point shootout of every native surface/road detection
+	//! API: SurfaceGetType+friction, GetSurface(Scenery|Roadway), SurfaceRoadY vs
+	//! SurfaceY, RaycastRVProxy result.surface, GetObjectsAtPosition+IsRoadObject,
+	//! and SceneGetEntitiesInBox(ONLY_ROADWAYS). Research probe to pick the working
+	//! API for road-object detection (SurfaceGetType is terrain-only).
+	private void RunSurfShootout(dmE2EStep step, dmE2EStepResult r)
+	{
+		float x;
+		float z;
+		string line;
+		string stype;
+		float friction;
+		float terrainY;
+		SurfaceDetectionParameters p;
+		SurfaceDetectionResult res;
+		string surfName;
+		string surfType;
+		string objName;
+		float roadY;
+		float dy;
+		RaycastRVParams rp;
+		array<ref RaycastRVResult> hits;
+		int i;
+		RaycastRVResult hit;
+		bool isRoad;
+		array<Object> objs;
+		array<CargoBase> cargos;
+		Object obj;
+		array<EntityAI> roads;
+		EntityAI road;
+
+		x = step.Pos[0];
+		z = step.Pos[2];
+
+		line = "seed=(" + x + "," + z + ")";
+		AppendDump(r, line);
+
+		// 1. SurfaceGetType + friction
+		stype = "";
+		GetGame().SurfaceGetType(x, z, stype);
+		friction = GetGame().ConfigGetFloat("CfgSurfaces " + stype + " friction");
+		line = "sgt type=\"" + stype + "\" friction=" + friction;
+		AppendDump(r, line);
+
+		// 2. GetSurface(Scenery) and GetSurface(Roadway), traced from above.
+		terrainY = GetGame().SurfaceY(x, z);
+		p = new SurfaceDetectionParameters();
+		p.position = Vector(x, terrainY + 50.0, z);
+		res = new SurfaceDetectionResult();
+
+		p.type = SurfaceDetectionType.Scenery;
+		GetGame().GetSurface(p, res);
+		surfName = "null";
+		surfType = "null";
+		objName = "null";
+		if (res.surface)
+			surfName = res.surface.GetName();
+		if (res.surface)
+			surfType = res.surface.GetSurfaceType();
+		if (res.object)
+			objName = res.object.GetType();
+		line = "scenery name=\"" + surfName + "\"";
+		line += " stype=\"" + surfType + "\"";
+		line += " obj=" + objName;
+		AppendDump(r, line);
+
+		p.type = SurfaceDetectionType.Roadway;
+		GetGame().GetSurface(p, res);
+		surfName = "null";
+		surfType = "null";
+		objName = "null";
+		if (res.surface)
+			surfName = res.surface.GetName();
+		if (res.surface)
+			surfType = res.surface.GetSurfaceType();
+		if (res.object)
+			objName = res.object.GetType();
+		line = "roadway name=\"" + surfName + "\"";
+		line += " stype=\"" + surfType + "\"";
+		line += " obj=" + objName;
+		AppendDump(r, line);
+
+		// 3. Heights
+		roadY = GetGame().SurfaceRoadY(x, z);
+		dy = roadY - terrainY;
+		line = "heights terrainY=" + terrainY + " roadY=" + roadY + " dy=" + dy;
+		AppendDump(r, line);
+
+		// 4. RaycastRVProxy from above, dump each hit surface/obj/IsRoadObject.
+		rp = new RaycastRVParams(Vector(x, terrainY + 30.0, z), Vector(x, terrainY - 5.0, z));
+		hits = new array<ref RaycastRVResult>();
+		DayZPhysics.RaycastRVProxy(rp, hits);
+		for (i = 0; i < hits.Count(); i++)
+		{
+			hit = hits[i];
+			surfName = "null";
+			if (hit.surface)
+				surfName = hit.surface.GetName();
+			objName = "null";
+			if (hit.obj)
+				objName = hit.obj.GetType();
+			isRoad = dmRoadSensor.IsRoadObject(hit.obj);
+			line = "ray i=" + i + " surf=\"" + surfName + "\"";
+			line += " obj=" + objName + " isRoad=" + isRoad;
+			AppendDump(r, line);
+		}
+
+		// 5. GetObjectsAtPosition (r=5 m)
+		objs = new array<Object>();
+		cargos = new array<CargoBase>();
+		GetGame().GetObjectsAtPosition(Vector(x, terrainY, z), 5.0, objs, cargos);
+		for (i = 0; i < objs.Count(); i++)
+		{
+			obj = objs[i];
+			objName = obj.GetType();
+			isRoad = dmRoadSensor.IsRoadObject(obj);
+			line = "near i=" + i + " type=" + objName;
+			line += " isRoad=" + isRoad;
+			AppendDump(r, line);
+		}
+
+		// 6. SceneGetEntitiesInBox(ONLY_ROADWAYS, 10 m box)
+		roads = new array<EntityAI>();
+		DayZPlayerUtils.SceneGetEntitiesInBox(Vector(x - 5.0, terrainY - 5.0, z - 5.0), Vector(x + 5.0, terrainY + 5.0, z + 5.0), roads, QueryFlags.ONLY_ROADWAYS);
+		line = "roadbox count=" + roads.Count();
+		AppendDump(r, line);
+		for (i = 0; i < roads.Count(); i++)
+		{
+			road = roads[i];
+			objName = road.GetType();
+			line = "rb i=" + i + " type=" + objName;
+			AppendDump(r, line);
+		}
+
+		r.Ok = true;
+		r.Reason = "surfshootout";
+	}
+
 	//! "roadwalk" — run the road discovery probe from step.Pos and dump every
 	//! branch's centerline polyline: status+branch count, then per branch a
 	//! "b=" header line followed by one "pt=" line per point.
@@ -1393,6 +1539,54 @@ class dmE2EBridge
 		}
 		r.Ok = (res.Status == "ok");
 		r.Reason = res.Status + " / " + branchCount + " branches / " + res.TotalSteps + " pts";
+	}
+
+	//! "roadgraph" — build the road network graph from the seed points, save it
+	//! to JSON and dump the graph: nodes summary, one "n=" line per vertex, one
+	//! "e=" header + one "ep=" polyline line per edge.
+	private void RunRoadGraph(dmE2EStep step, dmE2EStepResult r)
+	{
+		array<vector> seeds = new array<vector>();
+		int i;
+		for (i = 0; i < step.Points.Count(); i++)
+			seeds.Insert(step.Points[i]);
+
+		dmRoadGraph graph = dmRoadGraphBuilder.Build(seeds);
+		bool saved = dmRoadGraphIO.Save(graph, DM_ROADS_GRAPH_FILE);
+
+		int nodeCount = graph.Nodes.Count();
+		int edgeCount = graph.Edges.Count();
+		AppendDump(r, "nodes=" + nodeCount + " edges=" + edgeCount);
+
+		int ni;
+		for (ni = 0; ni < nodeCount; ni++)
+		{
+			dmRoadGraphNode n = graph.Nodes[ni];
+			string nline = "n=" + n.Id + " pos=(" + n.Pos[0] + "," + n.Pos[2] + ") kind=" + n.Kind;
+			AppendDump(r, nline);
+		}
+
+		int ei;
+		for (ei = 0; ei < edgeCount; ei++)
+		{
+			dmRoadGraphEdge e = graph.Edges[ei];
+			string eline = "e=" + e.Id + " from=" + e.From + " to=" + e.To;
+			eline = eline + " len=" + e.Length + " surf=" + e.Surface + " pts=" + e.Points.Count();
+			AppendDump(r, eline);
+
+			string pline = "";
+			int pi;
+			for (pi = 0; pi < e.Points.Count(); pi++)
+			{
+				if (pi > 0)
+					pline = pline + " ";
+				pline = pline + "ep=(" + e.Points[pi][0] + "," + e.Points[pi][2] + ")";
+			}
+			AppendDump(r, pline);
+		}
+
+		r.Ok = saved;
+		r.Reason = nodeCount + " nodes / " + edgeCount + " edges";
 	}
 
 	//! Dump the named bot's body/motion/brain state as a set of lines.

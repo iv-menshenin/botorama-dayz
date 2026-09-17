@@ -49,4 +49,25 @@ class dmRoadSensor
 	{
 		return IsDrivable(Classify(x, z));
 	}
+
+	//! True if the object is a road (property class=="road" in the "geometry" LOD).
+	static bool IsRoadObject(Object obj)
+	{
+		if (!obj)
+			return false;
+		LOD geometry = obj.GetLODByName("geometry");
+		if (!geometry)
+			return false;
+		int i;
+		for (i = 0; i < geometry.GetPropertyCount(); i++)
+		{
+			string name = geometry.GetPropertyName(i);
+			string value = geometry.GetPropertyValue(i);
+			name.ToLower();
+			value.ToLower();
+			if (name == "class" && value == "road")
+				return true;
+		}
+		return false;
+	}
 };

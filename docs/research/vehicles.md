@@ -685,3 +685,131 @@ v3.211): 9 точек × 29 сэмплов креста, сырые значен
 - `GetSurface(Roadway)` и `SurfaceRoadY` в горячем цикле НЕ использовать (шум/крыши/null-объект).
 - «Дорога vs тропинка vs площадка» — решает геометрия зонда (ширина по краям + непрерывность
   следования центральной линии), не материал.
+
+## Вождение: каталог surface-API (шут-аут)
+
+Цель: полный каталог нативных API, которые могут вернуть ПОВЕРХНОСТЬ/ДОРОГУ под точкой (x,z),
+с точными сигнатурами и семантикой, чтобы применить их РАЗОМ на точках и выбрать рабочий
+дискриминатор «дорога-объект vs террейн».
+
+Источник сигнатур — `/home/devalio/dayz/Work/DayZ-Script-Diff/scripts` (ваниль). Все `file:line`
+проверены чтением. Конфиг поверхностей (`.../DZ/surfaces/config.cpp`) — вне доступа dayz-research
+(лежит в `/mnt/deep-space/...`, permission deny), поэтому значения `friction` НЕ подтверждены из
+конфига — только из паттерна вызова.
+
+### Ключевая развилка: «дорога» бывает двух видов
+
+- **Дорога-покраска** (террейн): асфальт/грунт нанесены текстурой на террейн. Единственный
+  дискриминатор — имя материала из `SurfaceGetType` (`concrete_ext`/`dirt_ext`/`cp_dirt`).
+  Эмпирика фазы 0 (`surfprobe`, v3.211) показала: на тестовой карте дороги — покраска,
+  `GetSurface(Roadway).object == null` на всех 232 сэмплах.
+- **Дорога-объект** (3D-модель с roadway-LOD, напр. мосты, отдельные дороги): её видят только
+  объектно-ориентированные API (raycast / `GetObjectsAtPosition` / `ONLY_ROADWAYS` / `WheelGetSurface`).
+  На картах с такими дорогами «дорогу-объект» от «террейна» отличает именно наличие объекта.
+
+**Вывод:** какой API «видит дорогу» — зависит от карты. Каталог ниже ранжирует API по типу
+возврата, а «сработает ли» — эмпирический вопрос (см. гипотезы).
+
+### Таблица API (все сигнатуры проверены чтением)
+
+| # | API | сигнатура (file:line) | что возвращает | вердикт «видит дорогу-объект?» |
+|---|---|---|---|---|
+| 1 | `Game.SurfaceGetType` | `proto float SurfaceGetType(float x, float z, out string type);` (`3_game/global/game.c:1156`) | Y высоты + `out string` имя поверхности **террейна** | НЕТ (террейн-покраска). Но на дороге-покраске имя = `concrete_ext`/`dirt_ext`/`cp_dirt` — т.е. различает материал дороги, но НЕ объект |
+| 2 | `Game.SurfaceGetType3D` | `proto float SurfaceGetType3D(float x, float y, float z, out string type);` (`game.c:1158`) | то же, трассирует вниз от max-Y | НЕТ (террейн) |
+| 3 | `Game.GetSurface` | `proto native bool GetSurface(SurfaceDetectionParameters params, SurfaceDetectionResult result);` (`game.c:1150`) | `SurfaceDetectionResult`: `height`, `normalX`, `normalZ`, `SurfaceInfo surface`, `bool aboveWater`, `Object object` (только Roadway). `params.type = Scenery\|Roadway` (`3_game/surfaceinfo.c:65-69`), `rsd`/`syncMode`/`ignore`/`includeWater` (`surfaceinfo.c:74-94`) | **Roadway: ДА по замыслу** (террейн + road-объекты с roadway-LOD). Эмпирически на карте-покраске `object==null`, `surface`=террейн → практического толка нет |
+| 4 | `Game.SurfaceRoadY` | `proto native float SurfaceRoadY(float x, float z, RoadSurfaceDetection rsd = RoadSurfaceDetection.LEGACY);` (`game.c:1153`) | Y «roadway»-поверхности | частично (roadway), но следует и КРЫШАМ зданий (эмпирика фазы 0) → шумный |
+| 5 | `Game.SurfaceRoadY3D` | `proto native float SurfaceRoadY3D(float x, float y, float z, RoadSurfaceDetection rsd);` (`game.c:1154`) | то же от max-Y | частично |
+| 6 | `Game.SurfaceUnderObject` | `proto void SurfaceUnderObject(notnull Object object, out string type, out int liquidType);` (`game.c:1159`) | имя поверхности + liquidType ПОД объектом | по замыслу объект-осведомлённый; для «под точкой» нужен объект (напр. машина). Сигнатура `proto` (не `native`) |
+| 7 | `Game.SurfaceUnderObjectEx` | `proto void SurfaceUnderObjectEx(notnull Object object, out string type, out string impact, out int liquidType);` (`game.c:1160`) | + `impact` (строка из CfgSurfaces) | то же |
+| 8 | `Game.SurfaceUnderObjectByBone` | `proto void SurfaceUnderObjectByBone(notnull Object object, int boneType, out string type, out int liquidType);` (`game.c:1161`) | поверхность под конкретной костью/конечностью | то же |
+| 9 | `DayZPhysics.RaycastRVProxy` | `proto static bool RaycastRVProxy(notnull RaycastRVParams in, out notnull array<ref RaycastRVResult> results, array<Object> excluded = null);` (`3_game/global/dayzphysics.c:208`) | `RaycastRVResult` (`dayzphysics.c:98-113`): `Object obj`, `Object parent`, `vector pos`, `vector dir`, `int hierLevel`, `int component`, **`SurfaceInfo surface`** (`:109`), `entry`/`exit` | **ГЛАВНЫЙ кандидат**: рейкаст вниз по точке дороги должен вернуть дорожный ОБЪЕКТ (`obj`) + дорожную поверхность (`surface`). Сработает только на картах с 3D-дорогами |
+| 10 | `DayZPhysics.RaycastRV` | `proto static bool RaycastRV(vector begPos, vector endPos, out vector contactPos, out vector contactDir, out int contactComponent, /*out*/ set<Object> results = NULL, Object with = NULL, Object ignore = NULL, bool sorted = false, bool ground_only = false, int iType = ObjIntersectView, float radius = 0.0, CollisionFlags flags = CollisionFlags.NEARESTCONTACT);` (`dayzphysics.c:199`) | контакт (pos/dir/component) + `set<Object>` попаданий. **Поверхности в результате НЕТ** | вернёт дорожный объект, но поверхность — отдельным вызовом `GetHitSurface` (или `RaycastRVProxy`) |
+| 11 | `RaycastRVExt` | `dayzphysics.c:202` | — | **ЗАКОММЕНТИРОВАН — НЕДОСТУПЕН** (подтверждено) |
+| 12 | `DayZPhysics.GetHitSurface` | `proto static bool GetHitSurface(Object other, vector begPos, vector endPos, string surface);` (`dayzphysics.c:204`) | `bool` (был хит) + `string surface` **БЕЗ `out`** (имя поверхности) | имя поверхности (строка), НЕ объект. См. разбор `out` ниже |
+| 13 | `DayZPhysics.GetHitSurfaceAndLiquid` | `proto static bool GetHitSurfaceAndLiquid(Object other, vector begPos, vector endPos, string surface, out int liquidType);` (`dayzphysics.c:206`) | + `out int liquidType` | то же |
+| 14 | `DayZPhysics.RayCastBullet` | `proto static bool RayCastBullet(vector begPos, vector endPos, PhxInteractionLayers layerMask, Object ignoreObj, out Object hitObject, out vector hitPosition, out vector hitNormal, out float hitFraction);` (`dayzphysics.c:211`) | объект/позиция/нормаль/фракция | **поверхности НЕТ** (только hitObject) |
+| 15 | `DayZPhysics.SphereCastBullet` | `proto static bool SphereCastBullet(vector begPos, vector endPos, float radius, PhxInteractionLayers layerMask, Object ignoreObj, out Object hitObject, out vector hitPosition, out vector hitNormal, out float hitFraction);` (`dayzphysics.c:213`) | то же + радиус | поверхности НЕТ |
+| 16 | `Game.GetObjectsAtPosition` | `proto native void GetObjectsAtPosition(vector pos, float radius, out array<Object> objects, out array<CargoBase> proxyCargos);` (`game.c:912`) | ближайшие объекты (для дороги → `GetLODByName("geometry")` + `ObjectIsRoad`) | ДА (перебор объектов), если дорога — объект |
+| 17 | `Game.GetObjectsAtPosition3D` | `proto native void GetObjectsAtPosition3D(vector pos, float radius, out array<Object> objects, out array<CargoBase> proxyCargos);` (`game.c:919`) | то же, сфера | ДА |
+| 18 | `DayZPlayerUtils.SceneGetEntitiesInBox` | `static proto native void SceneGetEntitiesInBox(vector min, vector max, notnull out array<EntityAI> entList, int flags = QueryFlags.DYNAMIC);` (`4_world/entities/dayzplayerutils.c:75`) | сущности в AABB | ДА через `QueryFlags.ONLY_ROADWAYS` (`dayzplayerutils.c:11`, `=4`). **Готча:** `QueryFlags` — последовательный enum (`NONE/STATIC/DYNAMIC/ORIGIN_DISTANCE/ONLY_ROADWAYS`), НЕ битмаска → НЕ `|`-ить (см. decisions.md) |
+| 19 | `Car.WheelGetSurface` | `proto native SurfaceInfo WheelGetSurface(int wheelIdx);` (`3_game/vehicles/car.c:321`) | **`SurfaceInfo` поверхности под колесом** («surface that the wheel is nearby») | **ДА (для транспорта):** это реальная driving-поверхность под колесом — дорога-объект ИЛИ террейн. Имя — `GetName()`/`GetSurfaceType()` |
+
+Дополнительно (не «под точкой», но в той же семье):
+- `Game.SurfaceY(float x, float z)` — `game.c:1152`, `proto native float` — Y **террейна** (не дороги).
+- `Game.SurfaceGetNormal(float x, float z)` — `game.c:1163`, `proto native vector` — нормаль террейна.
+- `Game.SurfaceGetNoiseMultiplier(Object directHit, vector pos, int componentIndex)` — `game.c:1162`,
+  `proto native float` — множитель шума поверхности (не тип поверхности).
+- `Game.SurfaceIsSea/Pond(x,z)` — `game.c:1167-1168`; `SurfaceGetSeaLevel*()` — `game.c:1164-1166`;
+  `GetWaterDepth(vector)` — `game.c:1169` — вода, к дороге отношения не имеют.
+- `HitInfo.GetSurface()/GetSurfaceNormal()/GetSurfaceNoiseMultiplier()` — `3_game/hitinfo.c:7/6/3`
+  (`proto native`) — поверхность ПУЛИ/хита (событие `EEHitBy`), не «под точкой».
+- `Object.GetSurfaceType()` — `3_game/entities/object.c:398-408` — обёртка `SurfaceUnderObject(this,...)`.
+
+### Подтверждение/опровержение пунктов задачи
+
+**П.7 `RaycastRVExt`** — **ЗАКОММЕНТИРОВАН, недоступен.** Подтверждено: `dayzphysics.c:201-202` —
+строка 202 целиком в `//` (с комментарием автора `//I am so sorry about this, I am unable to
+change RaycastRV above without breaking rest of DZ`). Альтернатива для «поверхность по лучу» —
+`RaycastRVProxy` (`:208`) с `RaycastRVResult.surface` (`:109`), который ваниль реально использует
+(`weapon_base.c:1809`, `weaponliftdiag.c:260-264` читает `surface.GetName()/GetSurfaceType()`).
+
+**П.8 `GetHitSurface` без `out`** — **работает** (строка заполняется), но только в варианте
+`GetHitSurfaceAndLiquid`. Доказательство — рабочий ванильный код `inventoryitem.c:160-180`:
+`string surfaceImpact;` → `DayZPhysics.GetHitSurfaceAndLiquid(..., surfaceImpact, liquid)` →
+`return surfaceImpact;` (строка `surfaceImpact` заполняется без `out` в сигнатуре — `out` есть
+только у `liquidType`). Это значит: нативный вызов мутирует строку по ссылке, `out` для `string`
+не обязателен (но `out`-форма безопаснее по код-стайлу). Замечание: **`GetHitSurface` (без AndLiquid)
+в ванили НИГДЕ не вызывается** (grep: только объявление `dayzphysics.c:204`) — значит его рабочесть
+проверена только косвенно через `GetHitSurfaceAndLiquid`. `[нужно подтвердить]` эмпирически.
+
+### Трение (friction) — как достать по имени поверхности
+
+- **У `SurfaceInfo` геттера трения НЕТ.** Полный список геттеров (`3_game/surfaceinfo.c:24-50`):
+  `GetName/GetEntryName/GetSurfaceType/GetRoughness/GetDustness/GetBulletPenetrability/GetThickness/
+  GetDeflection/GetTransparency/GetAudability/IsLiquid/IsStairs/IsPassthrough/IsSolid/GetSoundEnv/
+  GetImpact/GetLiquidType/GetStepParticleId/GetWheelParticleId`. `GetRoughness()` — шероховатость,
+  НЕ трение (разные конфиг-параметры). **Friction геттера нет — подтверждено чтением всего класса.**
+- **Единственный способ — конфиг:** `GetGame().ConfigGetFloat("CfgSurfaces " + name + " friction")`
+  (`game.c:522` — `proto native float ConfigGetFloat(string path)`). Ванильный паттерн —
+  `Surface.GetParamFloat(surface_name, "friction")` (`4_world/static/surface.c:18-21`:
+  `return GetGame().ConfigGetFloat("CfgSurfaces " + surface_name + " " + param_name);`).
+  Для трения: `Surface.GetParamFloat(type, "friction")` или напрямую `ConfigGetFloat`.
+- **`CfgVehicleSurfaces` / `vpSurface`** — **не найдены** ни в ванильных скриптах, ни в Expansion
+  (grep по `CfgVehicleSurfaces`/`vpSurface`/`vehicleSurface` — 0 вхождений). Это чисто конфиг-штука
+  из `surfaces/config.cpp`, который вне доступа dayz-research. Значения `friction` для
+  `asphalt_ext`/`concrete_ext`/`dirt_ext`/`cp_dirt`/`cp_grass` — `[нужно проверить]` эмпирически.
+
+### Гипотезы для эмпирической проверки
+
+1. `[нужно проверить]` **`RaycastRVProxy` вниз по 3D-дороге (мост/асфальт-объект)**: возвращает ли
+   `results[0].obj` (дорожный объект) и `results[0].surface.GetName()` (напр. `asphalt_ext`/
+   `concrete_ext`), отличные от `SurfaceGetType` в той же точке? Probe: `raycast` вниз над известным
+   мостом/3D-дорогой + лог `surface.GetName()`/`obj`.
+2. `[нужно проверить]` **`RaycastRVResult.surface` при `groundOnly=true`**: заполняется ли `surface`
+   для террейнового хита (не только для объектов)? Или для террейна нужно брать `SurfaceGetType`?
+3. `[нужно проверить]` **`GetHitSurface`/`GetHitSurfaceAndLiquid` без `out`**: реально ли строка
+   `surface` мутируется в caller-переменной (как в `inventoryitem.c:168`), и что возвращается при
+   `other==null` (террейн под лучом)? Probe: вызвать с локальной `string s;` и залогировать после.
+4. `[нужно проверить]` **`WheelGetSurface(idx)` vs `SurfaceGetType`**: на дороге (3D или покраска)
+   возвращает ли колесо то же имя поверхности (`asphalt_ext`/`concrete_ext`/`dirt_ext`), и отличаются
+   ли `GetName()`/`GetSurfaceType()` от террейна под точкой? Это самый «транспортный» датчик.
+   Probe: `botdump`/лог `WheelGetSurface(i).GetName()` на движущейся машине.
+5. `[нужно проверить]` **`friction` в `CfgSurfaces`**: существует ли `ConfigGetFloat("CfgSurfaces " +
+   <наблюдённое имя> + " friction")` для `concrete_ext`/`dirt_ext`/`cp_dirt`/`cp_grass` (возвращает
+   не-0/не-дефолт), и совпадают ли значения с гипотезой «дорога 0.94-0.98, земля 0.75, трава 0.80-0.85».
+   Probe: `ConfigGetFloat` по каждому имени из таксономии.
+6. `[нужно подтвердить]` **`SceneGetEntitiesInBox(ONLY_ROADWAYS)`**: возвращает ли дорожные объекты
+   на карте с 3D-дорогами (и пусто на карте-покраске)? Подтверждает, что `ONLY_ROADWAYS` работает
+   как фильтр дорожных сущностей. Probe: `scanbox` около моста.
+
+### Существенные развилки и принятые решения (для журнала)
+
+- **Развилка:** «детектить дорогу по объекту (raycast/roadway) или по имени материала
+  (`SurfaceGetType`)». **Решение:** каталог фиксирует, что объектно-ориентированные API
+  (`RaycastRVProxy`/`GetSurface(Roadway)`/`ONLY_ROADWAYS`/`WheelGetSurface`) видят дорогу ТОЛЬКО
+  если она — 3D-объект; на картах с покраской работает только `SurfaceGetType`. Влияет на выбор
+  датчика в зависимости от карты/карты-позиции.
+- **Развилка:** «доставать трение из `SurfaceInfo` (натив) или из конфига». **Решение:** геттера
+  трения в `SurfaceInfo` нет — только `ConfigGetFloat("CfgSurfaces <name> friction")` /
+  `Surface.GetParamFloat`. Влияет на то, что friction-дискриминатор требует доп. вызов конфига на
+  каждое имя (кэшировать), а не берётся из хит-результата.

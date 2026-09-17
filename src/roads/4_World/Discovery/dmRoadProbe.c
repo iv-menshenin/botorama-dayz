@@ -67,7 +67,7 @@ class dmRoadProbe
 	//! then peaks (density >= DM_ROAD_BRANCH_MIN_DENSITY and >= both neighbours)
 	//! with non-max suppression (peaks >= DM_ROAD_BRANCH_MIN_GAP samples apart).
 	//! Returns unit direction vectors for the found peak angles.
-	private static array<vector> FindBranches(vector p)
+	static array<vector> FindBranches(vector p)
 	{
 		array<vector> result = new array<vector>();
 		array<bool> drivable = new array<bool>();
@@ -309,5 +309,145 @@ class dmRoadProbe
 		float ca = Math.Cos(angle);
 		float sa = Math.Sin(angle);
 		return Vector(v[0] * ca - v[2] * sa, 0.0, v[0] * sa + v[2] * ca);
+	}
+
+	//! Walk one branch for graph building. Like WalkDir but with junction
+	//! detection (every DM_ROAD_JUNCTION_CHECK_STEP steps, a road direction that
+	//! is neither the current direction nor the reverse of cameFrom stops the
+	//! walk with Status="junction") and visited-cell dedup (a point whose cell
+	//! is already in `visited` stops with Status="visited"). Otherwise the
+	//! statuses match WalkDir (ok/deadend/loop/maxsteps). cameFrom is the
+	//! direction travelled to reach the seed (vector.Zero for a fresh seed).
+	static dmRoadBranch WalkDirBranch(vector seed, vector dir, vector cameFrom, map<string,bool> visited)
+	{
+		dmRoadBranch branch = new dmRoadBranch();
+		branch.Points = new array<vector>();
+		branch.Widths = new array<float>();
+		branch.Surfaces = new array<int>();
+		branch.Status = "ok";
+		branch.Steps = 0;
+
+		vector p = seed;
+
+		float py = GetGame().SurfaceY(p[0], p[2]);
+		branch.Points.Insert(Vector(p[0], py, p[2]));
+		branch.Widths.Insert(0.0);
+		branch.Surfaces.Insert(dmRoadSensor.Classify(p[0], p[2]));
+
+		int step = 0;
+		float fx;
+		float fz;
+		vector next;
+		float width;
+		vector center;
+		vector toCenter;
+		int surf;
+		string key;
+		while (step < DM_ROAD_MAX_STEPS)
+		{
+			fx = p[0] + dir[0] * DM_ROAD_STEP;
+			fz = p[2] + dir[2] * DM_ROAD_STEP;
+			if (!dmRoadSensor.IsDrivable(fx, fz))
+			{
+				dir = TurnFan(p, dir);
+				if (dir == vector.Zero)
+				{
+					branch.Status = "deadend";
+					break;
+				}
+				fx = p[0] + dir[0] * DM_ROAD_STEP;
+				fz = p[2] + dir[2] * DM_ROAD_STEP;
+				if (!dmRoadSensor.IsDrivable(fx, fz))
+				{
+					branch.Status = "deadend";
+					break;
+				}
+			}
+
+			next = Vector(fx, 0.0, fz);
+			width = 0.0;
+			center = ReCenter(next, dir, width);
+			toCenter = center - p;
+			if (toCenter.LengthSq() > 0.0001)
+			{
+				toCenter.Normalize();
+				dir = toCenter;
+			}
+			p = center;
+
+			if (step > DM_ROAD_MIN_CLOSE_STEPS && vector.DistanceSq(p, seed) < DM_ROAD_CLOSE_DIST * DM_ROAD_CLOSE_DIST)
+			{
+				branch.Status = "loop";
+				break;
+			}
+
+			key = CellKey(p[0], p[2], DM_ROAD_DEDUP_CELL);
+			if (visited.Contains(key))
+			{
+				branch.Status = "visited";
+				break;
+			}
+
+			py = GetGame().SurfaceY(p[0], p[2]);
+			surf = dmRoadSensor.Classify(p[0], p[2]);
+			branch.Points.Insert(Vector(p[0], py, p[2]));
+			branch.Widths.Insert(width);
+			branch.Surfaces.Insert(surf);
+			branch.Steps = branch.Steps + 1;
+			step = step + 1;
+
+			#ifdef DM_BOT_DEBUG_ROADS
+			dmBotLog.Debug("[ROAD] branch step=" + step + " p=(" + p[0] + "," + p[2] + ") surf=" + surf);
+			#endif
+
+			if (step % DM_ROAD_JUNCTION_CHECK_STEP == 0 && IsJunction(p, dir, cameFrom))
+			{
+				branch.Status = "junction";
+				break;
+			}
+		}
+
+		if (branch.Status == "ok" && step >= DM_ROAD_MAX_STEPS)
+			branch.Status = "maxsteps";
+
+		return branch;
+	}
+
+	//! True when P has a road direction that is neither the current travel
+	//! direction dir nor the reverse of cameFrom — i.e., the road splits here.
+	private static bool IsJunction(vector p, vector dir, vector cameFrom)
+	{
+		vector back = Vector(-dir[0], 0.0, -dir[2]);
+		if (cameFrom != vector.Zero)
+			back = Vector(-cameFrom[0], 0.0, -cameFrom[2]);
+
+		array<vector> dirs = FindBranches(p);
+		int i;
+		for (i = 0; i < dirs.Count(); i++)
+		{
+			if (AngleDeg(dirs[i], dir) < DM_ROAD_BRANCH_MATCH_ANGLE)
+				continue;
+			if (AngleDeg(dirs[i], back) < DM_ROAD_BRANCH_MATCH_ANGLE)
+				continue;
+			return true;
+		}
+		return false;
+	}
+
+	//! Unsigned angle (degrees) between two unit vectors in the XZ plane.
+	static float AngleDeg(vector a, vector b)
+	{
+		float cross = a[0] * b[2] - a[2] * b[0];
+		float dot = a[0] * b[0] + a[2] * b[2];
+		float angleRad = Math.Atan2(Math.AbsFloat(cross), dot);
+		return angleRad * Math.RAD2DEG;
+	}
+
+	//! Dedup-grid cell key "gx:gz" for a point, using the given cell size.
+	static string CellKey(float x, float z, float cellSize)
+	{
+		int gx = Math.Floor(x / cellSize);
+		int gz = Math.Floor(z / cellSize);
+		return gx.ToString() + ":" + gz.ToString();
 	}
 };

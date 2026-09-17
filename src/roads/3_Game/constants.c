@@ -18,3 +18,19 @@ static const float DM_ROAD_BRANCH_RADIUS = 6.0;
 static const int   DM_ROAD_BRANCH_MIN_DENSITY = 3;
 //! Min sample gap between branch peaks (samples, 10° each).
 static const int   DM_ROAD_BRANCH_MIN_GAP = 4;
+
+//! Graph builder: dedup-grid cell size for visited road cells (meters).
+static const float DM_ROAD_DEDUP_CELL = 2.0;
+//! Graph builder: dedup-grid cell size for vertex positions (meters).
+static const float DM_ROAD_NODE_CELL = 3.0;
+//! Angle below which a branch is considered "going back" (degrees).
+static const float DM_ROAD_BACK_ANGLE = 30.0;
+//! Angle below which two road directions are considered the same (degrees).
+static const float DM_ROAD_BRANCH_MATCH_ANGLE = 35.0;
+//! Every N steps, check the current point for a junction (side branch).
+static const int   DM_ROAD_JUNCTION_CHECK_STEP = 3;
+//! Branches shorter than this (in steps) are discarded as garbage.
+static const int   DM_ROAD_MIN_BRANCH_STEPS = 5;
+
+//! Output path of the discovered road graph JSON.
+static const string DM_ROADS_GRAPH_FILE = "$profile:dmBotorama/roads/road_graph.json";
