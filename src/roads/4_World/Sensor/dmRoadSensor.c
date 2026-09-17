@@ -1,9 +1,10 @@
 //! dmRoadSensor — surface material classification for road discovery.
 //!
-//! Single source of truth is GetGame().SurfaceGetType(x, z, out string type):
-//! the engine fills the surface material name, whose friction (CfgSurfaces
-//! friction) drives the drivable/non-drivable split: >= DM_ROAD_FRICTION_MIN is a
-//! road (paved if >= DM_ROAD_FRICTION_PAVED, otherwise dirt). Non-drivable
+//! Single source of truth is GetGame().GetSurface(Roadway, CLOSEST): on a road it
+//! returns the road proxy surface (asphalt_ext / concrete_ext / dirt_ext), whose
+//! friction (CfgSurfaces friction) drives the drivable/non-drivable split:
+//! >= DM_ROAD_FRICTION_MIN is a road (paved if >= DM_ROAD_FRICTION_PAVED, otherwise
+//! dirt). Off-road it returns terrain (cp_dirt / cp_grass, null object). Non-drivable
 //! surfaces keep a name-based material taxonomy (see docs/plans/road-discovery.md).
 
 enum dmRoadSurfaceClass
@@ -24,8 +25,17 @@ class dmRoadSensor
 	//! Classify the surface material at (x,z).
 	static int Classify(float x, float z)
 	{
+		float terrainY = GetGame().SurfaceY(x, z);
+		SurfaceDetectionParameters p = new SurfaceDetectionParameters();
+		p.type = SurfaceDetectionType.Roadway;
+		p.position = Vector(x, terrainY, z);
+		p.rsd = RoadSurfaceDetection.CLOSEST;
+		SurfaceDetectionResult res = new SurfaceDetectionResult();
+		GetGame().GetSurface(p, res);
+
 		string type = "";
-		GetGame().SurfaceGetType(x, z, type);
+		if (res.surface)
+			type = res.surface.GetSurfaceType();
 		type.ToLower();
 		float f = GetFriction(type);
 		if (f >= DM_ROAD_FRICTION_MIN)

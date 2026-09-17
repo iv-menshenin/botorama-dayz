@@ -1,0 +1,10 @@
+{
+  "Name": "surfshootout-settlement",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "surfshootout", "Pos": [2877, 0, 12409] },
+    { "Op": "surfshootout", "Pos": [2911, 0, 12474] },
+    { "Op": "surfshootout", "Pos": [2983, 0, 12466] },
+    { "Op": "surfshootout", "Pos": [2979, 0, 12513] }
+  ]
+}
