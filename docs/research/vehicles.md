@@ -432,3 +432,200 @@ proto void dBodyApplyImpulseAt(notnull IEntity body, vector impulse, vector pos)
 6. `[нужно подтвердить]` **`OnInput` на сервере для серверного ИИ** — вызывается ли `Transport.OnInput`
    на сервере для машины с серверным водителем-ботом (не только на клиенте-овнере)? От этого
    зависит, где крутить `SetThrottle`/`SetSteering`.
+
+## Вождение: дорожный pathfinding
+
+Цель: понять, как построить маршрут ПО ДОРОГАМ (для автомобиля), а не по пешеходному navmesh,
+и выбрать минимальный жизнеспособный подход для botorama.
+
+Источники: ваниль `/home/devalio/dayz/Work/DayZ-Script-Diff/scripts`, эталон —
+`DayZ-Expansion-Scripts/.../Classes/Roads/` (`eAIRoadNetwork` и др.) + AI-вождение
+`DayZExpansion_AI/.../Entities/CarScript.c`.
+
+### 1. Как DayZ детектит «дорогу» — три кандидата
+
+**а) navmesh `PGAreaType.ROADWAY`** — это НЕ детектор, а только cost-подсказка navmesh-поиска.
+- `enum PGAreaType` (`3_game/ai/aiworld.c:28`), `ROADWAY` = строка 42, `ROADWAY_BUILDING` = 44.
+- `PGFilter.SetCost(PGAreaType areaType, float cost)` — `proto native` (`aiworld.c:67`).
+- **В ванили `SetCost(ROADWAY, ...)` нигде не вызывается** (grep по ванильным скриптам даёт
+  только объявление enum + объявление `SetCost`). Ваниль вообще не использует ROADWAY для
+  поиска. ROADWAY появляется только в `PGAreaType`/`PhxInteractionLayers` (физика, `dayzphysics.c:11`)
+  и как area-тип навмеша.
+
+**б) дорожные ОБЪЕКТЫ** — `eAIRoadNode.ObjectIsRoad(obj, geometry)` (`eAIRoadNode.c:322-337`):
+```c
+static bool ObjectIsRoad(Object obj, LOD geometry)
+{
+	for ( int i = 0; i < geometry.GetPropertyCount(); ++i )
+	{
+		string name = geometry.GetPropertyName(i);
+		string value = geometry.GetPropertyValue(i);
+		name.ToLower();
+		value.ToLower();
+		if (name == "class")
+		{
+			return value == "road";
+		}
+	}
+	return false;
+}
+```
+Механизм: у дорожного объекта в LOD **"geometry"** есть named-property `class="road"`.
+`GetLODByName("geometry")` — `3_game/entities/object.c:106` (возвращает LOD по имени);
+`LOD.GetPropertyCount/GetPropertyName/GetPropertyValue` — `3_game/gameplay.c:241-243` (named
+properties p3d). Это **рабочий на-лету детектор**: перебрать объекты рядом
+(`Game.GetObjectsAtPosition`, `game.c:912`) → `GetLODByName("geometry")` → `ObjectIsRoad`.
+Не требует prefetch-графа.
+
+**в) `Game.SurfaceRoadY(x, z, rsd)`** — натив (`3_game/global/game.c:1153-1154`):
+```c
+proto native float SurfaceRoadY(float x, float z, RoadSurfaceDetection rsd = RoadSurfaceDetection.LEGACY);
+proto native float SurfaceRoadY3D(float x, float y, float z, RoadSurfaceDetection rsd);
+```
+Возвращает Y «roadway»-поверхности (driving surface = terrain + дорожные объекты с roadway-LOD:
+дороги/мосты/тротуары). `RoadSurfaceDetection` (`3_game/constants.c:40-50`) — вертикальные
+направления: `UNDER`/`ABOVE`/`CLOSEST`/`LEGACY`. Более общий вариант —
+`Game.GetSurface(SurfaceDetectionParameters, SurfaceDetectionResult)` (`game.c:1150`) с
+`SurfaceDetectionType.Roadway` (`3_game/surfaceinfo.c:65-69`): возвращает не только высоту, но и
+`SurfaceInfo` (тип поверхности) + объект + нормаль (`surfaceinfo.c:99-122`). Именно его ваниль
+использует, чтобы узнать нормаль «дороги/камня/моста» под машиной (`transport.c:308-327`,
+комментарий «trace roadway, incase the vehicle is on a rock, or bridge»).
+
+Вывод по Q1: «дорога» опознаётся (б) по объекту (`class="road"` в geometry-LOD) и (в) по
+поверхности (`GetSurface(Roadway)` → тип). (а) ROADWAY — не детектор, только вес.
+
+### 2. Expansion `eAIRoadNetwork` — устройство графа
+
+Файлы (`Classes/Roads/`): `eAIRoadNetwork.c` (819 строк), `eAIRoadNode.c` (338),
+`eAIRoadSection.c` (147), `eAIRoadNodeSection.c` (23), `eAIRoadNodeBase.c` (4),
+`eAIRoadNodeJoinMap.c` (17, включает `eAIRoadConnection`). Зависимости: `ExpansionPathNode`
+(`Classes/PathFinding/PathNode.c`, 48) и `ExpansionPathHandler`.
+
+**а) Как строятся узлы/секции.**
+- `_Generate` (`eAIRoadNetwork.c:328-661`): `g_Game.GetObjectsAtPosition(position, radius,
+  objects, proxyCargos)` (`:356`) → отсев камер/партиклов/кричеров/манов/транспорта/предметов
+  (`:358-367`) → `obj.GetLODByName("geometry")` + `ObjectIsRoad` (`:368-369`) → `eAIRoadNode.Generate`.
+- `eAIRoadNode.Generate` (`eAIRoadNode.c:100-211`): узлы из **memory-points** дорожного объекта.
+  Пары точек = концы куска дороги: `ROAD_MEMORY_POINT_PAIRS = {"LB","PB","LE","PE","LD","LH","PD","PH"}`
+  (`eAIRoadNode.c:3-9`). Для каждой пары — `MemoryPointExists` + `GetMemoryPointPos` →
+  `ModelToWorld` → середина = connection (`:111-132`). Если memory-points нет — fallback на
+  `obj.ClippingInfo(min_max)` (bounding box) и концы по min/max Z (`:134-171`).
+- Соединение узлов (`eAIRoadNetwork.c:390-589`): (1) «Memory Points» — связать близкие
+  connections соседних кусков (отсекая заблокированные через `aiWorld.RaycastNavMesh`,
+  `:413`); (2) «Far» — доистязать изолированные узлы по радиусу; (3) чистка треугольников,
+  «Fixing missing links», `Optimize()` (схлопывание почти коллинеарных узлов `eAIRoadNode.c:213-279`).
+- Секции (`GenerateSections` `eAIRoadNetwork.c:192-278`): цепочка узлов с ровно 2 соседями =
+  «отрезок дороги»; узлы-перекрёстки (≠2 соседей) = `eAIRoadNodeSection` (концы секций).
+
+**б) Как ищется путь.** **НИКАК.** `FindPath` и `_FindPath` — пустые заглушки
+(`eAIRoadNetwork.c:805-818`, весь код закомментирован). `eAIRoadNode.PathTo`
+(`eAIRoadNode.c:55-71`) — только обход простой 2-соседней цепочки, не общий графовый поиск.
+Dijkstra/A* **не реализованы**.
+
+**в) Портировать целиком?** **Нет — и вот почему это критично:** вся сеть в Expansion — мёртвый/
+экспериментальный код. `m_Network.Init()` закомментирован (`ExpansionWorld.c:30`), триггер
+генерации `m_Network.NotifyGenerate(...)` — внутри `/* */` блока (`ExpansionWorld.c:435-457`),
+`GetRoadNetwork()` (`:466-469`) нигде не вызывается. **Реальное ИИ-вождение Expansion идёт по
+пешеходному navmesh**: `CarScript.OnInput` (`DayZExpansion_AI/.../Entities/CarScript.c:81`)
+берёт следующий вейпоинт из `driver.m_PathFinding.GetNext(wayPoint)` — это `ExpansionPathHandler`
+(navmesh `FindPath`), а не road graph. Т.е. эталонного рабочего road-graph'а у Expansion НЕТ —
+есть только набросок построения графа без поиска пути.
+
+### 3. `ObjectIsRoad` — точный механизм
+
+См. Q1(б). Определение дороги = named-property `class="road"` в LOD `"geometry"` объекта.
+`LOD` названия стандартные (`3_game/gameplay.c:203-210`): `NAME_GEOMETRY="geometry"`,
+`NAME_ROADWAY="roadway"`. Т.е. есть два разных LOD'а: `"geometry"` (для детекта по свойству
+`class="road"`) и `"roadway"` (driving surface, по которому идёт `GetSurface(Roadway)`).
+
+**Можно ли детектить дорогу на лету, без prefetch-графа?** Да:
+`GetObjectsAtPosition(pos, r, objects, null)` → `obj.GetLODByName("geometry")` →
+`ObjectIsRoad`. Ограничения: `GetObjectsAtPosition` возвращает только **загруженные/стримящиеся**
+объекты в радиусе (дороги — static, стримятся как часть сцены, радиус практический `[нужно проверить]`),
+и надо отсеивать не-дороги (ваниль/Expansion отсеивают man/transport/item/camera и т.п.).
+Альтернатива для «найти дорожные объекты в боксе» — `DayZPlayerUtils.SceneGetEntitiesInBox(min, max,
+entList, QueryFlags.ONLY_ROADWAYS)` (`4_world/entities/dayzplayerutils.c:75`, `ONLY_ROADWAYS` =
+`:11`). **Готча** (см. `decisions.md`): `QueryFlags` — последовательный enum, `ONLY_ROADWAYS=4`,
+поэтому его НЕЛЬЗЯ комбинировать с `STATIC|DYNAMIC` через `|` — либо только roadways, либо
+static/dynamic, двумя отдельными вызовами.
+
+### 4. Надёжность navmesh `ROADWAY` на реальных дорогах
+
+Expansion использует `ROADWAY` только как мягкий вес, причём **равный TERRAIN**: в
+`expansionpathfilters.c:146` и `:151` — `SetCost(PGAreaType.ROADWAY, 4.0)` и
+`SetCost(PGAreaType.TERRAIN, 4.0)` (одинаково!), `ROADWAY_BUILDING` = 1.0 (`:153`). Т.е. Expansion
+даже **не предпочитает** дорогу в пешем поиске — ROADWAY тут лишь «не штрафовать», а не
+«ехать по дороге». Это косвенное, но сильное подтверждение, что полагаться на ROADWAY-навмеш как
+на «дорогу» нельзя. Плюс собственный факт botorama (`decisions.md:131`): ROADWAY-навмеш
+фрагментирован, дорожный маршрут усечён → fallback на пеший. Вывод: надёжный дорожный путь —
+**дорожный граф по объектам/поверхности**, а не navmesh-ROADWAY.
+
+### 5. `SurfaceRoadY` — сигнатура и семантика
+
+Сигнатуры — Q1(в). Возвращает Y дорожной поверхности в точке (x,z). `RoadSurfaceDetection.CLOSEST`
+ищет поверхность **вертикально** ближайшую к точке (над/под), НЕ по горизонтали. Парного натива
+«ближайшая точка на дороге (горизонталь)» **нет**. Expansion-хелпер `GetSurfaceRoadPosition`
+(`ExpansionStatic.c:2706-2709`) делает просто `Vector(x, roadY, z)` — сохраняет x,z и снэпает
+только Y, горизонтально на дорогу НЕ тянет.
+
+Для «притянуть точку на дорогу» по горизонтали натива нет; варианты:
+- перебрать ближайшие road-объекты (`GetObjectsAtPosition`/`SceneGetEntitiesInBox(ONLY_ROADWAYS)`)
+  и проецировать на их centerline/memory-points;
+- сетка сэмплов вокруг точки + `GetSurface(Roadway)` → выбрать сэмпл, чей `SurfaceInfo` — дорога.
+
+Открытый вопрос семантики: что возвращает `SurfaceRoadY` ВНЕ дороги (нет roadway-объекта под
+точкой)? Гипотеза — fallback на terrain (по аналогии с трапами/`undergroundstash.c:8`,
+которым нужно ложиться и на траву), но это `[нужно проверить]` (см. гипотезы).
+
+### 6. Практическая рекомендация для botorama (ранжированно)
+
+Ключевой факт: эталонного рабочего road-pathfinder нигде нет (Expansion-граф — заглушка без
+поиска; navmesh-ROADWAY фрагментирован). Значит «списать» не с чего — выбираем по усилию/эффекту.
+
+1. **(г) Явная полилиния (точки излома дороги от пользователя) + снэп** — **рекомендуемый MVP.**
+   Уже есть waypoint-вождение; подаём вершины полилинии как вейпоинты, каждую снэпаем на дорогу
+   через `GetSurface(Roadway)`/`SurfaceRoadY` (Y-снэп) и доводкой по road-объектам при необходимости.
+   Усилие минимально, детерминированно, тестируемо на ВПП. Минус: нужны авторские данные, нет
+   динамического перестроения маршрута.
+2. **(в) «снэп пешего пути на дорогу»** — дёшево, но слабо: `SurfaceRoadY` двигает только Y, путь
+   не ложится на дорогу горизонтально и по-прежнему может срезать по полю. Годится только как
+   компонент Y-снэпа внутри (г), не как самостоятельный pathfinder.
+3. **(б) navmesh-ROADWAY с весами** — уже опробовано, фрагментировано; оставить только как мягкое
+   предпочтение (cost ниже TERRAIN) поверх (г), но не как гарантию.
+4. **(а) Дорожный граф по road-объектам (как Expansion)** — максимальная точность, но (i) Expansion
+   не доделал даже поиск пути, (ii) объём ~1300 строк только построения графа + нужно самому писать
+   Dijkstra/A*, (iii) зависит от memory-points конкретных road-моделей (см. гипотезу 3). Брать
+   ТОЛЬКО если (г) окажется недостаточно (нужен произвольный A→B без авторских данных).
+
+Итог: начать с **(г) + (в)** (полилиния + Y-снэп через `GetSurface(Roadway)`), а `ObjectIsRoad`
+(`class="road"` в geometry-LOD) держать как готовый на-лету детектор для будущего авто-вывода
+точек дороги (или для `SceneGetEntitiesInBox(ONLY_ROADWAYS)`).
+
+### Гипотезы для эмпирической проверки
+
+1. `[нужно проверить]` **`SurfaceRoadY` вне дороги**: что возвращает `SurfaceRoadY(x,z)` в точке на
+   траве/в лесу (далеко от дороги) — высоту terrain (как `SurfaceY`) или что-то иное (0 / ближайшую
+   дорогу)? Probe: лог `SurfaceRoadY` vs `SurfaceY` в 3-4 точках (на дороге, на траве у дороги, в лесу).
+2. `[нужно проверить]` **Детект road-объектов на РЕАЛЬНОЙ дороге**: возвращает ли
+   `GetObjectsAtPosition`/`SceneGetEntitiesInBox(ONLY_ROADWAYS)` road-объекты на обычной (не ВПП)
+   дороге, и какой практический радиус (объекты стримятся)? Probe: `scanbox`/`spawnobj` около
+   известной дороги + лог `GetLODByName("geometry")` property `class`.
+3. `[нужно проверить]` **Memory-points дорог**: есть ли у ВАНИЛЬНЫХ road-объектов memory-points
+   `LB/PB/LE/PE/LD/LH/PD/PH` (или это только у Expansion-моделей)? Без них node-building по
+   образцу Expansion не взлетит. Probe: на ванильном road-объекте `MemoryPointExists` для этих имён
+   + `GetMemoryPointPos`.
+4. `[нужно подтвердить]` **`GetSurface(Roadway)` различает дорогу/траву**: возвращает ли
+   `SurfaceDetectionResult.surface.GetName()/GetSurfaceType()` (напр. «concrete»/«asphalt» vs «grass»)
+   на дороге vs на траве, чтобы по точке решать «это дорога»? Probe: `GetSurface` с
+   `SurfaceDetectionType.Roadway` на/вне дороги, лог `surface.GetName()`.
+
+### Существенные развилки и принятые решения (для журнала)
+
+- **Развилка:** «по какому источнику строить дорожный путь — navmesh-ROADWAY / road-объекты /
+  SurfaceRoadY / полилиния от пользователя». **Решение:** для MVP — полилиния + Y-снэп (г+в);
+  navmesh-ROADWAY признан ненадёжным (фрагментация + Expansion не использует его для следования
+  по дороге), road-graph по объектам — отложить (Expansion-реализация не закончена). Влияет на
+  архитектуру drive-интента (подавать явные вейпоинты дороги, а не полагаться на FindPathTo).
+- **Развилка:** «портировать ли `eAIRoadNetwork` как готовый road-pathfinder». **Решение:** НЕ
+  портировать — в самом Expansion это мёртвый код (Init закомментирован, FindPath пустой, реальный
+  водитель едет по navmesh). Экономия ~1300+ строк и несуществующего поиска пути.
