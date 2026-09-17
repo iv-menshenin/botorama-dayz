@@ -9,7 +9,7 @@
 //! shock | restrain | give | wait | assert | snapshot | clearall (named bots)
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
-//! surfprobe | surfshootout | roadwalk | roadobj | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
+//! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
 //! drive | cardump, and observe (teleport a connected player). `wait` and `sleep`
 //! are the deferred ops: they tick across frames (wait until a condition is met
 //! or its timeout expires; sleep until its timeout). Everything else executes in
@@ -414,6 +414,10 @@ class dmE2EBridge
 		else if (step.Op == "roadgraph")
 		{
 			RunRoadGraph(step, r);
+		}
+		else if (step.Op == "roadnet")
+		{
+			RunRoadNet(step, r);
 		}
 		else if (step.Op == "roadobj")
 		{
@@ -1558,6 +1562,67 @@ class dmE2EBridge
 			seeds.Insert(step.Points[i]);
 
 		dmRoadGraph graph = dmRoadGraphBuilder.Build(seeds);
+		bool saved = dmRoadGraphIO.Save(graph, DM_ROADS_GRAPH_FILE);
+
+		int nodeCount = graph.Nodes.Count();
+		int edgeCount = graph.Edges.Count();
+		AppendDump(r, "nodes=" + nodeCount + " edges=" + edgeCount);
+
+		int ni;
+		for (ni = 0; ni < nodeCount; ni++)
+		{
+			dmRoadGraphNode n = graph.Nodes[ni];
+			string nline = "n=" + n.Id + " pos=(" + n.Pos[0] + "," + n.Pos[2] + ") kind=" + n.Kind;
+			AppendDump(r, nline);
+		}
+
+		int ei;
+		float total = 0.0;
+		for (ei = 0; ei < edgeCount; ei++)
+		{
+			dmRoadGraphEdge e = graph.Edges[ei];
+			total = total + e.Length;
+			string eline = "e=" + e.Id + " from=" + e.From + " to=" + e.To;
+			eline = eline + " len=" + e.Length + " surf=" + e.SurfaceType + " pts=" + e.Points.Count();
+			AppendDump(r, eline);
+
+			string pline = "";
+			int pi;
+			for (pi = 0; pi < e.Points.Count(); pi++)
+			{
+				if (pi > 0)
+					pline = pline + " ";
+				pline = pline + "ep=(" + e.Points[pi][0] + "," + e.Points[pi][2] + ")";
+			}
+			AppendDump(r, pline);
+		}
+		AppendDump(r, "totalLen=" + total);
+
+		r.Ok = saved;
+		r.Reason = "" + nodeCount + " nodes / " + edgeCount + " edges";
+	}
+
+	//! "roadnet" — build the road graph from road objects (memory points) in the
+	//! Min..Max area (fallback: Pos ±500 m when Min/Max are zero), save it to JSON
+	//! and dump it like roadgraph: nodes summary, one "n=" line per vertex, one
+	//! "e=" header + one "ep=" polyline line per edge.
+	private void RunRoadNet(dmE2EStep step, dmE2EStepResult r)
+	{
+		vector min;
+		vector max;
+		if (step.Min == vector.Zero && step.Max == vector.Zero)
+		{
+			vector center = ResolveWorldPos(step.Pos);
+			min = center - Vector(500.0, 0.0, 500.0);
+			max = center + Vector(500.0, 0.0, 500.0);
+		}
+		else
+		{
+			min = ResolveWorldPos(step.Min);
+			max = ResolveWorldPos(step.Max);
+		}
+
+		dmRoadGraph graph = dmRoadObjectGraphBuilder.Build(min, max);
 		bool saved = dmRoadGraphIO.Save(graph, DM_ROADS_GRAPH_FILE);
 
 		int nodeCount = graph.Nodes.Count();
