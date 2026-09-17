@@ -9,7 +9,7 @@
 //! shock | restrain | give | wait | assert | snapshot | clearall (named bots)
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
-//! surfprobe | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
+//! surfprobe | roadwalk | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
 //! drive | cardump, and observe (teleport a connected player). `wait` and `sleep`
 //! are the deferred ops: they tick across frames (wait until a condition is met
 //! or its timeout expires; sleep until its timeout). Everything else executes in
@@ -402,6 +402,10 @@ class dmE2EBridge
 		else if (step.Op == "surfprobe")
 		{
 			RunSurfProbe(step, r);
+		}
+		else if (step.Op == "roadwalk")
+		{
+			RunRoadWalk(step, r);
 		}
 		else if (step.Op == "botdump")
 		{
@@ -1343,6 +1347,38 @@ class dmE2EBridge
 		line += " objSurf=\"" + objSurf + "\" objSurfType=\"" + objSurfType + "\"";
 		line += " roadH=" + res.height + " ok=" + ok;
 		AppendDump(r, line);
+	}
+
+	//! "roadwalk" — run the road discovery probe from step.Pos and dump the
+	//! centerline polyline (status, then one line per point).
+	private void RunRoadWalk(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmRoadProbeResult res = dmRoadProbe.Walk(Vector(step.Pos[0], 0.0, step.Pos[2]));
+		AppendDump(r, "status=" + res.Status + " steps=" + res.Steps);
+		if (res.Points)
+		{
+			int i;
+			string line;
+			vector p;
+			float w;
+			int c;
+			for (i = 0; i < res.Points.Count(); i++)
+			{
+				p = res.Points[i];
+				w = 0.0;
+				if (res.Widths && i < res.Widths.Count())
+					w = res.Widths[i];
+				c = dmRoadSurfaceClass.ROAD_UNKNOWN;
+				if (res.Surfaces && i < res.Surfaces.Count())
+					c = res.Surfaces[i];
+				line = "pt=(" + p[0] + "," + p[2] + ")";
+				line += " y=" + p[1];
+				line += " w=" + w + " c=" + c;
+				AppendDump(r, line);
+			}
+		}
+		r.Ok = (res.Status == "ok" || res.Status == "loop");
+		r.Reason = res.Status + " / " + res.Steps + " pts";
 	}
 
 	//! Dump the named bot's body/motion/brain state as a set of lines.

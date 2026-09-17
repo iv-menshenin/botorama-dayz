@@ -43,7 +43,7 @@ if [ -d "$TMP" ]; then
     find "$TMP" -mindepth 1 -delete 2>/dev/null || true
 fi
 
-MODULES="cons reg core map loadout test"
+MODULES="cons reg core map loadout roads test"
 
 # --- Режим defines: --prod | (default, functional) | --test ---
 #   --prod            -> только DM_BOT_PROFILE (минимальный прод-билд)
@@ -58,7 +58,7 @@ case "${1:-}" in
 esac
 
 # Модули, у которых есть defines[] (gated call sites; cons/reg — без defines).
-DEFINES_FILES="core map loadout test"
+DEFINES_FILES="core map loadout roads test"
 
 build_defines_list() {
     if [ "$MODE" = "prod" ]; then
