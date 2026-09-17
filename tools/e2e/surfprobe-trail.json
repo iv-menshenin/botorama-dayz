@@ -1,0 +1,7 @@
+{
+  "Name": "surfprobe-trail",
+  "Timeout": 60,
+  "Steps": [
+    { "Op": "surfprobe", "Pos": [1149.43, 0, 12172.34] }
+  ]
+}
