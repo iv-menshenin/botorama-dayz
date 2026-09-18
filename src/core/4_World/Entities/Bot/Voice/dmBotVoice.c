@@ -49,7 +49,7 @@ class dmBotVoice
 		case dmVoiceCategory.PATROL:          return 5;
 		case dmVoiceCategory.AIMED_AT:        return 5;
 		case dmVoiceCategory.HEARD_SHOT:      return 5;
-		case dmVoiceCategory.GOT_SHOT:        return 3;
+		case dmVoiceCategory.GOT_SHOT:        return 5;
 		case dmVoiceCategory.COMBAT:          return 5;
 		case dmVoiceCategory.ESCORT:          return 3;
 		}
@@ -111,6 +111,8 @@ class dmBotVoice
 		case 701: return "dmBotVoice_what_a_hit_SoundSet";
 		case 702: return "dmBotVoice_on_me_on_me_SoundSet";
 		case 703: return "dmBotVoice_im_shot_SoundSet";
+		case 704: return "dmBotVoice_bandaging_SoundSet";
+		case 705: return "dmBotVoice_bleeding_SoundSet";
 		// combat
 		case 801: return "dmBotVoice_here_we_go_SoundSet";
 		case 802: return "dmBotVoice_fun_begins_SoundSet";

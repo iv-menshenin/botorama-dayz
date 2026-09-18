@@ -815,6 +815,28 @@ class CfgSoundShaders
 		};
 		volume=1;
 	};
+	class dmBotVoice_bandaging_SoundShader : baseCharacter_SoundShader
+	{
+		samples[]=
+		{
+			{
+				"dm_core\voices\got_shot\bandaging",
+				1
+			}
+		};
+		volume=1;
+	};
+	class dmBotVoice_bleeding_SoundShader : baseCharacter_SoundShader
+	{
+		samples[]=
+		{
+			{
+				"dm_core\voices\got_shot\bleeding",
+				1
+			}
+		};
+		volume=1;
+	};
 
 	// combat
 	class dmBotVoice_here_we_go_SoundShader : baseCharacter_SoundShader
@@ -920,7 +942,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_dandy_SoundShader"
 		};
-		duration=1.04;
+		duration=1.85;
 	};
 	class dmBotVoice_what_a_fruit_SoundSet : baseCharacter_SoundSet
 	{
@@ -928,7 +950,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_what_a_fruit_SoundShader"
 		};
-		duration=1.04;
+		duration=1.31;
 	};
 	class dmBotVoice_sour_face_SoundSet : baseCharacter_SoundSet
 	{
@@ -936,7 +958,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_sour_face_SoundShader"
 		};
-		duration=1.04;
+		duration=2.19;
 	};
 	class dmBotVoice_like_a_bum_SoundSet : baseCharacter_SoundSet
 	{
@@ -944,7 +966,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_like_a_bum_SoundShader"
 		};
-		duration=1.04;
+		duration=3.00;
 	};
 	class dmBotVoice_life_worn_SoundSet : baseCharacter_SoundSet
 	{
@@ -952,7 +974,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_life_worn_SoundShader"
 		};
-		duration=1.04;
+		duration=3.19;
 	};
 	class dmBotVoice_familiar_face_SoundSet : baseCharacter_SoundSet
 	{
@@ -960,7 +982,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_familiar_face_SoundShader"
 		};
-		duration=1.04;
+		duration=3.11;
 	};
 	class dmBotVoice_hey_there_SoundSet : baseCharacter_SoundSet
 	{
@@ -968,7 +990,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_hey_there_SoundShader"
 		};
-		duration=1.04;
+		duration=1.88;
 	};
 	class dmBotVoice_my_respects_SoundSet : baseCharacter_SoundSet
 	{
@@ -976,7 +998,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_my_respects_SoundShader"
 		};
-		duration=1.04;
+		duration=1.78;
 	};
 	class dmBotVoice_glad_to_see_SoundSet : baseCharacter_SoundSet
 	{
@@ -984,7 +1006,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_glad_to_see_SoundShader"
 		};
-		duration=1.04;
+		duration=2.46;
 	};
 	class dmBotVoice_what_people_SoundSet : baseCharacter_SoundSet
 	{
@@ -992,7 +1014,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_what_people_SoundShader"
 		};
-		duration=1.04;
+		duration=2.14;
 	};
 
 	// wake
@@ -1002,7 +1024,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_why_not_dead_SoundShader"
 		};
-		duration=1.04;
+		duration=3.19;
 	};
 	class dmBotVoice_it_hurts_SoundSet : baseCharacter_SoundSet
 	{
@@ -1010,7 +1032,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_it_hurts_SoundShader"
 		};
-		duration=1.04;
+		duration=2.51;
 	};
 	class dmBotVoice_screw_it_all_SoundSet : baseCharacter_SoundSet
 	{
@@ -1018,7 +1040,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_screw_it_all_SoundShader"
 		};
-		duration=1.04;
+		duration=1.93;
 	};
 	class dmBotVoice_what_happened_SoundSet : baseCharacter_SoundSet
 	{
@@ -1026,7 +1048,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_what_happened_SoundShader"
 		};
-		duration=1.04;
+		duration=2.69;
 	};
 	class dmBotVoice_screw_everyone_SoundSet : baseCharacter_SoundSet
 	{
@@ -1034,7 +1056,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_screw_everyone_SoundShader"
 		};
-		duration=1.04;
+		duration=2.22;
 	};
 
 	// passenger
@@ -1044,7 +1066,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_best_driver_SoundShader"
 		};
-		duration=1.04;
+		duration=2.93;
 	};
 	class dmBotVoice_not_firewood_SoundSet : baseCharacter_SoundSet
 	{
@@ -1052,7 +1074,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_not_firewood_SoundShader"
 		};
-		duration=1.04;
+		duration=2.06;
 	};
 	class dmBotVoice_should_take_bus_SoundSet : baseCharacter_SoundSet
 	{
@@ -1060,7 +1082,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_should_take_bus_SoundShader"
 		};
-		duration=1.04;
+		duration=1.96;
 	};
 	class dmBotVoice_that_hurt_SoundSet : baseCharacter_SoundSet
 	{
@@ -1068,7 +1090,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_that_hurt_SoundShader"
 		};
-		duration=1.04;
+		duration=2.69;
 	};
 	class dmBotVoice_still_alive_SoundSet : baseCharacter_SoundSet
 	{
@@ -1076,7 +1098,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_still_alive_SoundShader"
 		};
-		duration=1.04;
+		duration=3.11;
 	};
 
 	// idle
@@ -1086,7 +1108,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_so_sleepy_SoundShader"
 		};
-		duration=1.04;
+		duration=4.18;
 	};
 	class dmBotVoice_no_money_SoundSet : baseCharacter_SoundSet
 	{
@@ -1094,7 +1116,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_no_money_SoundShader"
 		};
-		duration=1.04;
+		duration=4.49;
 	};
 	class dmBotVoice_good_days_work_SoundSet : baseCharacter_SoundSet
 	{
@@ -1102,7 +1124,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_good_days_work_SoundShader"
 		};
-		duration=1.04;
+		duration=4.34;
 	};
 	class dmBotVoice_shoot_someone_SoundSet : baseCharacter_SoundSet
 	{
@@ -1110,7 +1132,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_shoot_someone_SoundShader"
 		};
-		duration=1.04;
+		duration=2.77;
 	};
 
 	// patrol
@@ -1120,7 +1142,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_greedy_bastard_SoundShader"
 		};
-		duration=1.04;
+		duration=7.97;
 	};
 	class dmBotVoice_you_are_the_man_SoundSet : baseCharacter_SoundSet
 	{
@@ -1128,7 +1150,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_you_are_the_man_SoundShader"
 		};
-		duration=1.04;
+		duration=10.14;
 	};
 	class dmBotVoice_west_is_fine_SoundSet : baseCharacter_SoundSet
 	{
@@ -1136,7 +1158,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_west_is_fine_SoundShader"
 		};
-		duration=1.04;
+		duration=8.12;
 	};
 	class dmBotVoice_shoot_a_boar_SoundSet : baseCharacter_SoundSet
 	{
@@ -1144,7 +1166,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_shoot_a_boar_SoundShader"
 		};
-		duration=1.04;
+		duration=10.81;
 	};
 	class dmBotVoice_pissed_himself_SoundSet : baseCharacter_SoundSet
 	{
@@ -1152,7 +1174,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_pissed_himself_SoundShader"
 		};
-		duration=1.04;
+		duration=9.27;
 	};
 
 	// aimed_at
@@ -1162,7 +1184,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_put_gun_down_SoundShader"
 		};
-		duration=1.04;
+		duration=2.35;
 	};
 	class dmBotVoice_where_aiming_SoundSet : baseCharacter_SoundSet
 	{
@@ -1170,7 +1192,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_where_aiming_SoundShader"
 		};
-		duration=1.04;
+		duration=1.23;
 	};
 	class dmBotVoice_you_joking_SoundSet : baseCharacter_SoundSet
 	{
@@ -1178,7 +1200,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_you_joking_SoundShader"
 		};
-		duration=1.04;
+		duration=1.85;
 	};
 	class dmBotVoice_careful_SoundSet : baseCharacter_SoundSet
 	{
@@ -1186,7 +1208,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_careful_SoundShader"
 		};
-		duration=1.04;
+		duration=1.10;
 	};
 	class dmBotVoice_never_point_gun_SoundSet : baseCharacter_SoundSet
 	{
@@ -1194,7 +1216,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_never_point_gun_SoundShader"
 		};
-		duration=1.04;
+		duration=3.13;
 	};
 
 	// heard_shot
@@ -1204,7 +1226,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_shooting_SoundShader"
 		};
-		duration=1.04;
+		duration=1.31;
 	};
 	class dmBotVoice_someone_fun_SoundSet : baseCharacter_SoundSet
 	{
@@ -1212,7 +1234,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_someone_fun_SoundShader"
 		};
-		duration=1.04;
+		duration=1.85;
 	};
 	class dmBotVoice_they_going_hard_SoundSet : baseCharacter_SoundSet
 	{
@@ -1220,7 +1242,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_they_going_hard_SoundShader"
 		};
-		duration=1.04;
+		duration=2.61;
 	};
 	class dmBotVoice_action_without_me_SoundSet : baseCharacter_SoundSet
 	{
@@ -1228,7 +1250,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_action_without_me_SoundShader"
 		};
-		duration=1.04;
+		duration=3.97;
 	};
 	class dmBotVoice_no_rest_SoundSet : baseCharacter_SoundSet
 	{
@@ -1236,7 +1258,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_no_rest_SoundShader"
 		};
-		duration=1.04;
+		duration=2.04;
 	};
 
 	// got_shot
@@ -1246,7 +1268,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_what_a_hit_SoundShader"
 		};
-		duration=1.04;
+		duration=1.72;
 	};
 	class dmBotVoice_on_me_on_me_SoundSet : baseCharacter_SoundSet
 	{
@@ -1254,7 +1276,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_on_me_on_me_SoundShader"
 		};
-		duration=1.04;
+		duration=1.59;
 	};
 	class dmBotVoice_im_shot_SoundSet : baseCharacter_SoundSet
 	{
@@ -1262,7 +1284,23 @@ class CfgSoundSets
 		{
 			"dmBotVoice_im_shot_SoundShader"
 		};
-		duration=1.04;
+		duration=1.07;
+	};
+	class dmBotVoice_bandaging_SoundSet : baseCharacter_SoundSet
+	{
+		soundShaders[]=
+		{
+			"dmBotVoice_bandaging_SoundShader"
+		};
+		duration=0.84;
+	};
+	class dmBotVoice_bleeding_SoundSet : baseCharacter_SoundSet
+	{
+		soundShaders[]=
+		{
+			"dmBotVoice_bleeding_SoundShader"
+		};
+		duration=0.97;
 	};
 
 	// combat
@@ -1272,7 +1310,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_here_we_go_SoundShader"
 		};
-		duration=1.04;
+		duration=1.41;
 	};
 	class dmBotVoice_fun_begins_SoundSet : baseCharacter_SoundSet
 	{
@@ -1280,7 +1318,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_fun_begins_SoundShader"
 		};
-		duration=1.04;
+		duration=1.41;
 	};
 	class dmBotVoice_contact_SoundSet : baseCharacter_SoundSet
 	{
@@ -1288,7 +1326,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_contact_SoundShader"
 		};
-		duration=1.04;
+		duration=0.73;
 	};
 	class dmBotVoice_who_else_SoundSet : baseCharacter_SoundSet
 	{
@@ -1296,7 +1334,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_who_else_SoundShader"
 		};
-		duration=1.04;
+		duration=1.62;
 	};
 	class dmBotVoice_future_corpses_SoundSet : baseCharacter_SoundSet
 	{
@@ -1304,7 +1342,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_future_corpses_SoundShader"
 		};
-		duration=1.04;
+		duration=1.54;
 	};
 
 	// escort
@@ -1314,7 +1352,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_lets_go_ready_SoundShader"
 		};
-		duration=1.04;
+		duration=1.49;
 	};
 	class dmBotVoice_anywhere_SoundSet : baseCharacter_SoundSet
 	{
@@ -1322,7 +1360,7 @@ class CfgSoundSets
 		{
 			"dmBotVoice_anywhere_SoundShader"
 		};
-		duration=1.04;
+		duration=1.72;
 	};
 	class dmBotVoice_no_time_to_smoke_SoundSet : baseCharacter_SoundSet
 	{
@@ -1330,6 +1368,6 @@ class CfgSoundSets
 		{
 			"dmBotVoice_no_time_to_smoke_SoundShader"
 		};
-		duration=1.04;
+		duration=2.14;
 	};
 };
