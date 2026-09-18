@@ -5,7 +5,7 @@
 #   SteamLinuxRuntime_4/_v2-entry-point --verb=waitforexitandrun -- \
 #     'Proton Hotfix'/proton waitforexitandrun '<exe>' <args>
 #
-# Для каждого модуля src/{cons,reg,core,map,loadout,test}:
+# Для каждого модуля src/{cons,reg,core,map,loadout,roads,test}:
 #   AddonBuilder <src> <build_dir> -prefix=dm_<модуль> -clear \
 #     -include=tools/include.lst -sign=<devalio.biprivatekey>
 # → build/<модуль>.pbo + build/<модуль>.pbo.devalio.bisign
@@ -45,16 +45,19 @@ fi
 
 MODULES="cons reg core map loadout roads test"
 
-# --- Режим defines: --prod | (default, functional) | --test ---
-#   --prod            -> только DM_BOT_PROFILE (минимальный прод-билд)
-#   (без флага)       -> функциональный: defines[] как закоммитил dayz-dev
-#   --test            -> регрессионный: все event-домены из tools/defines_test.txt
+# --- Режим defines: --prod | --test | --define | (default, functional) ---
+#   --prod             -> только DM_BOT_PROFILE (минимальный прод-билд)
+#   --test             -> регрессионный: все event-домены из tools/defines_test.txt
+#   --define DOM1,DOM2 -> DM_BOT_PROFILE + свои домены (через запятую)
+#   (без флага)        -> функциональный: defines[] как закоммитил dayz-dev
 MODE="func"
+CUSTOM_DEFINES=""
 case "${1:-}" in
     --prod) MODE="prod" ;;
     --test) MODE="test" ;;
+    --define) MODE="define"; CUSTOM_DEFINES="${2:-}" ;;
     ""|--) MODE="func" ;;
-    *) echo "usage: build.sh [--prod|--test]  (default: functional, keeps committed defines)" >&2; exit 2 ;;
+    *) echo "usage: build.sh [--prod|--test|--define DOM1,DOM2]  (default: functional, keeps committed defines)" >&2; exit 2 ;;
 esac
 
 # Модули, у которых есть defines[] (gated call sites; cons/reg — без defines).
@@ -68,6 +71,19 @@ build_defines_list() {
             | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
             | sed 's/^/"/; s/$/"/' \
             | paste -sd ',' - | sed 's/,/, /g'
+    elif [ "$MODE" = "define" ]; then
+        local defs='"DM_BOT_PROFILE"'
+        if [ -n "$CUSTOM_DEFINES" ]; then
+            local extra
+            extra=$(printf '%s' "$CUSTOM_DEFINES" | tr ',' '\n' \
+                | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d' \
+                      -e 's/^/"/' -e 's/$/"/' \
+                | paste -sd ',' - | sed 's/,/, /g')
+            if [ -n "$extra" ]; then
+                defs="$defs, $extra"
+            fi
+        fi
+        echo "$defs"
     fi
 }
 
