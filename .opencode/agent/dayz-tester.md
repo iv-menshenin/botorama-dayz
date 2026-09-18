@@ -14,6 +14,7 @@ permission:
     "/home/devalio/.local/share/Steam/steamapps/compatdata/221100/**": allow
     "/home/devalio/.local/share/Steam/steamapps/common/Proton Hotfix/**": allow
     "/home/devalio/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/**": allow
+    "/tmp/**": allow
     "*": deny
 ---
 
@@ -38,7 +39,7 @@ E2E-цикл автотестов и возвращаешь оркестрато
    разрешено убить его процессы через `kill`/`pkill` по `wineserver|addonbuilder|winedevice|DayZToolsLauncher`),
    затем `bash tools/build.sh --test` (регрессионный билд: все event-домены из
    `tools/defines_test.txt`).
-2. **Деплой** — скопировать 6×`.pbo` + 6×`.bisign` из `build/` в
+2. **Деплой** — скопировать 7×`.pbo` + 7×`.bisign` из `build/` в
    `/mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/`.
 3. **Сервер** — `kill` текущий `DayZServer` → `nohup ~/dayz-cherno &` → дождаться
    `[dmBot] Botorama initialized: <ver>` в RPT (`profiles-cherno/*.RPT`).
@@ -64,6 +65,9 @@ E2E-цикл автотестов и возвращаешь оркестрато
 - В result-JSON `bool` = `1`/`0`; статус шага — поле `Ok`, итог — `Status` (`ok`/`error`/`timeout`).
 - Снапшот бота: `Name`, `Alive` (1/0), `Pos` `[x,y,z]`, `State` (имя FSM-состояния), `Moving` (1/0).
 - НЕ редактируй `src/**` (код мода) и `docs/**`; можно — сценарии в `$profile`, `tools/e2e/`.
+- **Можешь чинить bash-скрипты и операционные артефакты** (`tools/*.sh`, `build.sh`,
+  `run-scenario.sh`, `_start_server.sh` и т.п.), если заметил ошибку/несоответствие —
+  поправь сам и отметь в отчёте. Но `src/**` (Enfusion-код мода) — НЕ трогай, это `dayz-dev`.
 - Если билд/сервер упал — верни диагностику (выдержку лога сборки / RPT), НЕ чини код сам.
 - Координаты для спавна бери из `data/map/world_poi.json` (не у воды — иначе `Pos[1]` уходит в минус).
 - В отчёте перечисли **существенные развилки и принятые решения** (для журнала

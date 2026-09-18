@@ -20,7 +20,7 @@
 
 ## 1. Сборка мода
 
-Мод собран из 6 PBO (`cons`, `reg`, `core`, `map`, `loadout`, `test`) в `src/`.
+Мод собран из 7 PBO (`cons`, `reg`, `core`, `map`, `loadout`, `roads`, `test`) в `src/`.
 Сборка идёт Windows-тулзами DayZ Tools под Proton — headless, без открытия Steam-GUI.
 
 ### 1.1 Тулчейн
@@ -85,7 +85,7 @@ AddonBuilder.exe <source_dir> <dest_dir> [-prefix=<prefix>] [-clear]
 bash tools/build.sh
 ```
 
-Собирает 6 модулей → `build/<модуль>.pbo` + `build/<модуль>.pbo.devalio.bisign`.
+Собирает 7 модулей → `build/<модуль>.pbo` + `build/<модуль>.pbo.devalio.bisign`.
 
 Перед сборкой `build.sh` очищает Temp wine-префикса
 (`compatdata/830640/pfx/drive_c/users/steamuser/AppData/Local/Temp`) — AddonBuilder
@@ -110,7 +110,7 @@ bash tools/build.sh
 
 ## 2. Деплой
 
-Скопировать 6×`.pbo` + 6×`.bisign` в `@Botorama/Addons`:
+Скопировать 7×`.pbo` + 7×`.bisign` в `@Botorama/Addons`:
 
 ```
 AD=/mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons
@@ -157,7 +157,7 @@ RPT-лог сервера — `DayZServer/profiles-cherno/DayZServer_<дата>.
 
 | Что ищем | Пример | Значение |
 |---|---|---|
-| Загрузка PBO | `Adding package '…@Botorama/Addons/<модуль>.pbo'` | все 6 PBO загрузились |
+| Загрузка PBO | `Adding package '…@Botorama/Addons/<модуль>.pbo'` | все 7 PBO загрузились |
 | Defines | `…dmBotorama_Cons,dmBotorama_Reg,dmBotorama_Core…` | цепочка `requiredAddons` встала |
 | Версия мода | `[dmBot] Botorama initialized: 3.160` | `dmBotLog.LogVersion` (совпадает с `DM_BOTORAMA_VERSION`) |
 | Ошибки скриптов | `SCRIPT (E)` / `[dmBot][error]` | реальные проблемы (не `(W)` warning'и) |

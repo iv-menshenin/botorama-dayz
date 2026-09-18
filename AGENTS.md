@@ -134,9 +134,13 @@
   не пишет код, а делегирует реализацию `dayz-dev`, исследование — `dayz-research`,
   E2E-тестирование — `dayz-tester`, ревью качества — `dayz-reviewer`, и делает ревью/рефлексию.
 - **`dayz-dev`** — реализует атомарную задачу (код). Пишет тест-сценарий под своё изменение.
+  **Отвечает за актуальность скриптов сборки** (`tools/build.sh`: `MODULES`/`DEFINES_FILES`;
+  `tools/defines_test.txt`): добавил/удалил модуль или DEBUG-домен — обнови эти файлы сам, в том же коммите.
 - **`dayz-research`** — исследует ванильный/Expansion API, пишет `docs/research/`.
 - **`dayz-tester`** — гоняет E2E-цикл (сборка/деплой/сервер/сценарии/логи), отчёт PASS/FAIL
   оркестратору. Не пишет код мода. Source of truth — `docs/ai-testing-guide.md`.
+  Может чинить bash-скрипты/операционные артефакты (`tools/*.sh`, `build.sh`), если заметил
+  ошибку — поправить и отметить в отчёте; `src/**` (Enfusion-код) — не трогать.
 - **`dayz-reviewer`** («Придира») — критическое ревью качества/дизайна (дублирование,
   сложность, спагетти, имена, «человеческий подход»). Read-only, отчёт по значимости.
   Source of truth — `docs/review-guide.md`.
@@ -145,6 +149,6 @@
 
 - `dayz-dev`: `edit` allow; `bash` — `git/mv/cp/mkdir/grep/rg/find/ls` (без build/server); external — deny.
 - `dayz-research`: `edit` allow (заметки); `bash` — read-only (`grep/rg/find/ls/cat/head/tail/strings`); external — `/home/devalio/dayz/Work/**`.
-- `dayz-tester`: `edit` allow; `bash` allow (ops); external — `DayZServer/**`, `Keys/**`, `~/dayz-cherno`, Temp-префикса сборки (`compatdata/830640/.../Temp/**`), клиент DayZ + Proton + runtime (для наблюдателя).
+- `dayz-tester`: `edit` allow; `bash` allow (ops); external — `DayZServer/**`, `Keys/**`, `~/dayz-cherno`, Temp-префикса сборки (`compatdata/830640/.../Temp/**`), клиент DayZ + Proton + runtime (для наблюдателя), `/tmp/**` (консоль-логи сервера, временные артефакты).
 - `dayz-reviewer`: `edit` deny; `bash` — read-only (`git/grep/rg/find/ls/cat/head/tail/strings`); external — deny.
 - `dayz-orchestrator`: primary, полный доступ (делегирует, ревьюит, коммитит, собирает/деплоит при необходимости).
