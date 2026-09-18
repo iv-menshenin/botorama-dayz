@@ -45,7 +45,7 @@ static const int   DM_ROAD_MIN_BRANCH_STEPS = 5;
 //! Grid step of the road-object scan (meters).
 static const float DM_ROAD_SCAN_STEP = 20.0;
 //! Endpoint snap distance for joining adjacent segments (meters).
-static const float DM_ROAD_ENDPOINT_SNAP = 5.0;
+static const float DM_ROAD_ENDPOINT_SNAP = 2.0;
 
 //! Output path of the discovered road graph JSON.
 static const string DM_ROADS_GRAPH_FILE = "$profile:dmBotorama/roads/road_graph.json";

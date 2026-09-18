@@ -1622,7 +1622,9 @@ class dmE2EBridge
 			max = ResolveWorldPos(step.Max);
 		}
 
+		float t0 = GetGame().GetTickTime();
 		dmRoadGraph graph = dmRoadObjectGraphBuilder.Build(min, max);
+		float t1 = GetGame().GetTickTime();
 		bool saved = dmRoadGraphIO.Save(graph, DM_ROADS_GRAPH_FILE);
 
 		int nodeCount = graph.Nodes.Count();
@@ -1658,6 +1660,7 @@ class dmE2EBridge
 			AppendDump(r, pline);
 		}
 		AppendDump(r, "totalLen=" + total);
+		AppendDump(r, "buildTime=" + (t1 - t0));
 
 		r.Ok = saved;
 		r.Reason = "" + nodeCount + " nodes / " + edgeCount + " edges";

@@ -46,11 +46,42 @@ class dmRoadObjectGraphBuilder
 		for (i = 0; i < objects.Count(); i++)
 			BuildSegment(objects[i]);
 
+		ClassifyNodes();
+
 		#ifdef DM_BOT_DEBUG_ROADS
 		dmBotLog.Debug("[ROADNET] objects=" + objects.Count() + " nodes=" + m_Graph.Nodes.Count() + " edges=" + m_Graph.Edges.Count());
 		#endif
 
 		return m_Graph;
+	}
+
+	//! Classify each vertex by its degree: >=3 junction, ==2 bend, ==1 deadend,
+	//! 0 isolated. Degree 2 is a plain segment joint (often the asphalt<->dirt
+	//! transition), NOT an intersection.
+	private void ClassifyNodes()
+	{
+		int i;
+		int j;
+		int deg;
+		for (i = 0; i < m_Graph.Nodes.Count(); i++)
+		{
+			deg = 0;
+			for (j = 0; j < m_Graph.Edges.Count(); j++)
+			{
+				if (m_Graph.Edges[j].From == m_Graph.Nodes[i].Id)
+					deg = deg + 1;
+				if (m_Graph.Edges[j].To == m_Graph.Nodes[i].Id)
+					deg = deg + 1;
+			}
+			if (deg >= 3)
+				m_Graph.Nodes[i].Kind = "junction";
+			else if (deg == 2)
+				m_Graph.Nodes[i].Kind = "bend";
+			else if (deg == 1)
+				m_Graph.Nodes[i].Kind = "deadend";
+			else
+				m_Graph.Nodes[i].Kind = "isolated";
+		}
 	}
 
 	//! Grid-scan [min,max] for road objects, dedup by position cell, and append
