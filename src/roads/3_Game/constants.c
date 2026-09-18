@@ -47,5 +47,14 @@ static const float DM_ROAD_SCAN_STEP = 20.0;
 //! Endpoint snap distance for joining adjacent segments (meters).
 static const float DM_ROAD_ENDPOINT_SNAP = 2.0;
 
+//! Distance below which two deadends connect (gap) / a deadend joins an edge (meters).
+static const float DM_ROAD_CONNECT_DIST = 8.0;
+//! Angle below which two deadends "point at each other" across a gap (degrees).
+static const float DM_ROAD_CONNECT_ANGLE = 30.0;
+//! Sampling step along an edge for slope/obstacle metadata (meters).
+static const float DM_ROAD_META_STEP = 5.0;
+//! Obstacle query radius at each metadata sample point (meters).
+static const float DM_ROAD_OBSTACLE_RADIUS = 3.0;
+
 //! Output path of the discovered road graph JSON.
 static const string DM_ROADS_GRAPH_FILE = "$profile:dmBotorama/roads/road_graph.json";

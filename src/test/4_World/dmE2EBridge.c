@@ -1646,7 +1646,8 @@ class dmE2EBridge
 			dmRoadGraphEdge e = graph.Edges[ei];
 			total = total + e.Length;
 			string eline = "e=" + e.Id + " from=" + e.From + " to=" + e.To;
-			eline = eline + " len=" + e.Length + " surf=" + e.SurfaceType + " pts=" + e.Points.Count();
+			eline = eline + " len=" + e.Length + " surf=" + e.SurfaceType + " rise=" + e.Rise;
+			eline = eline + " fall=" + e.Fall + " obs=" + e.Obstacles + " pts=" + e.Points.Count();
 			AppendDump(r, eline);
 
 			string pline = "";

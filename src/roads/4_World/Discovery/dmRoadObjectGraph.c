@@ -46,6 +46,9 @@ class dmRoadObjectGraphBuilder
 		for (i = 0; i < objects.Count(); i++)
 			BuildSegment(objects[i]);
 
+		ConnectGraph();
+		AccumulateMetadata();
+
 		ClassifyNodes();
 
 		#ifdef DM_BOT_DEBUG_ROADS
@@ -240,5 +243,323 @@ class dmRoadObjectGraphBuilder
 				return true;
 		}
 		return false;
+	}
+
+	//! Connect hanging edges: merge deadends that point at each other across a
+	//! gap (Pass A) and split edges at T-junctions where a deadend meets the
+	//! middle of another road (Pass B). ClassifyNodes re-runs afterwards.
+	private void ConnectGraph()
+	{
+		int merged = MergeDeadends();
+		int split = SplitEdges();
+		#ifdef DM_BOT_DEBUG_ROADS
+		dmBotLog.Debug("[ROADNET] connect: merged=" + merged + " split=" + split);
+		#endif
+	}
+
+	//! Number of edges incident to a vertex.
+	private int Degree(int id)
+	{
+		int deg = 0;
+		int i;
+		for (i = 0; i < m_Graph.Edges.Count(); i++)
+		{
+			if (m_Graph.Edges[i].From == id || m_Graph.Edges[i].To == id)
+				deg = deg + 1;
+		}
+		return deg;
+	}
+
+	//! Position of a vertex by id (scan; used during the connection passes).
+	private vector NodePos(int id)
+	{
+		int i;
+		for (i = 0; i < m_Graph.Nodes.Count(); i++)
+		{
+			if (m_Graph.Nodes[i].Id == id)
+				return m_Graph.Nodes[i].Pos;
+		}
+		return vector.Zero;
+	}
+
+	//! Outward direction (XZ) from a deadend vertex toward the far end of its
+	//! single incident edge. Returns false when the vertex has no incident edge.
+	private bool DeadendOutward(int id, out vector dir)
+	{
+		int i;
+		int farId;
+		vector farPos;
+		vector pos;
+		for (i = 0; i < m_Graph.Edges.Count(); i++)
+		{
+			farId = -1;
+			if (m_Graph.Edges[i].From == id)
+				farId = m_Graph.Edges[i].To;
+			else if (m_Graph.Edges[i].To == id)
+				farId = m_Graph.Edges[i].From;
+			if (farId < 0)
+				continue;
+			farPos = NodePos(farId);
+			pos = NodePos(id);
+			dir = farPos - pos;
+			return true;
+		}
+		return false;
+	}
+
+	//! True when two points are within dist in the XZ plane.
+	private bool WithinXZ(vector a, vector b, float dist)
+	{
+		float dx = a[0] - b[0];
+		float dz = a[2] - b[2];
+		return dx * dx + dz * dz <= dist * dist;
+	}
+
+	//! True when two deadends point at each other across a gap (each outward
+	//! direction points toward the other vertex).
+	private bool AimAtEachOther(int i, int j)
+	{
+		vector dirI;
+		vector dirJ;
+		vector toJ;
+		vector toI;
+		if (!DeadendOutward(m_Graph.Nodes[i].Id, dirI))
+			return false;
+		if (!DeadendOutward(m_Graph.Nodes[j].Id, dirJ))
+			return false;
+		toJ = m_Graph.Nodes[j].Pos - m_Graph.Nodes[i].Pos;
+		toI = m_Graph.Nodes[i].Pos - m_Graph.Nodes[j].Pos;
+		if (dmRoadProbe.AngleDeg(dirI, toJ) >= DM_ROAD_CONNECT_ANGLE)
+			return false;
+		if (dmRoadProbe.AngleDeg(dirJ, toI) >= DM_ROAD_CONNECT_ANGLE)
+			return false;
+		return true;
+	}
+
+	//! Merge the vertex at removedIdx into keepIdx: rewrite its incident edges
+	//! to point at keepIdx, then drop the vertex.
+	private void MergeNode(int removedIdx, int keepIdx)
+	{
+		int removedId = m_Graph.Nodes[removedIdx].Id;
+		int keepId = m_Graph.Nodes[keepIdx].Id;
+		int e;
+		for (e = 0; e < m_Graph.Edges.Count(); e++)
+		{
+			if (m_Graph.Edges[e].From == removedId)
+				m_Graph.Edges[e].From = keepId;
+			if (m_Graph.Edges[e].To == removedId)
+				m_Graph.Edges[e].To = keepId;
+		}
+		m_Graph.Nodes.Remove(removedIdx);
+	}
+
+	//! Pass A: merge pairs of close deadends that point at each other (a road
+	//! broken in two by the scan). Returns the number of merges.
+	private int MergeDeadends()
+	{
+		int merged = 0;
+		int i;
+		int j;
+		for (i = 0; i < m_Graph.Nodes.Count(); i++)
+		{
+			if (Degree(m_Graph.Nodes[i].Id) != 1)
+				continue;
+			for (j = i + 1; j < m_Graph.Nodes.Count(); j++)
+			{
+				if (Degree(m_Graph.Nodes[j].Id) != 1)
+					continue;
+				if (!WithinXZ(m_Graph.Nodes[i].Pos, m_Graph.Nodes[j].Pos, DM_ROAD_CONNECT_DIST))
+					continue;
+				if (!AimAtEachOther(i, j))
+					continue;
+				MergeNode(j, i);
+				merged = merged + 1;
+				break;
+			}
+		}
+		return merged;
+	}
+
+	//! Rewrite the deadend vertex's incident edge so its P-end becomes Q.
+	private void ReconnectDeadendEnd(int pId, int qId)
+	{
+		int i;
+		for (i = 0; i < m_Graph.Edges.Count(); i++)
+		{
+			if (m_Graph.Edges[i].From == pId)
+				m_Graph.Edges[i].From = qId;
+			if (m_Graph.Edges[i].To == pId)
+				m_Graph.Edges[i].To = qId;
+		}
+	}
+
+	//! Pass B helper: split the edge at eIdx where the deadend P projects onto
+	//! its interior, then reconnect P's own edge to the new split vertex Q.
+	//! Returns true when a split happened.
+	private bool TrySplitAtDeadend(int pId, vector pPos, int eIdx)
+	{
+		int fromId = m_Graph.Edges[eIdx].From;
+		int toId = m_Graph.Edges[eIdx].To;
+		vector aPos = NodePos(fromId);
+		vector bPos = NodePos(toId);
+
+		vector ab = bPos - aPos;
+		float abLenSq = ab[0] * ab[0] + ab[2] * ab[2];
+		if (abLenSq <= 0.0)
+			return false;
+
+		vector pa = pPos - aPos;
+		float t = (pa[0] * ab[0] + pa[2] * ab[2]) / abLenSq;
+		if (t <= 0.05 || t >= 0.95)
+			return false;
+
+		float qx = aPos[0] + ab[0] * t;
+		float qz = aPos[2] + ab[2] * t;
+		float dx = pPos[0] - qx;
+		float dz = pPos[2] - qz;
+		if (dx * dx + dz * dz >= DM_ROAD_CONNECT_DIST * DM_ROAD_CONNECT_DIST)
+			return false;
+
+		vector qPos = Vector(qx, GetGame().SurfaceY(qx, qz), qz);
+		int qId = AddNode(qPos, "bend");
+
+		//! Split edge e (A→B) into A→Q (in place) and Q→B (new edge).
+		m_Graph.Edges[eIdx].To = qId;
+		m_Graph.Edges[eIdx].Points = new array<vector>();
+		m_Graph.Edges[eIdx].Points.Insert(aPos);
+		m_Graph.Edges[eIdx].Points.Insert(qPos);
+		m_Graph.Edges[eIdx].Length = vector.Distance(aPos, qPos);
+		m_Graph.Edges[eIdx].SurfaceType = dmRoadSensor.Classify((aPos[0] + qPos[0]) * 0.5, (aPos[2] + qPos[2]) * 0.5);
+
+		dmRoadGraphEdge e2 = new dmRoadGraphEdge();
+		e2.Id = m_NextEdgeId;
+		e2.From = qId;
+		e2.To = toId;
+		e2.Points = new array<vector>();
+		e2.Points.Insert(qPos);
+		e2.Points.Insert(bPos);
+		e2.Length = vector.Distance(qPos, bPos);
+		e2.SurfaceType = dmRoadSensor.Classify((qPos[0] + bPos[0]) * 0.5, (qPos[2] + bPos[2]) * 0.5);
+		m_Graph.Edges.Insert(e2);
+		m_NextEdgeId = m_NextEdgeId + 1;
+
+		ReconnectDeadendEnd(pId, qId);
+		return true;
+	}
+
+	//! Pass B: split edges at T-junctions where a deadend meets the middle of
+	//! another road. Returns the number of splits.
+	private int SplitEdges()
+	{
+		int split = 0;
+		int ni;
+		int pId;
+		vector pPos;
+		int edgeCount;
+		int ei;
+		for (ni = 0; ni < m_Graph.Nodes.Count(); ni++)
+		{
+			pId = m_Graph.Nodes[ni].Id;
+			if (Degree(pId) != 1)
+				continue;
+			pPos = m_Graph.Nodes[ni].Pos;
+			edgeCount = m_Graph.Edges.Count();
+			for (ei = 0; ei < edgeCount; ei++)
+			{
+				if (m_Graph.Edges[ei].From == pId || m_Graph.Edges[ei].To == pId)
+					continue;
+				if (!TrySplitAtDeadend(pId, pPos, ei))
+					continue;
+				split = split + 1;
+				break;
+			}
+		}
+		return split;
+	}
+
+	//! Fill Rise/Fall/Obstacles for every edge.
+	private void AccumulateMetadata()
+	{
+		int ei;
+		for (ei = 0; ei < m_Graph.Edges.Count(); ei++)
+			AccumulateEdge(ei);
+	}
+
+	//! Walk one edge from A to B in DM_ROAD_META_STEP samples, accumulating the
+	//! vertical rise/fall and the deduplicated obstacle count.
+	private void AccumulateEdge(int eIdx)
+	{
+		vector aPos = NodePos(m_Graph.Edges[eIdx].From);
+		vector bPos = NodePos(m_Graph.Edges[eIdx].To);
+		float len = vector.Distance(aPos, bPos);
+		int n = Math.Floor(len / DM_ROAD_META_STEP) + 1;
+		float invN = 1.0 / n;
+
+		float rise = 0.0;
+		float fall = 0.0;
+		int obstacles = 0;
+
+		ref map<string, bool> seenObs = new map<string, bool>();
+		array<Object> objs = new array<Object>();
+		array<CargoBase> cargos = new array<CargoBase>();
+		vector mm[2];
+
+		float prevY = 0.0;
+		bool havePrev = false;
+
+		int k;
+		int i;
+		Object obj;
+		string type;
+		string key;
+		vector point;
+		vector op;
+		float t;
+		float y;
+		float dy;
+		float radius;
+
+		for (k = 0; k <= n; k++)
+		{
+			t = k * invN;
+			point = aPos + (bPos - aPos) * t;
+			y = GetGame().SurfaceY(point[0], point[2]);
+
+			if (havePrev)
+			{
+				dy = y - prevY;
+				rise = rise + Math.Max(0.0, dy);
+				fall = fall + Math.Max(0.0, -dy);
+			}
+			prevY = y;
+			havePrev = true;
+
+			objs.Clear();
+			cargos.Clear();
+			GetGame().GetObjectsAtPosition(Vector(point[0], y, point[2]), DM_ROAD_OBSTACLE_RADIUS, objs, cargos);
+			for (i = 0; i < objs.Count(); i++)
+			{
+				obj = objs[i];
+				if (dmRoadSensor.IsRoadObject(obj))
+					continue;
+				type = obj.GetType();
+				type.ToLower();
+				if (type.Contains("tree") || type.Contains("bush") || type.Contains("grass") || type.Contains("rock") || type.Contains("shrub"))
+					continue;
+				radius = obj.ClippingInfo(mm);
+				if (radius <= 1.0)
+					continue;
+				op = obj.GetPosition();
+				key = dmRoadProbe.CellKey(op[0], op[2], 3.0);
+				if (seenObs.Contains(key))
+					continue;
+				seenObs.Insert(key, true);
+				obstacles = obstacles + 1;
+			}
+		}
+
+		m_Graph.Edges[eIdx].Rise = rise;
+		m_Graph.Edges[eIdx].Fall = fall;
+		m_Graph.Edges[eIdx].Obstacles = obstacles;
 	}
 }

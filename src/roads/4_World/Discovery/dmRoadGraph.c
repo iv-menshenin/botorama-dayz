@@ -24,6 +24,9 @@ class dmRoadGraphEdge
 	ref array<vector> Points;
 	float Length;
 	int SurfaceType;
+	float Rise;
+	float Fall;
+	int Obstacles;
 }
 
 //! The discovered road graph (root of road_graph.json).
