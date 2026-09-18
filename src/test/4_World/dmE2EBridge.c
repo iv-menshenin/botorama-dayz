@@ -10,7 +10,7 @@
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
 //! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
-//! drive | cardump, and observe (teleport a connected player). `wait` and `sleep`
+//! driveto | drive | cardump, and observe (teleport a connected player). `wait` and `sleep`
 //! are the deferred ops: they tick across frames (wait until a condition is met
 //! or its timeout expires; sleep until its timeout). Everything else executes in
 //! a single tick.
@@ -44,7 +44,7 @@ class dmE2EStep
 	vector To;        // raycast end point (world)
 	vector Min;       // scanbox min corner (world)
 	vector Max;       // scanbox max corner (world)
-	string Obj;       // object name (getpos, setpos, clearobj, drive, cardump, carpos, carspeed)
+	string Obj;       // object name (getpos, setpos, clearobj, driveto, drive, cardump, carpos, carspeed)
 	int Count;        // number of bots to spawn (army)
 	string Settlement; // settlement name for the army center (optional)
 	float Radius;     // spawn scatter radius around the center (army, default 50)
@@ -450,6 +450,10 @@ class dmE2EBridge
 		else if (step.Op == "drive")
 		{
 			RunDrive(step, r);
+		}
+		else if (step.Op == "driveto")
+		{
+			RunDriveTo(step, r);
 		}
 		else if (step.Op == "markroute")
 		{
@@ -2021,6 +2025,54 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "drive issued";
+	}
+
+	//! "driveto" — issue a router-driven dmBotIntent_Drive: the named bot boards
+	//! the named car and drives the road route to Pos. The route comes from
+	//! dmRoadRouter (Setup once; the intent pulls chunks via m_RouteSource/NextChunk),
+	//! so m_DriveRoute is left empty.
+	private void RunDriveTo(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		Object carObj;
+		if (!m_Objects.Find(step.Obj, carObj) || !carObj)
+		{
+			r.Ok = false;
+			r.Reason = "no such car";
+			return;
+		}
+
+		Transport transport = Transport.Cast(carObj);
+		if (!transport)
+		{
+			r.Ok = false;
+			r.Reason = "not a transport";
+			return;
+		}
+
+		vector targetPos = ResolveWorldPos(step.Pos);
+		if (!dmRoadRouter.Get().Setup(transport.GetPosition(), targetPos))
+		{
+			r.Ok = false;
+			r.Reason = "no route";
+			return;
+		}
+
+		dmBotIntent_Drive drive = new dmBotIntent_Drive();
+		drive.m_Transport = transport;
+		drive.m_Seat = 0;
+		drive.m_RouteSource = dmRoadRouter.Get();
+		bot.AddCommandIntent(drive);
+
+		r.Ok = true;
+		r.Reason = "driveto issued";
 	}
 
 	//! "cardump" — dump the named car's speed/gear/gearbox/RPM/steering/engine.
