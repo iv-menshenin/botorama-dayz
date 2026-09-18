@@ -220,27 +220,21 @@ class dmRoadDiscoveryManager
 
 		int nodeOffset = 0;
 		int edgeOffset = 0;
-		string fileName;
 		string error;
-		FileAttr fileAttr;
 		dmRoadGraph tile;
-		FindFileHandle handle = FindFile(DM_ROADS_TILES_DIR + "/*.json", fileName, fileAttr, FindFileFlags.DIRECTORIES);
-		bool hasMatch = fileName != "";
-		while (hasMatch)
+		int k;
+		for (k = 0; k < m_Progress.DoneTiles.Count(); k++)
 		{
-			if (JsonFileLoader<dmRoadGraph>.LoadFile(DM_ROADS_TILES_DIR + "/" + fileName, tile, error))
+			string key = m_Progress.DoneTiles[k];
+			if (!JsonFileLoader<dmRoadGraph>.LoadFile(DM_ROADS_TILES_DIR + "/" + key + ".json", tile, error))
 			{
-				AppendTile(merged, tile, nodeOffset, edgeOffset);
-				nodeOffset = nodeOffset + tile.Nodes.Count();
-				edgeOffset = edgeOffset + tile.Edges.Count();
+				dmBotLog.Error("[DISCOVERY] tile load failed: " + key + ": " + error);
+				continue;
 			}
-			else
-			{
-				dmBotLog.Error("[DISCOVERY] tile load failed: " + fileName + ": " + error);
-			}
-			hasMatch = FindNextFile(handle, fileName, fileAttr);
+			AppendTile(merged, tile, nodeOffset, edgeOffset);
+			nodeOffset = nodeOffset + tile.Nodes.Count();
+			edgeOffset = edgeOffset + tile.Edges.Count();
 		}
-		CloseFindFile(handle);
 
 		SewNodes(merged);
 		ClassifyNodes(merged);
@@ -273,23 +267,101 @@ class dmRoadDiscoveryManager
 		}
 	}
 
-	//! Sew vertices whose XZ positions coincide (tile-boundary seams): merge each
-	//! close pair into the earlier vertex. O(n^2) — acceptable for the first pass.
+	//! Sew vertices whose XZ positions coincide (tile-boundary seams): union-find
+	//! over a spatial hash of cells, then rebuild the graph with merged vertices.
+	//! O(n) — the previous pairwise pass (O(n^2)) froze the server on ~44k nodes.
 	private static void SewNodes(dmRoadGraph graph)
 	{
+		array<int> parent = new array<int>();
 		int i;
 		int j;
+		int dx;
+		int dz;
+		int ci;
+		int cj;
+		int oi;
+		int r;
+		int newId;
+		int f;
+		int t;
+		int eid;
+		string key;
+		array<int> bucket;
+		ref map<string, ref array<int>> grid = new map<string, ref array<int>>();
+		ref map<int, int> rootToNew = new map<int, int>();
+		array<ref dmRoadGraphNode> kept = new array<ref dmRoadGraphNode>();
+		array<ref dmRoadGraphEdge> keptEdges = new array<ref dmRoadGraphEdge>();
+
+		for (i = 0; i < graph.Nodes.Count(); i++)
+			parent.Insert(i);
+
 		for (i = 0; i < graph.Nodes.Count(); i++)
 		{
-			for (j = i + 1; j < graph.Nodes.Count(); j++)
+			key = CellKey(graph.Nodes[i].Pos, DM_ROAD_ENDPOINT_SNAP);
+			if (!grid.Find(key, bucket))
 			{
-				if (CloseXZ(graph.Nodes[i].Pos, graph.Nodes[j].Pos))
+				bucket = new array<int>();
+				grid.Insert(key, bucket);
+			}
+			bucket.Insert(i);
+		}
+
+		for (i = 0; i < graph.Nodes.Count(); i++)
+		{
+			ci = Math.Floor(graph.Nodes[i].Pos[0] / DM_ROAD_ENDPOINT_SNAP);
+			cj = Math.Floor(graph.Nodes[i].Pos[2] / DM_ROAD_ENDPOINT_SNAP);
+			for (dx = -1; dx <= 1; dx++)
+			{
+				for (dz = -1; dz <= 1; dz++)
 				{
-					MergeNode(graph, j, i);
-					j = j - 1;
+					key = (ci + dx).ToString() + ":" + (cj + dz).ToString();
+					if (!grid.Find(key, bucket))
+						continue;
+					for (j = 0; j < bucket.Count(); j++)
+					{
+						oi = bucket[j];
+						if (oi <= i)
+							continue;
+						if (Find(parent, i) == Find(parent, oi))
+							continue;
+						if (CloseXZ(graph.Nodes[i].Pos, graph.Nodes[oi].Pos))
+							Union(parent, i, oi);
+					}
 				}
 			}
 		}
+
+		for (i = 0; i < graph.Nodes.Count(); i++)
+		{
+			r = Find(parent, i);
+			if (!rootToNew.Find(r, newId))
+			{
+				newId = kept.Count();
+				rootToNew.Insert(r, newId);
+				graph.Nodes[i].Id = newId;
+				kept.Insert(graph.Nodes[i]);
+			}
+		}
+		graph.Nodes = kept;
+
+		eid = 0;
+		for (i = 0; i < graph.Edges.Count(); i++)
+		{
+			if (!rootToNew.Find(Find(parent, graph.Edges[i].From), f))
+				continue;
+			if (!rootToNew.Find(Find(parent, graph.Edges[i].To), t))
+				continue;
+			if (f == t)
+				continue;
+			if (HasEdge(keptEdges, f, t))
+				continue;
+			graph.Edges[i].Id = eid;
+			graph.Edges[i].From = f;
+			graph.Edges[i].To = t;
+			keptEdges.Insert(graph.Edges[i]);
+			eid = eid + 1;
+		}
+		graph.Edges = keptEdges;
 	}
 
 	//! True when two points are within DM_ROAD_ENDPOINT_SNAP in the XZ plane.
@@ -300,21 +372,44 @@ class dmRoadDiscoveryManager
 		return dx * dx + dz * dz <= DM_ROAD_ENDPOINT_SNAP * DM_ROAD_ENDPOINT_SNAP;
 	}
 
-	//! Merge the vertex at removedIdx into keepIdx: rewrite its incident edges to
-	//! point at keepIdx, then drop the vertex.
-	private static void MergeNode(dmRoadGraph graph, int removedIdx, int keepIdx)
+	//! Union-find representative with path halving (matches merge_road_tiles.py).
+	private static int Find(array<int> parent, int x)
 	{
-		int removedId = graph.Nodes[removedIdx].Id;
-		int keepId = graph.Nodes[keepIdx].Id;
-		int e;
-		for (e = 0; e < graph.Edges.Count(); e++)
+		while (parent[x] != x)
 		{
-			if (graph.Edges[e].From == removedId)
-				graph.Edges[e].From = keepId;
-			if (graph.Edges[e].To == removedId)
-				graph.Edges[e].To = keepId;
+			parent[x] = parent[parent[x]];
+			x = parent[x];
 		}
-		graph.Nodes.Remove(removedIdx);
+		return x;
+	}
+
+	//! Union the sets of a and b, merging into the earlier (a's) representative.
+	private static void Union(array<int> parent, int a, int b)
+	{
+		int ra = Find(parent, a);
+		int rb = Find(parent, b);
+		if (ra != rb)
+			parent[rb] = ra;
+	}
+
+	//! Spatial-hash cell key "ci:cj" for a point, using the given cell size.
+	private static string CellKey(vector pos, float cell)
+	{
+		int ci = Math.Floor(pos[0] / cell);
+		int cj = Math.Floor(pos[2] / cell);
+		return ci.ToString() + ":" + cj.ToString();
+	}
+
+	//! True when an edge already connects a and b in either direction.
+	private static bool HasEdge(array<ref dmRoadGraphEdge> edges, int a, int b)
+	{
+		int i;
+		for (i = 0; i < edges.Count(); i++)
+		{
+			if ((edges[i].From == a && edges[i].To == b) || (edges[i].From == b && edges[i].To == a))
+				return true;
+		}
+		return false;
 	}
 
 	//! Recompute every vertex Kind from its degree: >=3 junction, 2 bend,
