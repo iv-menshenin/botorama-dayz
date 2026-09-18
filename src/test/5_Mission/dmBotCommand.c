@@ -21,12 +21,16 @@
 //!   /bot sayrandom {category}  — бот говорит случайную реплику категории (с кулдауном).
 //!   /bot combat                 — боевой режим (атакует угрозы в радиусе).
 //!   /bot car sitdown            — сесть в машину с игроком на свободное место.
+//!   /bot drive {x} {z}          — бот садится за руль и едет в мировую точку (x,z).
 //!   /bot killall                — убить всех заспавненных ботов (Health=0).
 //!   /bot clearall               — удалить всех ботов из мира (Despawn → ObjectDelete).
 //!
 //! Интенты добавляются в командный пул (приоритет CRITICAL), поэтому они
 //! перебивают автоматическое поведение; "/bot intent clear" возвращает бота
 //! к автомату.
+
+//! Drive: радиус (м) поиска ближайшего транспорта для команды "/bot drive".
+static const float DM_DRIVE_RESOLVE_RADIUS = 25.0;
 
 class dmBotCommand : dmCommandModule
 {
@@ -70,6 +74,8 @@ class dmBotCommand : dmCommandModule
 			return HandleCombat(player, parts);
 		if (parts[1] == DM_CHAT_CAR)
 			return HandleCar(player, parts);
+		if (parts[1] == "drive")
+			return HandleDrive(player, parts);
 		if (parts[1] == DM_CHAT_KILLALL)
 			return HandleKillAll(player);
 		if (parts[1] == DM_CHAT_CLEARALL)
@@ -875,6 +881,131 @@ class dmBotCommand : dmCommandModule
 			dmCommandManager.ChatToPlayer(player, "Выхожу из машины");
 		}
 		return true;
+	}
+
+	//! "/bot drive {x} {z}" — приказать боту сесть за руль и ехать в мировую точку.
+	//! Резолв машины по 4 случаям: (1) бот уже за рулём → эта машина, без get-in;
+	//! (2) машина игрока-автора; (3) ближайший транспорт ≤ DM_DRIVE_RESOLVE_RADIUS;
+	//! (4) нет машины. Водительское место обязано быть свободным (иначе «нет машины»).
+	private bool HandleDrive(PlayerBase player, array<string> parts)
+	{
+		if (parts.Count() < 4)
+		{
+			dmCommandManager.ChatToPlayer(player, "Укажи координаты: /bot drive {x} {z}");
+			return true;
+		}
+
+		float x = parts[2].ToFloat();
+		float z = parts[3].ToFloat();
+
+		dmAISurvivor bot = dmCommandContext.FindBotForPlayer(player);
+		if (!bot)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет бота — сначала /bot spawn test");
+			return true;
+		}
+
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Drive.ResolveCar");
+		#endif
+
+		dmAISurvivorBase pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			dmCommandManager.ChatToPlayer(player, "У бота нет пешки");
+			return true;
+		}
+
+		Transport transport;
+		bool alreadySeated = false;
+
+		//! 1. Бот в машине.
+		Transport botCar = Transport.Cast(pawn.GetParent());
+		if (botCar)
+		{
+			if (botCar.CrewMemberIndex(pawn) == DayZPlayerConstants.VEHICLESEAT_DRIVER)
+			{
+				transport = botCar;
+				alreadySeated = true;
+			}
+			else
+			{
+				dmCommandManager.ChatToPlayer(player, "Бот сидит не за рулём — водительское место занято");
+				return true;
+			}
+		}
+
+		//! 2. Машина игрока-автора (водительское место свободно).
+		if (!transport)
+		{
+			Transport playerCar = Transport.Cast(player.GetParent());
+			if (playerCar && !playerCar.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER))
+				transport = playerCar;
+		}
+
+		//! 3. Ближайший транспорт ≤ DM_DRIVE_RESOLVE_RADIUS (водительское место свободно).
+		if (!transport)
+		{
+			Transport nearCar = FindNearestTransport(pawn.GetPosition(), DM_DRIVE_RESOLVE_RADIUS);
+			if (nearCar && !nearCar.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER))
+				transport = nearCar;
+		}
+
+		//! 4. Нет машины.
+		if (!transport)
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет машины поблизости (или водительское место занято)");
+			return true;
+		}
+
+		//! Маршрут: Setup один раз (позиция машины → целевая точка), дальше интент
+		//! только потребляет чанки через NextChunk.
+		vector carPos = transport.GetPosition();
+		vector targetPos = Vector(x, GetGame().SurfaceY(x, z), z);
+		if (!dmRoadRouter.Get().Setup(carPos, targetPos))
+		{
+			dmCommandManager.ChatToPlayer(player, "Нет дорожного маршрута до точки");
+			return true;
+		}
+
+		dmBotIntent_Drive drive = new dmBotIntent_Drive();
+		drive.m_Transport = transport;
+		drive.m_Seat = DayZPlayerConstants.VEHICLESEAT_DRIVER;
+		drive.m_AlreadySeated = alreadySeated;
+		drive.m_RouteSource = dmRoadRouter.Get();
+		bot.AddCommandIntent(drive);
+
+		dmCommandManager.ChatToPlayer(player, "Еду в точку " + targetPos);
+		return true;
+	}
+
+	//! Ближайший транспорт в радиусе radius (м) от pos, или null. Перебирает
+	//! динамические сущности в боксе (SceneGetEntitiesInBox, QueryFlags.DYNAMIC)
+	//! и фильтрует по Transport.Cast; дистанция — по XZ через DistanceSq.
+	private Transport FindNearestTransport(vector pos, float radius)
+	{
+		vector minPos = pos - Vector(radius, radius, radius);
+		vector maxPos = pos + Vector(radius, radius, radius);
+		array<EntityAI> entities = new array<EntityAI>();
+		DayZPlayerUtils.SceneGetEntitiesInBox(minPos, maxPos, entities, QueryFlags.DYNAMIC);
+
+		Transport nearest = null;
+		float bestSq = radius * radius;
+		int i;
+		for (i = 0; i < entities.Count(); i++)
+		{
+			Transport t = Transport.Cast(entities[i]);
+			if (!t)
+				continue;
+			vector tPos = t.GetPosition();
+			float dSq = vector.DistanceSq(pos, tPos);
+			if (dSq <= bestSq)
+			{
+				bestSq = dSq;
+				nearest = t;
+			}
+		}
+		return nearest;
 	}
 
 	//! Find a vehicle with a real (non-bot) player aboard and a free seat. Returns

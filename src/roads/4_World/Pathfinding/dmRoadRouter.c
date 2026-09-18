@@ -105,7 +105,7 @@ class dmRouterMinHeap
 	}
 }
 
-class dmRoadRouter
+class dmRoadRouter : dmDriveRouteSource
 {
 	static ref dmRoadRouter s_Instance;
 
@@ -466,7 +466,7 @@ class dmRoadRouter
 	//! settlement transits between them), and finally the end segment when the
 	//! route is exhausted. Returns true while more chunks remain, false once the
 	//! target is reached.
-	bool NextChunk(inout array<vector> waypoints, int lookahead)
+	override bool NextChunk(inout array<vector> waypoints, int lookahead)
 	{
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Road.NextChunk");

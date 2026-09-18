@@ -6,19 +6,41 @@
 //! скорости (dm_DriveThrottle через SetThrottle в CarScript.OnInput) + передачи
 //! ShiftTo (вперёд по скорости) + нативный руль SetSteering (через
 //! dm_DriveSteering) — поворот делает нативный руль, как у реальной машины.
-//! Маршрут — явный список точек (m_DriveRoute, выставляет владелец до OnStart), точка
-//! за точкой; застревание детектится по прогрессу дистанции (TickStuck) с реверсом.
-//! Graceful-завершение глушит двигатель (StopCar) и высаживает бота штатным выходом.
+//! Маршрут — инкрементальный: владелец выставляет источник маршрута (m_RouteSource,
+//! абстракция dmDriveRouteSource) до OnStart, а интент доливает точки чанками через
+//! NextChunk (RefillRoute) в хвост очереди; застревание детектится по прогрессу
+//! дистанции (TickStuck) с реверсом. Финиш — только когда маршрут исчерпан И машина
+//! достигла последней точки. Graceful-завершение глушит двигатель (StopCar) и
+//! высаживает бота штатным выходом.
 class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 {
 	//! Руль: мёртвая зона угла (рад), ниже — не рулим (анти-джиттер).
 	static const float DRIVE_STEER_ANGLE_DEADZONE = 0.01;
 
-	//! Маршрут из точек (выставляет владелец/команда до OnStart).
+	//! Рефилл маршрута: число перегонов за чанк NextChunk («текущий + следующий»).
+	static const int DM_DRIVE_LOOKAHEAD = 2;
+	//! Рефилл: дозапрашиваем чанк, когда до конца очереди осталось ≤ N точек.
+	static const int DM_DRIVE_REFILL_MARGIN = 5;
+
+	//! Уже за рулём (выставляет команда, случай 1): OnStart не идёт к двери и не
+	//! играет get-in, а сразу переходит в PHASE_SEATED.
+	bool m_AlreadySeated = false;
+
+	//! Маршрут исчерпан (NextChunk вернул false): финиш — только по достижении
+	//! последней точки. Для предзаполненного владельцем списка ставится сразу true.
+	bool m_RouteExhausted = false;
+
+	//! Маршрут из точек (заполняется инкрементально через RefillRoute; старый
+	//! владелец мог предзаполнить его целиком до OnStart).
 	ref array<vector> m_DriveRoute;
 
 	//! Индекс текущей точки маршрута.
 	int m_DriveRouteIdx = 0;
+
+	//! Источник маршрута (выставляет владелец-команда до OnStart). Абстракция
+	//! над конкретным роутером (roads): интент (core) не зависит от роутера.
+	//! null — предзаполненный маршрут (E2E-мост), рефилл не нужен.
+	ref dmDriveRouteSource m_RouteSource;
 
 	//! Машина (получаем из m_Transport после посадки).
 	CarScript m_Car;
@@ -68,9 +90,22 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 	override void OnStart(dmAISurvivor bot)
 	{
-		//! m_DriveRoute уже выставлен владельцем (как m_Transport/m_Seat);
-		//! super.OnStart наследует точку входа у двери (m_Goal) и walk к ней.
+		//! super.OnStart наследует точку входа у двери (m_Goal) и walk к ней;
+		//! для m_AlreadySeated эта фаза не запускается (сразу PHASE_SEATED ниже).
 		super.OnStart(bot);
+
+		//! Маршрут приходит инкрементально через RefillRoute (источник — m_RouteSource).
+		//! Предзаполненный владельцем список (старый путь) — «уже исчерпан»: рефилл
+		//! не нужен, финиш по последней точке как раньше.
+		if (!m_DriveRoute)
+		{
+			m_DriveRoute = new array<vector>();
+			m_RouteExhausted = false;
+		}
+		else
+		{
+			m_RouteExhausted = true;
+		}
 
 		m_DriveRouteIdx = 0;
 		m_Car = null;
@@ -84,6 +119,15 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_ReverseTicks = 0;
 		m_WheelSteer = 0.0;
 		m_LastDriveLogTime = 0.0;
+
+		//! Уже за рулём (команда резолвила машину по случаю 1): не walk к двери и
+		//! не get-in — сразу фаза вождения на канале DRIVE.
+		if (m_AlreadySeated)
+		{
+			m_CommandInvoked = true;
+			m_Phase = PHASE_SEATED;
+			m_Manage = dmBotIntentsChannel.DRIVE;
+		}
 	}
 
 	override void OnUpdate(dmAISurvivor bot, float pDt)
@@ -117,20 +161,12 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			return;
 		}
 
-		//! 1. Пустой маршрут — нечего вести (фейлим сразу, до пауз старта).
-		if (!m_DriveRoute || m_DriveRoute.Count() == 0)
-		{
-			dmBotLog.Error("Drive: маршрут пуст, abort");
-			Fail();
-			return;
-		}
-
-		//! 2. Пауза после посадки: сидим, двигатель ещё не заводим (газ/руль не трогаем).
+		//! 1. Пауза после посадки: сидим, двигатель ещё не заводим (газ/руль не трогаем).
 		m_SeatedFor += pDt;
 		if (m_SeatedFor < DM_DRIVE_START_DELAY)
 			return;
 
-		//! 3. Старт двигателя (однократно; напрямую — ванильный ActionStartEngine
+		//! 2. Старт двигателя (однократно; напрямую — ванильный ActionStartEngine
 		//!    режет серверных ботов).
 		if (!m_EngineStarted)
 		{
@@ -145,10 +181,21 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			return;
 		}
 
-		//! 4. Прогрев двигателя: стоим, не трогаемся.
+		//! 3. Прогрев двигателя: стоим, не трогаемся.
 		m_WarmupFor += pDt;
 		if (m_WarmupFor < DM_DRIVE_ENGINE_WARMUP)
 			return;
+
+		//! 4. Рефилл маршрута: доливаем чанк, когда очередь пуста или подходит к концу.
+		RefillRoute();
+		if (m_DriveRoute.Count() == 0)
+		{
+			//! Очередь пуста И маршрут исчерпан (NextChunk ничего не дал) — не должно
+			//! случаться после успешного Setup, но страховка от пустого списка.
+			dmBotLog.Error("Drive: маршрут пуст и исчерпан, abort");
+			Fail();
+			return;
+		}
 
 		vector carPos = m_Car.GetPosition();
 		vector target = m_DriveRoute[m_DriveRouteIdx];
@@ -177,7 +224,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		float dot = carDir[0] * toDirX + carDir[2] * toDirZ;
 		float angle = Math.Atan2(cross, dot);
 
-		//! 3-4. Промежуточная точка считается пройденной, если корпус заехал на неё
+		//! Промежуточная точка считается пройденной, если корпус заехал на неё
 		//! (dist < REACH) ИЛИ проехали мимо (точка позади, dot < PASSED_DOT) — тогда
 		//! пропускаем её и едем к следующей, не разворачиваясь. Конечную точку по dot
 		//! не пропускаем (isLast-гейт): до неё нужно доехать (см. DM_DRIVE_REACH).
@@ -204,8 +251,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			angle = Math.Atan2(cross, dot);
 		}
 
-		//! 5. Конец маршрута / достигли последней точки (гэп DM_DRIVE_REACH).
-		if (vector.Distance(carPos, m_DriveRoute[m_DriveRoute.Count() - 1]) < DM_DRIVE_REACH)
+		//! 5. Конец маршрута: исчерпан И машина достигла последней точки
+		//! (гэп DM_DRIVE_REACH). До исчерпания финиш не наступает — маршрут ещё
+		//! доливается чанками.
+		if (m_RouteExhausted && vector.Distance(carPos, m_DriveRoute[m_DriveRoute.Count() - 1]) < DM_DRIVE_REACH)
 		{
 			Finish();
 			return;
@@ -252,6 +301,50 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			dmBotLog.Debug("[CAR] Drive: limit=" + m_SpeedLimit + " angle=" + angle + " gear=" + curGear + " rpm=" + rpm);
 			dmBotLog.Debug("[CAR] Drive: steer=" + m_WheelSteer + " push=" + pushing + " reverse=" + m_Reverse);
 		}
+		#endif
+	}
+
+	//! Инкрементальный рефилл маршрута: дозапрашивает у источника маршрута
+	//! (m_RouteSource) следующий чанк (NextChunk) и добавляет его точки в ХВОСТ
+	//! m_DriveRoute. Пропускается, если маршрут исчерпан, источник не задан или в
+	//! очереди ещё хватает точек (запас DM_DRIVE_REFILL_MARGIN).
+	//! NextChunk ЧИСТИТ переданный массив, поэтому передаём отдельный локальный
+	//! буфер, а не m_DriveRoute — иначе Clear снёс бы пройденные/непройденные точки
+	//! очереди. NextChunk выдаёт финальный чанк (включая целевую точку) И ТОЛЬКО
+	//! ПОТОМ возвращает false — поэтому точки вставляются ДО проверки more.
+	void RefillRoute()
+	{
+		if (m_RouteExhausted)
+			return;
+		if (m_DriveRouteIdx < m_DriveRoute.Count() - DM_DRIVE_REFILL_MARGIN)
+			return;
+
+		//! Источник не задан (предзаполненный маршрут, напр. E2E-мост) — маршрут
+		//! уже весь в очереди, доливать нечего.
+		if (!m_RouteSource)
+		{
+			m_RouteExhausted = true;
+			return;
+		}
+
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Drive.Refill");
+		#endif
+
+		//! Отдельный локальный буфер (не m_DriveRoute): NextChunk чистит входной
+		//! массив перед выдачей, иначе рефилл снёс бы уже пройденные точки.
+		array<vector> buffer = new array<vector>();
+		bool more = m_RouteSource.NextChunk(buffer, DM_DRIVE_LOOKAHEAD);
+
+		int i;
+		for (i = 0; i < buffer.Count(); i++)
+			m_DriveRoute.Insert(buffer[i]);
+
+		if (!more)
+			m_RouteExhausted = true;
+
+		#ifdef DM_BOT_DEBUG_CAR
+		dmBotLog.Debug("[CAR] Drive: refill +" + buffer.Count() + " точек, exhausted=" + m_RouteExhausted);
 		#endif
 	}
 
