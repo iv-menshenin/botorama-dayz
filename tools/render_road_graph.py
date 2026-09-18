@@ -26,13 +26,10 @@ for e in edges:
     deg[e["To"]] += 1
 
 surf_color = {
-    0: "#999999",  # unknown
-    1: "#111111",  # paved (asphalt/concrete)
-    2: "#8b5a2b",  # dirt/gravel
-    3: "#2e8b57",  # grass
-    4: "#1b5e20",  # forest
-    5: "#7b1fa2",  # structure
-    6: "#1565c0",  # water
+    "paved": "#111111",   # asphalt/concrete
+    "dirt": "#8b5a2b",    # dirt
+    "gravel": "#b8a060",  # gravel
+    "unknown": "#999999",
 }
 
 fig, ax = plt.subplots(figsize=(20, 18), dpi=130)
@@ -45,7 +42,7 @@ for e in edges:
         continue
     xs = [a["Pos"][0], b["Pos"][0]]
     zs = [a["Pos"][2], b["Pos"][2]]
-    c = surf_color.get(e.get("SurfaceType", 0), "#999")
+    c = surf_color.get(e.get("SurfaceCategory", "unknown"), "#999")
     ax.plot(xs, zs, color=c, lw=2.2, alpha=0.85, solid_capstyle="round")
     # length label at midpoint (small)
     mx = (xs[0] + xs[1]) * 0.5
