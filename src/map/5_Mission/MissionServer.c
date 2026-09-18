@@ -8,5 +8,8 @@ modded class MissionServer
 
 		//! Spawn manager: keep the per-settlement bot population topped up.
 		dmBotSpawnManager.Get().Tick(timeslice);
+
+		//! Whole-map road discovery: no-op unless DM_BOT_DISCOVERY is defined.
+		dmRoadDiscoveryManager.Get().Tick(timeslice);
 	}
 }

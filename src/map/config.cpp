@@ -10,6 +10,7 @@ class CfgPatches
 			"dmBotorama_Reg",
 			"dmBotorama_Core",
 			"dmBotorama_Loadout",
+			"dmBotorama_Roads",
 		};
 	};
 };

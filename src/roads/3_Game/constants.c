@@ -60,6 +60,16 @@ static const float DM_ROAD_OBSTACLE_RADIUS = 3.0;
 //! Output path of the discovered road graph JSON.
 static const string DM_ROADS_GRAPH_FILE = "$profile:dmBotorama/roads/road_graph.json";
 
+//! Whole-map discovery: tile edge length (meters). Tiles are 1x1 km squares
+//! covering the map from (0,0) to worldSize.
+static const float DM_ROAD_TILE_SIZE = 1000.0;
+//! Whole-map discovery: directory holding the per-tile partial graphs.
+static const string DM_ROADS_TILES_DIR = "$profile:dmBotorama/roads/tiles";
+//! Whole-map discovery: checkpoint of the scan (done-tile keys).
+static const string DM_ROADS_PROGRESS_FILE = "$profile:dmBotorama/roads/discovery_progress.json";
+//! Whole-map discovery: completion marker (empty file).
+static const string DM_ROADS_DONE_FILE = "$profile:dmBotorama/roads/discovery_done.marker";
+
 //! Max gap distance (meters) between two deadends for gap detection.
 static const float DM_ROAD_GAP_MAX = 200.0;
 //! Max angle (degrees) for two deadends to count as "pointing at each other".
