@@ -11,5 +11,8 @@ modded class MissionServer
 
 		//! Whole-map road discovery: no-op unless DM_BOT_DISCOVERY is defined.
 		dmRoadDiscoveryManager.Get().Tick(timeslice);
+
+		//! Runtime road graph (full + simplified): load + CSR build on first tick.
+		dmRoadGraphManager.Get().Tick(timeslice);
 	}
 }

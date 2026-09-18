@@ -59,6 +59,8 @@ static const float DM_ROAD_OBSTACLE_RADIUS = 3.0;
 
 //! Output path of the discovered road graph JSON.
 static const string DM_ROADS_GRAPH_FILE = "$profile:dmBotorama/roads/road_graph.json";
+//! Input path of the simplified (coarse) road graph JSON.
+static const string DM_ROADS_SIMPLIFIED_FILE = "$profile:dmBotorama/roads/simplified_graph.json";
 
 //! Whole-map discovery: tile edge length (meters). Tiles are 1x1 km squares
 //! covering the map from (0,0) to worldSize.
