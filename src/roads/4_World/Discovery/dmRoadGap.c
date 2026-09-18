@@ -33,30 +33,81 @@ class dmRoadGapDetector
 		list.WorldName = GetGame().GetWorldName();
 		list.Gaps = new array<ref dmRoadGap>();
 
+		//! Precompute degree and the deadend list once (O(nodes + edges)); node
+		//! ids are contiguous 0..N-1 after SewNodes, so degree[]/farNode[] are
+		//! indexed directly by node id — no scans inside the pair loop below.
+		int nodeCount = graph.Nodes.Count();
+		array<int> degree = new array<int>();
 		int i;
-		int j;
+		for (i = 0; i < nodeCount; i++)
+			degree.Insert(0);
+
+		for (i = 0; i < graph.Edges.Count(); i++)
+		{
+			degree[graph.Edges[i].From] = degree[graph.Edges[i].From] + 1;
+			degree[graph.Edges[i].To] = degree[graph.Edges[i].To] + 1;
+		}
+
+		array<int> deadends = new array<int>();
+		for (i = 0; i < nodeCount; i++)
+		{
+			if (degree[i] == 1)
+				deadends.Insert(i);
+		}
+
+		//! For each deadend, its single far neighbour; -1 for non-deadends. The
+		//! outward direction is then far.Pos - deadend.Pos, fetched in O(1).
+		array<int> farNode = new array<int>();
+		for (i = 0; i < nodeCount; i++)
+			farNode.Insert(-1);
+		for (i = 0; i < graph.Edges.Count(); i++)
+		{
+			if (degree[graph.Edges[i].From] == 1)
+				farNode[graph.Edges[i].From] = graph.Edges[i].To;
+			if (degree[graph.Edges[i].To] == 1)
+				farNode[graph.Edges[i].To] = graph.Edges[i].From;
+		}
+
+		int ai;
+		int bj;
+		int ni;
+		int nj;
+		int farI;
+		int farJ;
 		float a1;
 		float a2;
+		vector dirI;
+		vector dirJ;
+		vector toJ;
+		vector toI;
 		dmRoadGap gap;
-		for (i = 0; i < graph.Nodes.Count(); i++)
+		for (ai = 0; ai < deadends.Count(); ai++)
 		{
-			if (Degree(graph, graph.Nodes[i].Id) != 1)
-				continue;
-			for (j = i + 1; j < graph.Nodes.Count(); j++)
+			ni = deadends[ai];
+			for (bj = ai + 1; bj < deadends.Count(); bj++)
 			{
-				if (Degree(graph, graph.Nodes[j].Id) != 1)
+				nj = deadends[bj];
+				if (!WithinXZ(graph.Nodes[ni].Pos, graph.Nodes[nj].Pos, DM_ROAD_GAP_MAX))
 					continue;
-				if (!WithinXZ(graph.Nodes[i].Pos, graph.Nodes[j].Pos, DM_ROAD_GAP_MAX))
+				farI = farNode[ni];
+				farJ = farNode[nj];
+				dirI = graph.Nodes[farI].Pos - graph.Nodes[ni].Pos;
+				dirJ = graph.Nodes[farJ].Pos - graph.Nodes[nj].Pos;
+				toJ = graph.Nodes[nj].Pos - graph.Nodes[ni].Pos;
+				toI = graph.Nodes[ni].Pos - graph.Nodes[nj].Pos;
+				a1 = dmRoadProbe.AngleDeg(dirI, toJ);
+				a2 = dmRoadProbe.AngleDeg(dirJ, toI);
+				if (a1 >= DM_ROAD_GAP_ANGLE)
 					continue;
-				if (!AimAngles(graph, i, j, a1, a2))
+				if (a2 >= DM_ROAD_GAP_ANGLE)
 					continue;
 
 				gap = new dmRoadGap();
 				gap.Id = list.Gaps.Count();
-				gap.FromNode = graph.Nodes[i].Id;
-				gap.FromPos = graph.Nodes[i].Pos;
-				gap.ToNode = graph.Nodes[j].Id;
-				gap.ToPos = graph.Nodes[j].Pos;
+				gap.FromNode = graph.Nodes[ni].Id;
+				gap.FromPos = graph.Nodes[ni].Pos;
+				gap.ToNode = graph.Nodes[nj].Id;
+				gap.ToPos = graph.Nodes[nj].Pos;
 				gap.Distance = vector.Distance(gap.FromPos, gap.ToPos);
 				gap.AngleA = a1;
 				gap.AngleB = a2;
@@ -72,85 +123,11 @@ class dmRoadGapDetector
 		return list;
 	}
 
-	//! Number of edges incident to a vertex.
-	private static int Degree(dmRoadGraph graph, int id)
-	{
-		int deg = 0;
-		int i;
-		for (i = 0; i < graph.Edges.Count(); i++)
-		{
-			if (graph.Edges[i].From == id || graph.Edges[i].To == id)
-				deg = deg + 1;
-		}
-		return deg;
-	}
-
-	//! Position of a vertex by id (scan).
-	private static vector NodePos(dmRoadGraph graph, int id)
-	{
-		int i;
-		for (i = 0; i < graph.Nodes.Count(); i++)
-		{
-			if (graph.Nodes[i].Id == id)
-				return graph.Nodes[i].Pos;
-		}
-		return vector.Zero;
-	}
-
-	//! Outward direction (XZ) from a deadend vertex toward the far end of its
-	//! single incident edge. Returns false when the vertex has no incident edge.
-	private static bool Outward(dmRoadGraph graph, int id, out vector dir)
-	{
-		int i;
-		int farId;
-		vector farPos;
-		vector pos;
-		for (i = 0; i < graph.Edges.Count(); i++)
-		{
-			farId = -1;
-			if (graph.Edges[i].From == id)
-				farId = graph.Edges[i].To;
-			else if (graph.Edges[i].To == id)
-				farId = graph.Edges[i].From;
-			if (farId < 0)
-				continue;
-			farPos = NodePos(graph, farId);
-			pos = NodePos(graph, id);
-			dir = farPos - pos;
-			return true;
-		}
-		return false;
-	}
-
 	//! True when two points are within dist in the XZ plane.
 	private static bool WithinXZ(vector a, vector b, float dist)
 	{
 		float dx = a[0] - b[0];
 		float dz = a[2] - b[2];
 		return dx * dx + dz * dz <= dist * dist;
-	}
-
-	//! True when two deadends point at each other across a gap (each outward
-	//! direction points toward the other vertex), filling a1/a2 with the two
-	//! aim angles (degrees).
-	private static bool AimAngles(dmRoadGraph graph, int i, int j, out float a1, out float a2)
-	{
-		vector dirI;
-		vector dirJ;
-		vector toJ;
-		vector toI;
-		if (!Outward(graph, graph.Nodes[i].Id, dirI))
-			return false;
-		if (!Outward(graph, graph.Nodes[j].Id, dirJ))
-			return false;
-		toJ = graph.Nodes[j].Pos - graph.Nodes[i].Pos;
-		toI = graph.Nodes[i].Pos - graph.Nodes[j].Pos;
-		a1 = dmRoadProbe.AngleDeg(dirI, toJ);
-		a2 = dmRoadProbe.AngleDeg(dirJ, toI);
-		if (a1 >= DM_ROAD_GAP_ANGLE)
-			return false;
-		if (a2 >= DM_ROAD_GAP_ANGLE)
-			return false;
-		return true;
 	}
 }

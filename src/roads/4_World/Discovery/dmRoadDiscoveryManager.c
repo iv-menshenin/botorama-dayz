@@ -289,8 +289,12 @@ class dmRoadDiscoveryManager
 		array<int> bucket;
 		ref map<string, ref array<int>> grid = new map<string, ref array<int>>();
 		ref map<int, int> rootToNew = new map<int, int>();
+		ref map<string, bool> seenEdges = new map<string, bool>();
 		array<ref dmRoadGraphNode> kept = new array<ref dmRoadGraphNode>();
 		array<ref dmRoadGraphEdge> keptEdges = new array<ref dmRoadGraphEdge>();
+		int lo;
+		int hi;
+		string ekey;
 
 		for (i = 0; i < graph.Nodes.Count(); i++)
 			parent.Insert(i);
@@ -353,8 +357,17 @@ class dmRoadDiscoveryManager
 				continue;
 			if (f == t)
 				continue;
-			if (HasEdge(keptEdges, f, t))
+			lo = f;
+			hi = t;
+			if (t < f)
+			{
+				lo = t;
+				hi = f;
+			}
+			ekey = lo.ToString() + ":" + hi.ToString();
+			if (seenEdges.Contains(ekey))
 				continue;
+			seenEdges.Insert(ekey, true);
 			graph.Edges[i].Id = eid;
 			graph.Edges[i].From = f;
 			graph.Edges[i].To = t;
@@ -400,40 +413,32 @@ class dmRoadDiscoveryManager
 		return ci.ToString() + ":" + cj.ToString();
 	}
 
-	//! True when an edge already connects a and b in either direction.
-	private static bool HasEdge(array<ref dmRoadGraphEdge> edges, int a, int b)
-	{
-		int i;
-		for (i = 0; i < edges.Count(); i++)
-		{
-			if ((edges[i].From == a && edges[i].To == b) || (edges[i].From == b && edges[i].To == a))
-				return true;
-		}
-		return false;
-	}
-
 	//! Recompute every vertex Kind from its degree: >=3 junction, 2 bend,
 	//! 1 deadend, 0 isolated. Mirrors dmRoadObjectGraphBuilder.ClassifyNodes.
+	//! O(nodes + edges): one degree pass over the edges, then one pass over the
+	//! vertices. Node ids are contiguous 0..N-1 after SewNodes, so degree[i] is
+	//! indexed directly by vertex id.
 	private static void ClassifyNodes(dmRoadGraph graph)
 	{
+		int nodeCount = graph.Nodes.Count();
+		array<int> degree = new array<int>();
 		int i;
-		int j;
-		int deg;
-		for (i = 0; i < graph.Nodes.Count(); i++)
+		for (i = 0; i < nodeCount; i++)
+			degree.Insert(0);
+
+		for (i = 0; i < graph.Edges.Count(); i++)
 		{
-			deg = 0;
-			for (j = 0; j < graph.Edges.Count(); j++)
-			{
-				if (graph.Edges[j].From == graph.Nodes[i].Id)
-					deg = deg + 1;
-				if (graph.Edges[j].To == graph.Nodes[i].Id)
-					deg = deg + 1;
-			}
-			if (deg >= 3)
+			degree[graph.Edges[i].From] = degree[graph.Edges[i].From] + 1;
+			degree[graph.Edges[i].To] = degree[graph.Edges[i].To] + 1;
+		}
+
+		for (i = 0; i < nodeCount; i++)
+		{
+			if (degree[i] >= 3)
 				graph.Nodes[i].Kind = "junction";
-			else if (deg == 2)
+			else if (degree[i] == 2)
 				graph.Nodes[i].Kind = "bend";
-			else if (deg == 1)
+			else if (degree[i] == 1)
 				graph.Nodes[i].Kind = "deadend";
 			else
 				graph.Nodes[i].Kind = "isolated";
