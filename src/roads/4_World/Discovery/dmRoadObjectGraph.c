@@ -58,6 +58,7 @@ class dmRoadObjectGraphBuilder
 		AccumulateMetadata();
 
 		ClassifyNodes();
+		RenumberContiguous();
 
 		#ifdef DM_BOT_DEBUG_ROADS
 		dmBotLog.Debug("[ROADNET] objects=" + objects.Count() + " nodes=" + m_Graph.Nodes.Count() + " edges=" + m_Graph.Edges.Count());
@@ -92,6 +93,29 @@ class dmRoadObjectGraphBuilder
 				m_Graph.Nodes[i].Kind = "deadend";
 			else
 				m_Graph.Nodes[i].Kind = "isolated";
+		}
+	}
+
+	//! Renumber node Ids to a contiguous 0..N-1 range and remap edge endpoints to
+	//! the new Ids. MergeNode/ReconnectDeadendEnd drop nodes without renumbering,
+	//! leaving holes in the Id sequence; tile merging assumes Id == array index
+	//! (nodeOffset = node count), so holes would collide with the next tile's Ids.
+	private void RenumberContiguous()
+	{
+		ref map<int, int> oldToNew = new map<int, int>();
+		int i;
+		int v;
+		for (i = 0; i < m_Graph.Nodes.Count(); i++)
+		{
+			oldToNew.Insert(m_Graph.Nodes[i].Id, i);
+			m_Graph.Nodes[i].Id = i;
+		}
+		for (i = 0; i < m_Graph.Edges.Count(); i++)
+		{
+			oldToNew.Find(m_Graph.Edges[i].From, v);
+			m_Graph.Edges[i].From = v;
+			oldToNew.Find(m_Graph.Edges[i].To, v);
+			m_Graph.Edges[i].To = v;
 		}
 	}
 
