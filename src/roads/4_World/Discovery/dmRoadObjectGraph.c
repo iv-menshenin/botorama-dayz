@@ -233,7 +233,8 @@ class dmRoadObjectGraphBuilder
 		edge.Points.Insert(endA);
 		edge.Points.Insert(endB);
 		edge.Length = vector.Distance(endA, endB);
-		edge.SurfaceType = dmRoadSensor.Classify(midX, midZ);
+		edge.SurfaceCategory = dmRoadSensor.CategoryAt(midX, midZ);
+		edge.Obstacles = new array<ref dmRoadObstacle>();
 		m_Graph.Edges.Insert(edge);
 		m_NextEdgeId = m_NextEdgeId + 1;
 	}
@@ -443,7 +444,8 @@ class dmRoadObjectGraphBuilder
 		m_Graph.Edges[eIdx].Points.Insert(aPos);
 		m_Graph.Edges[eIdx].Points.Insert(qPos);
 		m_Graph.Edges[eIdx].Length = vector.Distance(aPos, qPos);
-		m_Graph.Edges[eIdx].SurfaceType = dmRoadSensor.Classify((aPos[0] + qPos[0]) * 0.5, (aPos[2] + qPos[2]) * 0.5);
+		m_Graph.Edges[eIdx].SurfaceCategory = dmRoadSensor.CategoryAt((aPos[0] + qPos[0]) * 0.5, (aPos[2] + qPos[2]) * 0.5);
+		m_Graph.Edges[eIdx].Obstacles = new array<ref dmRoadObstacle>();
 
 		dmRoadGraphEdge e2 = new dmRoadGraphEdge();
 		e2.Id = m_NextEdgeId;
@@ -453,7 +455,8 @@ class dmRoadObjectGraphBuilder
 		e2.Points.Insert(qPos);
 		e2.Points.Insert(bPos);
 		e2.Length = vector.Distance(qPos, bPos);
-		e2.SurfaceType = dmRoadSensor.Classify((qPos[0] + bPos[0]) * 0.5, (qPos[2] + bPos[2]) * 0.5);
+		e2.SurfaceCategory = dmRoadSensor.CategoryAt((qPos[0] + bPos[0]) * 0.5, (qPos[2] + bPos[2]) * 0.5);
+		e2.Obstacles = new array<ref dmRoadObstacle>();
 		m_Graph.Edges.Insert(e2);
 		m_NextEdgeId = m_NextEdgeId + 1;
 
@@ -491,7 +494,7 @@ class dmRoadObjectGraphBuilder
 		return split;
 	}
 
-	//! Fill Rise/Fall/Obstacles for every edge.
+	//! Fill Rise/Fall/AvgFriction/SurfaceCategory/Obstacles for every edge.
 	private void AccumulateMetadata()
 	{
 		int ei;
@@ -499,8 +502,32 @@ class dmRoadObjectGraphBuilder
 			AccumulateEdge(ei);
 	}
 
+	//! Dominant mnemonic category from the four category counters (first wins ties).
+	private string DominantCategory(int paved, int dirt, int gravel, int unknown)
+	{
+		int best = paved;
+		string cat = "paved";
+		if (dirt > best)
+		{
+			best = dirt;
+			cat = "dirt";
+		}
+		if (gravel > best)
+		{
+			best = gravel;
+			cat = "gravel";
+		}
+		if (unknown > best)
+		{
+			best = unknown;
+			cat = "unknown";
+		}
+		return cat;
+	}
+
 	//! Walk one edge from A to B in DM_ROAD_META_STEP samples, accumulating the
-	//! vertical rise/fall and the deduplicated obstacle count.
+	//! vertical rise/fall, the average friction, the dominant surface category and
+	//! the deduplicated obstacle list.
 	private void AccumulateEdge(int eIdx)
 	{
 		vector aPos = NodePos(m_Graph.Edges[eIdx].From);
@@ -511,7 +538,11 @@ class dmRoadObjectGraphBuilder
 
 		float rise = 0.0;
 		float fall = 0.0;
-		int obstacles = 0;
+		float frictionSum = 0.0;
+		int paved = 0;
+		int dirt = 0;
+		int gravel = 0;
+		int unknown = 0;
 
 		ref map<string, bool> seenObs = new map<string, bool>();
 		array<Object> objs = new array<Object>();
@@ -526,12 +557,19 @@ class dmRoadObjectGraphBuilder
 		Object obj;
 		string type;
 		string key;
+		string name;
+		string cat;
+		float friction;
+		int cls;
 		vector point;
 		vector op;
 		float t;
 		float y;
 		float dy;
 		float radius;
+		dmRoadObstacle obs;
+
+		m_Graph.Edges[eIdx].Obstacles = new array<ref dmRoadObstacle>();
 
 		for (k = 0; k <= n; k++)
 		{
@@ -547,6 +585,18 @@ class dmRoadObjectGraphBuilder
 			}
 			prevY = y;
 			havePrev = true;
+
+			dmRoadSensor.SampleSurface(point[0], point[2], name, friction, cls);
+			frictionSum = frictionSum + friction;
+			cat = dmRoadSensor.Category(name);
+			if (cat == "paved")
+				paved = paved + 1;
+			else if (cat == "dirt")
+				dirt = dirt + 1;
+			else if (cat == "gravel")
+				gravel = gravel + 1;
+			else
+				unknown = unknown + 1;
 
 			objs.Clear();
 			cargos.Clear();
@@ -568,12 +618,16 @@ class dmRoadObjectGraphBuilder
 				if (seenObs.Contains(key))
 					continue;
 				seenObs.Insert(key, true);
-				obstacles = obstacles + 1;
+				obs = new dmRoadObstacle();
+				obs.Pos = op;
+				obs.Type = obj.GetType();
+				m_Graph.Edges[eIdx].Obstacles.Insert(obs);
 			}
 		}
 
 		m_Graph.Edges[eIdx].Rise = rise;
 		m_Graph.Edges[eIdx].Fall = fall;
-		m_Graph.Edges[eIdx].Obstacles = obstacles;
+		m_Graph.Edges[eIdx].AvgFriction = frictionSum / n;
+		m_Graph.Edges[eIdx].SurfaceCategory = DominantCategory(paved, dirt, gravel, unknown);
 	}
 }

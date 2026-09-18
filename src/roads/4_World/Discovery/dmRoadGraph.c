@@ -7,6 +7,13 @@
 //! cell-grid dedup (visited), node-cell dedup (vertex reuse) and junction
 //! detection. See docs/plans/road-discovery.md for the overall design.
 
+//! One obstacle on a road edge: world position and object type.
+class dmRoadObstacle
+{
+	vector Pos;
+	string Type;
+}
+
 //! A graph vertex: a seed, a junction or a dead end.
 class dmRoadGraphNode
 {
@@ -23,10 +30,11 @@ class dmRoadGraphEdge
 	int To;
 	ref array<vector> Points;
 	float Length;
-	int SurfaceType;
+	string SurfaceCategory;
+	float AvgFriction;
 	float Rise;
 	float Fall;
-	int Obstacles;
+	ref array<ref dmRoadObstacle> Obstacles;
 }
 
 //! The discovered road graph (root of road_graph.json).
@@ -206,7 +214,8 @@ class dmRoadGraphBuilder
 		for (i = 0; i < walk.Points.Count(); i++)
 			edge.Points.Insert(walk.Points[i]);
 		edge.Length = PolylineLength(walk.Points);
-		edge.SurfaceType = DominantSurface(walk.Surfaces);
+		edge.SurfaceCategory = DominantSurfaceCategory(walk.Surfaces);
+		edge.Obstacles = new array<ref dmRoadObstacle>();
 		m_Graph.Edges.Insert(edge);
 		m_NextEdgeId = m_NextEdgeId + 1;
 	}
@@ -244,11 +253,11 @@ class dmRoadGraphBuilder
 		return length;
 	}
 
-	//! Most frequent surface class across the branch's points.
-	private int DominantSurface(array<int> surfaces)
+	//! Most frequent surface category across the branch's points (legacy walker).
+	private string DominantSurfaceCategory(array<int> surfaces)
 	{
 		if (!surfaces || surfaces.Count() == 0)
-			return dmRoadSurfaceClass.ROAD_UNKNOWN;
+			return "unknown";
 
 		int best = surfaces[0];
 		int bestCount = 0;
@@ -269,7 +278,11 @@ class dmRoadGraphBuilder
 				best = surfaces[i];
 			}
 		}
-		return best;
+		if (best == dmRoadSurfaceClass.ROAD_PAVED)
+			return "paved";
+		if (best == dmRoadSurfaceClass.ROAD_DIRT)
+			return "dirt";
+		return "unknown";
 	}
 
 	//! Push a point onto the flood-fill queue.

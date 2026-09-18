@@ -22,9 +22,12 @@ class dmRoadSensor
 {
 	private static ref map<string,float> s_Friction;
 
-	//! Classify the surface material at (x,z).
-	static int Classify(float x, float z)
+	//! Full surface info at (x,z): material name, friction, and class. One GetSurface.
+	static void SampleSurface(float x, float z, out string name, out float friction, out int cls)
 	{
+		name = "";
+		friction = 0.0;
+		cls = dmRoadSurfaceClass.ROAD_UNKNOWN;
 		float terrainY = GetGame().SurfaceY(x, z);
 		SurfaceDetectionParameters p = new SurfaceDetectionParameters();
 		p.type = SurfaceDetectionType.Roadway;
@@ -32,29 +35,63 @@ class dmRoadSensor
 		p.rsd = RoadSurfaceDetection.CLOSEST;
 		SurfaceDetectionResult res = new SurfaceDetectionResult();
 		GetGame().GetSurface(p, res);
-
-		string type = "";
 		if (res.surface)
-			type = res.surface.GetSurfaceType();
-		type.ToLower();
-		float f = GetFriction(type);
-		if (f >= DM_ROAD_FRICTION_MIN)
+			name = res.surface.GetSurfaceType();
+		name.ToLower();
+		friction = GetFriction(name);
+		if (friction >= DM_ROAD_FRICTION_MIN)
 		{
-			if (f >= DM_ROAD_FRICTION_PAVED)
-				return dmRoadSurfaceClass.ROAD_PAVED;
-			return dmRoadSurfaceClass.ROAD_DIRT;
+			if (friction >= DM_ROAD_FRICTION_PAVED)
+				cls = dmRoadSurfaceClass.ROAD_PAVED;
+			else
+				cls = dmRoadSurfaceClass.ROAD_DIRT;
 		}
-		// Not a road: keep the material taxonomy by name.
-		if (type.Contains("roof") || type.Contains("planks") || type.Contains("tiles"))
-			return dmRoadSurfaceClass.ROAD_STRUCTURE;
-		if (type.Contains("water") || type.Contains("pond") || type.Contains("sea"))
-			return dmRoadSurfaceClass.ROAD_WATER;
-		if (type.Contains("broadleaf") || type.Contains("conifer"))
-			return dmRoadSurfaceClass.ROAD_FOREST;
-		if (type.Contains("grass"))
-			return dmRoadSurfaceClass.ROAD_GRASS;
-		// Bare earth (dirt) and anything else: not a road.
-		return dmRoadSurfaceClass.ROAD_UNKNOWN;
+		else
+		{
+			if (name.Contains("roof") || name.Contains("planks") || name.Contains("tiles"))
+				cls = dmRoadSurfaceClass.ROAD_STRUCTURE;
+			else if (name.Contains("water") || name.Contains("pond") || name.Contains("sea"))
+				cls = dmRoadSurfaceClass.ROAD_WATER;
+			else if (name.Contains("broadleaf") || name.Contains("conifer"))
+				cls = dmRoadSurfaceClass.ROAD_FOREST;
+			else if (name.Contains("grass"))
+				cls = dmRoadSurfaceClass.ROAD_GRASS;
+			else
+				cls = dmRoadSurfaceClass.ROAD_UNKNOWN;
+		}
+	}
+
+	//! Classify the surface material at (x,z) via SampleSurface.
+	static int Classify(float x, float z)
+	{
+		string name;
+		float friction;
+		int cls;
+		SampleSurface(x, z, name, friction, cls);
+		return cls;
+	}
+
+	//! Mnemonic surface category.
+	static string Category(string name)
+	{
+		name.ToLower();
+		if (name.Contains("asphalt") || name.Contains("concrete") || name.Contains("stone"))
+			return "paved";
+		if (name.Contains("dirt"))
+			return "dirt";
+		if (name.Contains("gravel"))
+			return "gravel";
+		return "unknown";
+	}
+
+	//! Category at a point (SampleSurface -> Category).
+	static string CategoryAt(float x, float z)
+	{
+		string name;
+		float friction;
+		int cls;
+		SampleSurface(x, z, name, friction, cls);
+		return Category(name);
 	}
 
 	//! Friction of a surface type (CfgSurfaces), cached per type.
