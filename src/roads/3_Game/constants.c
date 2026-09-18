@@ -59,3 +59,10 @@ static const float DM_ROAD_OBSTACLE_RADIUS = 3.0;
 
 //! Output path of the discovered road graph JSON.
 static const string DM_ROADS_GRAPH_FILE = "$profile:dmBotorama/roads/road_graph.json";
+
+//! Max gap distance (meters) between two deadends for gap detection.
+static const float DM_ROAD_GAP_MAX = 200.0;
+//! Max angle (degrees) for two deadends to count as "pointing at each other".
+static const float DM_ROAD_GAP_ANGLE = 25.0;
+//! Output path of the detected road gaps JSON.
+static const string DM_ROADS_GAP_FILE = "$profile:dmBotorama/roads/road_gaps.json";

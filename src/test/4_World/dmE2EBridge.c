@@ -1628,6 +1628,10 @@ class dmE2EBridge
 		float t1 = GetGame().GetTickTime();
 		bool saved = dmRoadGraphIO.Save(graph, DM_ROADS_GRAPH_FILE);
 
+		dmRoadGapList gaps = dmRoadGapDetector.Detect(graph);
+		dmRoadGapIO.Save(gaps, DM_ROADS_GAP_FILE);
+		AppendDump(r, "gaps=" + gaps.Gaps.Count());
+
 		int nodeCount = graph.Nodes.Count();
 		int edgeCount = graph.Edges.Count();
 		AppendDump(r, "nodes=" + nodeCount + " edges=" + edgeCount);

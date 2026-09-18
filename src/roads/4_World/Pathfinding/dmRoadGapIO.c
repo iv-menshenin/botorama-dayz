@@ -1,0 +1,47 @@
+//! dmRoadGapIO — persist the detected road gaps to JSON.
+
+class dmRoadGapIO
+{
+	//! Save the gap list to path (creating the parent directory). Returns false
+	//! when the file could not be written.
+	static bool Save(dmRoadGapList list, string path)
+	{
+		EnsureDirectory(path);
+		string error;
+		if (!JsonFileLoader<dmRoadGapList>.SaveFile(path, list, error))
+		{
+			dmBotLog.Error("[ROADGAP] save failed: " + path + ": " + error);
+			return false;
+		}
+		return true;
+	}
+
+	//! Create the parent directory chain of a file path (handles the "$profile:"
+	//! prefix and relative paths alike).
+	private static void EnsureDirectory(string path)
+	{
+		int lastSlash = path.LastIndexOf("/");
+		if (lastSlash < 0)
+			return;
+
+		TStringArray comps = new TStringArray();
+		path.Substring(0, lastSlash).Split("/", comps);
+
+		int startFrom = 0;
+		string dir = "";
+		if (comps.Count() > 0 && comps[0] == "$profile:")
+		{
+			dir = "$profile:";
+			startFrom = 1;
+		}
+
+		for (int i = startFrom; i < comps.Count(); i++)
+		{
+			if (dir != "")
+				dir += "/";
+			dir += comps[i];
+			if (!FileExist(dir))
+				MakeDirectory(dir);
+		}
+	}
+}
