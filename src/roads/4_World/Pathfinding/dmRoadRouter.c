@@ -370,6 +370,9 @@ class dmRoadRouter : dmDriveRouteSource
 		{
 			if (!heap.Pop(u, poppedF))
 				break;
+			#ifdef DM_BOT_DEBUG_ROADS
+			dmBotLog.Debug("[ROUTER] AStar pop u=" + u + " f=" + poppedF);
+			#endif
 			done = false;
 			if (settled.Find(u, done) && done)
 				continue;
@@ -377,8 +380,8 @@ class dmRoadRouter : dmDriveRouteSource
 			if (u == toFull)
 				break;
 
-			gu = 0.0;
-			g.Find(u, gu);
+			if (!g.Find(u, gu))
+				gu = DM_ROUTER_INF;
 
 			for (j = foff[u]; j < foff[u + 1]; j++)
 			{
@@ -386,9 +389,12 @@ class dmRoadRouter : dmDriveRouteSource
 				vDone = false;
 				if (settled.Find(v, vDone) && vDone)
 					continue;
-				gv = DM_ROUTER_INF;
-				g.Find(v, gv);
+				if (!g.Find(v, gv))
+					gv = DM_ROUTER_INF;
 				nd = gu + fw[j];
+				#ifdef DM_BOT_DEBUG_ROADS
+				dmBotLog.Debug("[ROUTER] AStar try v=" + v + " nd=" + nd + " gv=" + gv);
+				#endif
 				if (nd < gv)
 				{
 					g.Set(v, nd);
@@ -401,7 +407,10 @@ class dmRoadRouter : dmDriveRouteSource
 		}
 
 		if (!settled.Contains(toFull))
+		{
+			dmBotLog.Error("[ROUTER] AStar no path " + fromFull + "->" + toFull);
 			return result;
+		}
 
 		array<int> rev = new array<int>();
 		cur = toFull;
