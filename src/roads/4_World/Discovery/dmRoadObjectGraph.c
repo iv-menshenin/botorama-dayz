@@ -380,7 +380,8 @@ class dmRoadObjectGraphBuilder
 		return merged;
 	}
 
-	//! Rewrite the deadend vertex's incident edge so its P-end becomes Q.
+	//! Rewrite the deadend vertex's incident edge so its P-end becomes Q, then
+	//! drop the now-orphaned vertex P from the node list.
 	private void ReconnectDeadendEnd(int pId, int qId)
 	{
 		int i;
@@ -390,6 +391,14 @@ class dmRoadObjectGraphBuilder
 				m_Graph.Edges[i].From = qId;
 			if (m_Graph.Edges[i].To == pId)
 				m_Graph.Edges[i].To = qId;
+		}
+		for (i = 0; i < m_Graph.Nodes.Count(); i++)
+		{
+			if (m_Graph.Nodes[i].Id == pId)
+			{
+				m_Graph.Nodes.Remove(i);
+				break;
+			}
 		}
 	}
 
