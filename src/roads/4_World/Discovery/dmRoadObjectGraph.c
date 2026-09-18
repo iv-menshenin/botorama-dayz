@@ -22,6 +22,8 @@ class dmRoadObjectGraphBuilder
 	private ref map<string, bool> m_Seen;
 	private int m_NextNodeId;
 	private int m_NextEdgeId;
+	private int m_FullSegments;
+	private int m_PartialSegments;
 
 	void dmRoadObjectGraphBuilder()
 	{
@@ -29,6 +31,8 @@ class dmRoadObjectGraphBuilder
 		m_Seen = new map<string, bool>();
 		m_NextNodeId = 0;
 		m_NextEdgeId = 0;
+		m_FullSegments = 0;
+		m_PartialSegments = 0;
 	}
 
 	//! Scan the area for road objects, extract each segment's endpoints, snap
@@ -45,6 +49,10 @@ class dmRoadObjectGraphBuilder
 		int i;
 		for (i = 0; i < objects.Count(); i++)
 			BuildSegment(objects[i]);
+
+		#ifdef DM_BOT_DEBUG_ROADS
+		dmBotLog.Debug("[ROADNET] segments full=" + m_FullSegments + " partial=" + m_PartialSegments);
+		#endif
 
 		ConnectGraph();
 		AccumulateMetadata();
@@ -132,49 +140,46 @@ class dmRoadObjectGraphBuilder
 	}
 
 	//! Turn one road object into a segment (edge) between its two endpoints.
-	//! Objects with only one endpoint pair (a stub) are skipped.
+	//! A missing endpoint pair falls back to the object's bbox along its long
+	//! axis (local Z) via ClippingInfo, so single-pair stubs still yield a
+	//! segment instead of dropping the road (see Expansion eAIRoadNode.Generate).
 	private void BuildSegment(Object obj)
 	{
+		vector mm[2];
+		obj.ClippingInfo(mm);
 		bool hasA = obj.MemoryPointExists("LB") && obj.MemoryPointExists("PB");
 		bool hasB = obj.MemoryPointExists("LE") && obj.MemoryPointExists("PE");
-
 		vector endA;
 		vector endB;
-		bool haveA = false;
-		bool haveB = false;
-
-		vector lb;
-		vector pb;
-		vector le;
-		vector pe;
-
 		if (hasA)
 		{
-			lb = obj.ModelToWorld(obj.GetMemoryPointPos("LB"));
-			pb = obj.ModelToWorld(obj.GetMemoryPointPos("PB"));
-			if (lb != vector.Zero && pb != vector.Zero)
-			{
-				endA = (lb + pb) * 0.5;
-				haveA = true;
-			}
+			vector lb = obj.ModelToWorld(obj.GetMemoryPointPos("LB"));
+			vector pb = obj.ModelToWorld(obj.GetMemoryPointPos("PB"));
+			endA = (lb + pb) * 0.5;
+		}
+		else
+		{
+			endA = obj.ModelToWorld(Vector(0.0, 0.0, mm[0][2]));
 		}
 		if (hasB)
 		{
-			le = obj.ModelToWorld(obj.GetMemoryPointPos("LE"));
-			pe = obj.ModelToWorld(obj.GetMemoryPointPos("PE"));
-			if (le != vector.Zero && pe != vector.Zero)
-			{
-				endB = (le + pe) * 0.5;
-				haveB = true;
-			}
+			vector le = obj.ModelToWorld(obj.GetMemoryPointPos("LE"));
+			vector pe = obj.ModelToWorld(obj.GetMemoryPointPos("PE"));
+			endB = (le + pe) * 0.5;
 		}
-
-		if (!haveA || !haveB)
+		else
+		{
+			endB = obj.ModelToWorld(Vector(0.0, 0.0, mm[1][2]));
+		}
+		if (endA == vector.Zero || endB == vector.Zero)
 			return;
-
 		int nodeA = FindOrCreateNode(endA, "junction");
 		int nodeB = FindOrCreateNode(endB, "junction");
 		AddEdge(nodeA, nodeB, endA, endB);
+		if (hasA && hasB)
+			m_FullSegments = m_FullSegments + 1;
+		else
+			m_PartialSegments = m_PartialSegments + 1;
 	}
 
 	//! Reuse an existing vertex whose endpoint is within DM_ROAD_ENDPOINT_SNAP of
