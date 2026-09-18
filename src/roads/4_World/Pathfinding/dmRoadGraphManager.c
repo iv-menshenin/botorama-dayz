@@ -29,11 +29,17 @@ class dmRoadGraphManager
 
 	//! CSR of the coarse graph: node positions + adjacency, plus the coarse
 	//! vertices (Type/Weight/Radius/Members) and per-edge provenance Path.
+	//! m_CoarseAdjEdge is parallel to m_CoarseAdjTarget: the original edge index
+	//! of each adjacency entry (to look up m_CoarsePaths[edgeIdx]). m_CoarseEdges
+	//! keeps the raw edge array so the router can resolve a leg's orientation
+	//! (edge.From/To) without re-scanning.
 	private ref array<vector> m_CoarsePos;
 	private ref array<int> m_CoarseAdjOffset;
 	private ref array<int> m_CoarseAdjTarget;
 	private ref array<float> m_CoarseAdjWeight;
+	private ref array<int> m_CoarseAdjEdge;
 	private ref array<ref dmSimplifiedNode> m_CoarseNodes;
+	private ref array<ref dmSimplifiedEdge> m_CoarseEdges;
 	private ref array<ref array<int>> m_CoarsePaths;
 
 	void dmRoadGraphManager()
@@ -47,7 +53,9 @@ class dmRoadGraphManager
 		m_CoarseAdjOffset = null;
 		m_CoarseAdjTarget = null;
 		m_CoarseAdjWeight = null;
+		m_CoarseAdjEdge = null;
 		m_CoarseNodes = null;
+		m_CoarseEdges = null;
 		m_CoarsePaths = null;
 	}
 
@@ -206,11 +214,13 @@ class dmRoadGraphManager
 		float length;
 
 		m_CoarseNodes = graph.Nodes;
+		m_CoarseEdges = graph.Edges;
 
 		m_CoarsePos = new array<vector>();
 		m_CoarseAdjOffset = new array<int>();
 		m_CoarseAdjTarget = new array<int>();
 		m_CoarseAdjWeight = new array<float>();
+		m_CoarseAdjEdge = new array<int>();
 		m_CoarsePaths = new array<ref array<int>>();
 
 		for (i = 0; i < nodeCount; i++)
@@ -239,6 +249,7 @@ class dmRoadGraphManager
 		{
 			m_CoarseAdjTarget.Insert(0);
 			m_CoarseAdjWeight.Insert(0.0);
+			m_CoarseAdjEdge.Insert(0);
 		}
 
 		array<int> cursor = new array<int>();
@@ -253,11 +264,83 @@ class dmRoadGraphManager
 			c = cursor[from];
 			m_CoarseAdjTarget[c] = to;
 			m_CoarseAdjWeight[c] = length;
+			m_CoarseAdjEdge[c] = i;
 			cursor[from] = c + 1;
 			c = cursor[to];
 			m_CoarseAdjTarget[c] = from;
 			m_CoarseAdjWeight[c] = length;
+			m_CoarseAdjEdge[c] = i;
 			cursor[to] = c + 1;
 		}
+	}
+
+	//! True once the graphs are loaded and the CSR is built. The router guards on
+	//! this (and on null arrays) before touching any structure.
+	bool IsLoaded()
+	{
+		return m_Loaded;
+	}
+
+	//! Read-only accessors for the routing layer (dmRoadRouter). The arrays are
+	//! reference types: returning them shares the underlying object, so the router
+	//! reads them directly without copying. All return null when not loaded.
+	array<vector> GetFullPos()
+	{
+		return m_FullPos;
+	}
+
+	array<int> GetFullAdjOffset()
+	{
+		return m_FullAdjOffset;
+	}
+
+	array<int> GetFullAdjTarget()
+	{
+		return m_FullAdjTarget;
+	}
+
+	array<float> GetFullAdjWeight()
+	{
+		return m_FullAdjWeight;
+	}
+
+	array<vector> GetCoarsePos()
+	{
+		return m_CoarsePos;
+	}
+
+	array<int> GetCoarseAdjOffset()
+	{
+		return m_CoarseAdjOffset;
+	}
+
+	array<int> GetCoarseAdjTarget()
+	{
+		return m_CoarseAdjTarget;
+	}
+
+	array<float> GetCoarseAdjWeight()
+	{
+		return m_CoarseAdjWeight;
+	}
+
+	array<int> GetCoarseAdjEdge()
+	{
+		return m_CoarseAdjEdge;
+	}
+
+	array<ref dmSimplifiedNode> GetCoarseNodes()
+	{
+		return m_CoarseNodes;
+	}
+
+	array<ref dmSimplifiedEdge> GetCoarseEdges()
+	{
+		return m_CoarseEdges;
+	}
+
+	array<ref array<int>> GetCoarsePaths()
+	{
+		return m_CoarsePaths;
 	}
 }
