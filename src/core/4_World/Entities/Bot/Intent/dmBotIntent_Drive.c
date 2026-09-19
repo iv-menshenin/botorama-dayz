@@ -27,6 +27,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! коллайдер машины, иначе луч стартует внутри коллайдера и самопопадает на t=0.
 	static const float DM_DRIVE_DETECT_START_OFFSET = 4.0;
 
+	//! Локальный объезд: минимальная скорость для детекта (км/ч). На старте машина
+	//! ещё не выровнялась на оси дороги и едва едет — проба полос от невыровненной
+	//! позиции даёт ложный «no clear corridor». Не детектим, пока не поедем.
+	static const float DM_DRIVE_DETECT_MIN_SPEED = 5.0;
+
 	//! Локальный объезд: макс. боковое смещение коробки (м) — до него простирается
 	//! проба полос (DM_DRIVE_DETOUR_OFFSET = DM_DRIVE_LANES_PER_SIDE × DM_DRIVE_LANE_STEP).
 	static const float DM_DRIVE_DETOUR_OFFSET = 9.0;
@@ -34,6 +39,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	static const float DM_DRIVE_DETOUR_SPAN = 15.0;
 	//! Локальный объезд: скорость в манёвре (км/ч).
 	static const float DM_DRIVE_DETOUR_SPEED = 20.0;
+
+	//! Локальный объезд: кулдаун детекта после успешного объезда (с). Подавляет
+	//! повторный детект ТОГО ЖЕ обломка с новой позиции коробки (второй объезд → fail).
+	static const float DM_DRIVE_DETOUR_COOLDOWN = 6.0;
 
 	//! Локальный объезд: шаг между полосами коридора (м).
 	static const float DM_DRIVE_LANE_STEP = 3.0;
@@ -105,6 +114,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Локальный объезд: активен (препятствие найдено, выполняем манёвр).
 	bool m_DetourActive = false;
 
+	//! Локальный объезд: кулдаун детекта после успешного объезда (с, декремент по тикам).
+	float m_DetourCooldown = 0.0;
+
 	//! Локальный объезд: позиция препятствия (проба сторон и коробка).
 	vector m_DetourObstaclePos;
 
@@ -158,6 +170,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_LastDriveLogTime = 0.0;
 		m_DetectTimer = 0.0;
 		m_DetourActive = false;
+		m_DetourCooldown = 0.0;
 		m_DetourBlockIdx = 0;
 
 		//! Уже за рулём (команда резолвила машину по случаю 1): не walk к двери и
@@ -576,10 +589,30 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! длина ≤ DM_DRIVE_DETECT_DISTANCE. Попадание → m_DetourActive + позиция + индекс.
 	void TickDetect(vector carPos, float pDt)
 	{
+		//! Кулдаун после успешного объезда: детект подавлен, пока не истечёт.
+		//! Декремент каждый тик (реальное время), иначе ТОТ ЖЕ обломок ловится
+		//! повторно с новой позиции коробки → второй объезд → ложный fail.
+		if (m_DetourCooldown > 0.0)
+		{
+			m_DetourCooldown = m_DetourCooldown - pDt;
+			return;
+		}
+
 		m_DetectTimer = m_DetectTimer + pDt;
 		if (m_DetectTimer < DM_DRIVE_DETECT_INTERVAL)
 			return;
 		m_DetectTimer = 0.0;
+
+		//! Гейт по скорости: на старте/при ползании машина ещё не выровнялась на оси
+		//! дороги — проба полос даёт ложный «no clear corridor». Не детектим, пока
+		//! не поедем.
+		if (m_Car.GetSpeedometerAbsolute() < DM_DRIVE_DETECT_MIN_SPEED)
+		{
+			#ifdef DM_BOT_DEBUG_CAR
+			dmBotLog.Debug("[CAR] Drive: detect skipped, speed too low");
+			#endif
+			return;
+		}
 
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Drive.Detect");
@@ -784,6 +817,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				removePrev = true;
 			ReplaceBlock(j, removePrev, boxA, boxB, boxC, boxD, boxE);
 
+			//! Вооружаем кулдаун детекта: с новой позиции коробки ТОТ ЖЕ обломок
+			//! снова попадает в луч через ~0.3 с — подавляем детект на время кулдауна.
+			m_DetourCooldown = DM_DRIVE_DETOUR_COOLDOWN;
 			m_DetourActive = false;
 			m_LastWaypointDist = -1.0;
 			return;
