@@ -1210,7 +1210,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		if (dmRoadHoneycomb.Get().IsDone())
 		{
 			array<vector> path = new array<vector>();
-			if (dmRoadHoneycomb.Get().GetPath(path) && path.Count() > 0)
+			//! Вырожденный путь (< 3 точек) = грид не дотянулся до препятствия
+			//! (прямая, а не объезд). Не вставляем и не финишим — настоящий тупик.
+			if (dmRoadHoneycomb.Get().GetPath(path) && path.Count() >= 3)
 			{
 				InsertHoneycombPath(path);
 				m_LastWaypointDist = -1.0;
@@ -1222,6 +1224,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			else
 			{
 				m_HoneyState = 0;
+				#ifdef DM_BOT_DEBUG_CAR
+				dmBotLog.Debug("[CAR] honeycomb: degenerate path -> fail");
+				#endif
 				Fail();
 			}
 		}

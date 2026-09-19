@@ -54,7 +54,7 @@ class dmRoadHoneycomb
 	static const float DM_GRID_ROAD_HALF_WIDTH = 3.0;
 	//! Territory length hard cap (rows, ~60 m) — a safety net if the road never
 	//! clears; the adaptive stop normally ends coloring far earlier.
-	static const int DM_GRID_MAX_ROWS = 90;
+	static const int DM_GRID_MAX_ROWS = 110;
 	//! A* sentinel cost.
 	static const float DM_GRID_INF = 1000000000.0;
 
@@ -75,6 +75,7 @@ class dmRoadHoneycomb
 	private int m_RowCount;
 	private int m_ColorRow;
 	private int m_RoadClearRun;
+	private bool m_SeenRed;
 	private ref array<int> m_Cells;
 	private ref array<vector> m_Route;
 	private int m_RouteIdx;
@@ -97,6 +98,7 @@ class dmRoadHoneycomb
 		m_RowCount = 0;
 		m_ColorRow = 0;
 		m_RoadClearRun = 0;
+		m_SeenRed = false;
 		m_Cells = null;
 		m_Route = null;
 		m_RouteIdx = 0;
@@ -128,6 +130,7 @@ class dmRoadHoneycomb
 		m_RowCount = DM_GRID_MAX_ROWS;
 		m_ColorRow = 0;
 		m_RoadClearRun = 0;
+		m_SeenRed = false;
 		m_RouteIdx = routeIdx;
 		m_GoalRow = 0;
 		m_GoalCol = 0;
@@ -225,9 +228,18 @@ class dmRoadHoneycomb
 				roadClear = false;
 		}
 		if (roadClear)
-			m_RoadClearRun = m_RoadClearRun + 1;
+		{
+			//! Считаем чистые ряды только ПОСЛЕ препятствия (m_SeenRed): иначе
+			//! территория гасится на первых же чистых рядах ДО барьера (дорога
+			//! чистая от старта) и барьер не попадает в грид.
+			if (m_SeenRed)
+				m_RoadClearRun = m_RoadClearRun + 1;
+		}
 		else
+		{
+			m_SeenRed = true;
 			m_RoadClearRun = 0;
+		}
 	}
 
 	//! Classify one cell (RED/GREEN). The vertical ray catches trunks/low blocks
