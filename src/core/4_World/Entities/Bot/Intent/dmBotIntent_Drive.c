@@ -17,6 +17,25 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Руль: мёртвая зона угла (рад), ниже — не рулим (анти-джиттер).
 	static const float DRIVE_STEER_ANGLE_DEADZONE = 0.01;
 
+	//! Локальный объезд: дистанция детекта препятствий вперёд (м).
+	static const float DM_DRIVE_DETECT_DISTANCE = 50.0;
+	//! Локальный объезд: интервал детекта препятствий (с).
+	static const float DM_DRIVE_DETECT_INTERVAL = 0.3;
+	//! Локальный объезд: радиус широкого райкаста препятствия (м, ~пол-ширины машины).
+	static const float DM_DRIVE_OBSTACLE_RAY_RADIUS = 1.5;
+
+	//! Локальный объезд: боковое смещение коробки (м).
+	static const float DM_DRIVE_DETOUR_OFFSET = 9.0;
+	//! Локальный объезд: продольный размах коробки (м).
+	static const float DM_DRIVE_DETOUR_SPAN = 15.0;
+	//! Локальный объезд: скорость в манёвре (км/ч).
+	static const float DM_DRIVE_DETOUR_SPEED = 20.0;
+
+	//! Локальный объезд: радиус боковой пробы чистой стороны (м).
+	static const float DM_DRIVE_DETOUR_PROBE_RADIUS = 1.0;
+	//! Локальный объезд: допустимый перепад высоты земли на боку (м), иначе — обрыв.
+	static const float DM_DRIVE_DETOUR_GROUND_EPS = 1.5;
+
 	//! Рефилл маршрута: число перегонов за чанк NextChunk («текущий + следующий»).
 	static const int DM_DRIVE_LOOKAHEAD = 2;
 	//! Рефилл: дозапрашиваем чанк, когда до конца очереди осталось ≤ N точек.
@@ -74,6 +93,18 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Последнее время драйв-лога (троттлинг ~2 c).
 	float m_LastDriveLogTime = 0.0;
 
+	//! Локальный объезд: таймер троттлинга детекта (с).
+	float m_DetectTimer = 0.0;
+
+	//! Локальный объезд: активен (препятствие найдено, выполняем манёвр).
+	bool m_DetourActive = false;
+
+	//! Локальный объезд: позиция препятствия (проба сторон и коробка).
+	vector m_DetourObstaclePos;
+
+	//! Локальный объезд: индекс вейпоинта, к которому шли при детекте.
+	int m_DetourBlockIdx = 0;
+
 	void dmBotIntent_Drive()
 	{
 		//! Посадка = walk → канал MOVE (как у GetInVehicle); в фазе вождения
@@ -119,6 +150,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_ReverseTicks = 0;
 		m_WheelSteer = 0.0;
 		m_LastDriveLogTime = 0.0;
+		m_DetectTimer = 0.0;
+		m_DetourActive = false;
+		m_DetourBlockIdx = 0;
 
 		//! Уже за рулём (команда резолвила машину по случаю 1): не walk к двери и
 		//! не get-in — сразу фаза вождения на канале DRIVE.
@@ -198,6 +232,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 
 		vector carPos = m_Car.GetPosition();
+
+		//! Локальный объезд: детект препятствий впереди (троттлинг). Ставит m_DetourActive
+		//! + позицию препятствия + индекс заблокированного вейпоинта.
+		TickDetect(carPos, pDt);
+
 		vector target = m_DriveRoute[m_DriveRouteIdx];
 		vector toTarget = target - carPos;
 		toTarget[1] = 0.0;
@@ -262,9 +301,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 		float speedAbs = m_Car.GetSpeedometerAbsolute();
 
-		//! 6. Целевая скорость: ниже в повороте; сглаживаем.
+		//! 6. Целевая скорость: ниже в повороте; при активном объезде — тормозим. Сглаживаем.
 		float limit = DM_DRIVE_MAX_SPEED_STRAIGHT;
-		if (Math.AbsFloat(angle) > DM_DRIVE_TURN_ANGLE_THRESHOLD)
+		if (m_DetourActive)
+			limit = DM_DRIVE_DETOUR_SPEED;
+		else if (Math.AbsFloat(angle) > DM_DRIVE_TURN_ANGLE_THRESHOLD)
 			limit = DM_DRIVE_MAX_SPEED_TURNING;
 		m_SpeedLimit = Math.Lerp(m_SpeedLimit, limit, DM_DRIVE_SPEED_SMOOTH);
 
@@ -277,7 +318,12 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		//! 9. Руль (нативный).
 		ApplySteering(angle, speedAbs, pDt);
 
-		//! 10. Застревание → реверс.
+		//! 10. Манёвр объезда (проба сторон + коробка) — после руля, чтобы коробка
+		//!    встала на следующий тик; снимает m_DetourActive.
+		if (m_DetourActive)
+			PerformDetour(carPos);
+
+		//! 11. Застревание → реверс.
 		TickStuck(dist);
 
 		#ifdef DM_BOT_DEBUG_DRIVE_TELEMETRY
@@ -487,6 +533,238 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			if (!m_Reverse)
 				m_ReverseTicks = 0;
 		}
+	}
+
+	//! Локальный объезд: широкий райкаст от from до to (radius), игнорируя машину.
+	//! Физическая геометрия (ObjIntersectGeom) — ловит обломки/баррикады по коллизии,
+	//! а не view-листву/кроны. true = попадание; hitPos — позиция первого попадания.
+	bool RaycastHits(vector from, vector to, float radius, out vector hitPos)
+	{
+		hitPos = Vector(0.0, 0.0, 0.0);
+		RaycastRVParams params = new RaycastRVParams(from, to, m_Car, radius);
+		params.flags = CollisionFlags.ALLOBJECTS;
+		params.type = ObjIntersectGeom;
+		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
+		if (DayZPhysics.RaycastRVProxy(params, hits) && hits.Count() > 0)
+		{
+			hitPos = hits[0].pos;
+			return true;
+		}
+		return false;
+	}
+
+	//! Детект препятствий впереди (троттлинг DM_DRIVE_DETECT_INTERVAL): широкий райкаст
+	//! по сегментам будущих вейпоинтов [carPos→W[idx]]→[W[idx]→W[idx+1]]→... пока суммарная
+	//! длина ≤ DM_DRIVE_DETECT_DISTANCE. Попадание → m_DetourActive + позиция + индекс.
+	void TickDetect(vector carPos, float pDt)
+	{
+		m_DetectTimer = m_DetectTimer + pDt;
+		if (m_DetectTimer < DM_DRIVE_DETECT_INTERVAL)
+			return;
+		m_DetectTimer = 0.0;
+
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Drive.Detect");
+		#endif
+
+		//! Высота скана — корпус машины: препятствие торчит сквозь неё, а плоская дорога
+		//! ниже корпуса (террейн не ловится — groundOnly=false по умолчанию).
+		float scanY = carPos[1];
+
+		vector from = carPos;
+		float total = 0.0;
+		int n = m_DriveRoute.Count();
+		int i = m_DriveRouteIdx;
+
+		while (i < n)
+		{
+			vector to = m_DriveRoute[i];
+			vector seg = to - from;
+			seg[1] = 0.0;
+			float segLen = seg.Length();
+			if (segLen < 0.01)
+			{
+				from = to;
+				i = i + 1;
+				continue;
+			}
+			if (total + segLen > DM_DRIVE_DETECT_DISTANCE)
+				break;
+
+			total = total + segLen;
+
+			vector segFrom = from;
+			vector segTo = to;
+			segFrom[1] = scanY;
+			segTo[1] = scanY;
+
+			vector hitPos;
+			if (RaycastHits(segFrom, segTo, DM_DRIVE_OBSTACLE_RAY_RADIUS, hitPos))
+			{
+				m_DetourObstaclePos = hitPos;
+				m_DetourBlockIdx = i;
+				m_DetourActive = true;
+				#ifdef DM_BOT_DEBUG_CAR
+				dmBotLog.Debug("[CAR] Drive: obstacle ahead pos=" + hitPos + " blockIdx=" + i);
+				#endif
+				return;
+			}
+
+			from = to;
+			i = i + 1;
+		}
+	}
+
+	//! Манёвр «коробка» вокруг препятствия: направление дороги d, перпендикуляр p, проба
+	//! обеих сторон, коробка [A,B,C,D,E] вместо заблокированных вейпоинтов. Нет чистой
+	//! стороны → Fail (обе стороны заняты).
+	void PerformDetour(vector carPos)
+	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Drive.Detour");
+		#endif
+
+		int j = m_DetourBlockIdx;
+		int n = m_DriveRoute.Count();
+
+		//! 1. Направление дороги d (XZ, нормированный): W[j]-W[j-1]; j==0 → W[1]-W[0].
+		vector d;
+		if (j > 0)
+			d = m_DriveRoute[j] - m_DriveRoute[j - 1];
+		else if (n > 1)
+			d = m_DriveRoute[1] - m_DriveRoute[0];
+		else
+			d = Vector(1.0, 0.0, 0.0);
+		d[1] = 0.0;
+		if (d.Length() < 0.01)
+			d = Vector(1.0, 0.0, 0.0);
+		else
+			d.Normalize();
+
+		//! Перпендикуляр p (влево от d).
+		vector p = Vector(-d[2], 0.0, d[0]);
+
+		vector obs = m_DetourObstaclePos;
+
+		//! 2. Проба обеих сторон (+p / -p). side = +1 / -1 / 0 (обе заняты).
+		int side = ProbeClearSide(obs, p);
+		if (side == 0)
+		{
+			#ifdef DM_BOT_DEBUG_CAR
+			dmBotLog.Debug("[CAR] detour: no clear side -> fail");
+			#endif
+			//! TODO: отмена команды — что делать? (сообщить игроку / остаться / выйти)
+			Fail();
+			return;
+		}
+
+		#ifdef DM_BOT_DEBUG_CAR
+		dmBotLog.Debug("[CAR] detour: obstacle=" + obs + " side=" + side);
+		#endif
+
+		//! 3. Коробка (XZ; Y через SurfaceY). sideSign = ±1.
+		float sideSign = 1.0;
+		if (side < 0)
+			sideSign = -1.0;
+
+		float offX = p[0] * DM_DRIVE_DETOUR_OFFSET * sideSign;
+		float offZ = p[2] * DM_DRIVE_DETOUR_OFFSET * sideSign;
+		float spanX = d[0] * DM_DRIVE_DETOUR_SPAN;
+		float spanZ = d[2] * DM_DRIVE_DETOUR_SPAN;
+
+		//! A = O - d*SPAN, B = A + side*OFFSET, C = O + side*OFFSET,
+		//! D = O + d*SPAN + side*OFFSET, E = O + d*SPAN.
+		vector boxA = Vector(obs[0] - spanX, 0.0, obs[2] - spanZ);
+		vector boxB = Vector(boxA[0] + offX, 0.0, boxA[2] + offZ);
+		vector boxC = Vector(obs[0] + offX, 0.0, obs[2] + offZ);
+		vector boxD = Vector(obs[0] + spanX + offX, 0.0, obs[2] + spanZ + offZ);
+		vector boxE = Vector(obs[0] + spanX, 0.0, obs[2] + spanZ);
+
+		boxA[1] = GetGame().SurfaceY(boxA[0], boxA[2]);
+		boxB[1] = GetGame().SurfaceY(boxB[0], boxB[2]);
+		boxC[1] = GetGame().SurfaceY(boxC[0], boxC[2]);
+		boxD[1] = GetGame().SurfaceY(boxD[0], boxD[2]);
+		boxE[1] = GetGame().SurfaceY(boxE[0], boxE[2]);
+
+		//! 4. W[j-1] уже позади машины — убираем и его, иначе вход в коробку окажется
+		//!    за спиной. Заменяем вейпоинты на коробку.
+		bool removePrev = false;
+		if (j - 1 >= 0 && CarPassedWaypoint(carPos, m_DriveRoute[j - 1]))
+			removePrev = true;
+		ReplaceBlock(j, removePrev, boxA, boxB, boxC, boxD, boxE);
+
+		m_DetourActive = false;
+		m_LastWaypointDist = -1.0;
+	}
+
+	//! Проба обеих сторон от препятствия: боковой райкаст из obs на ±p * OFFSET. Чистая
+	//! сторона = нет попадания И земля в конце смещения без обрыва. Возвращает +1 / -1 / 0.
+	int ProbeClearSide(vector obs, vector p)
+	{
+		float groundRef = GetGame().SurfaceY(obs[0], obs[2]);
+
+		vector endP = Vector(obs[0] + p[0] * DM_DRIVE_DETOUR_OFFSET, obs[1], obs[2] + p[2] * DM_DRIVE_DETOUR_OFFSET);
+		vector endN = Vector(obs[0] - p[0] * DM_DRIVE_DETOUR_OFFSET, obs[1], obs[2] - p[2] * DM_DRIVE_DETOUR_OFFSET);
+
+		vector hitPos;
+		bool clearP = !RaycastHits(obs, endP, DM_DRIVE_DETOUR_PROBE_RADIUS, hitPos);
+		if (clearP)
+			clearP = SidePassable(endP, groundRef);
+
+		bool clearN = !RaycastHits(obs, endN, DM_DRIVE_DETOUR_PROBE_RADIUS, hitPos);
+		if (clearN)
+			clearN = SidePassable(endN, groundRef);
+
+		if (clearP)
+			return 1;
+		if (clearN)
+			return -1;
+		return 0;
+	}
+
+	//! Земля в точке проходима (нет обрыва/ямы): высота SurfaceY в пределах
+	//! DM_DRIVE_DETOUR_GROUND_EPS от земли под препятствием.
+	bool SidePassable(vector point, float groundRef)
+	{
+		float groundY = GetGame().SurfaceY(point[0], point[2]);
+		return Math.AbsFloat(groundY - groundRef) <= DM_DRIVE_DETOUR_GROUND_EPS;
+	}
+
+	//! Машина уже проехала вейпоинт (он позади): машина ближе к препятствию, чем к нему.
+	bool CarPassedWaypoint(vector carPos, vector wp)
+	{
+		float dx = wp[0] - carPos[0];
+		float dz = wp[2] - carPos[2];
+		float dWpSq = dx * dx + dz * dz;
+		float ox = m_DetourObstaclePos[0] - carPos[0];
+		float oz = m_DetourObstaclePos[2] - carPos[2];
+		float dObsSq = ox * ox + oz * oz;
+		return dObsSq < dWpSq;
+	}
+
+	//! Заменяет заблокированный вейпоинт W[j] на коробку [boxA..boxE]; если removePrev —
+	//! убирает и W[j-1] (позади машины). m_DriveRouteIdx корректируется при снятии
+	//! вейпоинта перед ним.
+	void ReplaceBlock(int j, bool removePrev, vector boxA, vector boxB, vector boxC, vector boxD, vector boxE)
+	{
+		//! Удаляем сначала больший индекс (W[j]), затем W[j-1].
+		m_DriveRoute.Remove(j);
+		if (removePrev)
+		{
+			m_DriveRoute.Remove(j - 1);
+			if (j - 1 < m_DriveRouteIdx)
+				m_DriveRouteIdx = m_DriveRouteIdx - 1;
+		}
+
+		int at = j;
+		if (removePrev)
+			at = j - 1;
+
+		m_DriveRoute.InsertAt(boxA, at);
+		m_DriveRoute.InsertAt(boxB, at + 1);
+		m_DriveRoute.InsertAt(boxC, at + 2);
+		m_DriveRoute.InsertAt(boxD, at + 3);
+		m_DriveRoute.InsertAt(boxE, at + 4);
 	}
 
 	//! Graceful: гасим поля ввода (OnInput больше не прикладывает руль, OnSound
