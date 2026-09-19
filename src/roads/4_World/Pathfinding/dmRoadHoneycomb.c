@@ -44,6 +44,10 @@ class dmRoadHoneycomb
 	//! Vertical ray start height (m) above the ground — low enough to hit trunks
 	//! and low blocks, high enough to clear the high tree canopy.
 	static const float DM_GRID_RAY_HEIGHT = 2.0;
+	//! Радиус вертикальной капсулы клетки (м) — как у детекта машины (1.5 м),
+	//! чтобы ловить тонкие вертикальные объекты (столбы/заборы), попадающие в
+	//! зазор между центрами клеток.
+	static const float DM_GRID_RAY_RADIUS = 1.5;
 	//! Min obstacle height (m) above ground for a vertical-ray hit to count as red.
 	static const float DM_GRID_OBSTACLE_EPS = 0.1;
 	//! Consecutive all-green road rows after which the territory stops growing
@@ -283,50 +287,25 @@ class dmRoadHoneycomb
 	//! block). The terrain hit lands at groundY and is ignored.
 	private bool RaycastBlocked(float cx, float groundY, float cz)
 	{
-		//! Вертикальный луч (капсула ~0.5 м): ловит горизонтальные препятствия
-		//! (низкие блоки, камни), чей верх выше groundY + EPS. Хит террейна (на
-		//! groundY) игнорируется.
+		//! Вертикальная капсула БОЛЬШОГО радиуса (1.5 м, как у детекта машины):
+		//! ловит и низкие бордюры, и тонкие вертикальные объекты (столбы/заборы),
+		//! которые попадают в зазор между центрами клеток. Хит террейна (на
+		//! groundY) отбрасывается по высоте; объект выше groundY + EPS — препятствие.
 		vector vFrom = Vector(cx, groundY + DM_GRID_RAY_HEIGHT, cz);
 		vector vTo = Vector(cx, groundY - 1.0, cz);
-		RaycastRVParams vParams = new RaycastRVParams(vFrom, vTo, null, DM_GRID_CELL_SIZE * 0.75);
+		RaycastRVParams vParams = new RaycastRVParams(vFrom, vTo, null, DM_GRID_RAY_RADIUS);
 		vParams.flags = CollisionFlags.ALLOBJECTS;
 		vParams.type = ObjIntersectGeom;
 		ref array<ref RaycastRVResult> vHits = new array<ref RaycastRVResult>();
-		if (DayZPhysics.RaycastRVProxy(vParams, vHits))
+		if (!DayZPhysics.RaycastRVProxy(vParams, vHits))
+			return false;
+		float limit = groundY + DM_GRID_OBSTACLE_EPS;
+		int i;
+		for (i = 0; i < vHits.Count(); i++)
 		{
-			float limit = groundY + DM_GRID_OBSTACLE_EPS;
-			int i;
-			for (i = 0; i < vHits.Count(); i++)
-			{
-				if (vHits[i].pos[1] > limit)
-					return true;
-			}
+			if (vHits[i].pos[1] > limit)
+				return true;
 		}
-
-		//! Два скрещённых горизонтальных луча У ЗЕМЛИ (~0.06 м, размах в клетку):
-		//! ловят НИЗКИЕ (~0.1 м) тонкие бордюры/стены, мимо которых вертикальный
-		//! луч проскальзывает. Любой хит здесь — препятствие (ровная дорога ниже).
-		float h = groundY + 0.06;
-		float r = DM_GRID_CELL_SIZE;
-
-		vector hxFrom = Vector(cx - r, h, cz);
-		vector hxTo = Vector(cx + r, h, cz);
-		RaycastRVParams hxParams = new RaycastRVParams(hxFrom, hxTo, null);
-		hxParams.flags = CollisionFlags.ALLOBJECTS;
-		hxParams.type = ObjIntersectGeom;
-		ref array<ref RaycastRVResult> hxHits = new array<ref RaycastRVResult>();
-		if (DayZPhysics.RaycastRVProxy(hxParams, hxHits) && hxHits.Count() > 0)
-			return true;
-
-		vector hzFrom = Vector(cx, h, cz - r);
-		vector hzTo = Vector(cx, h, cz + r);
-		RaycastRVParams hzParams = new RaycastRVParams(hzFrom, hzTo, null);
-		hzParams.flags = CollisionFlags.ALLOBJECTS;
-		hzParams.type = ObjIntersectGeom;
-		ref array<ref RaycastRVResult> hzHits = new array<ref RaycastRVResult>();
-		if (DayZPhysics.RaycastRVProxy(hzParams, hzHits) && hzHits.Count() > 0)
-			return true;
-
 		return false;
 	}
 
