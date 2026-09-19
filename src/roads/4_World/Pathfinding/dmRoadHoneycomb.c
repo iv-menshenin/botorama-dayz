@@ -45,7 +45,7 @@ class dmRoadHoneycomb
 	//! and low blocks, high enough to clear the high tree canopy.
 	static const float DM_GRID_RAY_HEIGHT = 2.0;
 	//! Min obstacle height (m) above ground for a vertical-ray hit to count as red.
-	static const float DM_GRID_OBSTACLE_EPS = 0.3;
+	static const float DM_GRID_OBSTACLE_EPS = 0.1;
 	//! Consecutive all-green road rows after which the territory stops growing
 	//! ("the road is clear again").
 	static const int DM_GRID_CLEAR_ROWS = 10;
