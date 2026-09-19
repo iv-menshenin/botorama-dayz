@@ -1,0 +1,12 @@
+{
+  "Name": "warmup-check",
+  "Timeout": 60,
+  "Steps": [
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "ping" },
+    { "Op": "scanbox", "Min": [10877, 0, 13353], "Max": [10977, 0, 13453] },
+    { "Op": "scanbox", "Min": [1443, 0, 11063], "Max": [1543, 0, 11163] },
+    { "Op": "raycast", "From": [10927, 0, 13403], "To": [10977, 0, 13453] }
+  ]
+}

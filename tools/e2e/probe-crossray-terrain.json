@@ -1,0 +1,13 @@
+{
+  "Name": "probe-crossray-terrain",
+  "Timeout": 60,
+  "Steps": [
+    { "Op": "spawnobj", "Who": "t1", "ClassName": "HescoBox", "Pos": [6992.45, 0, 12671.0], "Yaw": 0 },
+    { "Op": "getpos", "Obj": "t1" },
+    { "Op": "spawnobj", "Who": "t2", "ClassName": "HescoBox", "Pos": [6989.0, 0, 12675.13], "Yaw": 0 },
+    { "Op": "getpos", "Obj": "t2" },
+    { "Op": "spawnobj", "Who": "t3", "ClassName": "HescoBox", "Pos": [6996.0, 0, 12675.13], "Yaw": 0 },
+    { "Op": "getpos", "Obj": "t3" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "Name": "scan-barrier-6971",
+  "Timeout": 60,
+  "Steps": [
+    { "Op": "scanbox", "Min": [6950, 120, 12640], "Max": [7000, 150, 12700] }
+  ]
+}

@@ -590,6 +590,24 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 	}
 
+	//! Нейтраль: отсоединяем двигатель от колёс. Нужна перед жёстким тормозом
+	//! (фаза сот/объезда) — на ручной КПП тормоз на высокой передаче глушит мотор
+	//! (rpm=0 → engine=false), машина глохнет и не едет дальше.
+	void ShiftToNeutral()
+	{
+		CarGearboxType type = m_Car.GearboxGetType();
+		if (type == CarGearboxType.MANUAL)
+		{
+			if (m_Car.GetCurrentGear() != CarGear.NEUTRAL)
+				m_Car.ShiftTo(CarGear.NEUTRAL);
+		}
+		else
+		{
+			if (m_Car.GearboxGetMode() != CarAutomaticGearboxMode.N)
+				m_Car.ShiftTo(CarAutomaticGearboxMode.N);
+		}
+	}
+
 	//! Руль: нативный (пишется в m_Car.dm_DriveSteering, применяется через
 	//! SetSteering в CarScript.OnInput). steerTarget в <-1,1> от угла (±90°).
 	//! ВАЖНО (знак, телеметрия DRIVE-TELE): angle=Atan2(cross,dot) положителен,
@@ -1190,11 +1208,12 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 		dmRoadHoneycomb.Get().Tick(pDt);
 
-		//! Тормозим (лимит 0): машина стоит/ползёт, пока соты считают.
+		//! Тормозим (лимит 0): машина стоит/ползёт, пока соты считают. Нейтраль
+		//! перед тормозом, чтобы ручная КПП не глохла на высокой передаче.
 		m_SpeedLimit = Math.Lerp(m_SpeedLimit, 0.0, DM_DRIVE_SPEED_SMOOTH);
 		float speedAbs = m_Car.GetSpeedometerAbsolute();
+		ShiftToNeutral();
 		ApplyDriveForce(speedAbs);
-		ShiftGear(speedAbs);
 		ApplySteering(0.0, speedAbs, pDt);
 
 		if (dmRoadHoneycomb.Get().IsFailed())

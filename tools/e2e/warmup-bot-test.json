@@ -1,0 +1,14 @@
+{
+  "Name": "warmup-bot-test",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "spawn", "Who": "b1", "Pos": [10927, 0, 13403], "Yaw": 0 },
+    { "Op": "spawn", "Who": "b2", "Pos": [6628, 0, 12507], "Yaw": 0 },
+    { "Op": "spawn", "Who": "b3", "Pos": [1493, 0, 11113], "Yaw": 0 },
+    { "Op": "sleep", "Timeout": 60 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

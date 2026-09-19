@@ -1,0 +1,12 @@
+{
+  "Name": "probe-ground-6821",
+  "Timeout": 30,
+  "Steps": [
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "spawnobj", "Who": "g1", "ClassName": "HescoBox", "Pos": [6821, 0, 12638], "Yaw": 0 },
+    { "Op": "getpos", "Obj": "g1" },
+    { "Op": "spawnobj", "Who": "g2", "ClassName": "HescoBox", "Pos": [6971, 0, 12670], "Yaw": 0 },
+    { "Op": "getpos", "Obj": "g2" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}

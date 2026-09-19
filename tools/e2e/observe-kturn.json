@@ -1,0 +1,7 @@
+{
+  "Name": "observe-kturn",
+  "Timeout": 30,
+  "Steps": [
+    { "Op": "observe", "Pos": [6821, 0, 12615], "Yaw": 0 }
+  ]
+}

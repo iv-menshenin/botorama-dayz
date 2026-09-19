@@ -1,0 +1,26 @@
+{
+  "Name": "drive-honeycomb-eps",
+  "Timeout": 240,
+  "Steps": [
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "spawncar", "Who": "c", "ClassName": "CivilianSedan", "Pos": [6821, 0, 12638], "Yaw": 0 },
+    { "Op": "spawn", "Who": "b", "Pos": [6816, 0, 12638], "Yaw": 0 },
+    { "Op": "driveto", "Who": "b", "Obj": "c", "Pos": [7353, 0, 12665] },
+    { "Op": "wait", "Cond": "carspeed", "Obj": "c", "Value": "1.0", "Timeout": 15 },
+    { "Op": "cardump", "Obj": "c" },
+    { "Op": "sleep", "Timeout": 10 },
+    { "Op": "cardump", "Obj": "c" },
+    { "Op": "sleep", "Timeout": 10 },
+    { "Op": "cardump", "Obj": "c" },
+    { "Op": "sleep", "Timeout": 10 },
+    { "Op": "cardump", "Obj": "c" },
+    { "Op": "sleep", "Timeout": 10 },
+    { "Op": "cardump", "Obj": "c" },
+    { "Op": "wait", "Cond": "carpos", "Obj": "c", "Pos": [7353, 0, 12665], "Tolerance": 20.0, "Timeout": 90 },
+    { "Op": "cardump", "Obj": "c" },
+    { "Op": "getpos", "Obj": "c" },
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}
