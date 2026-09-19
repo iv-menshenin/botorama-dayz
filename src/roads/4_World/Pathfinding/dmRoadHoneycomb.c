@@ -219,7 +219,8 @@ class dmRoadHoneycomb
 		{
 			vector center = CellCenter(row, col);
 			int color = ColorCell(center[0], center[2]);
-			m_Cells[CellIndex(row, col)] = color;
+			int cidx = CellIndex(row, col);
+			m_Cells[cidx] = color;
 			if (IsRoadCol(col) && color != CELL_GREEN)
 				roadClear = false;
 		}
@@ -272,7 +273,7 @@ class dmRoadHoneycomb
 	{
 		vector from = Vector(cx, groundY + DM_GRID_RAY_HEIGHT, cz);
 		vector to = Vector(cx, groundY - 1.0, cz);
-		RaycastRVParams params = new RaycastRVParams(from, to);
+		RaycastRVParams params = new RaycastRVParams(from, to, null);
 		params.flags = CollisionFlags.ALLOBJECTS;
 		params.type = ObjIntersectGeom;
 		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>();
