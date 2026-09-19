@@ -283,23 +283,51 @@ class dmRoadHoneycomb
 	//! block). The terrain hit lands at groundY and is ignored.
 	private bool RaycastBlocked(float cx, float groundY, float cz)
 	{
-		vector from = Vector(cx, groundY + DM_GRID_RAY_HEIGHT, cz);
-		vector to = Vector(cx, groundY - 1.0, cz);
-		//! Радиус ~0.5 м (3/4 клетки): тонкие jersey-сегменты с зазорами ловятся
-		//! капсулой, даже если центр клетки попадает в зазор между сегментами.
-		RaycastRVParams params = new RaycastRVParams(from, to, null, DM_GRID_CELL_SIZE * 0.75);
-		params.flags = CollisionFlags.ALLOBJECTS;
-		params.type = ObjIntersectGeom;
-		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>();
-		if (!DayZPhysics.RaycastRVProxy(params, hits))
-			return false;
-		float limit = groundY + DM_GRID_OBSTACLE_EPS;
-		int i;
-		for (i = 0; i < hits.Count(); i++)
+		//! Вертикальный луч (капсула ~0.5 м): ловит горизонтальные препятствия
+		//! (низкие блоки, камни), чей верх выше groundY + EPS. Хит террейна (на
+		//! groundY) игнорируется.
+		vector vFrom = Vector(cx, groundY + DM_GRID_RAY_HEIGHT, cz);
+		vector vTo = Vector(cx, groundY - 1.0, cz);
+		RaycastRVParams vParams = new RaycastRVParams(vFrom, vTo, null, DM_GRID_CELL_SIZE * 0.75);
+		vParams.flags = CollisionFlags.ALLOBJECTS;
+		vParams.type = ObjIntersectGeom;
+		ref array<ref RaycastRVResult> vHits = new array<ref RaycastRVResult>();
+		if (DayZPhysics.RaycastRVProxy(vParams, vHits))
 		{
-			if (hits[i].pos[1] > limit)
-				return true;
+			float limit = groundY + DM_GRID_OBSTACLE_EPS;
+			int i;
+			for (i = 0; i < vHits.Count(); i++)
+			{
+				if (vHits[i].pos[1] > limit)
+					return true;
+			}
 		}
+
+		//! Два скрещённых горизонтальных луча (~1 м над землёй, размах в клетку):
+		//! ловят ТОНКИЕ вертикальные стены (jersey-сегменты), мимо которых
+		//! вертикальный луч проскальзывает. Любой хит здесь — препятствие (ровная
+		//! дорога ~1 м НИЖЕ луча).
+		float h = groundY + 1.0;
+		float r = DM_GRID_CELL_SIZE;
+
+		vector hxFrom = Vector(cx - r, h, cz);
+		vector hxTo = Vector(cx + r, h, cz);
+		RaycastRVParams hxParams = new RaycastRVParams(hxFrom, hxTo, null);
+		hxParams.flags = CollisionFlags.ALLOBJECTS;
+		hxParams.type = ObjIntersectGeom;
+		ref array<ref RaycastRVResult> hxHits = new array<ref RaycastRVResult>();
+		if (DayZPhysics.RaycastRVProxy(hxParams, hxHits) && hxHits.Count() > 0)
+			return true;
+
+		vector hzFrom = Vector(cx, h, cz - r);
+		vector hzTo = Vector(cx, h, cz + r);
+		RaycastRVParams hzParams = new RaycastRVParams(hzFrom, hzTo, null);
+		hzParams.flags = CollisionFlags.ALLOBJECTS;
+		hzParams.type = ObjIntersectGeom;
+		ref array<ref RaycastRVResult> hzHits = new array<ref RaycastRVResult>();
+		if (DayZPhysics.RaycastRVProxy(hzParams, hzHits) && hzHits.Count() > 0)
+			return true;
+
 		return false;
 	}
 
