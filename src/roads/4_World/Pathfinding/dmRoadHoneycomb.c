@@ -522,7 +522,7 @@ class dmRoadHoneycomb
 			dmin = dc;
 			dmax = dr;
 		}
-		return dmin * DM_GRID_DIAG_COST + (dmax - dmin) * DM_GRID_CELL_SIZE;
+		return (float)dmin * DM_GRID_DIAG_COST + (float)(dmax - dmin) * DM_GRID_CELL_SIZE;
 	}
 
 	//! String-pulling over the SAFE cell path: cut collinear points, and advance
@@ -570,16 +570,16 @@ class dmRoadHoneycomb
 		float dr = rb - ra;
 		float dc = cb - ca;
 		float len = Math.Sqrt(dr * dr + dc * dc);
-		int steps = Math.Round(len * 2.0) + 1;
-		float stepT = 1.0 / steps;
+		int steps = Math.Floor(len * 2.0 + 0.5) + 1;
+		float stepT = 1.0 / (float)steps;
 		float t = stepT;
 		int i;
 		for (i = 1; i < steps; i++)
 		{
 			float fr = ra + dr * t;
 			float fc = ca + dc * t;
-			int r = Math.Round(fr);
-			int c = Math.Round(fc);
+			int r = Math.Floor(fr + 0.5);
+			int c = Math.Floor(fc + 0.5);
 			if (m_Cells[CellIndex(r, c)] == CELL_RED)
 				return true;
 			t = t + stepT;
@@ -617,8 +617,8 @@ class dmRoadHoneycomb
 	//! ground height use CellWorld).
 	private vector CellCenter(int row, int col)
 	{
-		float along = row * DM_GRID_CELL_SIZE;
-		float across = col * DM_GRID_CELL_SIZE;
+		float along = (float)row * DM_GRID_CELL_SIZE;
+		float across = (float)col * DM_GRID_CELL_SIZE;
 		return m_Origin + m_Dir * along + m_Side * across;
 	}
 
@@ -649,7 +649,7 @@ class dmRoadHoneycomb
 	//! True when the column is within the road lane (for the clear-row check).
 	private bool IsRoadCol(int col)
 	{
-		return Math.AbsFloat(col * DM_GRID_CELL_SIZE) <= DM_GRID_ROAD_HALF_WIDTH;
+		return Math.AbsFloat((float)col * DM_GRID_CELL_SIZE) <= DM_GRID_ROAD_HALF_WIDTH;
 	}
 
 	private int WorldToRow(vector wp)
@@ -657,7 +657,7 @@ class dmRoadHoneycomb
 		float dx = wp[0] - m_Origin[0];
 		float dz = wp[2] - m_Origin[2];
 		float along = dx * m_Dir[0] + dz * m_Dir[2];
-		int row = Math.Round(along / DM_GRID_CELL_SIZE);
+		int row = Math.Floor(along / DM_GRID_CELL_SIZE + 0.5);
 		return row;
 	}
 
@@ -666,7 +666,7 @@ class dmRoadHoneycomb
 		float dx = wp[0] - m_Origin[0];
 		float dz = wp[2] - m_Origin[2];
 		float across = dx * m_Side[0] + dz * m_Side[2];
-		int col = Math.Round(across / DM_GRID_CELL_SIZE);
+		int col = Math.Floor(across / DM_GRID_CELL_SIZE + 0.5);
 		return col;
 	}
 }
