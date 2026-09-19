@@ -62,6 +62,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! повторный детект ТОГО ЖЕ обломка с новой позиции коробки (второй объезд → fail).
 	static const float DM_DRIVE_DETOUR_COOLDOWN = 6.0;
 
+	//! Локальный объезд: запас на ширину корпуса (м) — сдвиг центра коробки ДАЛЬШЕ
+	//! от препятствия (~полкорпуса + зазор), чтобы ~2-м корпус не цеплял барьер
+	//! краем. Центр зажимается по краям чистого коридора (PerformDetour).
+	static const float DM_DRIVE_DETOUR_BODY_CLEARANCE = 1.5;
+
 	//! Локальный объезд: шаг между полосами коридора (м).
 	static const float DM_DRIVE_LANE_STEP = 3.0;
 	//! Локальный объезд: радиус полосы коридора (м, ~пол-ширины машины).
@@ -88,6 +93,13 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	static const float DM_DRIVE_REVERSE_TURN_MAX_SPEED = 8.0;
 	//! K-разворот: таймаут (с) фазы манёвра — страховка от залипания в фазе.
 	static const float DM_DRIVE_REVERSE_TURN_TIMEOUT = 8.0;
+
+	//! Застревание (TickStuck): фиксированный боковой выворот руля в реверсе
+	//! (единицы руля, ~25° = 0.28/1.57 рад), чтобы зад уходил вбок ОТ маршрута и
+	//! машина не возвращалась в ту же точку при следующем вперёд. Применяется только
+	//! в реверсе от застревания (m_Reverse при m_TurnState == NONE); у K-разворота
+	//! свой руль (ApplySteering в фазах REVERSING/FORWARD).
+	static const float DM_DRIVE_STUCK_REVERSE_STEER = 0.28;
 
 	//! Рефилл маршрута: число перегонов за чанк NextChunk («текущий + следующий»).
 	static const int DM_DRIVE_LOOKAHEAD = 2;
@@ -573,6 +585,21 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			//! Передний ход: обычный руль к маршруту (доворот носа).
 			steerTarget = Math.Clamp(-angle / 1.57, -1.0, 1.0);
 		}
+		else if (m_Reverse)
+		{
+			//! Реверс от застревания (TickStuck), НЕ K-разворот (фазы выше уже
+			//! обработали m_TurnState != NONE): выворачиваем руль на ФИКСИРОВАННЫЙ
+			//! угол ОТ маршрута, чтобы зад уходил вбок и машина не возвращалась в
+			//! ту же точку. Знак: angle>0 = маршрут слева; на заднем ходу нос идёт
+			//! ПРОТИВ руля — чтобы нос ушёл ОТ маршрута (вправо), руль влево
+			//! (steer<0). Фикс, а не -angle/1.57: при лобовом застревании |angle|≈0
+			//! и медленном ходе (speedAbs < DM_DRIVE_STEER_MIN_SPEED) руль не
+			//! выворачивается вовсе (deadzone) → прямой реверс в ту же точку.
+			if (angle > 0.0)
+				steerTarget = -DM_DRIVE_STUCK_REVERSE_STEER;
+			else
+				steerTarget = DM_DRIVE_STUCK_REVERSE_STEER;
+		}
 		else if (speedAbs >= DM_DRIVE_STEER_MIN_SPEED && absAngle >= DRIVE_STEER_ANGLE_DEADZONE)
 		{
 			steerTarget = Math.Clamp(-angle / 1.57, -1.0, 1.0);
@@ -971,6 +998,18 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			float startOff = -DM_DRIVE_DETOUR_OFFSET + (float)chosenStart * DM_DRIVE_LANE_STEP;
 			float endOff = -DM_DRIVE_DETOUR_OFFSET + (float)(chosenStart + chosenLen - 1) * DM_DRIVE_LANE_STEP;
 			float centerOff = (startOff + endOff) * 0.5;
+
+			//! Запас на ширину корпуса: смещаем центр коробки ДАЛЬШЕ от препятствия.
+			//! obsOff — боковая (по перпендикуляру p) проекция препятствия на линию
+			//! маршрута; направление сдвига — ПРОЧЬ от неё. Зажимаем по краям чистого
+			//! коридора (startOff..endOff): узкий коридор не вытолкнет коробку на
+			//! заблокированную полосу.
+			float obsOff = p[0] * (obs[0] - carPos[0]) + p[2] * (obs[2] - carPos[2]);
+			if (centerOff >= obsOff)
+				centerOff = centerOff + DM_DRIVE_DETOUR_BODY_CLEARANCE;
+			else
+				centerOff = centerOff - DM_DRIVE_DETOUR_BODY_CLEARANCE;
+			centerOff = Math.Clamp(centerOff, startOff, endOff);
 
 			#ifdef DM_BOT_DEBUG_CAR
 			dmBotLog.Debug("[CAR] detour: corridor center=" + centerOff + " width=" + chosenLen);
