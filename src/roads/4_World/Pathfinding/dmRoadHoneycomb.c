@@ -285,7 +285,9 @@ class dmRoadHoneycomb
 	{
 		vector from = Vector(cx, groundY + DM_GRID_RAY_HEIGHT, cz);
 		vector to = Vector(cx, groundY - 1.0, cz);
-		RaycastRVParams params = new RaycastRVParams(from, to, null);
+		//! Радиус ~0.5 м (3/4 клетки): тонкие jersey-сегменты с зазорами ловятся
+		//! капсулой, даже если центр клетки попадает в зазор между сегментами.
+		RaycastRVParams params = new RaycastRVParams(from, to, null, DM_GRID_CELL_SIZE * 0.75);
 		params.flags = CollisionFlags.ALLOBJECTS;
 		params.type = ObjIntersectGeom;
 		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>();
