@@ -574,7 +574,12 @@ class dmE2EBridge
 
 			Object obj = GetGame().CreateObject(cls, ResolveWorldPos(step.Points[i]), false);
 			if (obj)
+			{
+				EntityAI entity = EntityAI.Cast(obj);
+				if (entity)
+					SetProbeLifetime(entity);
 				m_Objects.Insert(step.Who + "_" + i, obj);
+			}
 		}
 
 		r.Ok = true;
@@ -1196,6 +1201,16 @@ class dmE2EBridge
 		return p;
 	}
 
+	//! Give a freshly spawned probe object a long Central Economy lifetime so it
+	//! is not silently cleaned up mid-test. Lifetime is the remaining seconds
+	//! before cleanup, so SetLifetime(0) would expire it immediately (not
+	//! "infinite") — a large positive value (1 hour) keeps it alive for the test.
+	private void SetProbeLifetime(EntityAI entity)
+	{
+		entity.SetLifetime(3600.0);
+		entity.SetLifetimeMax(3600.0);
+	}
+
 	//! Spawn an arbitrary CfgVehicles object at a ground-snapped position,
 	//! registered under the step's Who name (in m_Objects, not m_Named).
 	private void RunSpawnObj(dmE2EStep step, dmE2EStepResult r)
@@ -1204,6 +1219,9 @@ class dmE2EBridge
 		if (obj)
 		{
 			obj.SetOrientation(Vector(step.Yaw, 0, 0));
+			EntityAI entity = EntityAI.Cast(obj);
+			if (entity)
+				SetProbeLifetime(entity);
 			m_Objects.Insert(step.Who, obj);
 			r.Ok = true;
 			r.Reason = "spawned " + step.ClassName;
@@ -1920,6 +1938,7 @@ class dmE2EBridge
 		}
 
 		car.SetOrientation(Vector(step.Yaw, 0, 0));
+		SetProbeLifetime(car);
 
 		//! 4 колеса подряд без guard'ов (как ванильный CivilianSedan.OnDebugSpawn:
 		//! первые CreateInInventory заполняют хабы), затем 1 запасное в карго.
