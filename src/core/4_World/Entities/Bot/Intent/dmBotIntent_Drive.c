@@ -17,8 +17,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Руль: мёртвая зона угла (рад), ниже — не рулим (анти-джиттер).
 	static const float DRIVE_STEER_ANGLE_DEADZONE = 0.01;
 
-	//! Локальный объезд: дистанция детекта препятствий вперёд (м).
-	static const float DM_DRIVE_DETECT_DISTANCE = 50.0;
+	//! Локальный объезд: дистанция детекта препятствий вперёд (м). 70 м (не 50)
+	//! компенсирует квантование по вейпоинтам (~14 м шаг): препятствие входит в
+	//! бюджет детекта только когда m_DriveRouteIdx подходит к нему вплотную —
+	//! реально детект срабатывал на ~28–40 м, а не на 50.
+	static const float DM_DRIVE_DETECT_DISTANCE = 70.0;
 	//! Локальный объезд: интервал детекта препятствий (с).
 	static const float DM_DRIVE_DETECT_INTERVAL = 0.3;
 	//! Локальный объезд: радиус широкого райкаста препятствия (м, ~пол-ширины машины).
@@ -31,6 +34,16 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! ~0.5–1 м) и ловит их только вплотную — нижний луч у земли цепляет их на полной
 	//! дистанции детекта.
 	static const float DM_DRIVE_DETECT_GROUND_RAY_HEIGHT = 0.3;
+	//! Локальный объезд: высота верхнего детект-луча над землёй (м) — реальная высота
+	//! кузова машины (carPos[1] = origin у земли, не высота кузова). Верхний луч ловит
+	//! высокие препятствия (деревья, стены), нижний (GROUND_RAY_HEIGHT) — низкие
+	//! заграждения: два луча реально разнесены по высоте.
+	static const float DM_DRIVE_DETECT_BODY_OFFSET = 1.0;
+	//! Локальный объезд: сила тормоза при превышении лимита скорости (0..1). Реальный
+	//! тормоз (SetBrake в CarScript.OnInput), а не сброс газа: на 47 км/ч машина без
+	//! тормоза катится ещё десятки метров и не успевает замедлиться до
+	//! DM_DRIVE_DETOUR_SPEED до барьера.
+	static const float DM_DRIVE_BRAKE_STRENGTH = 1.0;
 
 	//! Локальный объезд: минимальная скорость для детекта (км/ч). На старте машина
 	//! ещё не выровнялась на оси дороги и едва едет — проба полос от невыровненной
@@ -457,8 +470,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 	//! Нативный привод: газ по отклонению от целевой скорости (dm_DriveThrottle,
 	//! применяется через SetThrottle в CarScript.OnInput) + передачи ShiftTo.
-	//! Торможение/накат — газ 0 (тормоз всегда 0). Возвращает true, если сейчас
-	//! разгоняемся (используется в драйв-логе).
+	//! Превышение лимита — реальный тормоз (dm_DriveBrake > 0), а не просто сброс газа:
+	//! сброс газа катит машину ещё десятки метров (врез в барьер). Возвращает true,
+	//! если сейчас разгоняемся (используется в драйв-логе).
 	bool ApplyDriveForce(float speedAbs)
 	{
 		float margin = 3.0;
@@ -466,24 +480,27 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 		if (speedAbs > m_SpeedLimit + margin)
 		{
-			//! Превышаем — газ убираем (торможение двигателем).
+			//! Превышаем лимит — реально тормозим (не катимся): быстрое замедление
+			//! до целевой скорости (напр. с 47 до 20 км/ч при детекте препятствия).
 			m_Car.dm_DriveThrottle = 0.0;
+			m_Car.dm_DriveBrake = DM_DRIVE_BRAKE_STRENGTH;
 		}
 		else if (speedAbs < m_SpeedLimit - margin)
 		{
-			//! Ниже цели — разгоняемся нативным газом (реальная тяга от двигателя).
+			//! Ниже цели — разгоняемся нативным газом (реальная тяга от двигателя);
+			//! тормоз обязательно снимаем, иначе не разгонится.
 			pushing = true;
 			m_Car.dm_DriveThrottle = 0.6;
+			m_Car.dm_DriveBrake = 0.0;
 		}
 		else
 		{
-			//! Накат в коридоре — газ убираем.
+			//! Накат в коридоре — газ убираем, тормоз снят.
 			m_Car.dm_DriveThrottle = 0.0;
+			m_Car.dm_DriveBrake = 0.0;
 		}
 
-		//! Тормоз — всегда 0 (тормозим отпусканием газа); руль остаётся активным
-		//! через dm_DriveActive (SetSteering в CarScript.OnInput).
-		m_Car.dm_DriveBrake = 0.0;
+		//! Руль остаётся активным через dm_DriveActive (SetSteering в CarScript.OnInput).
 		m_Car.dm_DriveActive = true;
 
 		//! RPM-звук — нативный (dm_DriveThrottle поднимает EngineGetRPM через
@@ -762,9 +779,12 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		dmBotSpan _span = dmBotProfiler.Start("Drive.Detect");
 		#endif
 
-		//! Высота скана — корпус машины: препятствие торчит сквозь неё. Террейн в райкаст
-		//! попадает (obj == null), но RaycastHits его пропускает — земля не препятствие.
-		float scanY = carPos[1];
+		//! Высота скана — реальная высота кузова машины (carPos[1] = origin у земли,
+		//! + DM_DRIVE_DETECT_BODY_OFFSET). Верхний луч ловит высокие препятствия сквозь
+		//! кузов; нижний луч (SurfaceY + GROUND_RAY_HEIGHT) — низкие заграждения.
+		//! Террейн в райкаст попадает (obj == null), но RaycastHits его пропускает —
+		//! земля не препятствие.
+		float scanY = carPos[1] + DM_DRIVE_DETECT_BODY_OFFSET;
 
 		//! Направление машины (горизонталь) — выносим старт луча вперёд бампера, вне
 		//! коллайдера, иначе луч стартует внутри корпуса и самопопадает на t=0.
