@@ -556,7 +556,8 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 	//! Локальный объезд: широкий райкаст от from до to (radius). Физическая геометрия
 	//! (ObjIntersectGeom) — ловит обломки/баррикады по коллизии, а не view-листву/кроны.
-	//! Возвращает первое НЕ-self попадание: пропускаем машину (obj/parent) и водителя —
+	//! Возвращает первое НЕ-self попадание: пропускаем машину (obj/parent), водителя и
+	//! растительность (кусты IsBush — проходимы; деревья IsTree остаются препятствием).
 	//! pIgnore не исключает самопопадание, когда луч стартует внутри коллайдера, поэтому
 	//! self фильтруется вручную. true = попадание; hitPos — позиция первого не-self хита.
 	bool RaycastHits(vector from, vector to, float radius, out vector hitPos)
@@ -576,6 +577,12 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				if (hit.obj == m_Car || hit.parent == m_Car)
 					continue;
 				if (driver && hit.obj == driver)
+					continue;
+				//! Растительность проходима: пропускаем кусты (BushHard/BushSoft дают
+				//! IsBush()==true), иначе придорожные кусты дают ложный «obstacle ahead».
+				//! IsBush() — виртуальный метод Object (каст не нужен); obj может быть null
+				//! (террейн) — поэтому null-гейт перед вызовом.
+				if (hit.obj && hit.obj.IsBush())
 					continue;
 				hitPos = hit.pos;
 				return true;
