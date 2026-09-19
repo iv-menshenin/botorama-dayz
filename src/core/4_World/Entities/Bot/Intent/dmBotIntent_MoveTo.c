@@ -13,6 +13,13 @@
 //! back/sideways and re-routes, up to DM_MOVE_MAX_RECOVER times, then gives up.
 class dmBotIntent_MoveTo : dmBotIntent
 {
+	//! Троттлинг always-on error-логов «нет пути»: уникальный гол (тип сообщения +
+	//! m_Goal) логируется не чаще раза в DM_MOVE_NOPATH_LOG_INTERVAL секунд. Иначе
+	//! settlement-боты, зацикленные на патруль к недостижимой точке (вне navmesh),
+	//! пересоздают MoveTo каждую итерацию и спамят один и тот же error каждый ретрай.
+	static const float DM_MOVE_NOPATH_LOG_INTERVAL = 30.0;
+	static ref map<string, float> s_NoPathLog;
+
 	vector m_Goal;
 	float m_ReachDistance = DM_PATH_WAYPOINT_REACH;
 	float m_ReachDeadline = 0.0;   // seconds to reach the target; 0 = no deadline
@@ -105,6 +112,21 @@ class dmBotIntent_MoveTo : dmBotIntent
 	void dmBotIntent_MoveTo()
 	{
 		m_Manage = dmBotIntentsChannel.MOVE;
+	}
+
+	//! Разрешено ли логировать гол «нет пути» по ключу (тип сообщения + m_Goal).
+	//! Лениво создаёт статик-кэш меток времени; каждый уникальный ключ логируется
+	//! не чаще раза в DM_MOVE_NOPATH_LOG_INTERVAL секунд.
+	static bool ShouldLogNoPath(string key)
+	{
+		float now = GetGame().GetTickTime();
+		if (!s_NoPathLog)
+			s_NoPathLog = new map<string, float>();
+		float last;
+		if (s_NoPathLog.Find(key, last) && now - last < DM_MOVE_NOPATH_LOG_INTERVAL)
+			return false;
+		s_NoPathLog.Set(key, now);
+		return true;
 	}
 
 	override string GetIntentName()
@@ -201,7 +223,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 			RePath(bot);
 			if (!m_HasPath)
 			{
-				dmBotLog.Error("MoveTo: нет пути к " + m_Goal + " (вне navmesh или недостижимо), abort");
+				if (ShouldLogNoPath("nopath:" + m_Goal.ToString()))
+					dmBotLog.Error("MoveTo: нет пути к " + m_Goal + " (вне navmesh или недостижимо), abort");
 				Fail();
 			}
 		}
@@ -274,7 +297,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 		RePath(bot);
 		if (!m_HasPath && !IsContinuous())
 		{
-			dmBotLog.Error("MoveTo: восстановление не помогло, путь к " + m_Goal + " недоступен, abort");
+			if (ShouldLogNoPath("recover:" + m_Goal.ToString()))
+				dmBotLog.Error("MoveTo: восстановление не помогло, путь к " + m_Goal + " недоступен, abort");
 			bot.SetMove(0.0, 0.0);
 			Fail();
 			return;
@@ -304,7 +328,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 		RePath(bot);
 		if (!m_HasPath && !IsContinuous())
 		{
-			dmBotLog.Error("MoveTo: detour не помог, путь к " + m_Goal + " недоступен, abort");
+			if (ShouldLogNoPath("detour:" + m_Goal.ToString()))
+				dmBotLog.Error("MoveTo: detour не помог, путь к " + m_Goal + " недоступен, abort");
 			bot.SetMove(0.0, 0.0);
 			Fail();
 			return;
@@ -828,7 +853,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 			return true;
 		}
 
-		dmBotLog.Error("MoveTo: застрял на пути к " + m_Goal + ", abort");
+		if (ShouldLogNoPath("stuck:" + m_Goal.ToString()))
+			dmBotLog.Error("MoveTo: застрял на пути к " + m_Goal + ", abort");
 		bot.SetMove(0.0, 0.0);
 		Fail();
 		return false;
