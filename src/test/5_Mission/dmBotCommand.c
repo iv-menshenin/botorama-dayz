@@ -972,7 +972,6 @@ class dmBotCommand : dmCommandModule
 		drive.m_Transport = transport;
 		drive.m_Seat = DayZPlayerConstants.VEHICLESEAT_DRIVER;
 		drive.m_AlreadySeated = alreadySeated;
-		drive.m_RouteSource = dmRoadRouter.Get();
 		bot.AddCommandIntent(drive);
 
 		dmCommandManager.ChatToPlayer(player, "Еду в точку " + targetPos);

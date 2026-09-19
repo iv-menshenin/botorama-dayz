@@ -6,9 +6,9 @@
 //! скорости (dm_DriveThrottle через SetThrottle в CarScript.OnInput) + передачи
 //! ShiftTo (вперёд по скорости) + нативный руль SetSteering (через
 //! dm_DriveSteering) — поворот делает нативный руль, как у реальной машины.
-//! Маршрут — инкрементальный: владелец выставляет источник маршрута (m_RouteSource,
-//! абстракция dmDriveRouteSource) до OnStart, а интент доливает точки чанками через
-//! NextChunk (RefillRoute) в хвост очереди; застревание детектится по прогрессу
+//! Маршрут — инкрементальный: интент доливает точки чанками из dmRoadRouter
+//! (RefillRoute → NextChunk) в хвост очереди; предзаполненный владельцем маршрут
+//! (E2E-мост) долива не требует. Застревание детектится по прогрессу
 //! дистанции (TickStuck) с реверсом. Финиш — только когда маршрут исчерпан И машина
 //! достигла последней точки. Graceful-завершение глушит двигатель (StopCar) и
 //! высаживает бота штатным выходом.
@@ -132,11 +132,6 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Индекс текущей точки маршрута.
 	int m_DriveRouteIdx = 0;
 
-	//! Источник маршрута (выставляет владелец-команда до OnStart). Абстракция
-	//! над конкретным роутером (roads): интент (core) не зависит от роутера.
-	//! null — предзаполненный маршрут (E2E-мост), рефилл не нужен.
-	ref dmDriveRouteSource m_RouteSource;
-
 	//! Машина (получаем из m_Transport после посадки).
 	CarScript m_Car;
 
@@ -214,17 +209,17 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		//! для m_AlreadySeated эта фаза не запускается (сразу PHASE_SEATED ниже).
 		super.OnStart(bot);
 
-		//! Маршрут приходит инкрементально через RefillRoute (источник — m_RouteSource).
-		//! Предзаполненный владельцем список (старый путь) — «уже исчерпан»: рефилл
-		//! не нужен, финиш по последней точке как раньше.
-		if (!m_DriveRoute)
+		//! Маршрут либо предзаполнен владельцем (E2E-мост RunDrive: список уже весь →
+		//! рефилл не нужен), либо пуст/null → доливается чанками из dmRoadRouter.
+		if (m_DriveRoute && m_DriveRoute.Count() > 0)
 		{
-			m_DriveRoute = new array<vector>();
-			m_RouteExhausted = false;
+			m_RouteExhausted = true;
 		}
 		else
 		{
-			m_RouteExhausted = true;
+			if (!m_DriveRoute)
+				m_DriveRoute = new array<vector>();
+			m_RouteExhausted = false;
 		}
 
 		m_DriveRouteIdx = 0;
@@ -457,10 +452,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		#endif
 	}
 
-	//! Инкрементальный рефилл маршрута: дозапрашивает у источника маршрута
-	//! (m_RouteSource) следующий чанк (NextChunk) и добавляет его точки в ХВОСТ
-	//! m_DriveRoute. Пропускается, если маршрут исчерпан, источник не задан или в
-	//! очереди ещё хватает точек (запас DM_DRIVE_REFILL_MARGIN).
+	//! Инкрементальный рефилл маршрута: дозапрашивает у dmRoadRouter следующий чанк
+	//! (NextChunk) и добавляет его точки в ХВОСТ m_DriveRoute. Пропускается, если
+	//! маршрут исчерпан или в очереди ещё хватает точек (запас DM_DRIVE_REFILL_MARGIN).
 	//! NextChunk ЧИСТИТ переданный массив, поэтому передаём отдельный локальный
 	//! буфер, а не m_DriveRoute — иначе Clear снёс бы пройденные/непройденные точки
 	//! очереди. NextChunk выдаёт финальный чанк (включая целевую точку) И ТОЛЬКО
@@ -472,14 +466,6 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		if (m_DriveRouteIdx < m_DriveRoute.Count() - DM_DRIVE_REFILL_MARGIN)
 			return;
 
-		//! Источник не задан (предзаполненный маршрут, напр. E2E-мост) — маршрут
-		//! уже весь в очереди, доливать нечего.
-		if (!m_RouteSource)
-		{
-			m_RouteExhausted = true;
-			return;
-		}
-
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Drive.Refill");
 		#endif
@@ -487,7 +473,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		//! Отдельный локальный буфер (не m_DriveRoute): NextChunk чистит входной
 		//! массив перед выдачей, иначе рефилл снёс бы уже пройденные точки.
 		array<vector> buffer = new array<vector>();
-		bool more = m_RouteSource.NextChunk(buffer, DM_DRIVE_LOOKAHEAD);
+		bool more = dmRoadRouter.Get().NextChunk(buffer, DM_DRIVE_LOOKAHEAD);
 
 		int i;
 		for (i = 0; i < buffer.Count(); i++)

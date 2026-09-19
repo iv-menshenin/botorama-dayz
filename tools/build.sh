@@ -72,8 +72,8 @@ if [ $# -gt 0 ]; then
     exit 2
 fi
 
-# Модули, у которых есть defines[] (gated call sites; cons/reg — без defines).
-DEFINES_FILES="core map loadout roads test"
+# Модули, у которых есть defines[] (gated call sites; reg — без defines).
+DEFINES_FILES="cons core map loadout roads test"
 
 build_defines_list() {
     if [ "$MODE" = "prod" ]; then

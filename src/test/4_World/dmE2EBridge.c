@@ -2048,7 +2048,7 @@ class dmE2EBridge
 
 	//! "driveto" — issue a router-driven dmBotIntent_Drive: the named bot boards
 	//! the named car and drives the road route to Pos. The route comes from
-	//! dmRoadRouter (Setup once; the intent pulls chunks via m_RouteSource/NextChunk),
+	//! dmRoadRouter (Setup once; the intent pulls chunks via NextChunk directly),
 	//! so m_DriveRoute is left empty.
 	private void RunDriveTo(dmE2EStep step, dmE2EStepResult r)
 	{
@@ -2087,7 +2087,6 @@ class dmE2EBridge
 		dmBotIntent_Drive drive = new dmBotIntent_Drive();
 		drive.m_Transport = transport;
 		drive.m_Seat = 0;
-		drive.m_RouteSource = dmRoadRouter.Get();
 		bot.AddCommandIntent(drive);
 
 		r.Ok = true;

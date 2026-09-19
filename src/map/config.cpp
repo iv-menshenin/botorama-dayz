@@ -8,9 +8,9 @@ class CfgPatches
 		requiredAddons[]= {
 			"dmBotorama_Cons",
 			"dmBotorama_Reg",
+			"dmBotorama_Roads",
 			"dmBotorama_Core",
 			"dmBotorama_Loadout",
-			"dmBotorama_Roads",
 		};
 	};
 };

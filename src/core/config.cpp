@@ -7,6 +7,7 @@ class CfgPatches
 		requiredVersion=0.1;
 		requiredAddons[]= {
 			"dmBotorama_Cons",
+			"dmBotorama_Roads",
 			"dmBotorama_Reg",
 			"DZ_Characters",
 			"DZ_Anims_Anm_Player",
