@@ -29,6 +29,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Локальный объезд: старт луча впереди бампера (м) — выносим точку старта за
 	//! коллайдер машины, иначе луч стартует внутри коллайдера и самопопадает на t=0.
 	static const float DM_DRIVE_DETECT_START_OFFSET = 4.0;
+	//! Опорная точка цели/достижения — НОС автомобиля, не центр: вынос ориджина
+	//! вперёд по курсу на пол-длины седана (ориджин → передний бампер, подбирается).
+	//! Водитель смотрит на нос — целиться носом в точку маршрута проще, чем центром,
+	//! а вынос корпуса не искажает объезд.
+	static const float DM_DRIVE_NOSE_OFFSET = 2.0;
 	//! Локальный объезд: высота нижнего детект-луча над землёй (м). Верхний луч на
 	//! высоте кузова перелетает низкие заграждения (бордюры, низкие бетонные барьеры
 	//! ~0.5–1 м) и ловит их только вплотную — нижний луч у земли цепляет их на полной
@@ -325,11 +330,6 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		//! + позицию препятствия + индекс заблокированного вейпоинта.
 		TickDetect(carPos, pDt);
 
-		vector target = m_DriveRoute[m_DriveRouteIdx];
-		vector toTarget = target - carPos;
-		toTarget[1] = 0.0;
-		float dist = toTarget.Length();
-
 		//! Направление машины (горизонталь) — считаем ДО проверки достижения точки,
 		//! чтобы dot (косинус угла к цели) был известен для гейта «проехали мимо».
 		vector carDirRaw = m_Car.GetDirection();
@@ -339,6 +339,15 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			carDir = Vector(1.0, 0.0, 0.0);
 		else
 			carDir.Normalize();
+
+		//! Опорная точка цели/достижения — НОС автомобиля. carDir уже горизонтален
+		//! (carDir[1] == 0), поэтому nose[1] == carPos[1] — Y остаётся от carPos.
+		vector nose = carPos + carDir * DM_DRIVE_NOSE_OFFSET;
+
+		vector target = m_DriveRoute[m_DriveRouteIdx];
+		vector toTarget = target - nose;
+		toTarget[1] = 0.0;
+		float dist = toTarget.Length();
 
 		float toLen = toTarget.Length();
 		if (toLen < 0.01)
@@ -351,7 +360,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		float dot = carDir[0] * toDirX + carDir[2] * toDirZ;
 		float angle = Math.Atan2(cross, dot);
 
-		//! Промежуточная точка считается пройденной, если корпус заехал на неё
+		//! Промежуточная точка считается пройденной, если НОС заехал на неё
 		//! (dist < REACH) ИЛИ проехали мимо (точка позади, dot < PASSED_DOT) — тогда
 		//! пропускаем её и едем к следующей, не разворачиваясь. Конечную точку по dot
 		//! не пропускаем (isLast-гейт): до неё нужно доехать (см. DM_DRIVE_REACH).
@@ -363,7 +372,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			//! «лучшей» дистанции, иначе TickStuck примет скачок за «нет прогресса».
 			m_LastWaypointDist = -1.0;
 			target = m_DriveRoute[m_DriveRouteIdx];
-			toTarget = target - carPos;
+			toTarget = target - nose;
 			toTarget[1] = 0.0;
 			dist = toTarget.Length();
 
@@ -381,7 +390,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		//! 5. Конец маршрута: исчерпан И машина достигла последней точки
 		//! (гэп DM_DRIVE_REACH). До исчерпания финиш не наступает — маршрут ещё
 		//! доливается чанками.
-		if (m_RouteExhausted && vector.Distance(carPos, m_DriveRoute[m_DriveRoute.Count() - 1]) < DM_DRIVE_REACH)
+		if (m_RouteExhausted && vector.Distance(nose, m_DriveRoute[m_DriveRoute.Count() - 1]) < DM_DRIVE_REACH)
 		{
 			Finish();
 			return;
