@@ -51,6 +51,26 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Локальный объезд: число полос в одну сторону от осевой (9 м / 3 м = 3).
 	static const int DM_DRIVE_LANES_PER_SIDE = 3;
 
+	//! K-разворот: фазы стейт-машины реверс-разворота (NONE → REVERSING → FORWARD).
+	static const int K_TURN_NONE = 0;
+	static const int K_TURN_REVERSING = 1;
+	static const int K_TURN_FORWARD = 2;
+
+	//! K-разворот: угол (град) между курсом машины и маршрутом, выше которого при
+	//! низкой скорости машина боком не может довернуться нативным рулём — запускаем
+	//! реверс-разворот (триггер).
+	static const float DM_DRIVE_REVERSE_TURN_ANGLE = 50.0;
+	//! K-разворот: гистерезис (град) — выход из реверса, когда |angle| упал ниже
+	//! ANGLE - MARGIN (40°). Держит фазу реверса, иначе флап реверс↔передний ход.
+	static const float DM_DRIVE_REVERSE_TURN_MARGIN = 10.0;
+	//! K-разворот: угол (град) выхода из FORWARD в NONE (нос почти на маршруте).
+	static const float DM_DRIVE_REVERSE_TURN_DONE_ANGLE = 15.0;
+	//! K-разворот: макс. скорость (км/ч) для входа в манёвр (ниже — можно) и целевая
+	//! скорость в самом манёвре (медленный разворот без разгона).
+	static const float DM_DRIVE_REVERSE_TURN_MAX_SPEED = 8.0;
+	//! K-разворот: таймаут (с) фазы манёвра — страховка от залипания в фазе.
+	static const float DM_DRIVE_REVERSE_TURN_TIMEOUT = 8.0;
+
 	//! Рефилл маршрута: число перегонов за чанк NextChunk («текущий + следующий»).
 	static const int DM_DRIVE_LOOKAHEAD = 2;
 	//! Рефилл: дозапрашиваем чанк, когда до конца очереди осталось ≤ N точек.
@@ -104,6 +124,12 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 	//! Текущее значение руля (пишется в m_Car.dm_DriveSteering), сглаживается.
 	float m_WheelSteer = 0.0;
+
+	//! K-разворот: фаза реверс-разворота (K_TURN_*). NONE — обычное вождение.
+	int m_TurnState = K_TURN_NONE;
+
+	//! K-разворот: секунд в текущей фазе манёвра (таймаут-страховка).
+	float m_TurnTimer = 0.0;
 
 	//! Последнее время драйв-лога (троттлинг ~2 c).
 	float m_LastDriveLogTime = 0.0;
@@ -167,6 +193,8 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_LastWaypointDist = -1.0;
 		m_ReverseTicks = 0;
 		m_WheelSteer = 0.0;
+		m_TurnState = K_TURN_NONE;
+		m_TurnTimer = 0.0;
 		m_LastDriveLogTime = 0.0;
 		m_DetectTimer = 0.0;
 		m_DetourActive = false;
@@ -320,9 +348,16 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 		float speedAbs = m_Car.GetSpeedometerAbsolute();
 
-		//! 6. Целевая скорость: ниже в повороте; при активном объезде — тормозим. Сглаживаем.
+		//! 6a. K-разворот: при большом угле к маршруту на низкой скорости запускаем
+		//!    реверс-разворот (стейт-машина управляет m_Reverse своим флагом).
+		TickKTurn(angle, speedAbs, pDt);
+
+		//! 6. Целевая скорость: ниже в повороте; при активном объезде — тормозим;
+		//!    в манёвре K-разворота — медленный разворот. Сглаживаем.
 		float limit = DM_DRIVE_MAX_SPEED_STRAIGHT;
-		if (m_DetourActive)
+		if (m_TurnState != K_TURN_NONE)
+			limit = DM_DRIVE_REVERSE_TURN_MAX_SPEED;
+		else if (m_DetourActive)
 			limit = DM_DRIVE_DETOUR_SPEED;
 		else if (Math.AbsFloat(angle) > DM_DRIVE_TURN_ANGLE_THRESHOLD)
 			limit = DM_DRIVE_MAX_SPEED_TURNING;
@@ -342,8 +377,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		if (m_DetourActive)
 			PerformDetour(carPos);
 
-		//! 11. Застревание → реверс.
-		TickStuck(dist);
+		//! 11. Застревание → реверс. Гейт по K_TURN_NONE: во время K-разворота реверсом
+		//!    управляет сам манёвр (свой m_Reverse), TickStuck не должен его дёргать.
+		if (m_TurnState == K_TURN_NONE)
+			TickStuck(dist);
 
 		#ifdef DM_BOT_DEBUG_DRIVE_TELEMETRY
 		{
@@ -493,16 +530,107 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! поэтому steerTarget = -angle/1.57 (иначе руль отворачивает от цели и
 	//! траектория уходит в спираль ±π). Поворот делает нативный руль —
 	//! боковой импульс не нужен (на низком сцеплении он толкал кузов поперёк).
+	//! K-разворот: в фазах REVERSING/FORWARD руль выворачивается НЕЗАВИСИМО от
+	//! speedAbs (на ~0 км/ч колёса должны встать ДО подачи газа) — гейт
+	//! DM_DRIVE_STEER_MIN_SPEED обходится для манёвра.
 	void ApplySteering(float angle, float speedAbs, float pDt)
 	{
 		float steerTarget = 0.0;
+		float absAngle = Math.AbsFloat(angle);
 
-		if (speedAbs >= DM_DRIVE_STEER_MIN_SPEED && Math.AbsFloat(angle) >= DRIVE_STEER_ANGLE_DEADZONE)
+		if (m_TurnState == K_TURN_REVERSING)
+		{
+			//! Реверс: руль в ПРОТИВОПОЛОЖНУЮ от маршрута сторону (знак +angle/1.57,
+			//! против обычного -angle/1.57). При заднем ходе поворот колёс вправо
+			//! (steer>0) качнёт НОС влево — к маршруту: angle>0 (маршрут слева) →
+			//! steer>0 (вправо) → нос влево, на маршрут.
+			steerTarget = Math.Clamp(angle / 1.57, -1.0, 1.0);
+		}
+		else if (m_TurnState == K_TURN_FORWARD)
+		{
+			//! Передний ход: обычный руль к маршруту (доворот носа).
 			steerTarget = Math.Clamp(-angle / 1.57, -1.0, 1.0);
+		}
+		else if (speedAbs >= DM_DRIVE_STEER_MIN_SPEED && absAngle >= DRIVE_STEER_ANGLE_DEADZONE)
+		{
+			steerTarget = Math.Clamp(-angle / 1.57, -1.0, 1.0);
+		}
 
 		float t = Math.Min(1.0, DM_DRIVE_WHEEL_STEER_SPEED * pDt);
 		m_WheelSteer = Math.Lerp(m_WheelSteer, steerTarget, t);
 		m_Car.dm_DriveSteering = m_WheelSteer;
+	}
+
+	//! K-разворот (реверс-разворот): машина боком к маршруту на ~0 км/ч не может
+	//! довернуться нативным рулём (тот работает только в движении — на месте машина
+	//! «качается» вперёд-назад реверсом TickStuck, руль не выворачивается). Манёвр:
+	//! задним ходом выворачиваем нос к маршруту (руль в противоположную от маршрута
+	//! сторону), затем передним доворачиваем. Стейт-машина NONE → REVERSING →
+	//! FORWARD → NONE. Управляет m_Reverse СВОИМ флагом (не конфликтует с TickStuck —
+	//! тот гейтится по m_TurnState == NONE) и выставляет руль ДО подачи газа
+	//! (ApplySteering в фазах манёвра обходит гейт DM_DRIVE_STEER_MIN_SPEED).
+	void TickKTurn(float angle, float speedAbs, float pDt)
+	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Drive.KTurn");
+		#endif
+
+		float absAngle = Math.AbsFloat(angle);
+
+		if (m_TurnState == K_TURN_NONE)
+		{
+			//! Триггер: большой угол к маршруту И низкая скорость. На ~0 км/ч нативный
+			//! руль не разворачивает машину — нужен реверс-разворот.
+			float trigRad = DM_DRIVE_REVERSE_TURN_ANGLE * Math.DEG2RAD;
+			if (absAngle > trigRad && speedAbs < DM_DRIVE_REVERSE_TURN_MAX_SPEED)
+			{
+				m_TurnState = K_TURN_REVERSING;
+				m_TurnTimer = 0.0;
+				m_Reverse = true;
+				//! Ребейз прогресса застревания: после манёвра дистанция резко
+				//! прыгнула (ехали назад) — иначе TickStuck примет её за «нет прогресса».
+				m_LastWaypointDist = -1.0;
+				m_StuckCounter = 0;
+				#ifdef DM_BOT_DEBUG_CAR
+				dmBotLog.Debug("[CAR] KTurn: REVERSING angle=" + absAngle);
+				#endif
+			}
+			return;
+		}
+
+		m_TurnTimer = m_TurnTimer + pDt;
+
+		if (m_TurnState == K_TURN_REVERSING)
+		{
+			//! Реверс: задняя передача (ShiftGear по m_Reverse), нос доворачиваем к
+			//! маршруту. Выход по гистерезису (|angle| упал ниже ANGLE-MARGIN ~40°)
+			//! ИЛИ по таймаут-страховке.
+			m_Reverse = true;
+			float exitRad = (DM_DRIVE_REVERSE_TURN_ANGLE - DM_DRIVE_REVERSE_TURN_MARGIN) * Math.DEG2RAD;
+			if (absAngle < exitRad || m_TurnTimer > DM_DRIVE_REVERSE_TURN_TIMEOUT)
+			{
+				m_TurnState = K_TURN_FORWARD;
+				m_TurnTimer = 0.0;
+				m_Reverse = false;
+				#ifdef DM_BOT_DEBUG_CAR
+				dmBotLog.Debug("[CAR] KTurn: FORWARD angle=" + absAngle);
+				#endif
+			}
+			return;
+		}
+
+		//! K_TURN_FORWARD: передний ход (m_Reverse=false), обычный руль к маршруту
+		//! (ApplySteering), доворот носа до выхода в NONE.
+		m_Reverse = false;
+		float doneRad = DM_DRIVE_REVERSE_TURN_DONE_ANGLE * Math.DEG2RAD;
+		if (absAngle < doneRad || m_TurnTimer > DM_DRIVE_REVERSE_TURN_TIMEOUT)
+		{
+			m_TurnState = K_TURN_NONE;
+			m_TurnTimer = 0.0;
+			#ifdef DM_BOT_DEBUG_CAR
+			dmBotLog.Debug("[CAR] KTurn: DONE angle=" + absAngle);
+			#endif
+		}
 	}
 
 	//! Застревание: не уменьшается дистанция до вейпоинта (прогресс < EPS за тик)
