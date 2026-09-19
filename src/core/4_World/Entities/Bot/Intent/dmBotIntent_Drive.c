@@ -23,6 +23,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	static const float DM_DRIVE_DETECT_INTERVAL = 0.3;
 	//! Локальный объезд: радиус широкого райкаста препятствия (м, ~пол-ширины машины).
 	static const float DM_DRIVE_OBSTACLE_RAY_RADIUS = 1.5;
+	//! Локальный объезд: старт луча впереди бампера (м) — выносим точку старта за
+	//! коллайдер машины, иначе луч стартует внутри коллайдера и самопопадает на t=0.
+	static const float DM_DRIVE_DETECT_START_OFFSET = 4.0;
 
 	//! Локальный объезд: боковое смещение коробки (м).
 	static const float DM_DRIVE_DETOUR_OFFSET = 9.0;
@@ -535,9 +538,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 	}
 
-	//! Локальный объезд: широкий райкаст от from до to (radius), игнорируя машину.
-	//! Физическая геометрия (ObjIntersectGeom) — ловит обломки/баррикады по коллизии,
-	//! а не view-листву/кроны. true = попадание; hitPos — позиция первого попадания.
+	//! Локальный объезд: широкий райкаст от from до to (radius). Физическая геометрия
+	//! (ObjIntersectGeom) — ловит обломки/баррикады по коллизии, а не view-листву/кроны.
+	//! Возвращает первое НЕ-self попадание: пропускаем машину (obj/parent) и водителя —
+	//! pIgnore не исключает самопопадание, когда луч стартует внутри коллайдера, поэтому
+	//! self фильтруется вручную. true = попадание; hitPos — позиция первого не-self хита.
 	bool RaycastHits(vector from, vector to, float radius, out vector hitPos)
 	{
 		hitPos = Vector(0.0, 0.0, 0.0);
@@ -545,10 +550,20 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		params.flags = CollisionFlags.ALLOBJECTS;
 		params.type = ObjIntersectGeom;
 		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		if (DayZPhysics.RaycastRVProxy(params, hits) && hits.Count() > 0)
+		if (DayZPhysics.RaycastRVProxy(params, hits))
 		{
-			hitPos = hits[0].pos;
-			return true;
+			Human driver = m_Car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER);
+			int i;
+			for (i = 0; i < hits.Count(); i++)
+			{
+				RaycastRVResult hit = hits[i];
+				if (hit.obj == m_Car || hit.parent == m_Car)
+					continue;
+				if (driver && hit.obj == driver)
+					continue;
+				hitPos = hit.pos;
+				return true;
+			}
 		}
 		return false;
 	}
@@ -571,7 +586,17 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		//! ниже корпуса (террейн не ловится — groundOnly=false по умолчанию).
 		float scanY = carPos[1];
 
-		vector from = carPos;
+		//! Направление машины (горизонталь) — выносим старт луча вперёд бампера, вне
+		//! коллайдера, иначе луч стартует внутри корпуса и самопопадает на t=0.
+		vector carDirRaw = m_Car.GetDirection();
+		vector carDir = carDirRaw;
+		carDir[1] = 0.0;
+		if (carDir.Length() < 0.01)
+			carDir = Vector(1.0, 0.0, 0.0);
+		else
+			carDir.Normalize();
+
+		vector from = carPos + carDir * DM_DRIVE_DETECT_START_OFFSET;
 		float total = 0.0;
 		int n = m_DriveRoute.Count();
 		int i = m_DriveRouteIdx;
