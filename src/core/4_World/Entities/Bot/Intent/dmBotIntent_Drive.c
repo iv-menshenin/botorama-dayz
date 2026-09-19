@@ -322,6 +322,20 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		if (m_WarmupFor < DM_DRIVE_ENGINE_WARMUP)
 			return;
 
+		//! 3a. Восстановление после заглохания: ручная КПП глохнет при жёстком
+		//! тормозе на высокой передаче (rpm=0, engine=false). Перезапускаем мотор
+		//! и продолжаем — иначе машина катится по инерции до полной остановки.
+		if (!m_Car.EngineIsOn())
+		{
+			m_Car.EngineStart();
+			m_Car.SetBrake(0.0);
+			m_Car.SetHandbrake(0.0);
+			m_Car.SetBrakesActivateWithoutDriver(false);
+			#ifdef DM_BOT_DEBUG_CAR
+			dmBotLog.Debug("[CAR] Drive: двигатель заглох — перезапуск");
+			#endif
+		}
+
 		//! 4. Рефилл маршрута: доливаем чанк, когда очередь пуста или подходит к концу.
 		RefillRoute();
 		if (m_DriveRoute.Count() == 0)
