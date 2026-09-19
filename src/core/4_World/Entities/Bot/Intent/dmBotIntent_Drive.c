@@ -39,6 +39,12 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! высокие препятствия (деревья, стены), нижний (GROUND_RAY_HEIGHT) — низкие
 	//! заграждения: два луча реально разнесены по высоте.
 	static const float DM_DRIVE_DETECT_BODY_OFFSET = 1.0;
+	//! Локальный объезд: порог нормали поверхности для отличия земли от препятствия
+	//! при obj == null (террейн/вода/статическая коллизия без script-объекта приходят
+	//! одинаково без obj). У земли нормаль вверх (dir[1]≈1), у барьера/камня/насыпи —
+	//! горизонтально (dir[1]≈0). 0.7 = cos 45°: нормаль с dir[1] > 0.7 считаем «вверх»
+	//! (земля, пропускаем), dir[1] <= 0.7 — препятствие.
+	static const float DM_DRIVE_GROUND_NORMAL_EPS = 0.7;
 	//! Локальный объезд: сила тормоза при превышении лимита скорости (0..1). Реальный
 	//! тормоз (SetBrake в CarScript.OnInput), а не сброс газа: на 47 км/ч машина без
 	//! тормоза катится ещё десятки метров и не успевает замедлиться до
@@ -61,6 +67,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Локальный объезд: кулдаун детекта после успешного объезда (с). Подавляет
 	//! повторный детект ТОГО ЖЕ обломка с новой позиции коробки (второй объезд → fail).
 	static const float DM_DRIVE_DETOUR_COOLDOWN = 6.0;
+	//! Локальный объезд: длительность торможения после вставки коробки (с). m_DetourActive
+	//! ставится в TickDetect и сбрасывается в PerformDetour в ТОМ ЖЕ кадре — без таймера
+	//! лимит DM_DRIVE_DETOUR_SPEED живёт <1 кадра и машина разгоняется обратно. Таймер
+	//! держит лимит до подъезда к коробке, дальше её углы притормаживают сами.
+	static const float DM_DRIVE_DETOUR_BRAKE_TIME = 3.0;
 
 	//! Локальный объезд: запас на ширину корпуса (м) — сдвиг центра коробки ДАЛЬШЕ
 	//! от препятствия (~полкорпуса + зазор), чтобы ~2-м корпус не цеплял барьер
@@ -173,6 +184,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Локальный объезд: кулдаун детекта после успешного объезда (с, декремент по тикам).
 	float m_DetourCooldown = 0.0;
 
+	//! Локальный объезд: таймер торможения после вставки коробки (с, декремент по тикам).
+	//! Держит лимит DM_DRIVE_DETOUR_SPEED, пока m_DetourActive уже сброшен в PerformDetour.
+	float m_DetourBrakeTimer = 0.0;
+
 	//! Локальный объезд: позиция препятствия (проба сторон и коробка).
 	vector m_DetourObstaclePos;
 
@@ -229,6 +244,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_DetectTimer = 0.0;
 		m_DetourActive = false;
 		m_DetourCooldown = 0.0;
+		m_DetourBrakeTimer = 0.0;
 		m_DetourBlockIdx = 0;
 
 		//! Уже за рулём (команда резолвила машину по случаю 1): не walk к двери и
@@ -389,6 +405,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			limit = DM_DRIVE_REVERSE_TURN_MAX_SPEED;
 		else if (m_DetourActive)
 			limit = DM_DRIVE_DETOUR_SPEED;
+		else if (m_DetourBrakeTimer > 0.0)
+		{
+			limit = DM_DRIVE_DETOUR_SPEED;
+			m_DetourBrakeTimer = m_DetourBrakeTimer - pDt;
+		}
 		else if (Math.AbsFloat(angle) > DM_DRIVE_TURN_ANGLE_THRESHOLD)
 			limit = DM_DRIVE_MAX_SPEED_TURNING;
 		m_SpeedLimit = Math.Lerp(m_SpeedLimit, limit, DM_DRIVE_SPEED_SMOOTH);
@@ -734,7 +755,8 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Локальный объезд: широкий райкаст от from до to (radius). Физическая геометрия
 	//! (ObjIntersectGeom) — ловит обломки/баррикады по коллизии, а не view-листву/кроны.
 	//! Возвращает первое НЕ-self попадание: пропускаем машину (obj/parent), водителя,
-	//! террейн/воду (obj == null — земля не препятствие, машина едет по ней) и
+	//! террейн/воду с нормалью вверх (obj == null + dir[1] > EPS — земля не препятствие,
+	//! машина едет по ней; obj == null с горизонтальной нормалью — барьер) и
 	//! растительность (кусты IsBush — проходимы; деревья IsTree остаются препятствием).
 	//! pIgnore не исключает самопопадание, когда луч стартует внутри коллайдера, поэтому
 	//! self фильтруется вручную. true = попадание; hitPos — позиция первого не-self хита.
@@ -756,14 +778,19 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 					continue;
 				if (driver && hit.obj == driver)
 					continue;
-				//! obj == null — террейн/вода (нет script-объекта): земля не препятствие.
-				//! Горизонтальный луч на склоне задевает землю впереди и давал ложный
-				//! «obstacle ahead» — пропускаем.
-				if (!hit.obj)
+				//! obj == null — террейн/вода/статическая коллизия без script-объекта:
+				//! земля И бетонные заграждения приходят одинаково (без obj). Различаем по
+				//! нормали поверхности: у земли нормаль вверх (dir[1]≈1), у барьера/камня/
+				//! насыпи — горизонтально (dir[1]≈0). Пропускаем только землю (нормаль вверх):
+				//! горизонтальный луч на склоне задевает землю впереди и давал ложный
+				//! «obstacle ahead»; барьер с горизонтальной нормалью остаётся препятствием.
+				if (!hit.obj && hit.dir[1] > DM_DRIVE_GROUND_NORMAL_EPS)
 					continue;
 				//! Растительность проходима: пропускаем кусты (BushHard/BushSoft дают
 				//! IsBush()==true), иначе придорожные кусты дают ложный «obstacle ahead».
-				if (hit.obj.IsBush())
+				//! hit.obj && — куст проверяем только при не-null obj (барьер без obj
+				//! уже прошёл нормаль-фильтр выше и не должен упасть на null-deref).
+				if (hit.obj && hit.obj.IsBush())
 					continue;
 				hitPos = hit.pos;
 				return true;
@@ -1045,6 +1072,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			//! Вооружаем кулдаун детекта: с новой позиции коробки ТОТ ЖЕ обломок
 			//! снова попадает в луч через ~0.3 с — подавляем детект на время кулдауна.
 			m_DetourCooldown = DM_DRIVE_DETOUR_COOLDOWN;
+			m_DetourBrakeTimer = DM_DRIVE_DETOUR_BRAKE_TIME;
 			m_DetourActive = false;
 			m_LastWaypointDist = -1.0;
 			return;
