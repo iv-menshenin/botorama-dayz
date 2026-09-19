@@ -556,7 +556,8 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 	//! Локальный объезд: широкий райкаст от from до to (radius). Физическая геометрия
 	//! (ObjIntersectGeom) — ловит обломки/баррикады по коллизии, а не view-листву/кроны.
-	//! Возвращает первое НЕ-self попадание: пропускаем машину (obj/parent), водителя и
+	//! Возвращает первое НЕ-self попадание: пропускаем машину (obj/parent), водителя,
+	//! террейн/воду (obj == null — земля не препятствие, машина едет по ней) и
 	//! растительность (кусты IsBush — проходимы; деревья IsTree остаются препятствием).
 	//! pIgnore не исключает самопопадание, когда луч стартует внутри коллайдера, поэтому
 	//! self фильтруется вручную. true = попадание; hitPos — позиция первого не-self хита.
@@ -578,11 +579,14 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 					continue;
 				if (driver && hit.obj == driver)
 					continue;
+				//! obj == null — террейн/вода (нет script-объекта): земля не препятствие.
+				//! Горизонтальный луч на склоне задевает землю впереди и давал ложный
+				//! «obstacle ahead» — пропускаем.
+				if (!hit.obj)
+					continue;
 				//! Растительность проходима: пропускаем кусты (BushHard/BushSoft дают
 				//! IsBush()==true), иначе придорожные кусты дают ложный «obstacle ahead».
-				//! IsBush() — виртуальный метод Object (каст не нужен); obj может быть null
-				//! (террейн) — поэтому null-гейт перед вызовом.
-				if (hit.obj && hit.obj.IsBush())
+				if (hit.obj.IsBush())
 					continue;
 				hitPos = hit.pos;
 				return true;
@@ -625,8 +629,8 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		dmBotSpan _span = dmBotProfiler.Start("Drive.Detect");
 		#endif
 
-		//! Высота скана — корпус машины: препятствие торчит сквозь неё, а плоская дорога
-		//! ниже корпуса (террейн не ловится — groundOnly=false по умолчанию).
+		//! Высота скана — корпус машины: препятствие торчит сквозь неё. Террейн в райкаст
+		//! попадает (obj == null), но RaycastHits его пропускает — земля не препятствие.
 		float scanY = carPos[1];
 
 		//! Направление машины (горизонталь) — выносим старт луча вперёд бампера, вне
