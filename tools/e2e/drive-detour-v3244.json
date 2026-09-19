@@ -1,0 +1,32 @@
+{
+  "Name": "drive-detour-v3244",
+  "Timeout": 100,
+  "Steps": [
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "spawncar", "Who": "c1", "ClassName": "CivilianSedan", "Pos": [1449, 0, 11057], "Yaw": 45 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "spawn", "Who": "b1", "Pos": [1444, 0, 11057], "Yaw": 45 },
+    { "Op": "driveto", "Who": "b1", "Obj": "c1", "Pos": [10918, 0, 13404] },
+    { "Op": "sleep", "Timeout": 6 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "Name": "scanbox-detour-area",
+  "Timeout": 40,
+  "Steps": [
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "scanbox", "Min": [1430, 0, 11045], "Max": [1500, 0, 11105] },
+    { "Op": "scanbox", "Min": [1435, 0, 11052], "Max": [1480, 0, 11095] }
+  ]
+}

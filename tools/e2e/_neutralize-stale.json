@@ -1,0 +1,7 @@
+{
+  "Name": "drive-local-detour2",
+  "Timeout": 10,
+  "Steps": [
+    { "Op": "ping" }
+  ]
+}

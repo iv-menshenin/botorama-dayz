@@ -1,0 +1,14 @@
+{
+  "Name": "scanbox-hesco",
+  "Timeout": 40,
+  "Steps": [
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "spawnobj", "Who": "w1", "ClassName": "HescoBox", "Pos": [1495, 0, 11112], "Yaw": 0 },
+    { "Op": "getpos", "Obj": "w1" },
+    { "Op": "scanbox", "Min": [1484, 287, 11105], "Max": [1498, 296, 11119] },
+    { "Op": "raycast", "From": [1491, 0, 11113], "To": [1495, 0, 11110] },
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}

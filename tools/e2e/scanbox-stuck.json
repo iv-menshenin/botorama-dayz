@@ -1,0 +1,7 @@
+{
+  "Name": "scanbox-stuck",
+  "Timeout": 30,
+  "Steps": [
+    { "Op": "scanbox", "Min": [2228, 0, 12236], "Max": [2252, 0, 12258] }
+  ]
+}

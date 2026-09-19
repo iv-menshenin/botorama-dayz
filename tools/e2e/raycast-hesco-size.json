@@ -1,0 +1,13 @@
+{
+  "Name": "raycast-hesco-size",
+  "Timeout": 40,
+  "Steps": [
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "spawnobj", "Who": "w1", "ClassName": "HescoBox", "Pos": [1495, 0, 11112], "Yaw": 0 },
+    { "Op": "raycast", "From": [1485, 0, 11112], "To": [1505, 0, 11112] },
+    { "Op": "raycast", "From": [1495, 0, 11102], "To": [1495, 0, 11122] },
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "Name": "car-lifetime-3244",
+  "Timeout": 100,
+  "Steps": [
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "spawncar", "Who": "c", "ClassName": "CivilianSedan", "Pos": [1449, 0, 11057], "Yaw": 45 },
+    { "Op": "cardump", "Obj": "c" },
+    { "Op": "sleep", "Timeout": 10 },
+    { "Op": "cardump", "Obj": "c" },
+    { "Op": "sleep", "Timeout": 20 },
+    { "Op": "cardump", "Obj": "c" },
+    { "Op": "sleep", "Timeout": 30 },
+    { "Op": "cardump", "Obj": "c" },
+    { "Op": "getpos", "Obj": "c" },
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}

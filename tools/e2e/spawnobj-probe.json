@@ -1,0 +1,14 @@
+{
+  "Name": "spawnobj-probe",
+  "Timeout": 30,
+  "Steps": [
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "spawnobj", "Who": "o1", "ClassName": "HescoBox", "Pos": [1500, 0, 11120], "Yaw": 0 },
+    { "Op": "spawnobj", "Who": "o2", "ClassName": "Land_Misc_StoneWall", "Pos": [1505, 0, 11120], "Yaw": 0 },
+    { "Op": "spawnobj", "Who": "o3", "ClassName": "Fence", "Pos": [1510, 0, 11120], "Yaw": 0 },
+    { "Op": "getpos", "Obj": "o1" },
+    { "Op": "getpos", "Obj": "o2" },
+    { "Op": "getpos", "Obj": "o3" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}

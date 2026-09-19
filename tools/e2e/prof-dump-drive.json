@@ -1,0 +1,7 @@
+{
+  "Name": "prof-dump-drive",
+  "Timeout": 30,
+  "Steps": [
+    { "Op": "prof", "Value": "dump" }
+  ]
+}

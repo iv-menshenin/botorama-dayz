@@ -1,0 +1,9 @@
+{
+  "Name": "raycast-wreck",
+  "Timeout": 30,
+  "Steps": [
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "raycast", "From": [1460, 293, 11070], "To": [1500, 293, 11130] },
+    { "Op": "raycast", "From": [1470, 293, 11090], "To": [1495, 293, 11115] }
+  ]
+}

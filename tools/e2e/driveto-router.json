@@ -1,0 +1,18 @@
+{
+  "Name": "driveto-router",
+  "Timeout": 360,
+  "Steps": [
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "prof", "Value": "clear" },
+    { "Op": "prof", "Value": "start" },
+    { "Op": "spawn", "Who": "b1", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawncar", "Who": "c1", "Pos": [4120, 0, 10823], "Yaw": 150 },
+    { "Op": "driveto", "Who": "b1", "Obj": "c1", "Pos": [5934.66, 0, 10280.88] },
+    { "Op": "wait", "Cond": "carpos", "Obj": "c1", "Pos": [5934.66, 0, 10280.88], "Tolerance": 15.0, "Timeout": 300 },
+    { "Op": "cardump", "Obj": "c1" },
+    { "Op": "prof", "Value": "dump" },
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}

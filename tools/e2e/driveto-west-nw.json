@@ -1,0 +1,18 @@
+{
+  "Name": "driveto-west-nw",
+  "Timeout": 360,
+  "Steps": [
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "prof", "Value": "clear" },
+    { "Op": "prof", "Value": "start" },
+    { "Op": "spawn", "Who": "b", "Pos": [1446, 0, 11960], "Yaw": 75 },
+    { "Op": "spawncar", "Who": "c", "Pos": [1451, 0, 11960], "Yaw": 75 },
+    { "Op": "driveto", "Who": "b", "Obj": "c", "Pos": [3487, 0, 12712] },
+    { "Op": "wait", "Cond": "carpos", "Obj": "c", "Pos": [3487, 0, 12712], "Tolerance": 30.0, "Timeout": 240 },
+    { "Op": "cardump", "Obj": "c" },
+    { "Op": "prof", "Value": "dump" },
+    { "Op": "clearall" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}

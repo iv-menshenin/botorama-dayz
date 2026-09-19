@@ -1,0 +1,8 @@
+{
+  "Name": "scanbox-wreck",
+  "Timeout": 60,
+  "Steps": [
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "scanbox", "Min": [1470, 0, 11085], "Max": [1505, 0, 11125] }
+  ]
+}
