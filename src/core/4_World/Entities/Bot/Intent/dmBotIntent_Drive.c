@@ -82,6 +82,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! от препятствия (~полкорпуса + зазор), чтобы ~2-м корпус не цеплял барьер
 	//! краем. Центр зажимается по краям чистого коридора (PerformDetour).
 	static const float DM_DRIVE_DETOUR_BODY_CLEARANCE = 1.5;
+	//! Локальный объезд: минимальная ширина коридора коробки (полос) для попытки
+	//! втиснуться. Уже, чем ширина авто + запас (~2.5 м) — коробка рискованна (корпус
+	//! цепляет барьер краем), не пытаемся: сразу к сотам (грид-объезду).
+	static const float DM_DRIVE_MIN_CORRIDOR_WIDTH = 2.5;
 
 	//! Локальный объезд: шаг между полосами коридора (м).
 	static const float DM_DRIVE_LANE_STEP = 3.0;
@@ -194,6 +198,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Локальный объезд: индекс вейпоинта, к которому шли при детекте.
 	int m_DetourBlockIdx = 0;
 
+	//! Соты (грид-объезд): 0 = не активны, 1 = считают маршрут объезда (асинхронно).
+	//! Включается, когда коробка не влезла (no clear corridor / узкий коридор).
+	int m_HoneyState = 0;
+
 	void dmBotIntent_Drive()
 	{
 		//! Посадка = walk → канал MOVE (как у GetInVehicle); в фазе вождения
@@ -246,6 +254,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_DetourCooldown = 0.0;
 		m_DetourBrakeTimer = 0.0;
 		m_DetourBlockIdx = 0;
+		m_HoneyState = 0;
 
 		//! Уже за рулём (команда резолвила машину по случаю 1): не walk к двери и
 		//! не get-in — сразу фаза вождения на канале DRIVE.
@@ -325,6 +334,14 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 
 		vector carPos = m_Car.GetPosition();
+
+		//! Соты: пока считают объезд — монопольно владеем тиком (тормозим, ждём
+		//! результат). Детект/K-разворот/застревание в это время не работают.
+		if (m_HoneyState == 1)
+		{
+			TickHoneycomb(carPos, pDt);
+			return;
+		}
 
 		//! Локальный объезд: детект препятствий впереди (троттлинг). Ставит m_DetourActive
 		//! + позицию препятствия + индекс заблокированного вейпоинта.
@@ -1017,6 +1034,12 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			int chosenLen = bestLen;
 			runLen[bestIdx] = 0;
 
+			//! Слишком узкий коридор (1 полоса = ~0 м зазора) — коробка рискованна:
+			//! корпус цепляет барьер краем. Не пытаемся втиснуться — пропускаем;
+			//! в конце цикла (если ни один коридор не подошёл) уйдём к сотам.
+			if ((float)(chosenLen - 1) * DM_DRIVE_LANE_STEP < DM_DRIVE_MIN_CORRIDOR_WIDTH)
+				continue;
+
 			float startOff = -DM_DRIVE_DETOUR_OFFSET + (float)chosenStart * DM_DRIVE_LANE_STEP;
 			float endOff = -DM_DRIVE_DETOUR_OFFSET + (float)(chosenStart + chosenLen - 1) * DM_DRIVE_LANE_STEP;
 			float centerOff = (startOff + endOff) * 0.5;
@@ -1074,10 +1097,14 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 
 		#ifdef DM_BOT_DEBUG_CAR
-		dmBotLog.Debug("[CAR] detour: no clear corridor -> fail");
+		dmBotLog.Debug("[CAR] detour: no clear corridor -> honeycomb");
 		#endif
-		//! TODO: отмена команды — что делать? (сообщить игроку / остаться / выйти)
-		Fail();
+		//! Коробка не влезла (или все коридоры узкие) — не фейлимся, а зовём СОТЫ:
+		//! грид-объезд по свободной территории. d — направление дороги (для территории).
+		m_DetourActive = false;
+		m_Reverse = false;
+		m_HoneyState = 1;
+		dmRoadHoneycomb.Get().Start(carPos, d, m_DriveRoute, m_DriveRouteIdx);
 	}
 
 	//! Проверка полного пути коробки райкастом на высоте корпуса (width-aware,
@@ -1151,6 +1178,67 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_DriveRoute.InsertAt(boxC, at + 2);
 		m_DriveRoute.InsertAt(boxD, at + 3);
 		m_DriveRoute.InsertAt(boxE, at + 4);
+	}
+
+	//! Тик сот: машина тормозит, соты считают асинхронно. По DONE — вставляем путь,
+	//! по FAILED — настоящий тупик (Fail).
+	void TickHoneycomb(vector carPos, float pDt)
+	{
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Drive.Honeycomb");
+		#endif
+
+		dmRoadHoneycomb.Get().Tick(pDt);
+
+		//! Тормозим (лимит 0): машина стоит/ползёт, пока соты считают.
+		m_SpeedLimit = Math.Lerp(m_SpeedLimit, 0.0, DM_DRIVE_SPEED_SMOOTH);
+		float speedAbs = m_Car.GetSpeedometerAbsolute();
+		ApplyDriveForce(speedAbs);
+		ShiftGear(speedAbs);
+		ApplySteering(0.0, speedAbs, pDt);
+
+		if (dmRoadHoneycomb.Get().IsFailed())
+		{
+			m_HoneyState = 0;
+			#ifdef DM_BOT_DEBUG_CAR
+			dmBotLog.Debug("[CAR] honeycomb: failed");
+			#endif
+			Fail();
+			return;
+		}
+
+		if (dmRoadHoneycomb.Get().IsDone())
+		{
+			array<vector> path = new array<vector>();
+			if (dmRoadHoneycomb.Get().GetPath(path) && path.Count() > 0)
+			{
+				InsertHoneycombPath(path);
+				m_LastWaypointDist = -1.0;
+				m_HoneyState = 0;
+				#ifdef DM_BOT_DEBUG_CAR
+				dmBotLog.Debug("[CAR] honeycomb: path " + path.Count() + " точек");
+				#endif
+			}
+			else
+			{
+				m_HoneyState = 0;
+				Fail();
+			}
+		}
+	}
+
+	//! Вставить путь сот в маршрут: удалить вейпоинты с m_DriveRouteIdx до конца
+	//! очереди, затем вставить сглаженный путь. Дальше маршрут доливается чанками.
+	void InsertHoneycombPath(array<vector> path)
+	{
+		while (m_DriveRoute.Count() > m_DriveRouteIdx)
+			m_DriveRoute.Remove(m_DriveRoute.Count() - 1);
+
+		int i;
+		for (i = 0; i < path.Count(); i++)
+			m_DriveRoute.Insert(path[i]);
+
+		m_RouteExhausted = false;
 	}
 
 	//! Graceful: гасим поля ввода (OnInput больше не прикладывает руль, OnSound
