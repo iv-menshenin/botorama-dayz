@@ -60,6 +60,18 @@ case "${1:-}" in
     *) echo "usage: build.sh [--prod|--test|--define DOM1,DOM2]  (default: functional, keeps committed defines)" >&2; exit 2 ;;
 esac
 
+# Отклонить молча игнорируемые лишние аргументы. Footgun: `--prod --define DM_BOT_DEBUG_CAR`
+# берёт $1=--prod и ТИХО отбрасывает `--define DM_BOT_DEBUG_CAR` (собирается только
+# DM_BOT_PROFILE, нужный DEBUG-домен пропадает). Только `--define` легитимно берёт
+# второй токен (список доменов через запятую); всё остальное — ошибка.
+if [ $# -gt 0 ]; then shift; fi
+if [ "$MODE" = "define" ] && [ $# -gt 0 ]; then shift; fi
+if [ $# -gt 0 ]; then
+    echo "build.sh: unexpected argument(s): $*" >&2
+    echo "usage: build.sh [--prod|--test|--define DOM1,DOM2]" >&2
+    exit 2
+fi
+
 # Модули, у которых есть defines[] (gated call sites; cons/reg — без defines).
 DEFINES_FILES="core map loadout roads test"
 
@@ -124,6 +136,13 @@ for m in $MODULES; do
         "$AB" "$SRC" "$DST" -prefix="dm_$m" -clear -include="$INC" -sign="$SIGN_KEY" \
         > "/tmp/ab_$m.log" 2>&1
     echo "  exit=$?"
+    #! Proton's `waitforexitandrun` does not propagate AddonBuilder's real exit
+    #! code (it can return 0 even when no PBO was produced — seen as a silent
+    #! flake). Verify the artifacts actually landed; otherwise fail loudly.
+    if [ ! -f "$OUT/$m.pbo" ] || [ ! -f "$OUT/$m.pbo.devalio.bisign" ]; then
+        echo "BUILD FAILED: $m.pbo (and/or bisign) missing after AddonBuilder (see /tmp/ab_$m.log)" >&2
+        exit 1
+    fi
 done
 
 echo "=== results ==="

@@ -7,6 +7,8 @@ permission:
   bash: allow
   external_directory:
     "/mnt/deep-space/Steam/steamapps/common/DayZServer/**": allow
+    "/mnt/deep-space/Steam/steamapps/common/DayZ Tools/**": allow
+    "/mnt/deep-space/Steam/steamapps/compatdata/830640/pfx/**": allow
     "/mnt/deep-space/Steam/steamapps/compatdata/830640/pfx/drive_c/users/steamuser/AppData/Local/Temp/**": allow
     "/home/devalio/dayz/Work/Keys/**": allow
     "/home/devalio/dayz-cherno": allow
