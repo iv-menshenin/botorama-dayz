@@ -26,6 +26,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Локальный объезд: старт луча впереди бампера (м) — выносим точку старта за
 	//! коллайдер машины, иначе луч стартует внутри коллайдера и самопопадает на t=0.
 	static const float DM_DRIVE_DETECT_START_OFFSET = 4.0;
+	//! Локальный объезд: высота нижнего детект-луча над землёй (м). Верхний луч на
+	//! высоте кузова перелетает низкие заграждения (бордюры, низкие бетонные барьеры
+	//! ~0.5–1 м) и ловит их только вплотную — нижний луч у земли цепляет их на полной
+	//! дистанции детекта.
+	static const float DM_DRIVE_DETECT_GROUND_RAY_HEIGHT = 0.3;
 
 	//! Локальный объезд: минимальная скорость для детекта (км/ч). На старте машина
 	//! ещё не выровнялась на оси дороги и едва едет — проба полос от невыровненной
@@ -798,7 +803,19 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			segFrom[1] = scanY;
 			segTo[1] = scanY;
 
+			//! Нижний луч у земли (параллельно верхнему, та же горизонталь XZ): ловит
+			//! низкие заграждения, которые верхний луч на высоте кузова перелетает.
+			//! Y старта — земля под точкой старта сегмента + высота; Y конца — segToLow
+			//! (копия вейпоинта, чей Y уже на уровне дороги SurfaceY) + высота, т.е.
+			//! земля у вейпоинта + высота.
+			vector segFromLow = from;
+			vector segToLow = to;
+			float groundY = GetGame().SurfaceY(segFromLow[0], segFromLow[2]);
+			segFromLow[1] = groundY + DM_DRIVE_DETECT_GROUND_RAY_HEIGHT;
+			segToLow[1] = segToLow[1] + DM_DRIVE_DETECT_GROUND_RAY_HEIGHT;
+
 			vector hitPos;
+			vector hitPosLow;
 			if (RaycastHits(segFrom, segTo, DM_DRIVE_OBSTACLE_RAY_RADIUS, hitPos))
 			{
 				m_DetourObstaclePos = hitPos;
@@ -806,6 +823,16 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				m_DetourActive = true;
 				#ifdef DM_BOT_DEBUG_CAR
 				dmBotLog.Debug("[CAR] Drive: obstacle ahead pos=" + hitPos + " blockIdx=" + i);
+				#endif
+				return;
+			}
+			if (RaycastHits(segFromLow, segToLow, DM_DRIVE_OBSTACLE_RAY_RADIUS, hitPosLow))
+			{
+				m_DetourObstaclePos = hitPosLow;
+				m_DetourBlockIdx = i;
+				m_DetourActive = true;
+				#ifdef DM_BOT_DEBUG_CAR
+				dmBotLog.Debug("[CAR] Drive: obstacle ahead (low) pos=" + hitPosLow + " blockIdx=" + i);
 				#endif
 				return;
 			}
