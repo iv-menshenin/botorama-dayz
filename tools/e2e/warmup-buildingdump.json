@@ -1,0 +1,8 @@
+{
+  "Name": "warmup-buildingdump",
+  "Timeout": 10,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "buildingdump", "Pos": [11339.77, 0, 14391.05] }
+  ]
+}

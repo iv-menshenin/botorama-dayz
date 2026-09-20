@@ -1,0 +1,199 @@
+{
+  "Name": "explore-milestone-d-time",
+  "Timeout": 180,
+  "Steps": [
+    {
+      "Op": "ping"
+    },
+    {
+      "Op": "spawn",
+      "Who": "A",
+      "Pos": [
+        11339.77,
+        0,
+        14391.05
+      ],
+      "Yaw": 0,
+      "Preset": "nomad"
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "sleep",
+      "Timeout": 10
+    },
+    {
+      "Op": "explorerdump",
+      "Who": "A"
+    },
+    {
+      "Op": "botdump",
+      "Who": "A"
+    },
+    {
+      "Op": "clearall"
+    }
+  ]
+}
