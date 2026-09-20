@@ -48,7 +48,7 @@ class dmE2EStep
 	int Count;        // number of bots to spawn (army)
 	string Settlement; // settlement name for the army center (optional)
 	float Radius;     // spawn scatter radius around the center (army, default 50)
-	string Preset;    // combat preset: "shooting" (default) | "combat" (army); "nomad" (meleefight)
+	string Preset;    // FSM preset: "nomad"|"survivor"|"combat"|"escort"|"hunter" (spawn); "shooting" (default) | "combat" (army); "nomad" (meleefight)
 	float Spread;     // hostile threat blur (army, default DM_INVASION_SPREAD)
 	int Zombies;      // number of zombies to spawn (meleefight, default 2)
 	float ZombieDist; // zombie spawn distance from the bot (meleefight, default 2.5)
@@ -525,6 +525,16 @@ class dmE2EBridge
 		if (pawn)
 		{
 			m_Named.Insert(step.Who, bot);
+			if (step.Preset == "nomad")
+				bot.SetFSM(dmBotPreset_Nomad.Create(bot));
+			else if (step.Preset == "survivor")
+				bot.SetFSM(dmBotPreset_Survivor.Create(bot));
+			else if (step.Preset == "combat")
+				bot.SetFSM(dmBotPreset_Combat.Create(bot));
+			else if (step.Preset == "escort")
+				bot.SetFSM(dmBotPreset_Escort.Create(bot));
+			else if (step.Preset == "hunter")
+				bot.SetFSM(dmBotPreset_Hunter.Create(bot));
 			r.Ok = true;
 			r.Reason = "spawned";
 		}
