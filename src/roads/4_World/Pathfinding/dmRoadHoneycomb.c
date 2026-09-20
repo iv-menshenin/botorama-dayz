@@ -41,14 +41,15 @@ class dmRoadHoneycomb
 	static const int DM_GRID_WIDTH_CELLS = 30;
 	//! Rows colored per tick (the expensive SurfaceY/raycast work is spread).
 	static const int DM_GRID_ROWS_PER_TICK = 3;
-	//! Высота горизонтального луча клетки над землёй (м) — середина низкого
-	//! барьера (~0.5 м): луч на этой высоте цепляет вертикальную грань барьера,
-	//! не задевая высокую крону деревьев.
-	static const float DM_GRID_RAY_BODY_HEIGHT = 0.3;
-	//! Радиус капсулы горизонтального луча клетки (м) — как у детекта машины
-	//! (1.5 м): ловит тонкие вертикальные грани (столбы/заборы), попадающие в
-	//! зазор между центрами клеток, и выносит зону захвата вперёд по лучу.
-	static const float DM_GRID_RAY_RADIUS = 1.5;
+	//! Низ диагонального луча соты над землёй (м) — высота колеса: проезжает
+	//! низкие бордюры, но цепляет бетонные ограждения и кузов машины.
+	static const float DM_GRID_RAY_BOTTOM = 0.15;
+	//! Верх диагонального луча соты над землёй (м) — высота среднего авто (~1.5 м):
+	//! сноп из 6 диагоналей сходится в центре соты на ~0.825 м.
+	static const float DM_GRID_RAY_TOP = 1.5;
+	//! Радиус капсулы луча клетки (м) — тонкий (0.2): сноп из 6 диагоналей сам
+	//! покрывает площадь соты, толстый радиус размазал бы его в «бочки».
+	static const float DM_GRID_RAY_RADIUS = 0.2;
 	//! Порог нормали поверхности для отличия земли от препятствия при obj == null
 	//! (террейн/вода/статическая коллизия без script-объекта приходят одинаково без
 	//! obj). У земли нормаль вверх (dir[1]≈1), у грани барьера — горизонтально
@@ -323,8 +324,8 @@ class dmRoadHoneycomb
 		}
 	}
 
-	//! Classify one cell (RED/GREEN). The horizontal forward ray catches the
-	//! vertical face of a barrier/trunk (horizontal surface normal); a steep slope
+	//! Classify one cell (RED/GREEN). The diagonal ray fan catches the vertical
+	//! face of a barrier/trunk (horizontal surface normal); a steep slope
 	//! or water marks the cell red.
 	private int ColorCell(float cx, float cz)
 	{
@@ -359,45 +360,69 @@ class dmRoadHoneycomb
 		return CELL_GREEN;
 	}
 
-	//! Horizontal ray forward along the territory direction at body height
-	//! (groundY + DM_GRID_RAY_BODY_HEIGHT), radius DM_GRID_RAY_RADIUS. Catches the
-	//! vertical face of a barrier/trunk by its horizontal surface normal
-	//! (hit.dir[1] <= DM_GRID_GROUND_NORMAL_EPS); ground (obj == null + normal up
-	//! dir[1] > EPS) is skipped — the car drives on it. A vertical ray cannot tell
-	//! them apart: the TOP of a barrier is a horizontal surface with an upward
-	//! normal like ground, and SurfaceY returns the barrier top, so groundY equals
-	//! the top and a vertical capsule never flags it.
+	//! Fan of 6 diagonal rays through the cell's hexagon: each ray runs from a
+	//! corner at wheel height (groundY + DM_GRID_RAY_BOTTOM) to the opposite corner
+	//! at car-roof height (groundY + DM_GRID_RAY_TOP), sweeping 0.15 m .. 1.5 m and
+	//! converging at ~0.825 m in the center. Catches low concrete barriers and a car
+	//! body the old single horizontal body-height ray missed. Ground (obj == null +
+	//! normal up dir[1] > EPS) is skipped — the car drives on it; a barrier face
+	//! (horizontal normal) is a hit.
 	private bool RaycastBlocked(float cx, float groundY, float cz)
 	{
-		//! Горизонтальная капсула БОЛЬШОГО радиуса (1.5 м, как у детекта машины):
-		//! ловит вертикальные грани (барьеры/заборы/стволы), попадающие в зазор
-		//! между центрами клеток. Земля (obj == null, нормаль вверх) пропускается;
-		//! грань барьера (горизонтальная нормаль) — препятствие. pIgnore = m_CarObj:
-		//! машина и водитель исключаются — после смещения origin не критично, но
-		//! не мешает.
-		vector vFrom = Vector(cx, groundY + DM_GRID_RAY_BODY_HEIGHT, cz);
-		vector vTo = vFrom + m_Dir * DM_GRID_CELL_SIZE;
-		RaycastRVParams vParams = new RaycastRVParams(vFrom, vTo, m_CarObj, DM_GRID_RAY_RADIUS);
-		vParams.flags = CollisionFlags.ALLOBJECTS;
-		vParams.type = ObjIntersectGeom;
-		ref array<ref RaycastRVResult> vHits = new array<ref RaycastRVResult>();
-		if (!DayZPhysics.RaycastRVProxy(vParams, vHits))
-			return false;
-		int i;
+		//! Сноп из 6 диагоналей через шестигранник соты: углы в XZ вокруг центра
+		//! клетки (R = DM_GRID_CELL_SIZE), луч i идёт от угла i на высоте колеса к
+		//! противоположному углу (i+3)%6 на высоте крыши. Земля (obj == null,
+		//! нормаль вверх) пропускается; грань барьера (горизонтальная нормаль) —
+		//! препятствие. pIgnore = m_CarObj: машина и водитель исключаются.
+		ref array<vector> corners = new array<vector>();
+		ref array<ref RaycastRVResult> vHits;
+		RaycastRVParams vParams;
 		RaycastRVResult vHit;
-		for (i = 0; i < vHits.Count(); i++)
+		vector vFrom;
+		vector vTo;
+		float radius = DM_GRID_CELL_SIZE;
+		float ang;
+		float ca;
+		float sa;
+		float dx;
+		float dz;
+		int k;
+		int opp;
+		int i;
+		for (k = 0; k < 6; k++)
 		{
-			vHit = vHits[i];
-			if (vHit.obj == m_CarObj || vHit.parent == m_CarObj)
+			ang = (float)k * 60.0 * Math.DEG2RAD;
+			ca = radius * Math.Cos(ang);
+			sa = radius * Math.Sin(ang);
+			dx = m_Dir[0] * ca + m_Side[0] * sa;
+			dz = m_Dir[2] * ca + m_Side[2] * sa;
+			corners.Insert(Vector(cx + dx, 0.0, cz + dz));
+		}
+		for (k = 0; k < 6; k++)
+		{
+			opp = (k + 3) % 6;
+			vFrom = Vector(corners[k][0], groundY + DM_GRID_RAY_BOTTOM, corners[k][2]);
+			vTo = Vector(corners[opp][0], groundY + DM_GRID_RAY_TOP, corners[opp][2]);
+			vParams = new RaycastRVParams(vFrom, vTo, m_CarObj, DM_GRID_RAY_RADIUS);
+			vParams.flags = CollisionFlags.ALLOBJECTS;
+			vParams.type = ObjIntersectGeom;
+			vHits = new array<ref RaycastRVResult>();
+			if (!DayZPhysics.RaycastRVProxy(vParams, vHits))
 				continue;
-			if (m_DriverObj && (vHit.obj == m_DriverObj || vHit.parent == m_DriverObj))
-				continue;
-			if (!vHit.obj && vHit.dir[1] > DM_GRID_GROUND_NORMAL_EPS)
-				continue;
-			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] blocked: pos=" + vHit.pos + " normalY=" + vHit.dir[1]);
-			#endif
-			return true;
+			for (i = 0; i < vHits.Count(); i++)
+			{
+				vHit = vHits[i];
+				if (vHit.obj == m_CarObj || vHit.parent == m_CarObj)
+					continue;
+				if (m_DriverObj && (vHit.obj == m_DriverObj || vHit.parent == m_DriverObj))
+					continue;
+				if (!vHit.obj && vHit.dir[1] > DM_GRID_GROUND_NORMAL_EPS)
+					continue;
+				#ifdef DM_BOT_DEBUG_ROADS
+				dmBotLog.Debug("[GRID] blocked: pos=" + vHit.pos + " normalY=" + vHit.dir[1] + " ray=" + k);
+				#endif
+				return true;
+			}
 		}
 		return false;
 	}
