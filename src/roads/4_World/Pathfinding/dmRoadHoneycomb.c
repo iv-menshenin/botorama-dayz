@@ -361,19 +361,21 @@ class dmRoadHoneycomb
 	}
 
 	//! Fan of 6 diagonal rays through the cell's hexagon: each ray runs from a
-	//! corner at wheel height (groundY + DM_GRID_RAY_BOTTOM) to the opposite corner
-	//! at car-roof height (groundY + DM_GRID_RAY_TOP), sweeping 0.15 m .. 1.5 m and
-	//! converging at ~0.825 m in the center. Catches low concrete barriers and a car
-	//! body the old single horizontal body-height ray missed. Ground (obj == null +
-	//! normal up dir[1] > EPS) is skipped — the car drives on it; a barrier face
-	//! (horizontal normal) is a hit.
+	//! corner at car-roof height (groundY + DM_GRID_RAY_TOP) DOWN to the opposite
+	//! corner at wheel height (groundY + DM_GRID_RAY_BOTTOM), sweeping 0.15 m .. 1.5 m
+	//! and converging at ~0.825 m in the center. Starting at the top keeps the ray
+	//! OUTSIDE a low collider (0..0.5 m) so it actually reports a hit. Catches low
+	//! concrete barriers and a car body the old single horizontal body-height ray
+	//! missed. Ground (obj == null + normal up dir[1] > EPS) is skipped — the car
+	//! drives on it; a barrier face (horizontal normal) is a hit.
 	private bool RaycastBlocked(float cx, float groundY, float cz)
 	{
 		//! Сноп из 6 диагоналей через шестигранник соты: углы в XZ вокруг центра
-		//! клетки (R = DM_GRID_CELL_SIZE), луч i идёт от угла i на высоте колеса к
-		//! противоположному углу (i+3)%6 на высоте крыши. Земля (obj == null,
-		//! нормаль вверх) пропускается; грань барьера (горизонтальная нормаль) —
-		//! препятствие. pIgnore = m_CarObj: машина и водитель исключаются.
+		//! клетки (R = DM_GRID_CELL_SIZE), луч i идёт СВЕРХУ от угла i на высоте крыши
+		//! к противоположному углу (i+3)%6 на высоте колеса (стартует снаружи
+		//! коллайдера, а не внутри низкого объекта). Земля (obj == null, нормаль
+		//! вверх) пропускается; грань барьера (горизонтальная нормаль) — препятствие.
+		//! pIgnore = m_CarObj: машина и водитель исключаются.
 		ref array<vector> corners = new array<vector>();
 		ref array<ref RaycastRVResult> vHits;
 		RaycastRVParams vParams;
@@ -401,14 +403,27 @@ class dmRoadHoneycomb
 		for (k = 0; k < 6; k++)
 		{
 			opp = (k + 3) % 6;
-			vFrom = Vector(corners[k][0], groundY + DM_GRID_RAY_BOTTOM, corners[k][2]);
-			vTo = Vector(corners[opp][0], groundY + DM_GRID_RAY_TOP, corners[opp][2]);
+			vFrom = Vector(corners[k][0], groundY + DM_GRID_RAY_TOP, corners[k][2]);
+			vTo = Vector(corners[opp][0], groundY + DM_GRID_RAY_BOTTOM, corners[opp][2]);
 			vParams = new RaycastRVParams(vFrom, vTo, m_CarObj, DM_GRID_RAY_RADIUS);
 			vParams.flags = CollisionFlags.ALLOBJECTS;
-			vParams.type = ObjIntersectGeom;
+			vParams.type = ObjIntersectView;
+			//! (проверить после ObjIntersectView)
+			//! vParams.type = ObjIntersectGeom;
 			vHits = new array<ref RaycastRVResult>();
 			if (!DayZPhysics.RaycastRVProxy(vParams, vHits))
 				continue;
+			#ifdef DM_BOT_DEBUG_ROADS
+			vHit = vHits[0];
+			string hitObjName = "null";
+			if (vHit.obj)
+				hitObjName = vHit.obj.GetType();
+			string hitParentName = "null";
+			if (vHit.parent)
+				hitParentName = vHit.parent.GetType();
+			dmBotLog.Debug("[GRID] hit: ray=" + k + " obj=" + hitObjName + " parent=" + hitParentName);
+			dmBotLog.Debug("[GRID] hit: ray=" + k + " normalY=" + vHit.dir[1] + " pos=" + vHit.pos);
+			#endif
 			for (i = 0; i < vHits.Count(); i++)
 			{
 				vHit = vHits[i];
