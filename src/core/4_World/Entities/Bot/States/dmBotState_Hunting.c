@@ -13,6 +13,7 @@ class dmBotState_Hunting : dmBotState
 	vector m_SearchCenter;
 	bool m_WantBuilding;
 	float m_PreferredSpeed;
+	ref array<Building> m_Checked;   // проверенные этой охотой здания
 
 	override dmBotStateKind GetKind()
 	{
@@ -33,6 +34,7 @@ class dmBotState_Hunting : dmBotState
 		m_CurrentBuilding = null;
 		m_SearchCenter = vector.Zero;
 		m_WantBuilding = false;
+		m_Checked = new array<Building>();
 
 		dmAISurvivor bot = GetOwner();
 		m_PreferredSpeed = bot.GetPreferredSpeed();
@@ -101,6 +103,7 @@ class dmBotState_Hunting : dmBotState
 		
 		if (m_Move) { m_Move.Finish(); m_Move = null; }
 		m_CurrentBuilding = null;
+		m_Checked = new array<Building>();
 
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Hunting.exit");
@@ -141,7 +144,7 @@ class dmBotState_Hunting : dmBotState
 		{
 			if (m_CurrentBuilding)
 			{
-				bot.GetExplorer().MarkVisited(m_CurrentBuilding);
+				m_Checked.Insert(m_CurrentBuilding);
 				m_CurrentBuilding = null;
 				m_WantBuilding = false;
 			}
@@ -156,7 +159,7 @@ class dmBotState_Hunting : dmBotState
 
 		if (m_WantBuilding)
 		{
-			Building building = bot.GetExplorer().GetNearestBuildingWithDoors(bot, DM_EXPLORE_EXPLORE_RADIUS);
+			Building building = dmLiveBuildingRegistry.Get().GetNearestBuildingWithDoors(bot.GetPosition(), DM_EXPLORE_EXPLORE_RADIUS, m_Checked);
 			if (building)
 			{
 				m_CurrentBuilding = building;

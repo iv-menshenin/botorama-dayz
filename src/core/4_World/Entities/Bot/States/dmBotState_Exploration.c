@@ -16,6 +16,15 @@ class dmBotState_Exploration : dmBotState
 		m_PickUp = null;
 		m_CurrentBuilding = null;
 		m_DropCooldown = 0.0;
+
+		dmAISurvivor bot = GetOwner();
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (pawn)
+		{
+			dmWorldPoiLocation loc = dmWorldPOIRegistry.Get().GetLocationAt(pawn.GetPosition());
+			if (loc)
+				bot.GetExplorer().ArriveAtLocation(loc);
+		}
 	}
 
 	override int OnUpdate(float pDt)
@@ -144,14 +153,14 @@ class dmBotState_Exploration : dmBotState
 		if (m_Move && (m_Move.IsFinished() || m_Move.IsExpired()))
 		{
 			if (m_CurrentBuilding)
-				bot.GetExplorer().MarkVisited(m_CurrentBuilding);
+				bot.GetExplorer().MarkLocationBuildingVisited(m_CurrentBuilding);
 			m_Move = null;
 			m_CurrentBuilding = null;
 		}
 		if (m_Move)
 			return;
 
-		Building building = bot.GetExplorer().GetNearest(bot, DM_EXPLORE_EXPLORE_RADIUS);
+		Building building = bot.GetExplorer().GetNextUnvisitedBuilding(bot);
 		if (!building)
 			return;
 

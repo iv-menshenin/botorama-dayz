@@ -474,3 +474,14 @@
 - **косметика (веха B)** — `dmLiveBuildingRegistry`: `pos2D[1] = 0.0` мёртвое (dx/dz читают
   только [0]/[2]); `dmE2EBridge.RunBuildingDump` лезет в `reg.m_Buildings`/`m_ByLocation`
   напрямую — выровнять через публичные `BuildingCount()`/`LocationMapCount()`.
+- **важно (веха C, рефактор)** — 2D-дистанция `dx*dx+dz*dz` продублирована по кодовой базе
+  (roads/map/reg/core ~9 мест). Введён `dmMath.DistSq2D` (`cons/3_Game/dmMath.c`) и применён в
+  `dmExplorer`; мигрировать остальные места (`dmLiveBuildingRegistry`, `dmWorldPOIRegistry`,
+  `dmRoadRouter`, `dmRoadObjectGraph`, `dmRoadGap`, `dmRoadDiscoveryManager`,
+  `dmBotIntent_Drive`, `dmRedZone`) на него. Не путать с 3D `vector.DistanceSq` (включает Y).
+- **косметика (веха C)** — `dmExplorer.LocationVisitedCount`/`LocationUnvisitedCount` — два
+  прохода по массиву; `explorerdump` вызывает каждый дважды. Заменить сводкой одним проходом
+  (`LocationBuildingCounts(out total, out visited, out unvisited)`).
+- **косметика (веха C)** — `dmBotState_Hunting.m_Checked` сбрасывается и в `OnEntry`, и в
+  `OnExit`; `OnExit`-сброс избыточен (FSM-объект переиспользуется, `OnEntry` всегда до следующего
+  использования). Оставить один сброс.

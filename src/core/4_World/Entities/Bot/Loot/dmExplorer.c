@@ -1,8 +1,11 @@
-//! dmExplorer — состояние мира (слой 1 лута): какие здания бот исследовал.
+//! dmExplorer — память исследования: какие локации бот посетил и какие здания
+//! текущей локации обошёл.
 //!
-//! Чистый домен: хранит здания (посещено/нет), сканирует окрестность раз в минуту
-//! (DM_EXPLORE_TICK_INTERVAL), забывает далёкие (500 м любое / 200 м непосещённое).
-//! GetNearest отдаёт ближайшее непосещённое здание. Никого не пишет, ссылок на
+//! Здания больше не сканируются радиус-боксом: источник зданий — реестр
+//! dmLiveBuildingRegistry (привязка зданий к локациям через dmWorldPOIRegistry).
+//! При входе в локацию (ArriveAtLocation) explorer берёт здания локации из
+//! реестра и дальше ведёт только флаг «посещено» по каждому. Локации помечаются
+//! посещёнными по Id (m_VisitedLocations). Никого не пишет, ссылок на
 //! Wishlist/Requirements/dmNeeds нет.
 
 //! Здание в памяти исследования: ссылка + флаг «посещено».
@@ -14,95 +17,72 @@ class dmExploredBuilding
 
 class dmExplorer
 {
-	ref array<ref dmExploredBuilding> m_Buildings;
-	float m_TickAccum;   // троттлинг скана
-
-    ref TStringArray excludedBuildings = new TStringArray;
+	ref array<int> m_VisitedLocations;                       // Id посещённых локаций
+	ref dmWorldPoiLocation m_CurrentLocation;                // текущая локация (null = вне)
+	ref dmWorldPoiLocation m_Destination;                    // назначение кочёвки (веха E)
+	ref array<ref dmExploredBuilding> m_LocationBuildings;   // здания текущей локации
+	bool m_NothingToDo;                                      // «делать больше нечего» (веха D)
+	bool m_InTransit;                                        // «переход в локацию» (веха E)
+	float m_TimeInLocation;                                  // время в текущей локации (веха D)
 
 	void dmExplorer()
 	{
-		m_Buildings = new array<ref dmExploredBuilding>();
-		m_TickAccum = 0.0;
-
-        excludedBuildings.Insert("Land_Boat_");
-        excludedBuildings.Insert("Land_CementWorks_Hall2_Grey");
-        excludedBuildings.Insert("Land_Factory_Small");
-        excludedBuildings.Insert("Land_House_1W09");
-        excludedBuildings.Insert("Land_House_2W03");
-        excludedBuildings.Insert("Land_HouseBlock_1F4");
-        excludedBuildings.Insert("Land_Boathouse");
-        excludedBuildings.Insert("Land_Mine_Building");
-        excludedBuildings.Insert("Land_Shed_W2");
-        excludedBuildings.Insert("Land_Tenement_Big");
-        excludedBuildings.Insert("Land_Misc_Toilet_Mobile");
-        excludedBuildings.Insert("Land_Ship_Medium2");
-        excludedBuildings.Insert("Land_Train_Wagon_Box");
+		m_VisitedLocations = new array<int>();
+		m_LocationBuildings = new array<ref dmExploredBuilding>();
+		m_CurrentLocation = null;
+		m_Destination = null;
+		m_NothingToDo = false;
+		m_InTransit = false;
+		m_TimeInLocation = 0.0;
 	}
 
-	bool IsExcludedBuilding(Building building)
+	//! Посещал ли бот локацию с данным Id.
+	bool HasVisited(int id)
 	{
-		string buildingType = building.GetType();
-		foreach(string prefix: excludedBuildings)
-		{
-			if (buildingType.IndexOf(prefix) == 0) return true;
-		}
-		return false;
+		return m_VisitedLocations.Find(id) >= 0;
 	}
 
-	//! Тик из Update бота: раз в DM_EXPLORE_TICK_INTERVAL сканирует здания вокруг
-	//! и забывает далёкие.
-	void OnUpdate(dmAISurvivor bot, float pDt)
+	//! Пометить локацию посещённой (идемпотентно).
+	void RememberLocation(int id)
 	{
-		m_TickAccum += pDt;
-		if (m_TickAccum < DM_EXPLORE_TICK_INTERVAL)
+		if (!HasVisited(id))
+			m_VisitedLocations.Insert(id);
+	}
+
+	//! Вход в локацию: запомнить, взять её здания из реестра и сбросить прогресс.
+	//! Идемпотентно — повторный вход в ту же локацию ничего не делает.
+	void ArriveAtLocation(dmWorldPoiLocation loc)
+	{
+		if (!loc)
 			return;
-		m_TickAccum = 0.0;
-
-		PlayerBase pawn = bot.GetPawn();
-		if (!pawn)
+		if (m_CurrentLocation && m_CurrentLocation.Id == loc.Id)
 			return;
 
-		vector botPos = pawn.GetPosition();
+		m_CurrentLocation = loc;
+		RememberLocation(loc.Id);
 
-		//! Скан зданий в кубе DM_EXPLORE_SCAN_RADIUS вокруг бота.
-		//! QueryFlags.STATIC возвращает статические сущности (здания) — эталон
-		//! ExpansionWorld.GenerateRoamingLocations (SceneGetEntitiesInBox +
-		//! QueryFlags.STATIC → IsBuilding). Физика тоже ловит статику, но scene-запрос
-		//! со STATIC — подтверждённый путь для Building.
-		array<EntityAI> entities = new array<EntityAI>();
-		float r = DM_EXPLORE_SCAN_RADIUS;
-		vector minPos = botPos - Vector(r, r, r);
-		vector maxPos = botPos + Vector(r, r, r);
-		DayZPlayerUtils.SceneGetEntitiesInBox(minPos, maxPos, entities, QueryFlags.STATIC);
-
+		m_LocationBuildings.Clear();
+		array<Building> buildings = new array<Building>();
+		dmLiveBuildingRegistry.Get().GetBuildingsForLocation(loc, buildings);
 		int i;
-		for (i = 0; i < entities.Count(); i++)
+		for (i = 0; i < buildings.Count(); i++)
 		{
-			Building building = Building.Cast(entities[i]);
-			if (!building) continue;
-			if ( IsExcludedBuilding(building) ) continue;
-			
-			if (!FindBuilding(building))
-			{
-				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] Обнаружил новое здание: " + building.GetType() + " на " + building.GetPosition());
-				#endif
-				dmExploredBuilding eb = new dmExploredBuilding();
-				eb.m_Building = building;
-				eb.m_Visited = false;
-				m_Buildings.Insert(eb);
-			}
+			dmExploredBuilding eb = new dmExploredBuilding();
+			eb.m_Building = buildings[i];
+			eb.m_Visited = false;
+			m_LocationBuildings.Insert(eb);
 		}
 
-		ForgetFar(botPos);
+		m_TimeInLocation = 0.0;
+		SetNothingToDo(false);
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Explorer: scan found=" + entities.Count() + " tracked=" + m_Buildings.Count());
+		dmBotLog.Debug("[Loot] Explorer: прибыл в локацию " + loc.Id + " (" + loc.Name + "), зданий " + m_LocationBuildings.Count());
 		#endif
 	}
 
-	//! Ближайшее НЕпосещённое здание в радиусе radius, или null.
-	Building GetNearest(dmAISurvivor bot, float radius)
+	//! Ближайшее непосещённое здание текущей локации (2D до позиции бота), или null.
+	Building GetNextUnvisitedBuilding(dmAISurvivor bot)
 	{
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn)
@@ -110,132 +90,155 @@ class dmExplorer
 
 		vector botPos = pawn.GetPosition();
 		Building best = null;
-		float bestDist = 0.0;
+		float bestSq = 0.0;
+		vector bPos;
+		float dSq;
 		int i;
-		for (i = 0; i < m_Buildings.Count(); i++)
+		for (i = 0; i < m_LocationBuildings.Count(); i++)
 		{
-			dmExploredBuilding eb = m_Buildings[i];
+			dmExploredBuilding eb = m_LocationBuildings[i];
 			if (eb.m_Visited || !eb.m_Building)
 				continue;
-			vector bPos = eb.m_Building.GetPosition();
-			vector d = bPos - botPos;
-			d[1] = 0.0;
-			float dist = d.Length();
-			if (dist > radius)
-				continue;
-			if (!best || dist < bestDist)
+			bPos = eb.m_Building.GetPosition();
+			dSq = dmMath.DistSq2D(bPos, botPos);
+			if (!best || dSq < bestSq)
 			{
 				best = eb.m_Building;
-				bestDist = dist;
+				bestSq = dSq;
 			}
-		}
-
-		if ( best )
-		{
-			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Рядом есть здание: " + best.GetType() + " на " + best.GetPosition());
-			#endif
 		}
 		return best;
 	}
 
-	//! Пометить здание посещённым.
-	void MarkVisited(Building building)
+	//! Пометить здание текущей локации посещённым.
+	void MarkLocationBuildingVisited(Building building)
 	{
-		dmExploredBuilding eb = FindBuilding(building);
-		if (eb)
-			eb.m_Visited = true;
+		int i;
+		for (i = 0; i < m_LocationBuildings.Count(); i++)
+		{
+			dmExploredBuilding eb = m_LocationBuildings[i];
+			if (eb.m_Building == building)
+			{
+				eb.m_Visited = true;
+				return;
+			}
+		}
 	}
 
-	//! Ближайшее НЕпосещённое здание с дверьми (BuildingBase + GetDoorCount() > 0)
-	//! в радиусе radius, или null. Для охоты — искать цель внутри строений.
-	Building GetNearestBuildingWithDoors(dmAISurvivor bot, float radius)
+	//! Сколько зданий текущей локации ещё не обойдено.
+	int LocationUnvisitedCount()
+	{
+		int count;
+		int i;
+		for (i = 0; i < m_LocationBuildings.Count(); i++)
+		{
+			if (!m_LocationBuildings[i].m_Visited)
+				count++;
+		}
+		return count;
+	}
+
+	//! Сколько зданий текущей локации уже обойдено.
+	int LocationVisitedCount()
+	{
+		int count;
+		int i;
+		for (i = 0; i < m_LocationBuildings.Count(); i++)
+		{
+			if (m_LocationBuildings[i].m_Visited)
+				count++;
+		}
+		return count;
+	}
+
+	//! Количество посещённых локаций (для дампа).
+	int VisitedLocationCount()
+	{
+		return m_VisitedLocations.Count();
+	}
+
+	//! Текущая локация (null = вне локаций).
+	dmWorldPoiLocation GetCurrentLocation()
+	{
+		return m_CurrentLocation;
+	}
+
+	//! (веха D) «делать больше нечего».
+	bool IsNothingToDo()
+	{
+		return m_NothingToDo;
+	}
+
+	void SetNothingToDo(bool v)
+	{
+		m_NothingToDo = v;
+	}
+
+	//! (веха E) «переход в локацию».
+	bool IsInTransit()
+	{
+		return m_InTransit;
+	}
+
+	void SetInTransit(bool v)
+	{
+		m_InTransit = v;
+	}
+
+	//! (веха E) Назначение кочёвки.
+	dmWorldPoiLocation GetDestination()
+	{
+		return m_Destination;
+	}
+
+	void SetDestination(dmWorldPoiLocation loc)
+	{
+		m_Destination = loc;
+	}
+
+	void ClearDestination()
+	{
+		m_Destination = null;
+	}
+
+	//! (веха D) Накопить время в текущей локации.
+	void TickLocationTime(float dt)
+	{
+		m_TimeInLocation = m_TimeInLocation + dt;
+	}
+
+	float GetTimeInLocation()
+	{
+		return m_TimeInLocation;
+	}
+
+	//! (веха E) Ближайшая НЕпосещённая локация (2D до позиции бота), или null.
+	dmWorldPoiLocation GetNearestUnvisitedLocation(dmAISurvivor bot)
 	{
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn)
 			return null;
 
 		vector botPos = pawn.GetPosition();
-		Building best = null;
-		float bestDist = 0.0;
+		dmWorldPOIRegistry reg = dmWorldPOIRegistry.Get();
+		dmWorldPoiLocation best = null;
+		float bestSq = 0.0;
+		vector locPos;
+		float dSq;
 		int i;
-		for (i = 0; i < m_Buildings.Count(); i++)
+		for (i = 0; i < reg.LocationCount(); i++)
 		{
-			dmExploredBuilding eb = m_Buildings[i];
-			if (eb.m_Visited || !eb.m_Building)
+			dmWorldPoiLocation loc = reg.GetLocation(i);
+			if (!loc || HasVisited(loc.Id))
 				continue;
-			BuildingBase base = BuildingBase.Cast(eb.m_Building);
-			if (!base || base.GetDoorCount() == 0)
-				continue;
-			vector bPos = eb.m_Building.GetPosition();
-			vector d = bPos - botPos;
-			d[1] = 0.0;
-			float dist = d.Length();
-			if (dist > radius)
-				continue;
-			if (!best || dist < bestDist)
+			locPos = loc.Position;
+			dSq = dmMath.DistSq2D(locPos, botPos);
+			if (!best || dSq < bestSq)
 			{
-				best = eb.m_Building;
-				bestDist = dist;
+				best = loc;
+				bestSq = dSq;
 			}
-		}
-
-		if ( best )
-		{
-			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Рядом здание с дверьми: " + best.GetType() + " на " + best.GetPosition());
-			#endif
 		}
 		return best;
-	}
-
-	//! Найти запись здания (или null).
-	dmExploredBuilding FindBuilding(Building building)
-	{
-		int i;
-		for (i = 0; i < m_Buildings.Count(); i++)
-		{
-			if (m_Buildings[i].m_Building == building)
-				return m_Buildings[i];
-		}
-		return null;
-	}
-
-	//! Забыть: дальше DM_EXPLORE_FORGET_ANY (любое) или дальше
-	//! DM_EXPLORE_FORGET_UNVISITED (непосещённое). С обратным циклом.
-	void ForgetFar(vector botPos)
-	{
-		int cnt;
-		int i;
-		for (i = m_Buildings.Count() - 1; i >= 0; i--)
-		{
-			dmExploredBuilding eb = m_Buildings[i];
-			if (!eb.m_Building)
-			{
-				cnt++;
-				m_Buildings.Remove(i);
-				continue;
-			}
-			vector bPos = eb.m_Building.GetPosition();
-			vector d = bPos - botPos;
-			d[1] = 0.0;
-			float dist = d.Length();
-			if (dist > DM_EXPLORE_FORGET_ANY)
-			{
-				m_Buildings.Remove(i);
-				cnt++;
-			}
-			else if (!eb.m_Visited && dist > DM_EXPLORE_FORGET_UNVISITED)
-			{
-				m_Buildings.Remove(i);
-				cnt++;
-			}
-		}
-		if ( cnt > 0 )
-		{
-			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Забыто " + cnt + " зданий");
-			#endif
-		}
 	}
 };

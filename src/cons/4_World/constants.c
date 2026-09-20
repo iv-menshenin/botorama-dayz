@@ -772,15 +772,6 @@ static const float DM_NEEDS_TICK_INTERVAL = 5.0;
 //! Loot: distance (meters) to an item at which the bot picks it up.
 static const float DM_PICKUP_REACH = 1.0;
 
-//! Loot exploration: scan radius (meters) for buildings around the bot.
-static const float DM_EXPLORE_SCAN_RADIUS = 50.0;
-//! Loot exploration: tick interval (seconds) between building scans.
-static const float DM_EXPLORE_TICK_INTERVAL = 60.0;
-//! Loot exploration: forget any building farther than this (meters).
-static const float DM_EXPLORE_FORGET_ANY = 500.0;
-//! Loot exploration: forget an unvisited building farther than this (meters).
-static const float DM_EXPLORE_FORGET_UNVISITED = 200.0;
-
 //! Loot exploration: radius (meters) to scan for items to pick up.
 static const float DM_EXPLORE_PICKUP_RADIUS = 3.0;
 //! Loot exploration: min CalcDesired to pick up an item.

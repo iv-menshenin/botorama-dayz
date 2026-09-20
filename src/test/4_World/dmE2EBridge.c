@@ -466,6 +466,10 @@ class dmE2EBridge
 		{
 			RunBuildingDump(step, r);
 		}
+		else if (step.Op == "explorerdump")
+		{
+			RunExplorerDump(step, r);
+		}
 		else if (step.Op == "getpos")
 		{
 			RunGetPos(step, r);
@@ -1904,6 +1908,60 @@ class dmE2EBridge
 		}
 
 		r.Ok = true;
+	}
+
+	//! "explorerdump" — dump the bot's explorer memory: current location, visited
+	//! locations, building counts for the current location, flags and timer.
+	private void RunExplorerDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmExplorer explorer = bot.GetExplorer();
+		if (!explorer)
+		{
+			r.Ok = false;
+			r.Reason = "no explorer";
+			return;
+		}
+
+		dmWorldPoiLocation loc = explorer.GetCurrentLocation();
+		if (loc)
+		{
+			AppendDump(r, "locId=" + loc.Id);
+			AppendDump(r, "locName=" + loc.Name);
+			AppendDump(r, "locType=" + loc.Type);
+		}
+		else
+		{
+			AppendDump(r, "loc=none");
+		}
+
+		AppendDump(r, "visited=" + explorer.VisitedLocationCount());
+		int bldTotal = explorer.LocationVisitedCount() + explorer.LocationUnvisitedCount();
+		AppendDump(r, "bldTotal=" + bldTotal);
+		AppendDump(r, "bldVisited=" + explorer.LocationVisitedCount());
+		AppendDump(r, "bldUnvisited=" + explorer.LocationUnvisitedCount());
+
+		int nothingToDo = 0;
+		if (explorer.IsNothingToDo())
+			nothingToDo = 1;
+		AppendDump(r, "nothingToDo=" + nothingToDo);
+
+		int inTransit = 0;
+		if (explorer.IsInTransit())
+			inTransit = 1;
+		AppendDump(r, "inTransit=" + inTransit);
+
+		AppendDump(r, "timeInLoc=" + explorer.GetTimeInLocation());
+
+		r.Ok = true;
+		r.Reason = "dumped";
 	}
 
 	//! Report the named probe object's position and yaw.

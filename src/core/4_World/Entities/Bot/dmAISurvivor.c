@@ -481,8 +481,6 @@ class dmAISurvivor
 
 		m_Needs.Update(this, pDt);
 
-		m_Explorer.OnUpdate(this, pDt);
-
 		if (m_FSM)
 			m_FSM.Update(pDt);
 
