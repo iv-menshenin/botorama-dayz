@@ -2229,12 +2229,9 @@ class dmE2EBridge
 			}
 		}
 
-		//! Направление территории: start → первый вейпоинт (иначе → target).
-		vector d;
-		if (route.Count() > 0)
-			d = route[0] - start;
-		else
-			d = target - start;
+		//! Направление территории: сам отрезок дороги (target − start), а не дельта
+		//! до первого вейпоинта — иначе грид уходит по оси X вместо дороги.
+		vector d = target - start;
 		d[1] = 0.0;
 		if (d.Length() < 0.01)
 			d = Vector(1.0, 0.0, 0.0);

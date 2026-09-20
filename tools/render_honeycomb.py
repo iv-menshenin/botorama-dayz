@@ -49,6 +49,7 @@ Usage:
 """
 
 import json
+import math
 import os
 import sys
 
@@ -139,17 +140,27 @@ def main(argv):
         '<rect x="0" y="0" width="{0}" height="{1}" fill="#ffffff"/>'.format(view_w, view_h)
     )
 
-    # Cells (one unit rect centered on its grid coordinate).
+    # Cells as hexagons (honeycomb), pointy-top along the road (rows), odd rows
+    # staggered by half a hex so they tile; thin black outline. NOTE: this is a
+    # visual hex layout over the square grid data — true hex topology (6 neighbors
+    # in A*) is a separate task.
+    HEX_R = 0.58
     for cell in cells:
         row = int(cell["Row"])
         col = int(cell["Col"])
         color = int(cell["Color"])
         fill = COLOR_FILL.get(color, "#ffffff")
-        x = sx(float(row) - 0.5)
-        y = sy(float(col) + 0.5)
+        gx = float(row)
+        gy = float(col) + (row % 2) * 0.5
+        pts = []
+        for k in range(6):
+            ang = math.pi / 3.0 * k
+            px = gx + HEX_R * math.cos(ang)
+            py = gy + HEX_R * math.sin(ang)
+            pts.append("{0},{1}".format(sx(px), sy(py)))
         parts.append(
-            '<rect x="{0}" y="{1}" width="{2}" height="{2}" fill="{3}"/>'.format(
-                x, y, scale, fill
+            '<polygon points="{0}" fill="{1}" stroke="#000000" stroke-width="0.6"/>'.format(
+                " ".join(pts), fill
             )
         )
 
