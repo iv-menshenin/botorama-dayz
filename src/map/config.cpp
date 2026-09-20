@@ -7,10 +7,6 @@ class CfgPatches
 		requiredVersion=0.1;
 		requiredAddons[]= {
 			"dmBotorama_Cons",
-			"dmBotorama_Reg",
-			"dmBotorama_Roads",
-			"dmBotorama_Core",
-			"dmBotorama_Loadout",
 		};
 	};
 };
@@ -22,7 +18,7 @@ class CfgMods
 		name = "botorama";
 		author = "devalio";
 		type = "mod";
-		defines[] = { "DM_BOT_PROFILE", "DM_BOT_DEBUG_FSM", "DM_WEAPON_DEBUG_FSM", "DM_BOT_DEBUG_SPAWN" };
+		defines[] = { "DM_BOT_PROFILE", "DM_BOT_DEBUG_SPAWN" };
 		class defs 
 		{
 			class gameScriptModule {
@@ -35,12 +31,6 @@ class CfgMods
 				value = "";
 				files[] = {
 					"dm_map/4_World",
-				};
-			};
-			class missionScriptModule {
-				value = "";
-				files[] = {
-					"dm_map/5_Mission",
 				};
 			};
 		}; 

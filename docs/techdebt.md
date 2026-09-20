@@ -450,3 +450,21 @@
 - Спавн в воздухе: кик `MoveTo` на 1 м будит физику (бот падает). Если навмеш не
   найден (спавн сильно над рельефом) — кик не сработает, нужен fallback (снап по
   рейкасту/навмешу в `Spawn`).
+
+## L. Nomad-exploration (веха A — рефактор модулей)
+
+- **важно** — `dmBotSpawnManager.EnsureDirectory` (`core/5_Mission/System/dmBotSpawnManager.c`)
+  дублирует `dmJsonFile.EnsureDirectory` (`cons/3_Game/Config/dmJsonFile.c`). Теперь файл в core
+  (видит cons) — вынести общий хелпер (напр. статику в `dmJsonConfigBase`) либо явно
+  задокументировать, почему generic-статику `dmJsonFile<T>.EnsureDirectory` не зовут
+  (трение Enfusion с типом `T`).
+- **косметика** — `loadout/config.cpp` `defines[]` = `DM_BOT_PROFILE/FSM/WEAPON/SPAWN`, но
+  `dmLoadoutApplier.c` использует только `DM_BOT_PROFILE` + `DM_BOT_DEBUG_LOADOUT`
+  (последний отсутствует в defines → логи не компилируются). Выровнять.
+- **косметика** — `fstructure.md` ссылается на старые пути (`reg/3_Game/Config`, `map/5_Mission`,
+  `map/3_Game/Config` с dmSpawnConfig) — обновить после рефактора.
+- **важно (скрытая связность)** — reg-хуки (`modded_Restrain`, `modded_WeaponFire`,
+  `modded_DayZPlayerImplement`, `modded_ZombieBase`, `modded_WeaponBase`) ссылаются на bot-классы
+  core (`dmAISurvivor`, `dmNoiseSystem`, ...), но `requiredAddons` reg = `[cons, map]` без core.
+  Компилируется, т.к. оба PBO вливаются в один `worldScriptModule`. Зафиксировать в
+  `nomad-exploration.md §1` или вынести осознанно.

@@ -9,6 +9,8 @@ class CfgPatches
 			"dmBotorama_Cons",
 			"dmBotorama_Roads",
 			"dmBotorama_Reg",
+			"dmBotorama_Loadout",
+			"dmBotorama_Map",
 			"DZ_Characters",
 			"DZ_Anims_Anm_Player",
 			"DZ_Anims_Cfg",

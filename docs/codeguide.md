@@ -220,7 +220,7 @@ class CfgSoundSets
 
 - `JsonFileLoader<T>.LoadFile(path, out data, out error)` / `SaveFile(...)`;
   внутри — `JsonSerializer.ReadFromString`.
-- **Бот-обёртка `dmJsonFile<T>` (`src/reg/3_Game/Config/dmJsonFile.c`) требует, чтобы `T`
+- **Бот-обёртка `dmJsonFile<T>` (`src/cons/3_Game/Config/dmJsonFile.c`) требует, чтобы `T`
   наследовал `dmJsonConfigBase`** — внутри она делает `dmJsonConfigBase.Cast(config)`
   (версионирование). Для plain-структур БЕЗ наследования инстанцирование `dmJsonFile<T>`
   падает на компиляции: `Types 'dmJsonConfigBase' and '<T>' are not related`. Для таких

@@ -8,7 +8,6 @@ class CfgPatches
 		requiredAddons[]= {
 			"dmBotorama_Cons",
 			"dmBotorama_Reg",
-			"dmBotorama_Core",
 		};
 	};
 };
