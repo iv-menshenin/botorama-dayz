@@ -6,6 +6,7 @@ class dmBotState_Exploration : dmBotState
 	ref array<vector> m_InteriorPoints; // интерьер-точки текущего здания (порядок обхода)
 	int m_PointIndex;                   // индекс следующей интерьер-точки
 	float m_DropCooldown;
+	float m_BuildingTime;               // сколько времени бот возится с текущим зданием
 
 	override dmBotStateKind GetKind()
 	{
@@ -25,6 +26,7 @@ class dmBotState_Exploration : dmBotState
 		m_InteriorPoints = null;
 		m_PointIndex = 0;
 		m_DropCooldown = 0.0;
+		m_BuildingTime = 0.0;
 
 		dmAISurvivor bot = GetOwner();
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
@@ -49,6 +51,11 @@ class dmBotState_Exploration : dmBotState
 		{
 			EnsureExplore(bot);
 		}
+
+		bot.GetExplorer().RefreshBuildingsIfEmpty(pDt);
+
+		if (m_CurrentBuilding)
+			m_BuildingTime = m_BuildingTime + pDt;
 
 		bot.GetExplorer().TickLocationTime(pDt);
 
@@ -167,6 +174,17 @@ class dmBotState_Exploration : dmBotState
 	{
 		dmExplorer explorer = bot.GetExplorer();
 
+		if (m_CurrentBuilding && m_BuildingTime > DM_EXPLORE_BUILDING_TIMEOUT)
+		{
+			if (m_Move) { m_Move.Finish(); m_Move = null; }
+			dmBotLog.Error("[Loot] Explore: здание слишком долго, пропускаю " + m_CurrentBuilding.GetType());
+			explorer.MarkLocationBuildingVisited(m_CurrentBuilding);
+			m_CurrentBuilding = null;
+			m_InteriorPoints = null;
+			m_PointIndex = 0;
+			m_BuildingTime = 0.0;
+		}
+
 		if (m_Move && (m_Move.IsFinished() || m_Move.IsExpired() || m_Move.IsFailed()))
 		{
 			bool reached = m_Move.IsFinished();
@@ -198,6 +216,7 @@ class dmBotState_Exploration : dmBotState
 			if (!b)
 				return;
 			m_CurrentBuilding = b;
+			m_BuildingTime = 0.0;
 			m_PointIndex = 0;
 			m_InteriorPoints = new array<vector>();
 			dmBuildingInteriorMap.Get().GetRoamWorldPoints(b, m_InteriorPoints);
@@ -237,7 +256,9 @@ class dmBotState_Exploration : dmBotState
 		float time = explorer.GetTimeInLocation();
 		bool done = false;
 
-		if (unvisited == 0)
+		if (unvisited == 0 && totalF > 0.0)
+			done = true;
+		if (totalF == 0.0 && time > DM_EXPLORE_EMPTY_LOCATION_TIME)
 			done = true;
 		if (cfg.ExitVisitedCount > 0 && visited >= cfg.ExitVisitedCount)
 			done = true;

@@ -24,6 +24,7 @@ class dmExplorer
 	bool m_NothingToDo;                                      // «делать больше нечего» (веха D)
 	bool m_InTransit;                                        // «переход в локацию» (веха E)
 	float m_TimeInLocation;                                  // время в текущей локации (веха D)
+	float m_RefreshAccum;                                    // аккумулятор перезапроса пустого списка зданий (веха D)
 
 	void dmExplorer()
 	{
@@ -34,6 +35,7 @@ class dmExplorer
 		m_NothingToDo = false;
 		m_InTransit = false;
 		m_TimeInLocation = 0.0;
+		m_RefreshAccum = 0.0;
 	}
 
 	//! Посещал ли бот локацию с данным Id.
@@ -79,6 +81,28 @@ class dmExplorer
 		#ifdef DM_BOT_DEBUG_LOOTING
 		dmBotLog.Debug("[Loot] Explorer: прибыл в локацию " + loc.Id + " (" + loc.Name + "), зданий " + m_LocationBuildings.Count());
 		#endif
+	}
+
+	//! Перезапрос зданий, пока список пуст (реестр наполняется асинхронно после
+	//! спавна). Раз в DM_EXPLORE_REFRESH_INTERVAL повторяет GetBuildingsForLocation.
+	void RefreshBuildingsIfEmpty(float dt)
+	{
+		if (!m_CurrentLocation || m_LocationBuildings.Count() > 0 || m_NothingToDo)
+			return;
+		m_RefreshAccum = m_RefreshAccum + dt;
+		if (m_RefreshAccum < DM_EXPLORE_REFRESH_INTERVAL)
+			return;
+		m_RefreshAccum = 0.0;
+		array<Building> buildings = new array<Building>();
+		dmLiveBuildingRegistry.Get().GetBuildingsForLocation(m_CurrentLocation, buildings);
+		int i;
+		for (i = 0; i < buildings.Count(); i++)
+		{
+			dmExploredBuilding eb = new dmExploredBuilding();
+			eb.m_Building = buildings[i];
+			eb.m_Visited = false;
+			m_LocationBuildings.Insert(eb);
+		}
 	}
 
 	//! Ближайшее непосещённое здание текущей локации (2D до позиции бота), или null.

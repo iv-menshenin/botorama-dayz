@@ -30,6 +30,7 @@ class dmBotPreset_Nomad
 		explore.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		explore.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		explore.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+		explore.AddTransition(idle, 0.1);
 
 		travel.AddTransition(explore, 1.0).BlockWhen(dmBotConditions.NothingToDo());
 		travel.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));

@@ -788,6 +788,12 @@ static const float DM_EXPLORE_BUILDING_REACH = 2.0;
 static const float DM_EXPLORE_INTERIOR_REACH = 1.5;
 //! Loot exploration: cooldown (seconds) between drops when the inventory is full.
 static const float DM_EXPLORE_DROP_COOLDOWN = 15.0;
+//! Loot exploration: перезапрос пустого списка зданий (реестр наполняется асинхронно).
+static const float DM_EXPLORE_REFRESH_INTERVAL = 5.0;
+//! Loot exploration: грейс-период (секунды) до признания локации «реально пустой».
+static const float DM_EXPLORE_EMPTY_LOCATION_TIME = 60.0;
+//! Loot exploration: сдаться на здании спустя N секунд (многоэтажки с интерьер-точками на разных этажах).
+static const float DM_EXPLORE_BUILDING_TIMEOUT = 20.0;
 
 //! TidyInventory: cooldown (seconds) between individual ammo/magazine steps.
 static const float DM_TIDY_STEP_INTERVAL = 1.0;
