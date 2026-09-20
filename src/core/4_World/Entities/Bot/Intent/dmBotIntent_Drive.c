@@ -1254,7 +1254,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				m_LastWaypointDist = -1.0;
 				m_HoneyState = 0;
 				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] honeycomb: path " + path.Count() + " точек");
+				dmBotLog.Debug("[CAR] honeycomb: path " + path.Count() + " точек first=" + path[0] + " last=" + path[path.Count() - 1]);
 				#endif
 			}
 			else
@@ -1309,6 +1309,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 	override void Finish()
 	{
+		#ifdef DM_BOT_DEBUG_CAR
+		dmBotLog.Debug("[CAR] Drive: Finish speed=" + (m_Car ? m_Car.GetSpeedometerAbsolute() : -1.0) + " idx=" + m_DriveRouteIdx + "/" + (m_DriveRoute ? m_DriveRoute.Count() : -1) + " exhausted=" + m_RouteExhausted);
+		#endif
 		if (m_CommandInvoked && m_Phase == PHASE_SEATED)
 			StopCar();
 		super.Finish();
@@ -1316,6 +1319,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 	override void Fail()
 	{
+		#ifdef DM_BOT_DEBUG_CAR
+		dmBotLog.Debug("[CAR] Drive: Fail speed=" + (m_Car ? m_Car.GetSpeedometerAbsolute() : -1.0) + " idx=" + m_DriveRouteIdx + "/" + (m_DriveRoute ? m_DriveRoute.Count() : -1) + " exhausted=" + m_RouteExhausted);
+		#endif
 		StopCar();
 		super.Fail();
 	}
