@@ -449,6 +449,7 @@ class dmRoadHoneycomb
 		int maxCol;
 		int r;
 		int c;
+		int cellIdx;
 
 		for (i = 0; i < objsDyn.Count(); i++)
 			objs.Insert(objsDyn[i]);
@@ -502,7 +503,10 @@ class dmRoadHoneycomb
 			for (r = minRow; r <= maxRow; r++)
 			{
 				for (c = minCol; c <= maxCol; c++)
-					m_Cells[CellIndex(r, c)] = CELL_RED;
+				{
+					cellIdx = CellIndex(r, c);
+					m_Cells[cellIdx] = CELL_RED;
+				}
 			}
 			#ifdef DM_BOT_DEBUG_ROADS
 			dmBotLog.Debug("[GRID] scanmark: type=" + obj.GetType() + " rows=[" + minRow + ".." + maxRow + "]");
