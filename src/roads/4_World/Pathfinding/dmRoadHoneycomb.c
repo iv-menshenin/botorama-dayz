@@ -299,6 +299,10 @@ class dmRoadHoneycomb
 			vector center = CellCenter(row, col);
 			int color = ColorCell(center[0], center[2]);
 			int cidx = CellIndex(row, col);
+			//! Не перетираем RED от ScanEntities (сканбокс+bbox): рейкаст по
+			//! baked-static (остов/седан/контейнер) даёт 0 хитов и вернул бы GREEN.
+			if (m_Cells[cidx] == CELL_RED)
+				color = CELL_RED;
 			m_Cells[cidx] = color;
 			if (IsRoadCol(col) && color != CELL_GREEN)
 				roadClear = false;
