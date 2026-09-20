@@ -1122,6 +1122,10 @@ class dmAISurvivor
 	{
 		if (m_EscapeIntent && !m_EscapeIntent.IsFinished() && !m_EscapeIntent.IsExpired())
 			return;
+		//! За рулём двигательные функции заблокированы: побег из кресла выбивает
+		//! водителя (десение). Не создаём MOVE-интент, пока бот в транспорте.
+		if (m_Pawn && m_Pawn.IsInVehicle())
+			return;
 		m_EscapeIntent = new dmBotIntent_EscapeDanger();
 		m_EscapeIntent.m_DangerPos = dangerPos;
 		AddPersonalityIntent(m_EscapeIntent);
@@ -1132,6 +1136,10 @@ class dmAISurvivor
 	void EvadeAim(EntityAI aggressor)
 	{
 		if (!aggressor)
+			return;
+		//! За рулём двигательные функции заблокированы: уворот от прицела из
+		//! кресла выбивает водителя (десение). Не создаём MOVE-интент в транспорте.
+		if (m_Pawn && m_Pawn.IsInVehicle())
 			return;
 		UpdateEvade();
 		if ( IsInCombat() )
