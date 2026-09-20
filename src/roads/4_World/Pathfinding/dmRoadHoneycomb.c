@@ -41,15 +41,19 @@ class dmRoadHoneycomb
 	static const int DM_GRID_WIDTH_CELLS = 30;
 	//! Rows colored per tick (the expensive SurfaceY/raycast work is spread).
 	static const int DM_GRID_ROWS_PER_TICK = 3;
-	//! Vertical ray start height (m) above the ground — low enough to hit trunks
-	//! and low blocks, high enough to clear the high tree canopy.
-	static const float DM_GRID_RAY_HEIGHT = 2.0;
-	//! Радиус вертикальной капсулы клетки (м) — как у детекта машины (1.5 м),
-	//! чтобы ловить тонкие вертикальные объекты (столбы/заборы), попадающие в
-	//! зазор между центрами клеток.
+	//! Высота горизонтального луча клетки над землёй (м) — середина низкого
+	//! барьера (~0.5 м): луч на этой высоте цепляет вертикальную грань барьера,
+	//! не задевая высокую крону деревьев.
+	static const float DM_GRID_RAY_BODY_HEIGHT = 0.3;
+	//! Радиус капсулы горизонтального луча клетки (м) — как у детекта машины
+	//! (1.5 м): ловит тонкие вертикальные грани (столбы/заборы), попадающие в
+	//! зазор между центрами клеток, и выносит зону захвата вперёд по лучу.
 	static const float DM_GRID_RAY_RADIUS = 1.5;
-	//! Min obstacle height (m) above ground for a vertical-ray hit to count as red.
-	static const float DM_GRID_OBSTACLE_EPS = 0.1;
+	//! Порог нормали поверхности для отличия земли от препятствия при obj == null
+	//! (террейн/вода/статическая коллизия без script-объекта приходят одинаково без
+	//! obj). У земли нормаль вверх (dir[1]≈1), у грани барьера — горизонтально
+	//! (dir[1]≈0). 0.7 = cos 45°: dir[1] > 0.7 считаем «вверх» (земля, пропускаем).
+	static const float DM_GRID_GROUND_NORMAL_EPS = 0.7;
 	//! Consecutive all-green road rows after which the territory stops growing
 	//! ("the road is clear again").
 	static const int DM_GRID_CLEAR_ROWS = 10;
@@ -89,8 +93,8 @@ class dmRoadHoneycomb
 	private int m_GoalCol;
 	private ref array<int> m_PathCells;
 	private ref array<vector> m_Waypoints;
-	//! Машина (pIgnore в вертикальном райкасте клеток) и её водитель: без них соты
-	//! видят собственный кузов в первых рядах территории как «препятствие», раньше
+	//! Машина (pIgnore в райкасте клеток) и её водитель: без них соты видят
+	//! собственный кузов в первых рядах территории как «препятствие», раньше
 	//! времени ставят m_SeenRed и гасят грид на ~10 м, не дойдя до реального барьера.
 	private Object m_CarObj;
 	private Object m_DriverObj;
@@ -255,9 +259,9 @@ class dmRoadHoneycomb
 		}
 	}
 
-	//! Classify one cell (RED/GREEN). The vertical ray catches trunks/low blocks
-	//! (start at DM_GRID_RAY_HEIGHT, so the high canopy is never hit); a steep
-	//! slope or water marks the cell red.
+	//! Classify one cell (RED/GREEN). The horizontal forward ray catches the
+	//! vertical face of a barrier/trunk (horizontal surface normal); a steep slope
+	//! or water marks the cell red.
 	private int ColorCell(float cx, float cz)
 	{
 		float h = DM_GRID_CELL_SIZE * 0.5;
@@ -291,27 +295,30 @@ class dmRoadHoneycomb
 		return CELL_GREEN;
 	}
 
-	//! Vertical ray from (cx, groundY+2.0, cz) down to (cx, groundY-1.0, cz):
-	//! true when any hit sits above groundY + DM_GRID_OBSTACLE_EPS (a trunk / low
-	//! block). The terrain hit lands at groundY and is ignored.
+	//! Horizontal ray forward along the territory direction at body height
+	//! (groundY + DM_GRID_RAY_BODY_HEIGHT), radius DM_GRID_RAY_RADIUS. Catches the
+	//! vertical face of a barrier/trunk by its horizontal surface normal
+	//! (hit.dir[1] <= DM_GRID_GROUND_NORMAL_EPS); ground (obj == null + normal up
+	//! dir[1] > EPS) is skipped — the car drives on it. A vertical ray cannot tell
+	//! them apart: the TOP of a barrier is a horizontal surface with an upward
+	//! normal like ground, and SurfaceY returns the barrier top, so groundY equals
+	//! the top and a vertical capsule never flags it.
 	private bool RaycastBlocked(float cx, float groundY, float cz)
 	{
-		//! Вертикальная капсула БОЛЬШОГО радиуса (1.5 м, как у детекта машины):
-		//! ловит и низкие бордюры, и тонкие вертикальные объекты (столбы/заборы),
-		//! которые попадают в зазор между центрами клеток. Хит террейна (на
-		//! groundY) отбрасывается по высоте; объект выше groundY + EPS — препятствие.
-		//! pIgnore = m_CarObj: машина и водитель исключаются — иначе соты видят
-		//! кузов сразу за стартом как «препятствие», раньше времени ставят m_SeenRed
-		//! и гасят территорию на ~10 м, не дойдя до реального барьера.
-		vector vFrom = Vector(cx, groundY + DM_GRID_RAY_HEIGHT, cz);
-		vector vTo = Vector(cx, groundY - 1.0, cz);
+		//! Горизонтальная капсула БОЛЬШОГО радиуса (1.5 м, как у детекта машины):
+		//! ловит вертикальные грани (барьеры/заборы/стволы), попадающие в зазор
+		//! между центрами клеток. Земля (obj == null, нормаль вверх) пропускается;
+		//! грань барьера (горизонтальная нормаль) — препятствие. pIgnore = m_CarObj:
+		//! машина и водитель исключаются — после смещения origin не критично, но
+		//! не мешает.
+		vector vFrom = Vector(cx, groundY + DM_GRID_RAY_BODY_HEIGHT, cz);
+		vector vTo = vFrom + m_Dir * DM_GRID_CELL_SIZE;
 		RaycastRVParams vParams = new RaycastRVParams(vFrom, vTo, m_CarObj, DM_GRID_RAY_RADIUS);
 		vParams.flags = CollisionFlags.ALLOBJECTS;
 		vParams.type = ObjIntersectGeom;
 		ref array<ref RaycastRVResult> vHits = new array<ref RaycastRVResult>();
 		if (!DayZPhysics.RaycastRVProxy(vParams, vHits))
 			return false;
-		float limit = groundY + DM_GRID_OBSTACLE_EPS;
 		int i;
 		RaycastRVResult vHit;
 		for (i = 0; i < vHits.Count(); i++)
@@ -321,8 +328,12 @@ class dmRoadHoneycomb
 				continue;
 			if (m_DriverObj && (vHit.obj == m_DriverObj || vHit.parent == m_DriverObj))
 				continue;
-			if (vHit.pos[1] > limit)
-				return true;
+			if (!vHit.obj && vHit.dir[1] > DM_GRID_GROUND_NORMAL_EPS)
+				continue;
+			#ifdef DM_BOT_DEBUG_ROADS
+			dmBotLog.Debug("[GRID] blocked: pos=" + vHit.pos + " normalY=" + vHit.dir[1]);
+			#endif
+			return true;
 		}
 		return false;
 	}
