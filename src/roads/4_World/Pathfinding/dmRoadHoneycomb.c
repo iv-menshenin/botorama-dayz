@@ -178,6 +178,8 @@ class dmRoadHoneycomb
 		for (i = 0; i < total; i++)
 			m_Cells.Insert(CELL_UNSET);
 
+		ScanEntities();
+
 		m_State = STATE_COLORING;
 
 		#ifdef DM_BOT_DEBUG_ROADS
@@ -359,6 +361,10 @@ class dmRoadHoneycomb
 	//! container). Ground (obj == null at groundY) is skipped — the car drives on
 	//! it; anything with a script object, or a null-obj hit ABOVE the ground
 	//! (top of a concrete barrier/curb), is a hit.
+	//! NOTE: this raycast returns 0 hits against baked-static scene geometry
+	//! (wreck/sedan/container/tent) — ScanEntities() (scan-box + bbox) marks those
+	//! cells RED instead. Kept as a fallback for baked-static blocks that the
+	//! scan-box does not surface (obj == null, outside the entity box) — open tail.
 	private bool RaycastBlocked(float cx, float groundY, float cz)
 	{
 		//! Одна вертикальная капсула сквозь центр соты: сверху (крыша авто) вниз
@@ -403,6 +409,106 @@ class dmRoadHoneycomb
 			}
 		}
 		return false;
+	}
+
+	//! One-time pass before coloring: scan-box the whole territory for static and
+	//! dynamic entities and mark every cell their world bounding box touches as
+	//! CELL_RED. This catches the scene objects (wreck, sedan, container, tent)
+	//! that the per-cell raycast (RaycastBlocked) never hits. QueryFlags are
+	//! sequential enums, not bitmasks — static and dynamic are two separate calls.
+	private void ScanEntities()
+	{
+		float alongLen = (float)m_RowCount * DM_GRID_CELL_SIZE;
+		float centerAlong = alongLen * 0.5;
+		float halfAlong = centerAlong + 1.0;
+		float halfAcross = (float)m_HalfWidth * DM_GRID_CELL_SIZE + 1.0;
+		float halfY = 3.0;
+		vector center = m_Origin + m_Dir * centerAlong;
+		float halfX = Math.AbsFloat(m_Dir[0]) * halfAlong + Math.AbsFloat(m_Side[0]) * halfAcross;
+		float halfZ = Math.AbsFloat(m_Dir[2]) * halfAlong + Math.AbsFloat(m_Side[2]) * halfAcross;
+		vector minPos = Vector(center[0] - halfX, center[1] - halfY, center[2] - halfZ);
+		vector maxPos = Vector(center[0] + halfX, center[1] + halfY, center[2] + halfZ);
+
+		array<EntityAI> objs = new array<EntityAI>();
+		DayZPlayerUtils.SceneGetEntitiesInBox(minPos, maxPos, objs, QueryFlags.STATIC);
+		array<EntityAI> objsDyn = new array<EntityAI>();
+		DayZPlayerUtils.SceneGetEntitiesInBox(minPos, maxPos, objsDyn, QueryFlags.DYNAMIC);
+
+		int i;
+		Object obj;
+		vector mm[2];
+		vector mn;
+		vector mx;
+		int r0;
+		int r1;
+		int c0;
+		int c1;
+		int minRow;
+		int maxRow;
+		int minCol;
+		int maxCol;
+		int r;
+		int c;
+
+		for (i = 0; i < objsDyn.Count(); i++)
+			objs.Insert(objsDyn[i]);
+
+		#ifdef DM_BOT_DEBUG_ROADS
+		dmBotLog.Debug("[GRID] scan: " + objs.Count() + " entities");
+		#endif
+
+		for (i = 0; i < objs.Count(); i++)
+		{
+			obj = objs[i];
+			if (!obj)
+				continue;
+			obj.ClippingInfo(mm);
+			mn = obj.ModelToWorld(mm[0]);
+			mx = obj.ModelToWorld(mm[1]);
+			r0 = WorldToRow(mn);
+			r1 = WorldToRow(mx);
+			c0 = WorldToCol(mn);
+			c1 = WorldToCol(mx);
+			if (r0 < r1)
+			{
+				minRow = r0;
+				maxRow = r1;
+			}
+			else
+			{
+				minRow = r1;
+				maxRow = r0;
+			}
+			if (c0 < c1)
+			{
+				minCol = c0;
+				maxCol = c1;
+			}
+			else
+			{
+				minCol = c1;
+				maxCol = c0;
+			}
+			if (minRow < 0)
+				minRow = 0;
+			if (maxRow >= m_RowCount)
+				maxRow = m_RowCount - 1;
+			if (minCol < -m_HalfWidth)
+				minCol = -m_HalfWidth;
+			if (maxCol > m_HalfWidth)
+				maxCol = m_HalfWidth;
+			if (minRow > maxRow || minCol > maxCol)
+				continue;
+			for (r = minRow; r <= maxRow; r++)
+			{
+				for (c = minCol; c <= maxCol; c++)
+					m_Cells[CellIndex(r, c)] = CELL_RED;
+			}
+			#ifdef DM_BOT_DEBUG_ROADS
+			dmBotLog.Debug("[GRID] scanmark: type=" + obj.GetType() + " rows=[" + minRow + ".." + maxRow + "]");
+			dmBotLog.Debug("[GRID] scanmark: cols=[" + minCol + ".." + maxCol + "]");
+			#endif
+		}
 	}
 
 	//! Mark SAFE: a GREEN cell with all 8 neighbours walkable (GREEN or SAFE).
