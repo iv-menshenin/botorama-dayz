@@ -180,10 +180,21 @@ class dmBotSpawnManager
 	{
 		float posX = settlementPos[0];
 		float posZ = settlementPos[2];
-		float offX = Math.RandomFloat(-DM_SPAWN_CITY_OFFSET, DM_SPAWN_CITY_OFFSET);
-		float offZ = Math.RandomFloat(-DM_SPAWN_CITY_OFFSET, DM_SPAWN_CITY_OFFSET);
-		vector candidate = Vector(posX + offX, 0.0, posZ + offZ);
-		return SnapToGround(candidate);
+
+		for (int try = 0; try < 10; try++)
+		{
+			float offX = Math.RandomFloat(-DM_SPAWN_CITY_OFFSET, DM_SPAWN_CITY_OFFSET);
+			float offZ = Math.RandomFloat(-DM_SPAWN_CITY_OFFSET, DM_SPAWN_CITY_OFFSET);
+			vector candidate = Vector(posX + offX, 0.0, posZ + offZ);
+			vector sampled;
+			dmBotPathfinder pathfinder = new dmBotPathfinder();
+			if ( pathfinder.SamplePosition(candidate, DM_PATH_SAMPLE_RADIUS, sampled) )
+			{
+				return sampled;
+			}
+		}
+
+		return settlementPos;
 	}
 
 	//! Override квоты для поселения по имени (null — нет).

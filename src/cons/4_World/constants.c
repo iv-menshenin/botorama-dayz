@@ -364,7 +364,7 @@ static const string DM_MAP_SPAWN_FILE = "$profile:dmBotorama/map/spawn.json";
 //! Spawn manager tick interval (seconds) — how often Tick checks/replenishes population.
 static const float DM_SPAWN_TICK_INTERVAL = 5.0;
 //! Random offset (meters, ±) of a bot's spawn point from its settlement center.
-static const float DM_SPAWN_CITY_OFFSET = 15.0;
+static const float DM_SPAWN_CITY_OFFSET = 250.0;
 //! Delay (ms) before a House registers itself, so the building has a valid position
 //! by the time the registry reads it (in the constructor it is still (0,0,0)).
 static const int DM_HOUSE_REGISTER_DELAY_MS = 1000;
