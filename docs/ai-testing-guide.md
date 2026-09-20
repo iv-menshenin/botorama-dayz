@@ -138,10 +138,15 @@ nohup ~/dayz-cherno > /tmp/dayz_console.log 2>&1 &
 cd /mnt/deep-space/Steam/steamapps/common/DayZServer/
 rm -rf ./profiles-cherno/*.log *.ADM *.RPT *.mdmp
 ./DayZServer -cpuCount="6" -config=./chernoDZ.cfg -profiles=./profiles-cherno \
-  -mod=@Botorama; -doLogs -adminlog -port=2302
+  -mod=@CF;@COT;@Botorama; -doLogs -adminlog -port=2302
 ```
 
 - Конфиг: `chernoDZ.cfg` (карта Чернорусь), профиль `profiles-cherno`.
+- **POI/здания (факты для тестов)**: (1) сервер пре-стримит ~5.5 тыс. статических
+  зданий на старте — `buildingdump.registered` НЕ стартует с 0; проверяй привязку через
+  `locId` ↔ `poidump.at` + `locCount > 0`, а рост — как тренд. (2) Id локации = порядок в
+  `world_poi.json` (Черногорск=0, Новодмитровск=1); не зашивай Id по имени — сверяй
+  `poidump.at` в рантайме.
 - Рестарт: `kill <pid>` → `~/dayz-cherno` (сервер перечитывает новые PBO только
   при рестарте — hot-reload отсутствует).
 - **Остановка (обязательно после прогона)**: надёжно — `pkill -f '\./DayZServer '`
