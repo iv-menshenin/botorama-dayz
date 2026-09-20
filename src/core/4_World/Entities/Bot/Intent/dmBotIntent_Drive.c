@@ -144,6 +144,13 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Индекс текущей точки маршрута.
 	int m_DriveRouteIdx = 0;
 
+	//! Конечная точка назначения маршрута. Для маршрута из роутера берётся из
+	//! dmRoadRouter.GetTargetPos() в OnStart; для предзаполненного — последняя
+	//! точка m_DriveRoute. Нужна, чтобы после обходного пути сот ре-снэпнуть
+	//! роутер на продолжение маршрута до цели (иначе InsertHoneycombPath обрезает
+	//! целевую точку и условие финиша срабатывает на хвосте обходного пути).
+	vector m_TargetPos;
+
 	//! Машина (получаем из m_Transport после посадки).
 	CarScript m_Car;
 
@@ -230,12 +237,14 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		if (m_DriveRoute && m_DriveRoute.Count() > 0)
 		{
 			m_RouteExhausted = true;
+			m_TargetPos = m_DriveRoute[m_DriveRoute.Count() - 1];
 		}
 		else
 		{
 			if (!m_DriveRoute)
 				m_DriveRoute = new array<vector>();
 			m_RouteExhausted = false;
+			m_TargetPos = dmRoadRouter.Get().GetTargetPos();
 		}
 
 		m_DriveRouteIdx = 0;
@@ -1215,8 +1224,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_DriveRoute.InsertAt(boxE, at + 4);
 	}
 
-	//! Тик сот: машина тормозит, соты считают асинхронно. По DONE — вставляем путь,
-	//! по FAILED — настоящий тупик (Fail).
+	//! Тик сот: машина жёстко тормозит, соты считают асинхронно. По DONE — вставляем
+	//! путь и продолжаем к цели (ре-снэп роутера), по FAILED — настоящий тупик (Fail,
+	//! но только при скорости ≈ 0).
 	void TickHoneycomb(vector carPos, float pDt)
 	{
 		#ifdef DM_BOT_PROFILE
@@ -1225,21 +1235,32 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 		dmRoadHoneycomb.Get().Tick(pDt);
 
-		//! Тормозим (лимит 0): машина стоит/ползёт, пока соты считают. Нейтраль
-		//! перед тормозом, чтобы ручная КПП не глохла на высокой передаче.
-		m_SpeedLimit = Math.Lerp(m_SpeedLimit, 0.0, DM_DRIVE_SPEED_SMOOTH);
+		//! Жёсткий тормоз до полной остановки, пока соты считают объезд (маршрута
+		//! ещё нет). Нейтраль перед тормозом, чтобы ручная КПП не глохла на высокой
+		//! передаче; в нейтрали полный тормоз (1.0) безопасен и гасит скорость
+		//! быстрее щадящего DM_DRIVE_BRAKE_STRENGTH (0.5, для КПП на передаче).
 		float speedAbs = m_Car.GetSpeedometerAbsolute();
 		ShiftToNeutral();
-		ApplyDriveForce(speedAbs);
+		m_SpeedLimit = 0.0;
+		m_Car.dm_DriveThrottle = 0.0;
+		m_Car.dm_DriveBrake = DM_DRIVE_HARD_BRAKE;
+		m_Car.dm_DriveActive = true;
+		m_Car.dm_DriveSimRPM = -1.0;
 		ApplySteering(0.0, speedAbs, pDt);
 
 		if (dmRoadHoneycomb.Get().IsFailed())
 		{
-			m_HoneyState = 0;
-			#ifdef DM_BOT_DEBUG_CAR
-			dmBotLog.Debug("[CAR] honeycomb: failed");
-			#endif
-			Fail();
+			//! Гейт высадки: сдаёмся только когда машина реально остановилась.
+			//! Пока катится быстрее DM_DRIVE_EXIT_MAX_SPEED — остаёмся за рулём и
+			//! продолжаем тормозить (соты уже FAILED, Tick() — no-op).
+			if (speedAbs <= DM_DRIVE_EXIT_MAX_SPEED)
+			{
+				m_HoneyState = 0;
+				#ifdef DM_BOT_DEBUG_CAR
+				dmBotLog.Debug("[CAR] honeycomb: failed (stopped, speed=" + speedAbs + ")");
+				#endif
+				Fail();
+			}
 			return;
 		}
 
@@ -1269,7 +1290,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	}
 
 	//! Вставить путь сот в маршрут: удалить вейпоинты с m_DriveRouteIdx до конца
-	//! очереди, затем вставить сглаженный путь. Дальше маршрут доливается чанками.
+	//! очереди, затем вставить сглаженный путь. Ре-снэпаем роутер на продолжение
+	//! маршрута от дальней стороны обходного пути до исходной цели — иначе
+	//! RefillRoute на следующем тике дёрнет уже исчерпанный роутер (NextChunk
+	//! вернёт 0 точек) → m_RouteExhausted=true → условие финиша сработает на
+	//! хвосте обходного пути, и бот высадится ДО цели.
 	void InsertHoneycombPath(array<vector> path)
 	{
 		while (m_DriveRoute.Count() > m_DriveRouteIdx)
@@ -1278,6 +1303,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		int i;
 		for (i = 0; i < path.Count(); i++)
 			m_DriveRoute.Insert(path[i]);
+
+		vector farSide = path[path.Count() - 1];
+		if (m_TargetPos.Length() > 0.01)
+			dmRoadRouter.Get().Setup(farSide, m_TargetPos);
 
 		m_RouteExhausted = false;
 	}
@@ -1310,7 +1339,13 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	override void Finish()
 	{
 		#ifdef DM_BOT_DEBUG_CAR
-		dmBotLog.Debug("[CAR] Drive: Finish speed=" + (m_Car ? m_Car.GetSpeedometerAbsolute() : -1.0) + " idx=" + m_DriveRouteIdx + "/" + (m_DriveRoute ? m_DriveRoute.Count() : -1) + " exhausted=" + m_RouteExhausted);
+		float exitSpeed = -1.0;
+		if (m_Car)
+			exitSpeed = m_Car.GetSpeedometerAbsolute();
+		int routeLen = -1;
+		if (m_DriveRoute)
+			routeLen = m_DriveRoute.Count();
+		dmBotLog.Debug("[CAR] Drive: Finish speed=" + exitSpeed + " idx=" + m_DriveRouteIdx + "/" + routeLen + " exhausted=" + m_RouteExhausted);
 		#endif
 		if (m_CommandInvoked && m_Phase == PHASE_SEATED)
 			StopCar();
@@ -1320,7 +1355,13 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	override void Fail()
 	{
 		#ifdef DM_BOT_DEBUG_CAR
-		dmBotLog.Debug("[CAR] Drive: Fail speed=" + (m_Car ? m_Car.GetSpeedometerAbsolute() : -1.0) + " idx=" + m_DriveRouteIdx + "/" + (m_DriveRoute ? m_DriveRoute.Count() : -1) + " exhausted=" + m_RouteExhausted);
+		float exitSpeed = -1.0;
+		if (m_Car)
+			exitSpeed = m_Car.GetSpeedometerAbsolute();
+		int routeLen = -1;
+		if (m_DriveRoute)
+			routeLen = m_DriveRoute.Count();
+		dmBotLog.Debug("[CAR] Drive: Fail speed=" + exitSpeed + " idx=" + m_DriveRouteIdx + "/" + routeLen + " exhausted=" + m_RouteExhausted);
 		#endif
 		StopCar();
 		super.Fail();

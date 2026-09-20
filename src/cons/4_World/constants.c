@@ -76,6 +76,16 @@ static const float DM_DRIVE_WHEEL_STEER_SPEED = 3.0;
 //! Drive: сглаживание целевой скорости (доля за тик).
 static const float DM_DRIVE_SPEED_SMOOTH = 0.15;
 
+//! Drive: сила полного тормоза (0..1) при остановке перед вычислением объезда
+//! (соты). Применяется в нейтрали (мотор отсоединён) — не глохнет, гасит скорость
+//! быстрее щадящего DM_DRIVE_BRAKE_STRENGTH (0.5, для ручной КПП на передаче).
+static const float DM_DRIVE_HARD_BRAKE = 1.0;
+
+//! Drive: порог скорости (км/ч), ниже которого бот может высадиться/сдаться при
+//! неудаче объезда (соты FAIL). Пока машина катится быстрее — бот остаётся за
+//! рулём и тормозит до нуля.
+static const float DM_DRIVE_EXIT_MAX_SPEED = 2.0;
+
 //! Car door: animation phase at which a door counts as "open".
 static const float DM_CAR_DOOR_OPEN_PHASE   = 0.9;
 

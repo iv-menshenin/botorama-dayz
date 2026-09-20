@@ -436,6 +436,15 @@ class dmRoadRouter
 		return result;
 	}
 
+	//! Текущая точка назначения маршрута (последний targetPos из Setup), либо
+	//! vector.Zero, если Setup ещё не вызывался. Нужна интенту вождения, чтобы
+	//! после локального обходного пути (соты) ре-снэпнуть роутер на продолжение
+	//! маршрута до исходной цели.
+	vector GetTargetPos()
+	{
+		return m_TargetPos;
+	}
+
 	//! Snap start/target onto both graphs and precompute the coarse route.
 	//! Returns false when either snap fails or no coarse route exists.
 	bool Setup(vector startPos, vector targetPos)
