@@ -47,10 +47,6 @@ class dmRoadHoneycomb
 	//! Радиус вертикальной капсулы луча клетки (м) — толстый (0.3): покрывает соту
 	//! целиком (раньше 0.2 был под сноп из 6 диагоналей).
 	static const float DM_GRID_RAY_RADIUS = 0.3;
-	//! Минимальный габарит bbox сущности (м), которую ScanEntities красит RED:
-	//! лут (штаны/маска/банка/патроны/M16/шлем/камень) меньше порога и проезду не
-	//! мешает, его пропускаем.
-	static const float DM_GRID_SCAN_MIN_DIM = 1.0;
 	//! Consecutive all-green road rows after which the territory stops growing
 	//! ("the road is clear again").
 	static const int DM_GRID_CLEAR_ROWS = 10;
@@ -471,19 +467,11 @@ class dmRoadHoneycomb
 			obj = objs[i];
 			if (!obj)
 				continue;
+			if (ItemBase.Cast(obj) && !IsCarBodyPart(obj.GetType()))
+				continue;
 			obj.ClippingInfo(mm);
 			mn = obj.ModelToWorld(mm[0]);
 			mx = obj.ModelToWorld(mm[1]);
-			float dX = Math.AbsFloat(mx[0] - mn[0]);
-			float dY = Math.AbsFloat(mx[1] - mn[1]);
-			float dZ = Math.AbsFloat(mx[2] - mn[2]);
-			float maxDim = dX;
-			if (dY > maxDim)
-				maxDim = dY;
-			if (dZ > maxDim)
-				maxDim = dZ;
-			if (maxDim < DM_GRID_SCAN_MIN_DIM)
-				continue;
 			r0 = WorldToRow(mn);
 			r1 = WorldToRow(mx);
 			c0 = WorldToCol(mn);
@@ -531,6 +519,22 @@ class dmRoadHoneycomb
 			dmBotLog.Debug("[GRID] scanmark: cols=[" + minCol + ".." + maxCol + "]");
 			#endif
 		}
+	}
+
+	//! True when the entity type is a car body part (door/hood/wheel panel) that
+	//! ItemBase.Cast would otherwise treat as loot. Body parts are ItemBase
+	//! (CarDoor : ItemBase), but are solid obstacles on the road — they must stay
+	//! RED instead of being skipped by the loot filter. Wrecks/tents/containers/
+	//! the full car are NOT ItemBase, so they never reach this check.
+	private bool IsCarBodyPart(string typeName)
+	{
+		if (typeName.IndexOf("CivSedan") == 0)
+			return true;
+		if (typeName.IndexOf("Sedan_02") == 0)
+			return true;
+		if (typeName.IndexOf("Hatchback") == 0)
+			return true;
+		return false;
 	}
 
 	//! Mark SAFE: a GREEN cell with all 8 neighbours walkable (GREEN or SAFE).
