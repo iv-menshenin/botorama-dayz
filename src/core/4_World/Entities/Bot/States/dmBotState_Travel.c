@@ -78,7 +78,6 @@ class dmBotState_Travel : dmBotState
 		if (m_Move.IsFinished())
 		{
 			e.SetInTransit(false);
-			e.SetNothingToDo(false);
 			dmWorldPoiLocation arrived = e.GetDestination();
 			e.ClearDestination();
 			if (arrived)

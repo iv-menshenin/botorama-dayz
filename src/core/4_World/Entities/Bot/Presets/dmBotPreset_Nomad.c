@@ -20,32 +20,32 @@ class dmBotPreset_Nomad
 		fsm.AddState(shoot, "Shooting");
 		fsm.AddState(medical, "MedicalCare");
 
-		idle.AddTransition(explore, 1.0).BlockWhen(dmBotConditions.NothingToDo());
-		idle.AddTransition(travel, 1.0).BlockWhen(dmBotConditions.InTransit());
+		idle.AddTransition(explore, 1.0);
+		idle.AddTransition(travel, 1.0);
 		idle.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		idle.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		idle.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 
-		explore.AddTransition(travel, 1.0).BlockWhen(dmBotConditions.InTransit());
+		explore.AddTransition(travel, 1.0);
 		explore.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		explore.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		explore.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		explore.AddTransition(idle, 0.1);
 
-		travel.AddTransition(explore, 1.0).BlockWhen(dmBotConditions.NothingToDo());
+		travel.AddTransition(explore, 1.0);
 		travel.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		travel.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 
 		shoot.AddTransition(idle, 0.1);
 		fight.AddTransition(idle, 0.1);
-		shoot.AddTransition(explore, 1.0).BlockWhen(dmBotConditions.NothingToDo());
-		fight.AddTransition(explore, 1.0).BlockWhen(dmBotConditions.NothingToDo());
-		shoot.AddTransition(travel, 1.0).BlockWhen(dmBotConditions.InTransit());
-		fight.AddTransition(travel, 1.0).BlockWhen(dmBotConditions.InTransit());
+		shoot.AddTransition(explore, 1.0);
+		fight.AddTransition(explore, 1.0);
+		shoot.AddTransition(travel, 1.0);
+		fight.AddTransition(travel, 1.0);
 		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
-		medical.AddTransition(explore, 1.0).BlockWhen(dmBotConditions.NothingToDo());
-		medical.AddTransition(travel, 1.0).BlockWhen(dmBotConditions.InTransit());
+		medical.AddTransition(explore, 1.0);
+		medical.AddTransition(travel, 1.0);
 
 		fsm.SetDefaultState("Exploration");
 		fsm.Start();

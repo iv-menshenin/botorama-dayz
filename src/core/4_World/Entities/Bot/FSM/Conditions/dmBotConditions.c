@@ -45,16 +45,6 @@ class dmBotConditions
 		return new dmBotCondition_MedicalCare();
 	}
 
-	static dmBotCondition NothingToDo()
-	{
-		return new dmBotCondition_NothingToDo();
-	}
-
-	static dmBotCondition InTransit()
-	{
-		return new dmBotCondition_InTransit();
-	}
-
 	static dmBotCondition LastPositionSpreadLessOrEqual(float spread)
 	{
 		return new dmBotCondition_LastPositionSpread(spread, true);

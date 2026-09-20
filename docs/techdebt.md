@@ -513,3 +513,10 @@
   `idle→travel` — жаждой (до вехи E), фолбэк — дефолт `Exploration` (мгновенный `EXIT`). Утечки
   нет, но спам `Explore done`. Разрешится вехой E (Travel как настоящий приёмник после
   `nothingToDo`); при желании — сделать Idle терминальным или фолбэк в Idle.
+- **косметика (веха E)** — `dmBotState_Travel` кэш `m_Destination` не чистится в `OnExit` (только
+  `SetInTransit(false)`), а `OnEntry` берёт его без проверки `HasVisited` → при прерывании боем
+  возможен один лишний цикл «сходи обратно в уже посещённую X» (самокорректируется). Чинить:
+  `OnExit`-очистка `ClearDestination()` или проверка `HasVisited(dest.Id)` в `OnEntry`.
+- **косметика (веха E)** — в `dmBotState_Exploration` `IsExpired()` (таймаут) логируется как
+  «здание обойдено» (Debug), хотя это «не успел, пропускаю»; различать три исхода
+  `finished/failed/expired` в логе.
