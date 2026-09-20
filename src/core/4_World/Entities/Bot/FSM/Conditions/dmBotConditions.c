@@ -45,11 +45,6 @@ class dmBotConditions
 		return new dmBotCondition_MedicalCare();
 	}
 
-	static dmBotCondition Thirsty()
-	{
-		return new dmBotCondition_Thirsty();
-	}
-
 	static dmBotCondition NothingToDo()
 	{
 		return new dmBotCondition_NothingToDo();

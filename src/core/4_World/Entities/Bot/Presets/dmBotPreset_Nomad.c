@@ -1,5 +1,5 @@
-//! dmBotPreset_Nomad — кочевник: скитается (Exploration), ходит к колодцу (Travel)
-//! при жажде и защищается при угрозе (Shooting/Fighting/MedicalCare).
+//! dmBotPreset_Nomad — кочевник: скитается (Exploration), кочует между локациями
+//! (Travel) и защищается при угрозе (Shooting/Fighting/MedicalCare).
 class dmBotPreset_Nomad
 {
 	static dmBotFSM Create(dmAISurvivor owner)
@@ -40,9 +40,12 @@ class dmBotPreset_Nomad
 		fight.AddTransition(idle, 0.1);
 		shoot.AddTransition(explore, 1.0).BlockWhen(dmBotConditions.NothingToDo());
 		fight.AddTransition(explore, 1.0).BlockWhen(dmBotConditions.NothingToDo());
+		shoot.AddTransition(travel, 1.0).BlockWhen(dmBotConditions.InTransit());
+		fight.AddTransition(travel, 1.0).BlockWhen(dmBotConditions.InTransit());
 		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		medical.AddTransition(explore, 1.0).BlockWhen(dmBotConditions.NothingToDo());
+		medical.AddTransition(travel, 1.0).BlockWhen(dmBotConditions.InTransit());
 
 		fsm.SetDefaultState("Exploration");
 		fsm.Start();

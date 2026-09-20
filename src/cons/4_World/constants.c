@@ -823,10 +823,3 @@ static const float DM_EAT_DRINK_FULL_TIME     = 10.0;
 static const float DM_EAT_DRINK_OPEN_TIMEOUT  = 3.0;
 //! EatDrink: интервал (секунды) пересканирования, когда есть/пить нечего.
 static const float DM_EAT_DRINK_SCAN_INTERVAL = 2.0;
-
-//! Travel (кочёвка): порог воды, ниже которого бот считается жаждущим (GetStatWater().Get()).
-static const float DM_TRAVEL_WATER_THRESHOLD = 2500.0;
-//! Travel: радиус (метры) поиска ближайшего POI (застримленного здания).
-static const float DM_TRAVEL_POI_SEARCH_RADIUS = 300.0;
-//! Travel: дистанция (метры) прибытия к POI.
-static const float DM_TRAVEL_REACH_DISTANCE = 3.0;

@@ -187,19 +187,19 @@ class dmBotState_Exploration : dmBotState
 
 		if (m_Move && (m_Move.IsFinished() || m_Move.IsExpired() || m_Move.IsFailed()))
 		{
-			bool reached = m_Move.IsFinished();
+			bool failed = m_Move.IsFailed();
 			m_Move = null;
 			if (m_CurrentBuilding && m_InteriorPoints && m_PointIndex >= m_InteriorPoints.Count())
 			{
-				if (reached)
+				if (failed)
+				{
+					dmBotLog.Error("[Loot] Explore: здание недостижимо, пропускаю " + m_CurrentBuilding.GetType());
+				}
+				else
 				{
 					#ifdef DM_BOT_DEBUG_LOOTING
 					dmBotLog.Debug("[Loot] Explore: здание обойдено " + m_CurrentBuilding.GetType());
 					#endif
-				}
-				else
-				{
-					dmBotLog.Error("[Loot] Explore: здание недостижимо, пропускаю " + m_CurrentBuilding.GetType());
 				}
 				explorer.MarkLocationBuildingVisited(m_CurrentBuilding);
 				m_CurrentBuilding = null;

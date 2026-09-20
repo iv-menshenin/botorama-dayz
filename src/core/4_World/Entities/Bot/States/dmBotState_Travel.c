@@ -1,77 +1,98 @@
-//! dmBotState_Travel — кочёвка к ближайшему POI (напр. колодцу) при жажде.
-//!
-//! PREEMPTIVE: вытесняет INTERRUPTIBLE состояния (Exploration/Idle), когда бот
-//! хочет пить и рядом есть застримленный колодец. Владеет MoveTo-интентом до
-//! колодца; по прибытии/ошибке возвращает EXIT — следующий переход выбирает FSM.
+//! dmBotState_Travel — кочёвка между локациями (Nomad).
+//! Вход: «делать больше нечего» ИЛИ бот вне какой-либо локации. Выбирает ближайшую
+//! непосещённую локацию (dmExplorer.GetNearestUnvisitedLocation), бежит к ней
+//! (прибытие = GetArrivalRadius типа). По прибытии — ArriveAtLocation + сброс флагов.
 class dmBotState_Travel : dmBotState
 {
 	ref dmBotIntent_MoveTo m_Move;
-	Building m_TargetBuilding;
 
-	override dmBotStateKind GetKind() { return dmBotStateKind.PREEMPTIVE; }
+	override dmBotStateKind GetKind() { return dmBotStateKind.INTERRUPTIBLE; }
 
 	override bool CanEnter()
 	{
 		dmAISurvivor bot = GetOwner();
-		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
-		if (!pawn)
+		dmExplorer e = bot.GetExplorer();
+		if (e.IsInTransit())
 			return false;
-		if (pawn.GetStatWater().Get() >= DM_TRAVEL_WATER_THRESHOLD)
+		if (!e.IsNothingToDo() && dmWorldPOIRegistry.Get().GetLocationAt(bot.GetPosition()) != null)
 			return false;
-		Building w = dmLiveBuildingRegistry.Get().GetNearest(dmWorldPOIType.WATER, pawn.GetPosition(), DM_TRAVEL_POI_SEARCH_RADIUS);
-		return w != null;
+		return e.GetNearestUnvisitedLocation(bot) != null;
 	}
 
 	override void OnEntry(dmBotState from)
 	{
 		m_Move = null;
-		m_TargetBuilding = null;
-		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(GetOwner().GetPawn());
-		if (!pawn)
+		dmAISurvivor bot = GetOwner();
+		dmExplorer e = bot.GetExplorer();
+		dmWorldPoiLocation dest = e.GetDestination();
+		if (!dest)
+			dest = e.GetNearestUnvisitedLocation(bot);
+		if (!dest)
 			return;
-		m_TargetBuilding = dmLiveBuildingRegistry.Get().GetNearest(dmWorldPOIType.WATER, pawn.GetPosition(), DM_TRAVEL_POI_SEARCH_RADIUS);
-		if (m_TargetBuilding)
-		{
-			m_Move = new dmBotIntent_MoveTo();
-			m_Move.m_Goal = m_TargetBuilding.GetPosition();
-			m_Move.m_ReachDistance = DM_TRAVEL_REACH_DISTANCE;
-			m_Move.m_Priority = dmBotIntentPriority.DESIRABLE;
-			GetOwner().AddFSMIntent(m_Move);
-		}
+
+		e.SetDestination(dest);
+		e.SetInTransit(true);
+
+		vector goal = dest.Position;
+		vector sampled;
+		if (bot.SampleNavmesh(goal, sampled))
+			goal = sampled;
+		else
+			goal[1] = GetGame().SurfaceY(goal[0], goal[2]);
+
+		m_Move = new dmBotIntent_MoveTo();
+		m_Move.m_Goal = goal;
+		m_Move.m_ReachDistance = dmWorldPOIRegistry.GetArrivalRadius(dest.Type);
+		m_Move.m_Priority = dmBotIntentPriority.DESIRABLE;
+		bot.AddFSMIntent(m_Move);
 
 		#ifdef DM_BOT_DEBUG_FSM
-		if (m_TargetBuilding)
-			dmBotLog.Debug("[FSM] Travel.entry building=" + m_TargetBuilding.GetType() + " goal=" + m_Move.m_Goal);
-		else
-			dmBotLog.Debug("[FSM] Travel.entry building=none");
+		dmBotLog.Debug("[FSM] Travel.entry -> " + dest.Name + " (" + dest.Type + ") goal=" + goal);
 		#endif
 	}
 
 	override int OnUpdate(float pDt)
 	{
-		if (!m_TargetBuilding)
+		dmAISurvivor bot = GetOwner();
+		dmExplorer e = bot.GetExplorer();
+
+		if (bot.GetHostileTarget() != null)
+			return EXIT;
+
+		if (!m_Move)
+			return EXIT;
+
+		if (m_Move.IsFailed())
 		{
+			dmWorldPoiLocation dead = e.GetDestination();
+			if (dead)
+				e.RememberLocation(dead.Id);   // анти-цикл: не выбирать недостижимую снова
+			e.ClearDestination();
+			e.SetInTransit(false);
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] Travel exit (no building)");
+			dmBotLog.Debug("[FSM] Travel.failed, give up destination");
 			#endif
 			return EXIT;
 		}
 
-		//! Угроза: PREEMPTIVE не вытесняется боем, поэтому явно EXIT — FSM по
-		//! приоритетным рёбрам (вес 2.0) уведёт в Fighting/Shooting.
-		if (GetOwner().GetHostileTarget() != null)
+		if (m_Move.IsFinished())
 		{
+			e.SetInTransit(false);
+			e.SetNothingToDo(false);
+			dmWorldPoiLocation arrived = e.GetDestination();
+			e.ClearDestination();
+			if (arrived)
+				e.ArriveAtLocation(arrived);
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] Travel exit (threat)");
+			dmBotLog.Debug("[FSM] Travel.arrived");
 			#endif
 			return EXIT;
 		}
 
-		if (!m_Move || m_Move.IsFinished() || m_Move.IsFailed() || m_Move.IsExpired())
+		if (m_Move.IsExpired())
 		{
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] Travel exit (arrived/failed)");
-			#endif
+			e.ClearDestination();
+			e.SetInTransit(false);   // ретрай позже (локация НЕ помечается посещённой)
 			return EXIT;
 		}
 
@@ -81,6 +102,6 @@ class dmBotState_Travel : dmBotState
 	override void OnExit(dmBotState to)
 	{
 		if (m_Move) { m_Move.Finish(); m_Move = null; }
-		m_TargetBuilding = null;
+		GetOwner().GetExplorer().SetInTransit(false);
 	}
 }
