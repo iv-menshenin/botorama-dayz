@@ -1172,7 +1172,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		#ifdef DM_BOT_DEBUG_CAR
 		dmBotLog.Debug("[CAR] honeycomb: origin=" + honeyOrigin + " offset=" + DM_DRIVE_HONEY_ORIGIN_OFFSET);
 		#endif
-		dmRoadHoneycomb.Get().Start(honeyOrigin, d, m_DriveRoute, m_DriveRouteIdx, m_Car, driver);
+		dmRoadHoneycomb.Get().Start(honeyOrigin, d, m_DriveRoute, m_DriveRouteIdx, m_Car, driver, 0.0, 0);
 	}
 
 	//! Проверка полного пути коробки райкастом на высоте корпуса (width-aware,

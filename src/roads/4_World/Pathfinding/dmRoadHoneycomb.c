@@ -81,6 +81,9 @@ class dmRoadHoneycomb
 	private int m_HalfWidth;
 	private int m_Width;
 	private int m_RowCount;
+	//! Фиксированная длина территории (lengthMeters > 0): TickColor раскрашивает
+	//! всю длину и не гасит территорию по DM_GRID_CLEAR_ROWS.
+	private bool m_FixedLength;
 	private int m_ColorRow;
 	private int m_RoadClearRun;
 	private bool m_SeenRed;
@@ -109,6 +112,7 @@ class dmRoadHoneycomb
 		m_HalfWidth = 0;
 		m_Width = 0;
 		m_RowCount = 0;
+		m_FixedLength = false;
 		m_ColorRow = 0;
 		m_RoadClearRun = 0;
 		m_SeenRed = false;
@@ -127,7 +131,11 @@ class dmRoadHoneycomb
 
 	//! Start a detour: car position, route direction (horizontal), the route
 	//! waypoints and the index of the next waypoint to reach. Resets all state.
-	void Start(vector carPos, vector dir, array<vector> route, int routeIdx, Object carObj, Object driverObj)
+	//! lengthMeters > 0 — фиксированная длина территории (м, без адаптивного
+	//! стопа); widthCells > 0 — ширина территории в клетках (иначе дефолт
+	//! DM_GRID_WIDTH_CELLS). Диагностический прогон (griddump) передаёт 0/null
+	//! в carObj/driverObj — соты работают без машины и водителя.
+	void Start(vector carPos, vector dir, array<vector> route, int routeIdx, Object carObj, Object driverObj, float lengthMeters, int widthCells)
 	{
 		int i;
 		m_State = STATE_IDLE;
@@ -142,9 +150,21 @@ class dmRoadHoneycomb
 			m_Dir.Normalize();
 		m_Side = Vector(-m_Dir[2], 0.0, m_Dir[0]);
 		m_Origin = carPos;
-		m_HalfWidth = DM_GRID_WIDTH_CELLS / 2;
+		if (widthCells > 0)
+			m_HalfWidth = widthCells / 2;
+		else
+			m_HalfWidth = DM_GRID_WIDTH_CELLS / 2;
 		m_Width = m_HalfWidth * 2 + 1;
-		m_RowCount = DM_GRID_MAX_ROWS;
+		if (lengthMeters > 0.0)
+		{
+			m_RowCount = Math.Floor(lengthMeters / DM_GRID_CELL_SIZE);
+			m_FixedLength = true;
+		}
+		else
+		{
+			m_RowCount = DM_GRID_MAX_ROWS;
+			m_FixedLength = false;
+		}
 		m_ColorRow = 0;
 		m_RoadClearRun = 0;
 		m_SeenRed = false;
@@ -206,6 +226,50 @@ class dmRoadHoneycomb
 		return true;
 	}
 
+	//! Territory geometry for the E2E grid dump (griddump op).
+
+	int GetRowCount()
+	{
+		return m_RowCount;
+	}
+
+	int GetWidth()
+	{
+		return m_Width;
+	}
+
+	int GetHalfWidth()
+	{
+		return m_HalfWidth;
+	}
+
+	vector GetOrigin()
+	{
+		return m_Origin;
+	}
+
+	vector GetDir()
+	{
+		return m_Dir;
+	}
+
+	vector GetSide()
+	{
+		return m_Side;
+	}
+
+	//! Cell color value (CELL_UNSET/CELL_RED/CELL_GREEN/CELL_SAFE).
+	int GetCellColor(int row, int col)
+	{
+		return m_Cells[CellIndex(row, col)];
+	}
+
+	//! World XZ center of a cell (Y = territory origin height — dump only).
+	vector GetCellCenter(int row, int col)
+	{
+		return CellCenter(row, col);
+	}
+
 	//! Color up to DM_GRID_ROWS_PER_TICK rows forward; stop growing the territory
 	//! as soon as the road-lane has been clear for DM_GRID_CLEAR_ROWS rows.
 	private void TickColor()
@@ -220,7 +284,7 @@ class dmRoadHoneycomb
 			ColorRow(m_ColorRow);
 			m_ColorRow = m_ColorRow + 1;
 			rowsDone = rowsDone + 1;
-			if (m_RoadClearRun >= DM_GRID_CLEAR_ROWS)
+			if (!m_FixedLength && m_RoadClearRun >= DM_GRID_CLEAR_ROWS)
 			{
 				m_RowCount = m_ColorRow;
 				break;

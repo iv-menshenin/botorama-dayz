@@ -295,8 +295,9 @@ class dmRoadProbe
 
 	//! Road width at P measured along the perpendicular to dir: scans
 	//! DM_ROAD_EDGE_STEP to DM_ROAD_MAX_HALF_WIDTH in ±N and returns left+right
-	//! (sum of the drivable distances to each edge).
-	private static float RoadWidth(vector p, vector dir)
+	//! (sum of the drivable distances to each edge). Public so the E2E bridge can
+	//! re-measure the road width at each route point (griddump).
+	static float RoadWidth(vector p, vector dir)
 	{
 		float nx = -dir[2];
 		float nz = dir[0];

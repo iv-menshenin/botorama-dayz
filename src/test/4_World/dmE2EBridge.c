@@ -10,7 +10,7 @@
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
 //! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
-//! driveto | drive | cardump, and observe (teleport a connected player). `wait` and `sleep`
+//! driveto | drive | cardump | griddump, and observe (teleport a connected player). `wait` and `sleep`
 //! are the deferred ops: they tick across frames (wait until a condition is met
 //! or its timeout expires; sleep until its timeout). Everything else executes in
 //! a single tick.
@@ -52,6 +52,9 @@ class dmE2EStep
 	float Spread;     // hostile threat blur (army, default DM_INVASION_SPREAD)
 	int Zombies;      // number of zombies to spawn (meleefight, default 2)
 	float ZombieDist; // zombie spawn distance from the bot (meleefight, default 2.5)
+	vector TargetPos; // griddump end point (world); `string Target` is a bot name, so the end position uses a vector field
+	int WidthCells;   // griddump territory width in cells (0 = default 90)
+	float LengthMeters; // griddump territory length in meters (0 = default 260)
 }
 
 //! Per-step outcome.
@@ -72,6 +75,34 @@ class dmE2ESnapshot
 	vector Pos;
 	string State;
 	bool Moving;
+}
+
+//! One honeycomb cell in the grid dump (color + world XZ center).
+class dmGridDumpCell
+{
+	int Row;
+	int Col;
+	int Color;
+	float X;
+	float Z;
+}
+
+//! Grid dump payload (griddump.json): honeycomb territory + route + computed
+//! road edges (left/right at ±½ width per route point).
+class dmGridDump
+{
+	vector Origin;
+	vector Dir;
+	vector Side;
+	int Rows;
+	int Width;
+	int HalfWidth;
+	string Status;
+	int CellCount;
+	ref array<ref dmGridDumpCell> Cells;
+	ref array<vector> Route;
+	ref array<vector> LeftEdge;
+	ref array<vector> RightEdge;
 }
 
 //! Job result (output): status + step outcomes + snapshot.
@@ -462,6 +493,10 @@ class dmE2EBridge
 		else if (step.Op == "cardump")
 		{
 			RunCarDump(step, r);
+		}
+		else if (step.Op == "griddump")
+		{
+			RunGridDump(step, r);
 		}
 		else
 		{
@@ -2157,6 +2192,150 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "dumped";
+	}
+
+	//! "griddump" — run the road honeycomb over the route from Pos to TargetPos
+	//! (no car/driver), then dump the colored territory + route + computed road
+	//! edges to $profile:dmBotorama/e2e/griddump.json for the SVG renderer.
+	private void RunGridDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		vector start = ResolveWorldPos(step.Pos);
+		vector target = ResolveWorldPos(step.TargetPos);
+
+		if (!dmRoadRouter.Get().Setup(start, target))
+		{
+			r.Ok = false;
+			r.Reason = "no route";
+			return;
+		}
+
+		//! Полный маршрут чанками (NextChunk чистит входной буфер — отдельный
+		//! локальный массив, точки копируем в route).
+		array<vector> route = new array<vector>();
+		array<vector> chunk = new array<vector>();
+		bool more = true;
+		int guard = 0;
+		int ci;
+		while (more)
+		{
+			more = dmRoadRouter.Get().NextChunk(chunk, 16);
+			for (ci = 0; ci < chunk.Count(); ci++)
+				route.Insert(chunk[ci]);
+			guard = guard + 1;
+			if (guard > 1000)
+			{
+				dmBotLog.Error("[E2E] griddump: NextChunk loop guard hit");
+				break;
+			}
+		}
+
+		//! Направление территории: start → первый вейпоинт (иначе → target).
+		vector d;
+		if (route.Count() > 0)
+			d = route[0] - start;
+		else
+			d = target - start;
+		d[1] = 0.0;
+		if (d.Length() < 0.01)
+			d = Vector(1.0, 0.0, 0.0);
+		else
+			d.Normalize();
+		vector side = Vector(-d[2], 0.0, d[0]);
+
+		//! Расчётные края дороги: ±½ ширины вдоль перпендикуляра в каждой точке.
+		array<vector> leftEdge = new array<vector>();
+		array<vector> rightEdge = new array<vector>();
+		int wi;
+		vector wp;
+		float w;
+		float halfW;
+		for (wi = 0; wi < route.Count(); wi++)
+		{
+			wp = route[wi];
+			w = dmRoadProbe.RoadWidth(wp, d);
+			halfW = w * 0.5;
+			leftEdge.Insert(wp - side * halfW);
+			rightEdge.Insert(wp + side * halfW);
+		}
+
+		int widthCells = step.WidthCells;
+		if (widthCells <= 0)
+			widthCells = 90;
+		float lengthMeters = step.LengthMeters;
+		if (lengthMeters <= 0.0)
+			lengthMeters = 260.0;
+
+		dmRoadHoneycomb.Get().Start(start, d, route, 0, null, null, lengthMeters, widthCells);
+
+		int ticks = 0;
+		while (!dmRoadHoneycomb.Get().IsDone() && !dmRoadHoneycomb.Get().IsFailed() && ticks < 10000)
+		{
+			dmRoadHoneycomb.Get().Tick(0.016);
+			ticks = ticks + 1;
+		}
+
+		string hStatus = "done";
+		if (dmRoadHoneycomb.Get().IsFailed())
+			hStatus = "failed";
+		else if (!dmRoadHoneycomb.Get().IsDone())
+			hStatus = "capped";
+
+		dmGridDump dump = new dmGridDump();
+		dump.Origin = dmRoadHoneycomb.Get().GetOrigin();
+		dump.Dir = dmRoadHoneycomb.Get().GetDir();
+		dump.Side = dmRoadHoneycomb.Get().GetSide();
+		dump.Rows = dmRoadHoneycomb.Get().GetRowCount();
+		dump.Width = dmRoadHoneycomb.Get().GetWidth();
+		dump.HalfWidth = dmRoadHoneycomb.Get().GetHalfWidth();
+		dump.Status = hStatus;
+		dump.Cells = new array<ref dmGridDumpCell>();
+		dump.Route = new array<vector>();
+		dump.LeftEdge = new array<vector>();
+		dump.RightEdge = new array<vector>();
+
+		int row;
+		int col;
+		int cellCount = 0;
+		vector center;
+		dmGridDumpCell cell;
+		for (row = 0; row < dump.Rows; row++)
+		{
+			for (col = -dump.HalfWidth; col <= dump.HalfWidth; col++)
+			{
+				cell = new dmGridDumpCell();
+				cell.Row = row;
+				cell.Col = col;
+				cell.Color = dmRoadHoneycomb.Get().GetCellColor(row, col);
+				center = dmRoadHoneycomb.Get().GetCellCenter(row, col);
+				cell.X = center[0];
+				cell.Z = center[2];
+				dump.Cells.Insert(cell);
+				cellCount = cellCount + 1;
+			}
+		}
+		dump.CellCount = cellCount;
+
+		int ri;
+		for (ri = 0; ri < route.Count(); ri++)
+			dump.Route.Insert(route[ri]);
+		for (ri = 0; ri < leftEdge.Count(); ri++)
+			dump.LeftEdge.Insert(leftEdge[ri]);
+		for (ri = 0; ri < rightEdge.Count(); ri++)
+			dump.RightEdge.Insert(rightEdge[ri]);
+
+		string dumpPath = DM_E2E_DIR + "/griddump.json";
+		EnsureDir(dumpPath);
+		string saveError;
+		bool saved = JsonFileLoader<dmGridDump>.SaveFile(dumpPath, dump, saveError);
+		if (!saved)
+			dmBotLog.Error("[E2E] griddump save failed: " + saveError);
+
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] griddump: " + hStatus + " cells=" + cellCount + " route=" + route.Count());
+		#endif
+
+		r.Ok = saved;
+		r.Reason = hStatus + " cells=" + cellCount + " route=" + route.Count() + " -> " + dumpPath;
 	}
 
 	//! Create the parent directory chain of a file path (mirrors dmJsonFile.EnsureDirectory,
