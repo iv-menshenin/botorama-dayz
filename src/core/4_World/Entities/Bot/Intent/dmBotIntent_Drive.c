@@ -1145,10 +1145,13 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		#endif
 		//! Коробка не влезла (или все коридоры узкие) — не фейлимся, а зовём СОТЫ:
 		//! грид-объезд по свободной территории. d — направление дороги (для территории).
+		//! Передаём машину и водителя как ignore: иначе соты видят собственный кузов
+		//! в первых рядах территории как «препятствие» и гасят грид до барьера.
 		m_DetourActive = false;
 		m_Reverse = false;
 		m_HoneyState = 1;
-		dmRoadHoneycomb.Get().Start(carPos, d, m_DriveRoute, m_DriveRouteIdx);
+		Human driver = m_Car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER);
+		dmRoadHoneycomb.Get().Start(carPos, d, m_DriveRoute, m_DriveRouteIdx, m_Car, driver);
 	}
 
 	//! Проверка полного пути коробки райкастом на высоте корпуса (width-aware,
@@ -1280,11 +1283,18 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			}
 			else
 			{
-				m_HoneyState = 0;
-				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] honeycomb: degenerate path -> fail");
-				#endif
-				Fail();
+				//! Гейт высадки: вырожденный путь (< 3 точек) — настоящий тупик,
+				//! но сдаёмся только когда машина реально остановилась. Пока катится
+				//! быстрее DM_DRIVE_EXIT_MAX_SPEED — остаёмся за рулём и тормозим
+				//! (как в ветке IsFailed).
+				if (speedAbs <= DM_DRIVE_EXIT_MAX_SPEED)
+				{
+					m_HoneyState = 0;
+					#ifdef DM_BOT_DEBUG_CAR
+					dmBotLog.Debug("[CAR] honeycomb: degenerate path -> fail (stopped, speed=" + speedAbs + ")");
+					#endif
+					Fail();
+				}
 			}
 		}
 	}

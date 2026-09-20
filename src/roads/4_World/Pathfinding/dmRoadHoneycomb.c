@@ -89,6 +89,11 @@ class dmRoadHoneycomb
 	private int m_GoalCol;
 	private ref array<int> m_PathCells;
 	private ref array<vector> m_Waypoints;
+	//! Машина (pIgnore в вертикальном райкасте клеток) и её водитель: без них соты
+	//! видят собственный кузов в первых рядах территории как «препятствие», раньше
+	//! времени ставят m_SeenRed и гасят грид на ~10 м, не дойдя до реального барьера.
+	private Object m_CarObj;
+	private Object m_DriverObj;
 
 	void dmRoadHoneycomb()
 	{
@@ -112,15 +117,19 @@ class dmRoadHoneycomb
 		m_GoalCol = 0;
 		m_PathCells = null;
 		m_Waypoints = null;
+		m_CarObj = null;
+		m_DriverObj = null;
 	}
 
 	//! Start a detour: car position, route direction (horizontal), the route
 	//! waypoints and the index of the next waypoint to reach. Resets all state.
-	void Start(vector carPos, vector dir, array<vector> route, int routeIdx)
+	void Start(vector carPos, vector dir, array<vector> route, int routeIdx, Object carObj, Object driverObj)
 	{
 		int i;
 		m_State = STATE_IDLE;
 		m_CarPos = carPos;
+		m_CarObj = carObj;
+		m_DriverObj = driverObj;
 		m_Dir = dir;
 		m_Dir[1] = 0.0;
 		if (m_Dir.Length() < 0.01)
@@ -291,9 +300,12 @@ class dmRoadHoneycomb
 		//! ловит и низкие бордюры, и тонкие вертикальные объекты (столбы/заборы),
 		//! которые попадают в зазор между центрами клеток. Хит террейна (на
 		//! groundY) отбрасывается по высоте; объект выше groundY + EPS — препятствие.
+		//! pIgnore = m_CarObj: машина и водитель исключаются — иначе соты видят
+		//! кузов сразу за стартом как «препятствие», раньше времени ставят m_SeenRed
+		//! и гасят территорию на ~10 м, не дойдя до реального барьера.
 		vector vFrom = Vector(cx, groundY + DM_GRID_RAY_HEIGHT, cz);
 		vector vTo = Vector(cx, groundY - 1.0, cz);
-		RaycastRVParams vParams = new RaycastRVParams(vFrom, vTo, null, DM_GRID_RAY_RADIUS);
+		RaycastRVParams vParams = new RaycastRVParams(vFrom, vTo, m_CarObj, DM_GRID_RAY_RADIUS);
 		vParams.flags = CollisionFlags.ALLOBJECTS;
 		vParams.type = ObjIntersectGeom;
 		ref array<ref RaycastRVResult> vHits = new array<ref RaycastRVResult>();
@@ -301,9 +313,15 @@ class dmRoadHoneycomb
 			return false;
 		float limit = groundY + DM_GRID_OBSTACLE_EPS;
 		int i;
+		RaycastRVResult vHit;
 		for (i = 0; i < vHits.Count(); i++)
 		{
-			if (vHits[i].pos[1] > limit)
+			vHit = vHits[i];
+			if (vHit.obj == m_CarObj || vHit.parent == m_CarObj)
+				continue;
+			if (m_DriverObj && (vHit.obj == m_DriverObj || vHit.parent == m_DriverObj))
+				continue;
+			if (vHit.pos[1] > limit)
 				return true;
 		}
 		return false;
