@@ -466,3 +466,6 @@
 - **сделано** — раскрыта скрытая связность reg→core: bot-wiring хуки (`modded_WeaponFire`,
   `modded_WeaponBase`, `modded_Restrain`, `modded_ZombieBase`, `modded_DayZPlayerImplement`)
   перенесены из `reg/4_World` в `core/4_World/modded/`. Теперь reg не ссылается на core в коде.
+- **косметика (pre-existing)** — `src/core/config.cpp` в закоммиченном функциональном
+  `defines[]` содержит per-frame домен `DM_BOT_DEBUG_DRIVE_TELEMETRY` (спам на каждый кадр,
+  по `ai-testing-guide.md` §5.5.2 должен включаться только точечно). Убрать из дефолтных defines.
