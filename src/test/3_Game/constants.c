@@ -2,6 +2,8 @@
 //! Distance (meters) in front of the player at which a bot spawns.
 static const float DM_SPAWN_DISTANCE = 5.0;
 
+static const string DM_COMMAND_PREFIX = "$";
+
 //! Test-zone distance (meters) in front of the player.
 static const float DM_TEST_RANGE_DISTANCE = 15.0;
 

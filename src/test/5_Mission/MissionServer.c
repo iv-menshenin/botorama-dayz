@@ -17,7 +17,7 @@ modded class MissionServer
 			if (chat)
 			{
 				string message = chat.param3;
-				if (message.Length() > 0 && message.Substring(0, 1) == "/")
+				if (message.Length() > 0 && message.Substring(0, 1) == DM_COMMAND_PREFIX)
 				{
 					if (dmCommandManager.GetInstance().Execute(chat.param2, message))
 						return;

@@ -37,7 +37,7 @@ class dmCommandManager
 			return false;
 
 		string cmd = parts[0];
-		if (cmd.Length() > 0 && cmd.Substring(0, 1) == "/")
+		if (cmd.Length() > 0 && cmd.Substring(0, 1) == DM_COMMAND_PREFIX)
 			cmd = cmd.Substring(1, cmd.Length() - 1);
 
 		dmCommandModule module = m_Modules.Get(cmd);
