@@ -458,6 +458,14 @@ class dmE2EBridge
 		{
 			RunBotDump(step, r);
 		}
+		else if (step.Op == "poidump")
+		{
+			RunPoiDump(step, r);
+		}
+		else if (step.Op == "buildingdump")
+		{
+			RunBuildingDump(step, r);
+		}
 		else if (step.Op == "getpos")
 		{
 			RunGetPos(step, r);
@@ -1854,6 +1862,48 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "dumped";
+	}
+
+	//! "poidump" — dump the POI registry: total location count and the location at
+	//! step.Pos (Id:Name:Type) or "none".
+	private void RunPoiDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmWorldPOIRegistry reg = dmWorldPOIRegistry.Get();
+		AppendDump(r, "total=" + reg.LocationCount());
+
+		vector pos = ResolveWorldPos(step.Pos);
+		dmWorldPoiLocation loc = reg.GetLocationAt(pos);
+		if (loc)
+			AppendDump(r, "at=" + loc.Id + ":" + loc.Name + ":" + loc.Type);
+		else
+			AppendDump(r, "at=none");
+
+		r.Ok = true;
+	}
+
+	//! "buildingdump" — dump the live building registry: flat count, location-map
+	//! count, then the location at step.Pos and its bound-building count.
+	private void RunBuildingDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmLiveBuildingRegistry reg = dmLiveBuildingRegistry.Get();
+		AppendDump(r, "registered=" + reg.m_Buildings.Count());
+		AppendDump(r, "byLoc=" + reg.m_ByLocation.Count());
+
+		vector pos = ResolveWorldPos(step.Pos);
+		dmWorldPoiLocation loc = dmWorldPOIRegistry.Get().GetLocationAt(pos);
+		if (loc)
+		{
+			AppendDump(r, "locId=" + loc.Id);
+			array<Building> buildings = new array<Building>();
+			reg.GetBuildingsForLocation(loc, buildings);
+			AppendDump(r, "locCount=" + buildings.Count());
+		}
+		else
+		{
+			AppendDump(r, "locId=-1");
+		}
+
+		r.Ok = true;
 	}
 
 	//! Report the named probe object's position and yaw.

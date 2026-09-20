@@ -351,6 +351,20 @@ static const float DM_INTENT_MAX_AGE = 300.0;
 //! named "hunter" is stored at "$profile:dmBotorama/loadouts/hunter.json".
 static const string DM_LOADOUT_DIR = "$profile:dmBotorama/loadouts";
 
+//! POI presence radius (meters) by location type — a building within this of a
+//! location center is bound to it (GetLocationAt).
+static const float DM_POI_PRESENCE_CAPITAL = 1200.0;
+static const float DM_POI_PRESENCE_CITY = 600.0;
+static const float DM_POI_PRESENCE_VILLAGE = 300.0;
+static const float DM_POI_PRESENCE_OTHER = 200.0;
+
+//! POI arrival radius (meters) by location type — how close the bot must get to
+//! a location center to count as "arrived" (Travel).
+static const float DM_POI_ARRIVE_CAPITAL = 500.0;
+static const float DM_POI_ARRIVE_CITY = 150.0;
+static const float DM_POI_ARRIVE_VILLAGE = 75.0;
+static const float DM_POI_ARRIVE_OTHER = 50.0;
+
 //! Directory where the user drops generated map configs (building interiors, POIs).
 static const string DM_MAP_CONFIG_DIR = "$profile:dmBotorama/map";
 //! Building-interior map file (schema dmBuildingInteriorConfig). The user places a

@@ -10,6 +10,7 @@ class dmWorldPoiLocation
 	string Name;      // имя локации
 	string Type;      // "Capital"/"City"/"Village"/"Camp"/"Local"/"Hill"/"ViewPoint"/"Marine"/"RailroadStation"/"Ruin"/"LocalOffice"
 	vector Position;  // [x, 0, z] (2D-позиция; высота земли резолвится в рантайме)
+	int Id;           // уникальный ключ (0..N-1), присваивается при Load(); в JSON его нет
 }
 
 //! Корень world_poi.json.
