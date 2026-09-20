@@ -1,0 +1,14 @@
+{
+  "Name": "nomad-e-spawnprobe",
+  "Timeout": 60,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [9300.0, 0.0, 10200.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "poidump", "Pos": [9300.0, 0.0, 10200.0] },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "explorerdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 10 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

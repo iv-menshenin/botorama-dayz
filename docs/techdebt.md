@@ -520,3 +520,8 @@
 - **косметика (веха E)** — в `dmBotState_Exploration` `IsExpired()` (таймаут) логируется как
   «здание обойдено» (Debug), хотя это «не успел, пропускаю»; различать три исхода
   `finished/failed/expired` в логе.
+- **важно (веха E, тест, pre-existing)** — спавн-менеджер settlement-бота (`RollSpawnPosition`)
+  может высадить бота В ВОДУ (наблюдалось Черногорск Y=−19, вне navmesh) → `Travel.failed` →
+  `RememberLocation` массово помечает локации «посещёнными» → быстрый осциллятор
+  Travel↔Exploration. Отдельный дефект позиционирования спавна (не самой кочёвки): проверять
+  navmesh/воду при `RollSpawnPosition`.
