@@ -34,6 +34,12 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Водитель смотрит на нос — целиться носом в точку маршрута проще, чем центром,
 	//! а вынос корпуса не искажает объезд.
 	static const float DM_DRIVE_NOSE_OFFSET = 2.0;
+	//! Соты (грид-объезд): вынос стартовой точки территории вперёд от центра
+	//! машины (м). Нос (DM_DRIVE_NOSE_OFFSET = 2.0 м, передний бампер) + радиус
+	//! вертикальной капсулы клетки сот (DM_GRID_RAY_RADIUS = 1.5 м) = 3.5: капсула
+	//! нулевого ряда стартует ЗА бампером, кузов/капот остаются позади территории
+	//! и не красятся RED (иначе m_SeenRed ставится рано и грид гаснет до барьера).
+	static const float DM_DRIVE_HONEY_ORIGIN_OFFSET = 3.5;
 	//! Локальный объезд: высота нижнего детект-луча над землёй (м). Верхний луч на
 	//! высоте кузова перелетает низкие заграждения (бордюры, низкие бетонные барьеры
 	//! ~0.5–1 м) и ловит их только вплотную — нижний луч у земли цепляет их на полной
@@ -1145,13 +1151,28 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		#endif
 		//! Коробка не влезла (или все коридоры узкие) — не фейлимся, а зовём СОТЫ:
 		//! грид-объезд по свободной территории. d — направление дороги (для территории).
-		//! Передаём машину и водителя как ignore: иначе соты видят собственный кузов
-		//! в первых рядах территории как «препятствие» и гасят грид до барьера.
+		//! Ориджин территории — НОС + радиус капсулы клетки (не центр машины):
+		//! вертикальная капсула (радиус 1.5 м) стартует ЗА бампером, иначе она бьёт
+		//! по собственному кузову/водителю в первых рядах, рано ставит m_SeenRed и
+		//! гасит грид на ~10 м, не дойдя до реального барьера. Нос выносим вдоль
+		//! реального курса машины (carDir), а не вдоль d — кузов вытянут по carDir.
+		//! Передаём машину и водителя как ignore — после смещения не критично, но не мешает.
 		m_DetourActive = false;
 		m_Reverse = false;
 		m_HoneyState = 1;
+		vector carDirRaw = m_Car.GetDirection();
+		vector carDir = carDirRaw;
+		carDir[1] = 0.0;
+		if (carDir.Length() < 0.01)
+			carDir = Vector(1.0, 0.0, 0.0);
+		else
+			carDir.Normalize();
+		vector honeyOrigin = carPos + carDir * DM_DRIVE_HONEY_ORIGIN_OFFSET;
 		Human driver = m_Car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER);
-		dmRoadHoneycomb.Get().Start(carPos, d, m_DriveRoute, m_DriveRouteIdx, m_Car, driver);
+		#ifdef DM_BOT_DEBUG_CAR
+		dmBotLog.Debug("[CAR] honeycomb: origin=" + honeyOrigin + " offset=" + DM_DRIVE_HONEY_ORIGIN_OFFSET);
+		#endif
+		dmRoadHoneycomb.Get().Start(honeyOrigin, d, m_DriveRoute, m_DriveRouteIdx, m_Car, driver);
 	}
 
 	//! Проверка полного пути коробки райкастом на высоте корпуса (width-aware,
