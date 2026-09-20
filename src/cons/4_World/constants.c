@@ -367,6 +367,10 @@ static const float DM_POI_ARRIVE_OTHER = 50.0;
 
 //! Directory where the user drops generated map configs (building interiors, POIs).
 static const string DM_MAP_CONFIG_DIR = "$profile:dmBotorama/map";
+//! Directory for the bot's runtime settings (looting.json etc.).
+static const string DM_SETTINGS_DIR = "$profile:dmBotorama/settings";
+//! Loot/exploration settings file (schema dmLootingConfig). Created with defaults on first run.
+static const string DM_LOOTING_SETTINGS_FILE = "$profile:dmBotorama/settings/looting.json";
 //! Building-interior map file (schema dmBuildingInteriorConfig). The user places a
 //! copy of the generated data/map/buildings_interior.json here.
 static const string DM_MAP_BUILDINGS_FILE = "$profile:dmBotorama/map/buildings_interior.json";
@@ -780,6 +784,8 @@ static const float DM_EXPLORE_PICKUP_THRESHOLD = 0.5;
 static const float DM_EXPLORE_EXPLORE_RADIUS = 100.0;
 //! Loot exploration: reach (meters) to a building before marking it visited.
 static const float DM_EXPLORE_BUILDING_REACH = 2.0;
+//! Loot exploration: reach (meters) to an interior roam point before advancing.
+static const float DM_EXPLORE_INTERIOR_REACH = 1.5;
 //! Loot exploration: cooldown (seconds) between drops when the inventory is full.
 static const float DM_EXPLORE_DROP_COOLDOWN = 15.0;
 

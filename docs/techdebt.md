@@ -453,11 +453,11 @@
 
 ## L. Nomad-exploration (веха A — рефактор модулей)
 
-- **важно** — `dmBotSpawnManager.EnsureDirectory` (`core/5_Mission/System/dmBotSpawnManager.c`)
-  дублирует `dmJsonFile.EnsureDirectory` (`cons/3_Game/Config/dmJsonFile.c`). Теперь файл в core
-  (видит cons) — вынести общий хелпер (напр. статику в `dmJsonConfigBase`) либо явно
-  задокументировать, почему generic-статику `dmJsonFile<T>.EnsureDirectory` не зовут
-  (трение Enfusion с типом `T`).
+- **важно** — `EnsureDirectory` (создание цепочки каталогов) продублирована в **8 местах**:
+  `dmJsonFile` (cons), `dmBotSpawnManager` (core), `dmBotProfiler` (cons),
+  `dmRoadDiscoveryManager`/`dmRoadGraphIO`/`dmRoadGapIO` (roads), `dmE2EBridge` (test),
+  `dmLootingSettings` (core). Вынести в один надёжный generic-хелпер (generic-статик
+  `dmJsonFile<T>.EnsureDirectory` на месте вызова ненадёжен — трение Enfusion с типом `T`).
 - **косметика** — `loadout/config.cpp` `defines[]` = `DM_BOT_PROFILE/FSM/WEAPON/SPAWN`, но
   `dmLoadoutApplier.c` использует только `DM_BOT_PROFILE` + `DM_BOT_DEBUG_LOADOUT`
   (последний отсутствует в defines → логи не компилируются). Выровнять.
@@ -494,3 +494,6 @@
 - **косметика (pre-existing, веха C тест)** — `Tree collision`-лог (`dmBotIntent_MoveTo.c`
   оракул обхода деревьев) пишется `dmBotLog.Error` БЕЗ DEBUG-гейта → спам (85× за 3 мин),
   когда бот реально ходит. Обернуть в `#ifdef` (напр. `DM_BOT_DEBUG_BODY`/`PATHFINDER`).
+- **косметика (веха D)** — имена пары `ExitVisitedPercentTime` (доля) / `ExitTimePercentSeconds`
+  (секунды) слабосвязаны; переименовать (напр. вложенный объект `{ Percent, Seconds }`) при
+  следующем касании схемы `looting.json` (меняет JSON — не в рамках вехи).
