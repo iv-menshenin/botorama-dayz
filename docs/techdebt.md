@@ -462,9 +462,7 @@
   `dmLoadoutApplier.c` использует только `DM_BOT_PROFILE` + `DM_BOT_DEBUG_LOADOUT`
   (последний отсутствует в defines → логи не компилируются). Выровнять.
 - **косметика** — `fstructure.md` ссылается на старые пути (`reg/3_Game/Config`, `map/5_Mission`,
-  `map/3_Game/Config` с dmSpawnConfig) — обновить после рефактора.
-- **важно (скрытая связность)** — reg-хуки (`modded_Restrain`, `modded_WeaponFire`,
-  `modded_DayZPlayerImplement`, `modded_ZombieBase`, `modded_WeaponBase`) ссылаются на bot-классы
-  core (`dmAISurvivor`, `dmNoiseSystem`, ...), но `requiredAddons` reg = `[cons, map]` без core.
-  Компилируется, т.к. оба PBO вливаются в один `worldScriptModule`. Зафиксировать в
-  `nomad-exploration.md §1` или вынести осознанно.
+  `map/3_Game/Config` с dmSpawnConfig; + 5 bot-wiring хуков переехали reg→core) — обновить после рефактора.
+- **сделано** — раскрыта скрытая связность reg→core: bot-wiring хуки (`modded_WeaponFire`,
+  `modded_WeaponBase`, `modded_Restrain`, `modded_ZombieBase`, `modded_DayZPlayerImplement`)
+  перенесены из `reg/4_World` в `core/4_World/modded/`. Теперь reg не ссылается на core в коде.

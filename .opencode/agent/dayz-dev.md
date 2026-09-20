@@ -5,6 +5,7 @@ model: deepseek/deepseek-v4-pro
 permission:
   edit: allow
   bash:
+    "*": deny
     "git *": allow
     "mv *": allow
     "cp *": allow
@@ -13,7 +14,6 @@ permission:
     "rg *": allow
     "find *": allow
     "ls *": allow
-    "*": deny
   external_directory:
     "*": deny
 ---

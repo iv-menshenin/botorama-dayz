@@ -27,14 +27,20 @@
 |---|---|---|
 | cons | `[]` | + `dmJsonFile`/`dmJsonConfigBase` (перенесены из reg) |
 | map | `[cons]` | только `dmWorldPoiConfig` + `dmWorldPOIRegistry` (автономный) |
-| reg | `[cons, map]` | реестр зданий + привязка к локациям |
+| reg | `[cons, map]` | реестры + чистые хуки (`House`/`PlayerBase`/`AnimalBase`/`CarScript`/`WeaponChambering`/`EntityRegistry`); **без ссылок на core** |
 | roads | `[cons]` | без изменений (спец-зависимости от reg НЕ создаём) |
 | loadout | `[cons, reg]` | убрана ложная зависимость от core |
-| core | `[cons, roads, reg, loadout, map]` | боты, спавн-менеджер, состояния |
+| core | `[cons, roads, reg, loadout, map]` | боты, спавн-менеджер, состояния + bot-wiring хуки |
 | test | всё | без изменений |
 
 Правило слоёв: `reg` видит `map` (хук зданий привязывает их к локациям), `core` видит `map`
 (состояния кочёвки читают реестр POI). `roads` остаётся минимальным на `cons`.
+
+**Раскрытие связности reg→core**: bot-wiring хуки, которые ссылались на bot-классы core
+(`modded_WeaponFire`, `modded_WeaponBase`, `modded_Restrain`, `modded_ZombieBase`,
+`modded_DayZPlayerImplement`) перенесены из `reg/4_World` в `core/4_World/modded/`. Теперь
+`reg` не ссылается на core в коде (только комментарии-история), и связность явная: core
+владеет всем, что трогает bot-классы.
 
 ---
 
