@@ -469,3 +469,8 @@
 - **косметика (pre-existing)** — `src/core/config.cpp` в закоммиченном функциональном
   `defines[]` содержит per-frame домен `DM_BOT_DEBUG_DRIVE_TELEMETRY` (спам на каждый кадр,
   по `ai-testing-guide.md` §5.5.2 должен включаться только точечно). Убрать из дефолтных defines.
+- **косметика (веха B)** — `dmWorldPOIRegistry.GetLocationAt`: `p = pos;` избыточно, а
+  `radiusSq` пересчитывается на каждой из 306 итераций (можно кэшировать по типу при `Load()`).
+- **косметика (веха B)** — `dmLiveBuildingRegistry`: `pos2D[1] = 0.0` мёртвое (dx/dz читают
+  только [0]/[2]); `dmE2EBridge.RunBuildingDump` лезет в `reg.m_Buildings`/`m_ByLocation`
+  напрямую — выровнять через публичные `BuildingCount()`/`LocationMapCount()`.
