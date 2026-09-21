@@ -6,6 +6,7 @@ permission:
   edit: allow
   bash: allow
   external_directory:
+    "*": deny
     "/mnt/deep-space/Steam/steamapps/common/DayZServer/**": allow
     "/mnt/deep-space/Steam/steamapps/common/DayZ Tools/**": allow
     "/mnt/deep-space/Steam/steamapps/compatdata/830640/pfx/**": allow
@@ -17,7 +18,6 @@ permission:
     "/home/devalio/.local/share/Steam/steamapps/common/Proton Hotfix/**": allow
     "/home/devalio/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/**": allow
     "/tmp/**": allow
-    "*": deny
 ---
 
 Ты — тестировщик (QA) мода `botorama` (DayZ, префикс `dm`). Прогоняешь полный

@@ -5,6 +5,7 @@ model: deepseek/deepseek-v4-pro
 permission:
   edit: allow
   bash:
+    "*": deny
     "grep *": allow
     "rg *": allow
     "find *": allow
@@ -13,9 +14,9 @@ permission:
     "head *": allow
     "tail *": allow
     "strings *": allow
-    "*": deny
   external_directory:
     "/home/devalio/dayz/Work/**": allow
+    "/mnt/deep-space/Steam/steamapps/common/DayZServer/**": allow
     "*": deny
 ---
 
