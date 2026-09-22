@@ -838,6 +838,23 @@ class dmRoadHoneycomb
 		return false;
 	}
 
+	//! Number of SAFE cells on the road lane (IsRoadCol) in a row — the shoulder
+	//! does not count. Used to detect corridor width changes for waypoint nudging.
+	private int RoadLaneWidth(int row)
+	{
+		int count;
+		int col;
+		count = 0;
+		for (col = -m_HalfWidth; col <= m_HalfWidth; col++)
+		{
+			if ((col + row) % 2 != 0)
+				continue;
+			if (m_Cells[CellIndex(col, row)] == CELL_SAFE && IsRoadCol(col))
+				count = count + 1;
+		}
+		return count;
+	}
+
 	//! Build the graph route as a deterministic centerline trace over every 2nd
 	//! row: entry = nearest SAFE to (0,0), exit = nearest SAFE to the goal
 	//! waypoint. A KEYFRAME is emitted only when a row's "green middles" (centers
@@ -846,7 +863,10 @@ class dmRoadHoneycomb
 	//! then the exit layer. Edges are full bipartite forward between adjacent
 	//! layers (valid iff SegmentCrossesRed is false; weight = XZ length), and a
 	//! forward DP picks the shortest entry→exit path. The keyframes themselves are
-	//! the waypoints (no string-pulling). On any failure — FAILED.
+	//! the waypoints (no string-pulling). Post-DP, each non-terminal waypoint is
+	//! nudged 2 rows earlier/later where the road-lane width changed by more than
+	//! 4 cells (narrowing earlier, widening later), preserving its column, only
+	//! when the target row is free and SAFE. On any failure — FAILED.
 	private void BuildGraphRoute()
 	{
 		int entryCell;
@@ -878,6 +898,17 @@ class dmRoadHoneycomb
 		int cur;
 		int pi;
 		int cell;
+		int nWp;
+		int wi;
+		int wr;
+		int wc;
+		int wb;
+		int wa;
+		int delta;
+		int newRow;
+		int newCell;
+		bool occupied;
+		int wj;
 
 		if (!FindGoalWaypoint())
 		{
@@ -1020,6 +1051,49 @@ class dmRoadHoneycomb
 			cell = vertCells[pathIdx[pi]];
 			m_WaypointCells.Insert(cell);
 			m_Waypoints.Insert(CellWorld(cell));
+		}
+
+		//! Пост-обработка: сдвигаем вершины по изменению ширины полотна-коридора
+		//! (сужение → на 2 ряда раньше, расширение → на 2 позже), если изменение
+		//! больше 4 клеток, целевой ряд свободен и клетка SAFE. Вход/выход не трогаем.
+		nWp = m_WaypointCells.Count();
+		if (nWp > 2)
+		{
+			for (wi = 1; wi < nWp - 1; wi++)
+			{
+				wr = CellRow(m_WaypointCells[wi]);
+				wc = CellCol(m_WaypointCells[wi]);
+				wb = RoadLaneWidth(wr - 2);
+				wa = RoadLaneWidth(wr);
+				delta = wa - wb;
+				newRow = -1;
+				if (delta < -4)
+					newRow = wr - 2;
+				else if (delta > 4)
+					newRow = wr + 2;
+				if (newRow < 0 || newRow >= m_RowCount)
+					continue;
+				if ((wc + newRow) % 2 != 0)
+					continue;
+				occupied = false;
+				for (wj = 0; wj < nWp; wj++)
+				{
+					if (wj == wi)
+						continue;
+					if (CellRow(m_WaypointCells[wj]) == newRow)
+					{
+						occupied = true;
+						break;
+					}
+				}
+				if (occupied)
+					continue;
+				newCell = CellIndex(wc, newRow);
+				if (m_Cells[newCell] != CELL_SAFE)
+					continue;
+				m_WaypointCells[wi] = newCell;
+				m_Waypoints[wi] = CellWorld(newCell);
+			}
 		}
 		m_State = STATE_DONE;
 
