@@ -1,24 +1,27 @@
 //! dmRoadHoneycomb — asynchronous grid detour (honeycomb) for wide/compound road
 //! obstructions that the box-obstacle check cannot route around.
 //!
-//! The honeycomb defines FREE territory and builds a smooth path through it. A
-//! cell is a pointy-top hexagon (circumradius DM_GRID_HEX_SIZE) in DOUBLED
-//! coordinates: col across (m_Side), row along (m_Dir). col = 2*q + r, row = r
-//! in axial terms — the across offset is S*sqrt(3)/2*col, independent of row, so
-//! the col=0 column stays exactly over the road for any row (no side drift).
-//! RED = blocking object (even partially) or slope above ~15° or water;
-//! GREEN = clear, solid, level. SAFE = GREEN with all 6 neighbours GREEN. The
-//! territory is a band along the route direction `d`, growing forward row-by-row
-//! until the road is clear again (DM_GRID_CLEAR_ROWS consecutive all-green road
-//! rows). The route is a CENTERLINE: one waypoint per row, snapped to the middle
-//! of the widest walkable (GREEN/SAFE) corridor across the road ("effective
-//! center"), so a partially blocked road pushes the line toward the open side.
-//! The centerline is then smoothed (string-pulling: cut collinear points, go
-//! straight while the segment does not cross RED cells). The pipeline runs
-//! COLORING (one sub-step per tick: slope / water / one raycast) → MARK_SAFE
-//! (DM_GRID_ROWS_PER_TICK rows per tick) → a bounded synchronous centerline +
-//! smoothing pass (O(rows×width) + O(n) string-pulling), so per-tick spikes stay
-//! minimal.
+//! The honeycomb defines FREE territory and builds a path through it. A cell is
+//! a pointy-top hexagon (circumradius DM_GRID_HEX_SIZE) in DOUBLED coordinates:
+//! col across (m_Side), row along (m_Dir). col = 2*q + r, row = r in axial terms
+//! — the across offset is S*sqrt(3)/2*col, independent of row, so the col=0
+//! column stays exactly over the road for any row (no side drift). RED =
+//! blocking object (even partially) or slope above ~15° or water; GREEN = clear,
+//! solid, level. SAFE = GREEN with all 6 neighbours GREEN. The territory is a
+//! band along the route direction `d`, growing forward row-by-row until the road
+//! is clear again (DM_GRID_CLEAR_ROWS consecutive all-green road rows). Its
+//! half-width is the MEASURED road width (dmRoadProbe.RoadWidth), so the grid is
+//! 2× the road. The route is a shortest path on a layered graph: per row we keep
+//! the "green middles" (centers of the SAFE intervals), every vertex of one row
+//! connects to every vertex of the next row (a forward edge, valid iff the
+//! straight segment between the cell centers does not cross a RED cell; weight =
+//! XZ length), and a forward DP finds the shortest entry→exit path. No A* — the
+//! full per-row path is then collapsed by string-pulling to its turning points
+//! (straight stretches merge into single waypoints, segments re-validated against
+//! RED). The pipeline runs COLORING (one sub-step per tick: slope / water / one
+//! raycast) → MARK_SAFE (DM_GRID_ROWS_PER_TICK rows per tick) → a bounded
+//! synchronous graph build (O(rows×width²) for the DP edges), so per-tick spikes
+//! stay minimal.
 
 class dmRoadHoneycomb
 {
@@ -44,12 +47,6 @@ class dmRoadHoneycomb
 	//! Slope: tan(15°) — a cell whose corner heights differ more than tan*hdist is
 	//! too steep (red). Avoids a trig call per corner pair.
 	static const float DM_GRID_SLOPE_TAN = 0.267949;
-	//! Road-lane half width (m) for the clear-row check: only cells within ±3 m of
-	//! the centerline count; roadside trees outside the lane are ignored.
-	static const float DM_GRID_ROAD_HALF_WIDTH = 3.0;
-	//! Shoulder half width (m) — half of the road's full width added on each side
-	//! as the driveable gutter. Territory half width = road + shoulder = 6 m.
-	static const float DM_GRID_SHOULDER_HALF_WIDTH = 3.0;
 	//! Rows colored per tick (the expensive SurfaceY/raycast work is spread).
 	static const int DM_GRID_ROWS_PER_TICK = 3;
 	//! Верх вертикального луча соты над землёй в O (м) — выше крыши среднего авто.
@@ -70,6 +67,8 @@ class dmRoadHoneycomb
 	//! Territory length hard cap (rows, ~82 m at 0.5 m hex) — a safety net if the
 	//! road never clears; the adaptive stop normally ends coloring far earlier.
 	static const int DM_GRID_MAX_ROWS = 110;
+	//! Инфинити-болванка для DP-дистанций и min-dist скана в FindNearestSafe.
+	static const float DM_GRID_INF = 1000000000.0;
 
 	//! Coloring sub-steps (one per tick): slope (4 corner SurfaceY), water, then
 	//! one raycast per tick for the 4-cell ray fan (top→bot, ul→lr, ur→ll, vertical).
@@ -93,6 +92,9 @@ class dmRoadHoneycomb
 	private vector m_Side;
 	private vector m_Origin;
 	private int m_HalfWidth;
+	//! Measured road half width (m) — roadWidth * 0.5 from dmRoadProbe.RoadWidth;
+	//! used by IsRoadCol for the clear-row check instead of the removed constants.
+	private float m_RoadHalfWidth;
 	private int m_Width;
 	private int m_RowCount;
 	//! Фиксированная длина территории (lengthMeters > 0): TickColor раскрашивает
@@ -122,7 +124,7 @@ class dmRoadHoneycomb
 	private ref array<vector> m_Route;
 	private int m_RouteIdx;
 	private int m_GoalRow;
-	private ref array<int> m_PathCells;
+	private int m_GoalCol;
 	private ref array<vector> m_Waypoints;
 	private ref array<int> m_WaypointCells;
 	//! Машина (pIgnore в райкасте клеток) и её водитель: без них соты видят
@@ -139,6 +141,7 @@ class dmRoadHoneycomb
 		m_Side = Vector(0.0, 0.0, 1.0);
 		m_Origin = vector.Zero;
 		m_HalfWidth = 0;
+		m_RoadHalfWidth = 0.0;
 		m_Width = 0;
 		m_RowCount = 0;
 		m_FixedLength = false;
@@ -157,7 +160,7 @@ class dmRoadHoneycomb
 		m_Route = null;
 		m_RouteIdx = 0;
 		m_GoalRow = 0;
-		m_PathCells = null;
+		m_GoalCol = 0;
 		m_Waypoints = null;
 		m_WaypointCells = null;
 		m_CarObj = null;
@@ -181,12 +184,14 @@ class dmRoadHoneycomb
 	//! Start a detour: car position, route direction (horizontal), the route
 	//! waypoints and the index of the next waypoint to reach. Resets all state.
 	//! lengthMeters > 0 — фиксированная длина территории (м, без адаптивного
-	//! стопа); widthCells > 0 — ширина территории в doubled-колонках (иначе дефолт
-	//! из метров: (road + shoulder) / across-step). Диагностический прогон
-	//! (griddump) передаёт 0/null в carObj/driverObj — соты работают без машины.
+	//! стопа); widthCells > 0 — явный override ширины территории в doubled-колонках
+	//! (иначе измеряется дорога dmRoadProbe.RoadWidth: полуширина = RoundF(roadWidth
+	//! / across-step), сетка = 2× дорога). Диагностический прогон (griddump)
+	//! передаёт 0/null в carObj/driverObj — соты работают без машины.
 	void Start(vector carPos, vector dir, array<vector> route, int routeIdx, Object carObj, Object driverObj, float lengthMeters, int widthCells)
 	{
 		int i;
+		float roadWidth;
 		m_State = STATE_IDLE;
 		m_CarPos = carPos;
 		m_CarObj = carObj;
@@ -199,10 +204,14 @@ class dmRoadHoneycomb
 			m_Dir.Normalize();
 		m_Side = Vector(-m_Dir[2], 0.0, m_Dir[0]);
 		m_Origin = carPos;
+		roadWidth = dmRoadProbe.RoadWidth(carPos, dir);
+		if (roadWidth < DM_ROAD_MIN_WIDTH)
+			roadWidth = DM_ROAD_MIN_WIDTH;
+		m_RoadHalfWidth = roadWidth * 0.5;
 		if (widthCells > 0)
 			m_HalfWidth = widthCells;
 		else
-			m_HalfWidth = RoundF((DM_GRID_ROAD_HALF_WIDTH + DM_GRID_SHOULDER_HALF_WIDTH) / (DM_GRID_HEX_SIZE * 0.8660254));
+			m_HalfWidth = RoundF(roadWidth / (DM_GRID_HEX_SIZE * 0.8660254));
 		m_Width = m_HalfWidth * 2 + 1;
 		if (lengthMeters > 0.0)
 		{
@@ -223,7 +232,7 @@ class dmRoadHoneycomb
 		m_MarkRow = 0;
 		m_RouteIdx = routeIdx;
 		m_GoalRow = 0;
-		m_PathCells = null;
+		m_GoalCol = 0;
 		m_Waypoints = null;
 		m_WaypointCells = null;
 
@@ -262,7 +271,7 @@ class dmRoadHoneycomb
 		return m_State == STATE_FAILED;
 	}
 
-	//! The smoothed path (world coordinates), or false when not DONE.
+	//! The path (world coordinates), or false when not DONE.
 	bool GetPath(out array<vector> waypoints)
 	{
 		if (m_State != STATE_DONE || !m_Waypoints)
@@ -274,8 +283,8 @@ class dmRoadHoneycomb
 		return true;
 	}
 
-	//! Final smoothed waypoint cells (cell indices, same order as GetPath) — the
-	//! effective-center line after string-pulling, for the E2E grid dump.
+	//! Final waypoint cells (cell indices, same order as GetPath) — the collapsed
+	//! path (turning points after string-pulling), for the E2E grid dump.
 	int GetWaypointCount()
 	{
 		if (!m_WaypointCells)
@@ -594,7 +603,7 @@ class dmRoadHoneycomb
 			rowsDone = rowsDone + 1;
 		}
 		if (m_MarkRow >= m_RowCount)
-			BuildCenterlineAndSmooth();
+			BuildGraphRoute();
 	}
 
 	//! Mark one row's GREEN cells as SAFE when all 6 neighbours are walkable.
@@ -633,15 +642,17 @@ class dmRoadHoneycomb
 		return color == CELL_GREEN || color == CELL_SAFE;
 	}
 
-	//! Goal = the deepest route waypoint row inside the territory; fallback: the
-	//! far row (m_RowCount - 1). Only the row matters — the centerline walks row
-	//! by row and picks each row's effective center.
+	//! Goal = the deepest route waypoint cell inside the territory; fallback: the
+	//! far row (m_RowCount - 1) at col 0. Stores both m_GoalRow and m_GoalCol —
+	//! the graph route snaps the exit to the SAFE cell nearest this goal.
 	private bool FindGoalWaypoint()
 	{
 		if (!m_Route)
 			return false;
 		int goalRow = m_RowCount - 1;
+		int goalCol = 0;
 		int bestRow = -1;
+		int bestCol = 0;
 		int i;
 		for (i = m_RouteIdx; i < m_Route.Count(); i++)
 		{
@@ -652,20 +663,144 @@ class dmRoadHoneycomb
 			if (row < 0 || row >= m_RowCount)
 				continue;
 			if (row > bestRow)
+			{
 				bestRow = row;
+				bestCol = col;
+			}
 		}
 		if (bestRow >= 0)
+		{
 			goalRow = bestRow;
+			goalCol = bestCol;
+		}
 		m_GoalRow = goalRow;
+		m_GoalCol = goalCol;
 		return true;
 	}
 
-	//! Build the centerline, then smooth it into waypoints. Goal = the deepest
-	//! route waypoint inside the territory (FindGoalWaypoint), snapped per-row to
-	//! the effective center of the walkable corridor; on any failure the detour
-	//! is marked FAILED.
-	private void BuildCenterlineAndSmooth()
+	//! Nearest SAFE cell to (col,row): a single linear pass over all valid cells
+	//! picks the SAFE cell with the minimal squared doubled-distance to (col,row).
+	//! Returns false when the grid has no SAFE cell at all (degenerate).
+	private bool FindNearestSafe(int col, int row, out int outCell)
 	{
+		int bestIdx;
+		float bestDist2;
+		int c;
+		int r;
+		int idx;
+		int dcol;
+		int drow;
+		float dist2;
+		bestIdx = -1;
+		bestDist2 = DM_GRID_INF;
+		for (r = 0; r < m_RowCount; r++)
+		{
+			for (c = -m_HalfWidth; c <= m_HalfWidth; c++)
+			{
+				if ((c + r) % 2 != 0)
+					continue;
+				idx = CellIndex(c, r);
+				if (m_Cells[idx] != CELL_SAFE)
+					continue;
+				dcol = c - col;
+				drow = r - row;
+				dist2 = (float)(dcol * dcol + drow * drow);
+				if (dist2 < bestDist2)
+				{
+					bestDist2 = dist2;
+					bestIdx = idx;
+				}
+			}
+		}
+		if (bestIdx < 0)
+			return false;
+		outCell = bestIdx;
+		return true;
+	}
+
+	//! "Green middles" of one row: split the valid SAFE columns into contiguous
+	//! intervals (step 2 apart) and emit the center cell of each interval. For an
+	//! even count the right of the two middle cells is taken (deterministic).
+	private void GreenMiddles(int row, out array<int> middles)
+	{
+		int col0;
+		int col;
+		int first;
+		int last;
+		int c;
+		int count;
+		int mid;
+		middles = new array<int>();
+		col0 = -m_HalfWidth;
+		if ((col0 + row) % 2 != 0)
+			col0 = col0 + 1;
+		col = col0;
+		while (col <= m_HalfWidth)
+		{
+			if (m_Cells[CellIndex(col, row)] != CELL_SAFE)
+			{
+				col = col + 2;
+				continue;
+			}
+			first = col;
+			last = col;
+			c = col + 2;
+			while (c <= m_HalfWidth && m_Cells[CellIndex(c, row)] == CELL_SAFE)
+			{
+				last = c;
+				c = c + 2;
+			}
+			count = (last - first) / 2 + 1;
+			mid = first + 2 * (count / 2);
+			middles.Insert(CellIndex(mid, row));
+			col = c;
+		}
+	}
+
+	//! Build the layered graph route: entry = nearest SAFE to (0,0), exit = nearest
+	//! SAFE to the goal waypoint. Vertices are the entry, then one "green middle"
+	//! per row from the entry row to the exit row, then the exit. Every vertex of
+	//! one row connects to every vertex of the next row (a forward edge, valid iff
+	//! the straight segment between their centers does not cross a RED cell; weight
+	//! = XZ length). A forward DP finds the shortest entry→exit path; then the
+	//! per-row path is collapsed to its turning points (string-pulling, segments
+	//! re-validated against RED) so redundant straight stretches merge into single
+	//! vertices. On any failure — FAILED.
+	private void BuildGraphRoute()
+	{
+		int entryCell;
+		int exitCell;
+		int entryRow;
+		int exitRow;
+		ref array<int> vertCells;
+		ref array<int> layerStart;
+		int layer;
+		int r;
+		int mi;
+		array<int> middles;
+		int vcount;
+		int layerCount;
+		ref array<float> dist;
+		ref array<int> parent;
+		int i;
+		int k;
+		int u;
+		int v;
+		vector centerU;
+		vector centerV;
+		float dx;
+		float dz;
+		float len;
+		int exitIdx;
+		ref array<int> pathIdx;
+		int cur;
+		int pi;
+		int cell;
+		ref array<int> cells;
+		int n;
+		int anchor;
+		int emit;
+
 		if (!FindGoalWaypoint())
 		{
 			m_State = STATE_FAILED;
@@ -674,177 +809,148 @@ class dmRoadHoneycomb
 			#endif
 			return;
 		}
-		if (!BuildCenterline())
+		if (!FindNearestSafe(0, 0, entryCell))
 		{
 			m_State = STATE_FAILED;
 			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] FAILED centerline");
+			dmBotLog.Debug("[GRID] FAILED entry");
 			#endif
 			return;
 		}
-		SmoothPath();
-	}
-
-	//! One cell per row (0..m_GoalRow), each at the effective center of that row's
-	//! walkable corridor. prevCol carries continuity from the previous row (start
-	//! at col=0, the road centerline).
-	private bool BuildCenterline()
-	{
-		m_PathCells = new array<int>();
-		int prevCol = 0;
-		int centerCol;
-		int row;
-		for (row = 0; row <= m_GoalRow; row++)
+		if (!FindNearestSafe(m_GoalCol, m_GoalRow, exitCell))
 		{
-			if (!CenterColForRow(row, prevCol, centerCol))
-				return false;
-			m_PathCells.Insert(CellIndex(centerCol, row));
-			prevCol = centerCol;
+			m_State = STATE_FAILED;
+			#ifdef DM_BOT_DEBUG_ROADS
+			dmBotLog.Debug("[GRID] FAILED exit");
+			#endif
+			return;
 		}
-		return true;
-	}
-
-	//! Effective center of one row: split the walkable (GREEN/SAFE) valid slots
-	//! into connected intervals (step 2 apart), pick the interval containing
-	//! prevCol (else the interval whose middle is closest), then step toward that
-	//! interval's middle by at most one column. prevCol is never a valid cell of
-	//! this row (adjacent rows have opposite column parity), so a ±1 step is the
-	//! forward-diagonal neighbour — this keeps the centerline a connected hex path.
-	//! If the gradual ±1 step is blocked (RED / out of bounds — the corridor gap is
-	//! wider than one cell, e.g. a barrier's end face), we jump to the interval
-	//! middle instead; that jump's segment is validated by SmoothPath.
-	private bool CenterColForRow(int row, int prevCol, out int centerCol)
-	{
-		centerCol = prevCol;
-		int col0 = -m_HalfWidth;
-		if ((col0 + row) % 2 != 0)
-			col0 = col0 + 1;
-
-		bool haveInterval = false;
-		int chosenFirst = 0;
-		int chosenLast = 0;
-		float chosenDist = 0.0;
-
-		int col = col0;
-		int first;
-		int last;
-		int c;
-		float mid;
-		float dist;
-		int target;
-		int cand;
-		while (col <= m_HalfWidth)
+		if (entryCell == exitCell)
 		{
-			if (!IsWalkable(m_Cells[CellIndex(col, row)]))
-			{
-				col = col + 2;
-				continue;
-			}
-			first = col;
-			last = col;
-			c = col + 2;
-			while (c <= m_HalfWidth && IsWalkable(m_Cells[CellIndex(c, row)]))
-			{
-				last = c;
-				c = c + 2;
-			}
-			if (prevCol >= first && prevCol <= last)
-			{
-				chosenFirst = first;
-				chosenLast = last;
-				haveInterval = true;
-				break;
-			}
-			mid = (float)(first + last) * 0.5;
-			dist = Math.AbsFloat(mid - (float)prevCol);
-			if (!haveInterval || dist < chosenDist)
-			{
-				haveInterval = true;
-				chosenFirst = first;
-				chosenLast = last;
-				chosenDist = dist;
-			}
-			col = c;
+			m_Waypoints = new array<vector>();
+			m_WaypointCells = new array<int>();
+			m_WaypointCells.Insert(entryCell);
+			m_Waypoints.Insert(CellWorld(entryCell));
+			m_State = STATE_DONE;
+			#ifdef DM_BOT_DEBUG_ROADS
+			dmBotLog.Debug("[GRID] DONE path=" + m_Waypoints.Count());
+			#endif
+			return;
 		}
-		if (!haveInterval)
+
+		entryRow = CellRow(entryCell);
+		exitRow = CellRow(exitCell);
+
+		vertCells = new array<int>();
+		layerStart = new array<int>();
+
+		vertCells.Insert(entryCell);
+		layerStart.Insert(0);
+
+		layer = 1;
+		for (r = entryRow; r <= exitRow; r++)
 		{
-			centerCol = prevCol;
-			return false;
+			layerStart.Insert(vertCells.Count());
+			GreenMiddles(r, middles);
+			for (mi = 0; mi < middles.Count(); mi++)
+			{
+				vertCells.Insert(middles[mi]);
+			}
+			layer = layer + 1;
 		}
-		target = SnapInterval(chosenFirst, chosenLast, prevCol);
-		//! Постепенный шаг к середине коридора (≤1 колонки): связный hex-путь.
-		if (Math.AbsFloat((float)(target - prevCol)) <= 1.0)
-			cand = target;
-		else if (target > prevCol)
-			cand = prevCol + 1;
-		else
-			cand = prevCol - 1;
-		//! Если постепенный шаг заблокирован (RED/за границей — разрыв коридора шире
-		//! 1 соты, напр. торцевая грань барьера), прыгаем к середине интервала target
-		//! (target всегда walkable — он внутри выбранного интервала). Отрезок прыжка
-		//! валидирует SmoothPath (SegmentCrossesRed).
-		if (cand >= -m_HalfWidth && cand <= m_HalfWidth && IsWalkable(m_Cells[CellIndex(cand, row)]))
-			centerCol = cand;
-		else
-			centerCol = target;
-		return true;
-	}
+		layerStart.Insert(vertCells.Count());
+		vertCells.Insert(exitCell);
+		layerStart.Insert(vertCells.Count());
 
-	//! The valid cell of [first..last] nearest the interval's middle (step 2);
-	//! when the middle falls between two cells, pick the one closer to prevCol.
-	private int SnapInterval(int first, int last, int prevCol)
-	{
-		int span = (last - first) / 2;
-		int lowK = span / 2;
-		int highK = span - lowK;
-		if (lowK == highK)
-			return first + 2 * lowK;
-		int lowCol = first + 2 * lowK;
-		int highCol = first + 2 * highK;
-		float dLow = Math.AbsFloat((float)lowCol - (float)prevCol);
-		float dHigh = Math.AbsFloat((float)highCol - (float)prevCol);
-		if (dLow <= dHigh)
-			return lowCol;
-		return highCol;
-	}
+		vcount = vertCells.Count();
+		layerCount = layer + 1;
 
-	//! String-pulling over the walkable centerline: cut collinear points, and
-	//! advance each segment straight while it does not cross a RED cell.
-	private void SmoothPath()
-	{
+		dist = new array<float>();
+		parent = new array<int>();
+		for (i = 0; i < vcount; i++)
+		{
+			dist.Insert(DM_GRID_INF);
+			parent.Insert(-1);
+		}
+		dist[0] = 0.0;
+
+		for (k = 0; k < layerCount - 1; k++)
+		{
+			for (u = layerStart[k]; u < layerStart[k + 1]; u++)
+			{
+				if (dist[u] >= DM_GRID_INF)
+					continue;
+				for (v = layerStart[k + 1]; v < layerStart[k + 2]; v++)
+				{
+					if (SegmentCrossesRed(vertCells[u], vertCells[v]))
+						continue;
+					centerU = CellCenter(CellCol(vertCells[u]), CellRow(vertCells[u]));
+					centerV = CellCenter(CellCol(vertCells[v]), CellRow(vertCells[v]));
+					dx = centerU[0] - centerV[0];
+					dz = centerU[2] - centerV[2];
+					len = Math.Sqrt(dx * dx + dz * dz);
+					if (dist[u] + len < dist[v])
+					{
+						dist[v] = dist[u] + len;
+						parent[v] = u;
+					}
+				}
+			}
+		}
+
+		exitIdx = vcount - 1;
+		if (dist[exitIdx] >= DM_GRID_INF)
+		{
+			m_State = STATE_FAILED;
+			#ifdef DM_BOT_DEBUG_ROADS
+			dmBotLog.Debug("[GRID] FAILED no path");
+			#endif
+			return;
+		}
+
+		pathIdx = new array<int>();
+		cur = exitIdx;
+		while (cur >= 0)
+		{
+			pathIdx.Insert(cur);
+			cur = parent[cur];
+		}
+
+		cells = new array<int>();
+		for (pi = pathIdx.Count() - 1; pi >= 0; pi--)
+		{
+			cell = vertCells[pathIdx[pi]];
+			cells.Insert(cell);
+		}
+
 		m_Waypoints = new array<vector>();
 		m_WaypointCells = new array<int>();
-		int n = m_PathCells.Count();
-		int anchor;
-		int i;
-		int emit;
+		n = cells.Count();
 		if (n == 0)
 		{
 			m_State = STATE_FAILED;
 			return;
 		}
-		m_Waypoints.Insert(CellWorld(m_PathCells[0]));
-		m_WaypointCells.Insert(m_PathCells[0]);
-		if (n == 1)
+		m_WaypointCells.Insert(cells[0]);
+		m_Waypoints.Insert(CellWorld(cells[0]));
+		if (n > 1)
 		{
-			m_State = STATE_DONE;
-			return;
-		}
-		anchor = 0;
-		i = 1;
-		while (i < n)
-		{
-			//! Тянем прямую от anchor, пока отрезок anchor→i не пересекает RED.
-			while (i < n && !SegmentCrossesRed(m_PathCells[anchor], m_PathCells[i]))
-				i = i + 1;
-			//! anchor→i теперь пересекает RED (или i==n). Выпускаем path[i-1] — последнюю чистую точку.
-			emit = i - 1;
-			if (emit == anchor)
-				emit = anchor + 1;
-			m_Waypoints.Insert(CellWorld(m_PathCells[emit]));
-			m_WaypointCells.Insert(m_PathCells[emit]);
-			anchor = emit;
-			i = emit + 1;
+			anchor = 0;
+			i = 1;
+			while (i < n)
+			{
+				//! Тянем прямую от anchor, пока отрезок anchor→i не пересекает RED.
+				while (i < n && !SegmentCrossesRed(cells[anchor], cells[i]))
+					i = i + 1;
+				//! anchor→i пересекает RED (или i==n). Выпускаем cells[i-1] — последнюю чистую точку.
+				emit = i - 1;
+				if (emit == anchor)
+					emit = anchor + 1;   //! защита (идентичные/смежные точки) — не выпускать anchor дважды
+				m_WaypointCells.Insert(cells[emit]);
+				m_Waypoints.Insert(CellWorld(cells[emit]));
+				anchor = emit;
+				i = emit + 1;
+			}
 		}
 		m_State = STATE_DONE;
 
@@ -922,7 +1028,7 @@ class dmRoadHoneycomb
 	private bool IsRoadCol(int col)
 	{
 		float across = DM_GRID_HEX_SIZE * 0.8660254 * (float)col;
-		return Math.AbsFloat(across) <= DM_GRID_ROAD_HALF_WIDTH;
+		return Math.AbsFloat(across) <= m_RoadHalfWidth;
 	}
 
 	//! Doubled rounding world→cell: row = Round(along / (S*1.5)),

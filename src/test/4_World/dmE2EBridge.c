@@ -2432,8 +2432,6 @@ class dmE2EBridge
 		}
 
 		int widthCells = step.WidthCells;
-		if (widthCells <= 0)
-			widthCells = 90;
 		float lengthMeters = step.LengthMeters;
 		if (lengthMeters <= 0.0)
 			lengthMeters = 260.0;
