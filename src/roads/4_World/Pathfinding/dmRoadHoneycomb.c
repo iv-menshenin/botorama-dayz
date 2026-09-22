@@ -41,12 +41,20 @@ class dmRoadHoneycomb
 	static const int DM_GRID_WIDTH_CELLS = 30;
 	//! Rows colored per tick (the expensive SurfaceY/raycast work is spread).
 	static const int DM_GRID_ROWS_PER_TICK = 3;
-	//! Верх вертикальной капсулы соты над землёй (м) — высота среднего авто (~1.5 м):
-	//! капсула идёт СВЕРХУ-ВНИЗ и ловит низкие/средние объекты (бетон, кузов, остов).
-	static const float DM_GRID_RAY_TOP = 1.5;
-	//! Радиус вертикальной капсулы луча клетки (м) — толстый (0.3): покрывает соту
-	//! целиком (раньше 0.2 был под сноп из 6 диагоналей).
-	static const float DM_GRID_RAY_RADIUS = 0.3;
+	//! Верх вертикального луча соты над землёй в O (м) — выше крыши среднего авто.
+	static const float DM_GRID_RAY_TOP = 2.0;
+	//! Низ вертикального луча соты над землёй в O (м) — над землёй, чтобы не ловить
+	//! террейн как препятствие.
+	static const float DM_GRID_RAY_BOTTOM = 0.3;
+	//! Высота горизонтальных лучей над локальным террейном вершины (м) в исходящей точке.
+	static const float DM_GRID_RAY_HORIZ_HEIGHT_BEG = 0.5;
+	//! Высота горизонтальных лучей над локальным террейном вершины (м) в конечной точке.
+	static const float DM_GRID_RAY_HORIZ_HEIGHT_END = 0.2;
+	//! Тип пересечения всех 4 лучей соты: физическая геометрия (ObjIntersectGeom)
+	//! ловит baked-static ограждения (бетон/забор) по коллизии.
+	static const int DM_GRID_RAY_INTERSECT = ObjIntersectGeom;
+	//! Циркумрадиус гексагона соты (м).
+	static const float DM_GRID_HEX_RADIUS = 0.5;
 	//! Consecutive all-green road rows after which the territory stops growing
 	//! ("the road is clear again").
 	static const int DM_GRID_CLEAR_ROWS = 10;
@@ -178,8 +186,6 @@ class dmRoadHoneycomb
 		for (i = 0; i < total; i++)
 			m_Cells.Insert(CELL_UNSET);
 
-		ScanEntities();
-
 		m_State = STATE_COLORING;
 
 		#ifdef DM_BOT_DEBUG_ROADS
@@ -299,10 +305,6 @@ class dmRoadHoneycomb
 			vector center = CellCenter(row, col);
 			int color = ColorCell(center[0], center[2]);
 			int cidx = CellIndex(row, col);
-			//! Не перетираем RED от ScanEntities (сканбокс+bbox): рейкаст по
-			//! baked-static (остов/седан/контейнер) даёт 0 хитов и вернул бы GREEN.
-			if (m_Cells[cidx] == CELL_RED)
-				color = CELL_RED;
 			m_Cells[cidx] = color;
 			if (IsRoadCol(col) && color != CELL_GREEN)
 				roadClear = false;
@@ -334,7 +336,6 @@ class dmRoadHoneycomb
 		float y1 = GetGame().SurfaceY(cx + h, cz - h);
 		float y2 = GetGame().SurfaceY(cx - h, cz + h);
 		float y3 = GetGame().SurfaceY(cx + h, cz + h);
-		float groundY = (y0 + y1 + y2 + y3) * 0.25;
 
 		if (Math.AbsFloat(y0 - y1) > edgeLimit)
 			return CELL_RED;
@@ -352,188 +353,103 @@ class dmRoadHoneycomb
 		if (GetGame().SurfaceIsSea(cx, cz) || GetGame().SurfaceIsPond(cx, cz))
 			return CELL_RED;
 
-		if (RaycastBlocked(cx, groundY, cz))
+		if (RaycastBlocked(cx, cz))
 			return CELL_RED;
 
 		return CELL_GREEN;
 	}
 
-	//! One vertical capsule through the cell center: from car-roof height
-	//! (groundY + DM_GRID_RAY_TOP) DOWN below the ground (groundY - 0.5), radius
-	//! DM_GRID_RAY_RADIUS. A vertical capsule catches low/mid-height objects the
-	//! diagonal fan missed (concrete barrier ~0.35 m, sedan body ~1.3 m, wreck,
-	//! container). Ground (obj == null at groundY) is skipped — the car drives on
-	//! it; anything with a script object, or a null-obj hit ABOVE the ground
-	//! (top of a concrete barrier/curb), is a hit.
-	//! NOTE: this raycast returns 0 hits against baked-static scene geometry
-	//! (wreck/sedan/container/tent) — ScanEntities() (scan-box + bbox) marks those
-	//! cells RED instead. Kept as a fallback for baked-static blocks that the
-	//! scan-box does not surface (obj == null, outside the entity box) — open tail.
-	private bool RaycastBlocked(float cx, float groundY, float cz)
+	//! Гексагональный веер тонких лучей (flat-top hexagon в плоскости m_Dir/m_Side,
+	//! центр O=(cx,cz), радиус DM_GRID_HEX_RADIUS): 3 диагонали A→D, B→E, C→F (начинающиеся
+	//! на высоте DM_GRID_RAY_HORIZ_HEIGHT_BEG над локальным террейном вершины и
+	//! на высоте DM_GRID_RAY_HORIZ_HEIGHT_END во второй точке) + 1 вертикаль
+	//! в O сверху (groundY + DM_GRID_RAY_TOP) вниз до (groundY + DM_GRID_RAY_BOTTOM).
+	//! Все лучи ТОНКИЕ (radius 0), type = ObjIntersectGeom (ловит baked-static
+	//! ограждения). Хит с физической коллизией (hit.obj != null) — препятствие;
+	//! null-хиты (без коллизии) отбрасываются.
+	private bool RaycastBlocked(float cx, float cz)
 	{
-		//! Одна вертикальная капсула сквозь центр соты: сверху (крыша авто) вниз
-		//! под землю. Ловит низкие/средние объекты (бетон, кузов, остов, контейнер),
-		//! которые диагональный сноп пропускал. Земля/вода (obj == null на groundY)
-		//! пропускается; script-объект или хит ВЫШЕ земли (верх бетона/бордюра) —
-		//! препятствие. pIgnore = m_CarObj: машина и водитель исключаются.
-		ref array<ref RaycastRVResult> vHits;
-		RaycastRVParams vParams;
-		RaycastRVResult vHit;
-		vector vFrom;
-		vector vTo;
-		int i;
-		vFrom = Vector(cx, groundY + DM_GRID_RAY_TOP, cz);
-		vTo = Vector(cx, groundY - 0.5, cz);
-		vParams = new RaycastRVParams(vFrom, vTo, m_CarObj, DM_GRID_RAY_RADIUS);
-		vParams.flags = CollisionFlags.ALLOBJECTS;
-		vParams.type = ObjIntersectGeom;
-		vHits = new array<ref RaycastRVResult>();
-		if (!DayZPhysics.RaycastRVProxy(vParams, vHits))
-			return false;
-		for (i = 0; i < vHits.Count(); i++)
-		{
-			vHit = vHits[i];
-			if (vHit.obj == m_CarObj || vHit.parent == m_CarObj)
-				continue;
-			if (m_DriverObj && (vHit.obj == m_DriverObj || vHit.parent == m_DriverObj))
-				continue;
-			if (vHit.obj != null)
-			{
-				#ifdef DM_BOT_DEBUG_ROADS
-				dmBotLog.Debug("[GRID] blocked: pos=" + vHit.pos + " obj=" + vHit.obj.GetType() + " h=" + vHit.pos[1] + " groundY=" + groundY);
-				#endif
-				return true;
-			}
-			if (vHit.pos[1] > groundY + 0.1)
-			{
-				#ifdef DM_BOT_DEBUG_ROADS
-				dmBotLog.Debug("[GRID] blocked: pos=" + vHit.pos + " obj=null h=" + vHit.pos[1] + " groundY=" + groundY);
-				#endif
-				return true;
-			}
-		}
+		float r = DM_GRID_HEX_RADIUS;
+		float rHalf = r * 0.5;
+		float rCos = r * 0.8660254;
+		vector o = Vector(cx, 0.0, cz);
+		vector a = o - m_Side * rHalf + m_Dir * rCos;
+		vector b = o + m_Side * rHalf + m_Dir * rCos;
+		vector c = o + m_Side * r;
+		vector d = o + m_Side * rHalf - m_Dir * rCos;
+		vector e = o - m_Side * rHalf - m_Dir * rCos;
+		vector f = o - m_Side * r;
+		a[1] = GetGame().SurfaceY(a[0], a[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
+		b[1] = GetGame().SurfaceY(b[0], b[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
+		c[1] = GetGame().SurfaceY(c[0], c[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
+		d[1] = GetGame().SurfaceY(d[0], d[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
+		e[1] = GetGame().SurfaceY(e[0], e[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
+		f[1] = GetGame().SurfaceY(f[0], f[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
+		float groundY = GetGame().SurfaceY(cx, cz);
+		vector vFrom = Vector(cx, groundY + DM_GRID_RAY_TOP, cz);
+		vector vTo = Vector(cx, groundY + DM_GRID_RAY_BOTTOM, cz);
+		if (RayHitsObstacle(a, d))
+			return true;
+		if (RayHitsObstacle(b, e))
+			return true;
+		if (RayHitsObstacle(c, f))
+			return true;
+		if (RayHitsObstacle(vFrom, vTo))
+			return true;
 		return false;
 	}
 
-	//! One-time pass before coloring: scan-box the whole territory for static and
-	//! dynamic entities and mark every cell their world bounding box touches as
-	//! CELL_RED. This catches the scene objects (wreck, sedan, container, tent)
-	//! that the per-cell raycast (RaycastBlocked) never hits. QueryFlags are
-	//! sequential enums, not bitmasks — static and dynamic are two separate calls.
-	private void ScanEntities()
+	//! Один ТОНКИЙ луч (radius 0, type DM_GRID_RAY_INTERSECT = ObjIntersectGeom):
+	//! true, если на луче есть хит с физической коллизией (hit.obj != null).
+	//! Машина/водитель (m_CarObj/m_DriverObj) пропускаются; null-хиты (без коллизии)
+	//! пропускаются молча.
+	private bool RayHitsObstacle(vector from, vector to)
 	{
-		float alongLen = (float)m_RowCount * DM_GRID_CELL_SIZE;
-		float centerAlong = alongLen * 0.5;
-		float halfAlong = centerAlong + 1.0;
-		float halfAcross = (float)m_HalfWidth * DM_GRID_CELL_SIZE + 1.0;
-		float halfY = 3.0;
-		vector center = m_Origin + m_Dir * centerAlong;
-		float halfX = Math.AbsFloat(m_Dir[0]) * halfAlong + Math.AbsFloat(m_Side[0]) * halfAcross;
-		float halfZ = Math.AbsFloat(m_Dir[2]) * halfAlong + Math.AbsFloat(m_Side[2]) * halfAcross;
-		vector minPos = Vector(center[0] - halfX, center[1] - halfY, center[2] - halfZ);
-		vector maxPos = Vector(center[0] + halfX, center[1] + halfY, center[2] + halfZ);
-
-		array<EntityAI> objs = new array<EntityAI>();
-		DayZPlayerUtils.SceneGetEntitiesInBox(minPos, maxPos, objs, QueryFlags.STATIC);
-		array<EntityAI> objsDyn = new array<EntityAI>();
-		DayZPlayerUtils.SceneGetEntitiesInBox(minPos, maxPos, objsDyn, QueryFlags.DYNAMIC);
-
-		int i;
-		Object obj;
-		vector mm[2];
-		vector mn;
-		vector mx;
-		int r0;
-		int r1;
-		int c0;
-		int c1;
-		int minRow;
-		int maxRow;
-		int minCol;
-		int maxCol;
-		int r;
-		int c;
-		int cellIdx;
-
-		for (i = 0; i < objsDyn.Count(); i++)
-			objs.Insert(objsDyn[i]);
+		RaycastRVParams params = new RaycastRVParams(from, to, m_CarObj);
+		params.type = DM_GRID_RAY_INTERSECT;
+		params.flags = CollisionFlags.ALLOBJECTS;
+		params.sorted = true;
+		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>();
+		if (!DayZPhysics.RaycastRVProxy(params, hits))
+			return false;
 
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[GRID] scan: " + objs.Count() + " entities");
+		{
+			int _di;
+			for (_di = 0; _di < hits.Count(); _di++)
+			{
+				RaycastRVResult _h = hits[_di];
+				string _t = "null";
+				if (_h.obj)
+					_t = _h.obj.GetType();
+				dmBotLog.Debug("[GRID] rawHit: ray=" + from + "->" + to + " i=" + _di);
+				dmBotLog.Debug("[GRID] rawHit: obj=" + _t + " pos=" + _h.pos);
+				dmBotLog.Debug("[GRID] rawHit: comp=" + _h.component + " entry=" + _h.entry + " exit=" + _h.exit);
+			}
+		}
 		#endif
 
-		for (i = 0; i < objs.Count(); i++)
+		int i;
+		RaycastRVResult hit;
+		for (i = 0; i < hits.Count(); i++)
 		{
-			obj = objs[i];
-			if (!obj)
+			hit = hits[i];
+			if (m_CarObj && (hit.obj == m_CarObj || hit.parent == m_CarObj))
 				continue;
-			if (ItemBase.Cast(obj) && !IsCarBodyPart(obj.GetType()))
+			if (m_DriverObj && (hit.obj == m_DriverObj || hit.parent == m_DriverObj))
 				continue;
-			obj.ClippingInfo(mm);
-			mn = obj.ModelToWorld(mm[0]);
-			mx = obj.ModelToWorld(mm[1]);
-			r0 = WorldToRow(mn);
-			r1 = WorldToRow(mx);
-			c0 = WorldToCol(mn);
-			c1 = WorldToCol(mx);
-			if (r0 < r1)
+			if (hit.obj != null)
 			{
-				minRow = r0;
-				maxRow = r1;
+				if (hit.obj.IsClothing())
+					continue;
+				if (hit.obj.IsInherited(DeployableContainer_Base))
+					continue;
+				#ifdef DM_BOT_DEBUG_ROADS
+				dmBotLog.Debug("[GRID] blocked: pos=" + hit.pos + " obj=" + hit.obj.GetType());
+				#endif
+				return true;
 			}
-			else
-			{
-				minRow = r1;
-				maxRow = r0;
-			}
-			if (c0 < c1)
-			{
-				minCol = c0;
-				maxCol = c1;
-			}
-			else
-			{
-				minCol = c1;
-				maxCol = c0;
-			}
-			if (minRow < 0)
-				minRow = 0;
-			if (maxRow >= m_RowCount)
-				maxRow = m_RowCount - 1;
-			if (minCol < -m_HalfWidth)
-				minCol = -m_HalfWidth;
-			if (maxCol > m_HalfWidth)
-				maxCol = m_HalfWidth;
-			if (minRow > maxRow || minCol > maxCol)
-				continue;
-			for (r = minRow; r <= maxRow; r++)
-			{
-				for (c = minCol; c <= maxCol; c++)
-				{
-					cellIdx = CellIndex(r, c);
-					m_Cells[cellIdx] = CELL_RED;
-				}
-			}
-			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] scanmark: type=" + obj.GetType() + " rows=[" + minRow + ".." + maxRow + "]");
-			dmBotLog.Debug("[GRID] scanmark: cols=[" + minCol + ".." + maxCol + "]");
-			#endif
 		}
-	}
-
-	//! True when the entity type is a car body part (door/hood/wheel panel) that
-	//! ItemBase.Cast would otherwise treat as loot. Body parts are ItemBase
-	//! (CarDoor : ItemBase), but are solid obstacles on the road — they must stay
-	//! RED instead of being skipped by the loot filter. Wrecks/tents/containers/
-	//! the full car are NOT ItemBase, so they never reach this check.
-	private bool IsCarBodyPart(string typeName)
-	{
-		if (typeName.IndexOf("CivSedan") == 0)
-			return true;
-		if (typeName.IndexOf("Sedan_02") == 0)
-			return true;
-		if (typeName.IndexOf("Hatchback") == 0)
-			return true;
 		return false;
 	}
 
