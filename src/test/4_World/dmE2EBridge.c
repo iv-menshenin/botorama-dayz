@@ -2437,14 +2437,17 @@ class dmE2EBridge
 		if (lengthMeters <= 0.0)
 			lengthMeters = 260.0;
 
+		float t0 = GetGame().GetTickTime();
 		dmRoadHoneycomb.Get().Start(start, d, route, 0, null, null, lengthMeters, widthCells);
 
 		int ticks = 0;
-		while (!dmRoadHoneycomb.Get().IsDone() && !dmRoadHoneycomb.Get().IsFailed() && ticks < 10000)
+		while (!dmRoadHoneycomb.Get().IsDone() && !dmRoadHoneycomb.Get().IsFailed() && ticks < 300000)
 		{
 			dmRoadHoneycomb.Get().Tick(0.016);
 			ticks = ticks + 1;
 		}
+
+		float buildMs = (GetGame().GetTickTime() - t0) * 1000.0;
 
 		string hStatus = "done";
 		if (dmRoadHoneycomb.Get().IsFailed())
@@ -2508,8 +2511,11 @@ class dmE2EBridge
 		dmBotLog.Debug("[E2E] griddump: " + hStatus + " cells=" + cellCount + " route=" + route.Count());
 		#endif
 
+		AppendDump(r, "buildMs=" + buildMs);
+
 		r.Ok = saved;
 		r.Reason = hStatus + " cells=" + cellCount + " route=" + route.Count() + " -> " + dumpPath;
+		r.Reason = r.Reason + " buildMs=" + buildMs;
 	}
 
 	//! Create the parent directory chain of a file path (mirrors dmJsonFile.EnsureDirectory,

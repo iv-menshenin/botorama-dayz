@@ -9,12 +9,14 @@
 //! RED = blocking object (even partially) or slope above ~15° or water;
 //! GREEN = clear, solid, level. SAFE = GREEN with all 6 neighbours GREEN. The
 //! territory is a band along the route direction `d`, growing forward row-by-row
-//! (DM_GRID_ROWS_PER_TICK per tick) until the road is clear again
-//! (DM_GRID_CLEAR_ROWS consecutive all-green road rows). A* runs over SAFE cells
-//! (6 doubled neighbours, doubled-distance heuristic), then the path is smoothed
-//! (string-pulling: cut collinear points, go straight while the segment does not
-//! cross RED cells). Coloring is spread over ticks; mark-safe and pathfinding
-//! run in a single tick each.
+//! until the road is clear again (DM_GRID_CLEAR_ROWS consecutive all-green road
+//! rows). A* runs over SAFE cells (6 doubled neighbours, doubled-distance
+//! heuristic), then the path is smoothed (string-pulling: cut collinear points,
+//! go straight while the segment does not cross RED cells). The WHOLE pipeline is
+//! spread over ticks: coloring advances one sub-step (slope / water / one raycast)
+//! per tick, mark-safe advances DM_GRID_ROWS_PER_TICK rows per tick, and
+//! pathfinding runs goal-BFS / start-BFS / A* / smoothing in bounded per-tick
+//! budgets (DM_GRID_ASTAR_NODES_PER_TICK nodes) so per-tick spikes stay minimal.
 
 class dmRoadHoneycomb
 {
@@ -41,9 +43,12 @@ class dmRoadHoneycomb
 	//! Slope: tan(15°) — a cell whose corner heights differ more than tan*hdist is
 	//! too steep (red). Avoids a trig call per corner pair.
 	static const float DM_GRID_SLOPE_TAN = 0.267949;
-	//! Territory width in DOUBLED cols across the road (half of them empty slots;
-	//! 30 cols each side ≈ ±13 m at 0.5 m hex, S*sqrt(3)/2 = 0.433 per col).
-	static const int DM_GRID_WIDTH_CELLS = 30;
+	//! Road-lane half width (m) for the clear-row check: only cells within ±3 m of
+	//! the centerline count; roadside trees outside the lane are ignored.
+	static const float DM_GRID_ROAD_HALF_WIDTH = 3.0;
+	//! Shoulder half width (m) — half of the road's full width added on each side
+	//! as the driveable gutter. Territory half width = road + shoulder = 6 m.
+	static const float DM_GRID_SHOULDER_HALF_WIDTH = 3.0;
 	//! Rows colored per tick (the expensive SurfaceY/raycast work is spread).
 	static const int DM_GRID_ROWS_PER_TICK = 3;
 	//! Верх вертикального луча соты над землёй в O (м) — выше крыши среднего авто.
@@ -61,14 +66,29 @@ class dmRoadHoneycomb
 	//! Consecutive all-green road rows after which the territory stops growing
 	//! ("the road is clear again").
 	static const int DM_GRID_CLEAR_ROWS = 10;
-	//! Road-lane half width (m) for the clear-row check: only cells within ±3 m of
-	//! the centerline count; roadside trees outside the lane are ignored.
-	static const float DM_GRID_ROAD_HALF_WIDTH = 3.0;
 	//! Territory length hard cap (rows, ~82 m at 0.5 m hex) — a safety net if the
 	//! road never clears; the adaptive stop normally ends coloring far earlier.
 	static const int DM_GRID_MAX_ROWS = 110;
 	//! A* sentinel cost.
 	static const float DM_GRID_INF = 1000000000.0;
+	//! A*/BFS node budget per tick (pops/expansions) — bounds the pathfinding
+	//! per-tick spike.
+	static const int DM_GRID_ASTAR_NODES_PER_TICK = 150;
+
+	//! Coloring sub-steps (one per tick): slope (4 corner SurfaceY), water, then
+	//! one raycast per tick for the 4-cell ray fan (top→bot, ul→lr, ur→ll, vertical).
+	static const int STEP_SLOPE = 0;
+	static const int STEP_WATER = 1;
+	static const int STEP_RAY0 = 2;
+	static const int STEP_RAY1 = 3;
+	static const int STEP_RAY2 = 4;
+	static const int STEP_RAY3 = 5;
+
+	//! Pathfinding sub-phases: goal-cell BFS, start-cell BFS, A*, smoothing.
+	static const int PF_GOAL = 0;
+	static const int PF_START = 1;
+	static const int PF_ASTAR = 2;
+	static const int PF_SMOOTH = 3;
 
 	static dmRoadHoneycomb Get()
 	{
@@ -91,8 +111,34 @@ class dmRoadHoneycomb
 	private int m_ColorRow;
 	private int m_RoadClearRun;
 	private bool m_SeenRed;
+	//! Курсор разметки: текущая колонка и под-шаг (STEP_*) обрабатываемой ячейки.
+	private int m_ColorCol;
+	private int m_ColorStep;
+	//! Высоты 4 углов текущей ячейки (для slope-проверки), накопленные в STEP_SLOPE.
+	private float m_CellY0;
+	private float m_CellY1;
+	private float m_CellY2;
+	private float m_CellY3;
+	//! Накопленная чистота текущего ряда: true, пока ни одна road-ячейка не RED.
+	private bool m_RowRoadClear;
+	//! Курсор MarkSafe (текущий ряд).
+	private int m_MarkRow;
+	//! Фаза pathfinding (PF_*).
+	private int m_PFPhase;
+	//! A* state (persists across ticks): g-cost, parent, settled, min-heap, init flag.
+	private ref array<float> m_AStarG;
+	private ref array<int> m_AStarParent;
+	private ref array<bool> m_AStarSettled;
+	private ref dmRouterMinHeap m_AStarHeap;
+	private bool m_AStarInit;
+	//! Async BFS state (goal/start nearest-safe search): visited, queue, head cursor,
+	//! per-tick budget.
+	private ref array<bool> m_BFSVisited;
+	private ref array<int> m_BFSQueue;
+	private int m_BFSHead;
+	private int m_BFSBudget;
 	//! 6 doubled neighbours (pointy-top) as parallel dcol/drow offset tables,
-	//! shared by MarkSafe/AllNeighborsWalkable/A*/FindNearestSafe:
+	//! shared by MarkSafe/AllNeighborsWalkable/A*/BFS:
 	//! (+2,0) (-2,0) (+1,-1) (-1,-1) (+1,+1) (-1,+1).
 	private ref array<int> m_NeighDCol;
 	private ref array<int> m_NeighDRow;
@@ -125,6 +171,24 @@ class dmRoadHoneycomb
 		m_ColorRow = 0;
 		m_RoadClearRun = 0;
 		m_SeenRed = false;
+		m_ColorCol = 0;
+		m_ColorStep = STEP_SLOPE;
+		m_CellY0 = 0.0;
+		m_CellY1 = 0.0;
+		m_CellY2 = 0.0;
+		m_CellY3 = 0.0;
+		m_RowRoadClear = true;
+		m_MarkRow = 0;
+		m_PFPhase = PF_GOAL;
+		m_AStarG = null;
+		m_AStarParent = null;
+		m_AStarSettled = null;
+		m_AStarHeap = null;
+		m_AStarInit = false;
+		m_BFSVisited = null;
+		m_BFSQueue = null;
+		m_BFSHead = 0;
+		m_BFSBudget = 0;
 		m_Cells = null;
 		m_Route = null;
 		m_RouteIdx = 0;
@@ -156,8 +220,8 @@ class dmRoadHoneycomb
 	//! waypoints and the index of the next waypoint to reach. Resets all state.
 	//! lengthMeters > 0 — фиксированная длина территории (м, без адаптивного
 	//! стопа); widthCells > 0 — ширина территории в doubled-колонках (иначе дефолт
-	//! DM_GRID_WIDTH_CELLS). Диагностический прогон (griddump) передаёт 0/null
-	//! в carObj/driverObj — соты работают без машины и водителя.
+	//! из метров: (road + shoulder) / across-step). Диагностический прогон
+	//! (griddump) передаёт 0/null в carObj/driverObj — соты работают без машины.
 	void Start(vector carPos, vector dir, array<vector> route, int routeIdx, Object carObj, Object driverObj, float lengthMeters, int widthCells)
 	{
 		int i;
@@ -176,7 +240,7 @@ class dmRoadHoneycomb
 		if (widthCells > 0)
 			m_HalfWidth = widthCells;
 		else
-			m_HalfWidth = DM_GRID_WIDTH_CELLS;
+			m_HalfWidth = RoundF((DM_GRID_ROAD_HALF_WIDTH + DM_GRID_SHOULDER_HALF_WIDTH) / (DM_GRID_HEX_SIZE * 0.8660254));
 		m_Width = m_HalfWidth * 2 + 1;
 		if (lengthMeters > 0.0)
 		{
@@ -191,6 +255,12 @@ class dmRoadHoneycomb
 		m_ColorRow = 0;
 		m_RoadClearRun = 0;
 		m_SeenRed = false;
+		m_ColorCol = -m_HalfWidth;
+		m_ColorStep = STEP_SLOPE;
+		m_RowRoadClear = true;
+		m_MarkRow = 0;
+		m_PFPhase = PF_GOAL;
+		m_AStarInit = false;
 		m_RouteIdx = routeIdx;
 		m_GoalRow = 0;
 		m_GoalCol = 0;
@@ -215,8 +285,7 @@ class dmRoadHoneycomb
 		#endif
 	}
 
-	//! Advance the pipeline. Coloring runs DM_GRID_ROWS_PER_TICK rows; mark-safe
-	//! and pathfinding each run in one tick.
+	//! Advance the pipeline: each state advances a bounded slice of work per tick.
 	void Tick(float dt)
 	{
 		if (m_State == STATE_COLORING)
@@ -224,7 +293,7 @@ class dmRoadHoneycomb
 		else if (m_State == STATE_MARK_SAFE)
 			MarkSafe();
 		else if (m_State == STATE_PATHFINDING)
-			Pathfind();
+			TickPathfinding();
 	}
 
 	bool IsDone()
@@ -293,48 +362,153 @@ class dmRoadHoneycomb
 		return CellCenter(col, row);
 	}
 
-	//! Color up to DM_GRID_ROWS_PER_TICK rows forward; stop growing the territory
-	//! as soon as the road-lane has been clear for DM_GRID_CLEAR_ROWS rows.
+	//! Color one sub-step (slope / water / one raycast) for the current cell; then
+	//! advance the cursor. The invalid (odd col+row) slots are skipped as cursor
+	//! movement, leaving them UNSET.
 	private void TickColor()
 	{
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Road.GridColor");
 		#endif
 
-		int rowsDone = 0;
-		while (rowsDone < DM_GRID_ROWS_PER_TICK && m_ColorRow < m_RowCount)
+		while (m_ColorRow < m_RowCount)
 		{
-			ColorRow(m_ColorRow);
-			m_ColorRow = m_ColorRow + 1;
-			rowsDone = rowsDone + 1;
-			if (!m_FixedLength && m_RoadClearRun >= DM_GRID_CLEAR_ROWS)
-			{
-				m_RowCount = m_ColorRow;
+			while (m_ColorCol <= m_HalfWidth && (m_ColorCol + m_ColorRow) % 2 != 0)
+				m_ColorCol = m_ColorCol + 1;
+			if (m_ColorCol <= m_HalfWidth)
 				break;
-			}
+			EndRow();
 		}
 		if (m_ColorRow >= m_RowCount)
+		{
+			m_MarkRow = 0;
 			m_State = STATE_MARK_SAFE;
+			return;
+		}
+		StepColorCell();
 	}
 
-	//! Color one row (across the territory width) and update the road-clear run.
-	//! Only valid (even col+row) cells are colored; odd-parity slots stay UNSET.
-	private void ColorRow(int r)
+	//! One sub-step for the cell at (m_ColorCol, m_ColorRow).
+	private void StepColorCell()
 	{
-		bool roadClear = true;
-		int col;
-		for (col = -m_HalfWidth; col <= m_HalfWidth; col++)
+		int col = m_ColorCol;
+		int row = m_ColorRow;
+		vector center = CellCenter(col, row);
+		float cx = center[0];
+		float cz = center[2];
+		int cidx = CellIndex(col, row);
+		float s = DM_GRID_HEX_SIZE;
+		float sCos = s * 0.8660254;
+		float sHalf = s * 0.5;
+		vector o = Vector(cx, 0.0, cz);
+		vector from;
+		vector to;
+		float h;
+		float groundY;
+
+		if (m_ColorStep == STEP_SLOPE)
 		{
-			if ((col + r) % 2 != 0)
-				continue;
-			vector center = CellCenter(col, r);
-			int color = ColorCell(center[0], center[2]);
-			int cidx = CellIndex(col, r);
-			m_Cells[cidx] = color;
-			if (IsRoadCol(col) && color != CELL_GREEN)
-				roadClear = false;
+			h = DM_GRID_HEX_SIZE * 0.5;
+			m_CellY0 = GetGame().SurfaceY(cx - h, cz - h);
+			m_CellY1 = GetGame().SurfaceY(cx + h, cz - h);
+			m_CellY2 = GetGame().SurfaceY(cx - h, cz + h);
+			m_CellY3 = GetGame().SurfaceY(cx + h, cz + h);
+			if (SlopeTooSteep())
+			{
+				MarkCellRed(col, cidx);
+				return;
+			}
+			m_ColorStep = STEP_WATER;
+			return;
 		}
-		if (roadClear)
+		if (m_ColorStep == STEP_WATER)
+		{
+			if (GetGame().SurfaceIsSea(cx, cz) || GetGame().SurfaceIsPond(cx, cz))
+			{
+				MarkCellRed(col, cidx);
+				return;
+			}
+			m_ColorStep = STEP_RAY0;
+			return;
+		}
+		if (m_ColorStep == STEP_RAY0)
+		{
+			from = o + m_Dir * s;
+			to = o - m_Dir * s;
+			from[1] = GetGame().SurfaceY(from[0], from[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
+			to[1] = GetGame().SurfaceY(to[0], to[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
+			if (RayHitsObstacle(from, to))
+			{
+				MarkCellRed(col, cidx);
+				return;
+			}
+			m_ColorStep = STEP_RAY1;
+			return;
+		}
+		if (m_ColorStep == STEP_RAY1)
+		{
+			from = o - m_Side * sCos + m_Dir * sHalf;
+			to = o + m_Side * sCos - m_Dir * sHalf;
+			from[1] = GetGame().SurfaceY(from[0], from[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
+			to[1] = GetGame().SurfaceY(to[0], to[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
+			if (RayHitsObstacle(from, to))
+			{
+				MarkCellRed(col, cidx);
+				return;
+			}
+			m_ColorStep = STEP_RAY2;
+			return;
+		}
+		if (m_ColorStep == STEP_RAY2)
+		{
+			from = o + m_Side * sCos + m_Dir * sHalf;
+			to = o - m_Side * sCos - m_Dir * sHalf;
+			from[1] = GetGame().SurfaceY(from[0], from[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
+			to[1] = GetGame().SurfaceY(to[0], to[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
+			if (RayHitsObstacle(from, to))
+			{
+				MarkCellRed(col, cidx);
+				return;
+			}
+			m_ColorStep = STEP_RAY3;
+			return;
+		}
+		// STEP_RAY3: vertical ray through O.
+		groundY = GetGame().SurfaceY(cx, cz);
+		from = Vector(cx, groundY + DM_GRID_RAY_TOP, cz);
+		to = Vector(cx, groundY + DM_GRID_RAY_BOTTOM, cz);
+		if (RayHitsObstacle(from, to))
+		{
+			MarkCellRed(col, cidx);
+			return;
+		}
+		MarkCellGreen(cidx);
+	}
+
+	//! Cell is RED (any of the four rays / slope / water): record it, fold the
+	//! road-clear flag if it is inside the lane, advance the cursor.
+	private void MarkCellRed(int col, int cidx)
+	{
+		m_Cells[cidx] = CELL_RED;
+		if (IsRoadCol(col))
+			m_RowRoadClear = false;
+		m_ColorCol = m_ColorCol + 1;
+		m_ColorStep = STEP_SLOPE;
+	}
+
+	//! Cell is GREEN (all checks passed): record it, advance the cursor.
+	private void MarkCellGreen(int cidx)
+	{
+		m_Cells[cidx] = CELL_GREEN;
+		m_ColorCol = m_ColorCol + 1;
+		m_ColorStep = STEP_SLOPE;
+	}
+
+	//! End of a row: update the road-clear run from the accumulated row-clear flag,
+	//! then advance to the next row and apply the adaptive stop.
+	private void EndRow()
+	{
+		if (m_RowRoadClear)
 		{
 			//! Считаем чистые ряды только ПОСЛЕ препятствия (m_SeenRed): иначе
 			//! территория гасится на первых же чистых рядах ДО барьера (дорога
@@ -347,80 +521,31 @@ class dmRoadHoneycomb
 			m_SeenRed = true;
 			m_RoadClearRun = 0;
 		}
+		m_ColorCol = -m_HalfWidth;
+		m_ColorRow = m_ColorRow + 1;
+		m_ColorStep = STEP_SLOPE;
+		m_RowRoadClear = true;
+		if (!m_FixedLength && m_RoadClearRun >= DM_GRID_CLEAR_ROWS)
+			m_RowCount = m_ColorRow;
 	}
 
-	//! Classify one cell (RED/GREEN). The diagonal ray fan catches the vertical
-	//! face of a barrier/trunk (horizontal surface normal); a steep slope
-	//! or water marks the cell red.
-	private int ColorCell(float cx, float cz)
+	//! Slope check over the 4 accumulated corner heights: any edge/diagonal pair
+	//! differing by more than tan*hdist is too steep.
+	private bool SlopeTooSteep()
 	{
-		float h = DM_GRID_HEX_SIZE * 0.5;
 		float edgeLimit = DM_GRID_SLOPE_TAN * DM_GRID_HEX_SIZE;
 		float diagLimit = edgeLimit * 1.414214;
-		float y0 = GetGame().SurfaceY(cx - h, cz - h);
-		float y1 = GetGame().SurfaceY(cx + h, cz - h);
-		float y2 = GetGame().SurfaceY(cx - h, cz + h);
-		float y3 = GetGame().SurfaceY(cx + h, cz + h);
-
-		if (Math.AbsFloat(y0 - y1) > edgeLimit)
-			return CELL_RED;
-		if (Math.AbsFloat(y0 - y2) > edgeLimit)
-			return CELL_RED;
-		if (Math.AbsFloat(y3 - y1) > edgeLimit)
-			return CELL_RED;
-		if (Math.AbsFloat(y3 - y2) > edgeLimit)
-			return CELL_RED;
-		if (Math.AbsFloat(y0 - y3) > diagLimit)
-			return CELL_RED;
-		if (Math.AbsFloat(y1 - y2) > diagLimit)
-			return CELL_RED;
-
-		if (GetGame().SurfaceIsSea(cx, cz) || GetGame().SurfaceIsPond(cx, cz))
-			return CELL_RED;
-
-		if (RaycastBlocked(cx, cz))
-			return CELL_RED;
-
-		return CELL_GREEN;
-	}
-
-	//! Гексагональный веер тонких лучей (pointy-top hexagon в плоскости m_Dir/m_Side,
-	//! центр O=(cx,cz), циркумрадиус DM_GRID_HEX_SIZE): 3 диагонали top→bottom,
-	//! upper-left→lower-right, upper-right→lower-left (верхние вершины начинаются
-	//! на высоте DM_GRID_RAY_HORIZ_HEIGHT_BEG над локальным террейном вершины,
-	//! нижние — на высоте DM_GRID_RAY_HORIZ_HEIGHT_END) + 1 вертикаль
-	//! в O сверху (groundY + DM_GRID_RAY_TOP) вниз до (groundY + DM_GRID_RAY_BOTTOM).
-	//! Все лучи ТОНКИЕ (radius 0), type = ObjIntersectGeom (ловит baked-static
-	//! ограждения). Хит с физической коллизией (hit.obj != null) — препятствие;
-	//! null-хиты (без коллизии) отбрасываются.
-	private bool RaycastBlocked(float cx, float cz)
-	{
-		float s = DM_GRID_HEX_SIZE;
-		float sCos = s * 0.8660254;
-		float sHalf = s * 0.5;
-		vector o = Vector(cx, 0.0, cz);
-		vector top = o + m_Dir * s;
-		vector bot = o - m_Dir * s;
-		vector ur = o + m_Side * sCos + m_Dir * sHalf;
-		vector ul = o - m_Side * sCos + m_Dir * sHalf;
-		vector lr = o + m_Side * sCos - m_Dir * sHalf;
-		vector ll = o - m_Side * sCos - m_Dir * sHalf;
-		top[1] = GetGame().SurfaceY(top[0], top[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
-		ur[1] = GetGame().SurfaceY(ur[0], ur[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
-		ul[1] = GetGame().SurfaceY(ul[0], ul[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
-		bot[1] = GetGame().SurfaceY(bot[0], bot[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
-		lr[1] = GetGame().SurfaceY(lr[0], lr[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
-		ll[1] = GetGame().SurfaceY(ll[0], ll[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
-		float groundY = GetGame().SurfaceY(cx, cz);
-		vector vFrom = Vector(cx, groundY + DM_GRID_RAY_TOP, cz);
-		vector vTo = Vector(cx, groundY + DM_GRID_RAY_BOTTOM, cz);
-		if (RayHitsObstacle(top, bot))
+		if (Math.AbsFloat(m_CellY0 - m_CellY1) > edgeLimit)
 			return true;
-		if (RayHitsObstacle(ul, lr))
+		if (Math.AbsFloat(m_CellY0 - m_CellY2) > edgeLimit)
 			return true;
-		if (RayHitsObstacle(ur, ll))
+		if (Math.AbsFloat(m_CellY3 - m_CellY1) > edgeLimit)
 			return true;
-		if (RayHitsObstacle(vFrom, vTo))
+		if (Math.AbsFloat(m_CellY3 - m_CellY2) > edgeLimit)
+			return true;
+		if (Math.AbsFloat(m_CellY0 - m_CellY3) > diagLimit)
+			return true;
+		if (Math.AbsFloat(m_CellY1 - m_CellY2) > diagLimit)
 			return true;
 		return false;
 	}
@@ -479,26 +604,42 @@ class dmRoadHoneycomb
 		return false;
 	}
 
-	//! Mark SAFE: a GREEN cell with all 6 neighbours walkable (GREEN or SAFE).
-	//! Only valid (even col+row) cells are considered.
+	//! Mark SAFE (a GREEN cell with all 6 neighbours walkable) — advances
+	//! DM_GRID_ROWS_PER_TICK rows per tick, then enters pathfinding.
 	private void MarkSafe()
 	{
-		int r;
-		int col;
-		for (r = 0; r < m_RowCount; r++)
+		#ifdef DM_BOT_PROFILE
+		dmBotSpan _span = dmBotProfiler.Start("Road.MarkSafe");
+		#endif
+
+		int rowsDone = 0;
+		while (rowsDone < DM_GRID_ROWS_PER_TICK && m_MarkRow < m_RowCount)
 		{
-			for (col = -m_HalfWidth; col <= m_HalfWidth; col++)
-			{
-				if ((col + r) % 2 != 0)
-					continue;
-				int idx = CellIndex(col, r);
-				if (m_Cells[idx] != CELL_GREEN)
-					continue;
-				if (AllNeighborsWalkable(col, r))
-					m_Cells[idx] = CELL_SAFE;
-			}
+			MarkRow(m_MarkRow);
+			m_MarkRow = m_MarkRow + 1;
+			rowsDone = rowsDone + 1;
 		}
-		m_State = STATE_PATHFINDING;
+		if (m_MarkRow >= m_RowCount)
+		{
+			m_State = STATE_PATHFINDING;
+			StartPathfinding();
+		}
+	}
+
+	//! Mark one row's GREEN cells as SAFE when all 6 neighbours are walkable.
+	private void MarkRow(int r)
+	{
+		int col;
+		for (col = -m_HalfWidth; col <= m_HalfWidth; col++)
+		{
+			if ((col + r) % 2 != 0)
+				continue;
+			int idx = CellIndex(col, r);
+			if (m_Cells[idx] != CELL_GREEN)
+				continue;
+			if (AllNeighborsWalkable(col, r))
+				m_Cells[idx] = CELL_SAFE;
+		}
 	}
 
 	private bool AllNeighborsWalkable(int col, int row)
@@ -521,14 +662,29 @@ class dmRoadHoneycomb
 		return color == CELL_GREEN || color == CELL_SAFE;
 	}
 
-	//! Goal + A* + smoothing.
-	private void Pathfind()
+	//! Dispatch pathfinding by sub-phase (goal BFS → start BFS → A* → smoothing).
+	private void TickPathfinding()
 	{
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Road.GridPath");
 		#endif
 
-		if (!FindGoal())
+		if (m_PFPhase == PF_GOAL)
+			TickGoal();
+		else if (m_PFPhase == PF_START)
+			TickStart();
+		else if (m_PFPhase == PF_ASTAR)
+			TickAStar();
+		else if (m_PFPhase == PF_SMOOTH)
+			SmoothPath();
+	}
+
+	//! Enter pathfinding: resolve the goal waypoint (cheap loop), then begin the
+	//! goal-cell BFS (or skip it when the waypoint's own cell is already SAFE).
+	private void StartPathfinding()
+	{
+		m_PFPhase = PF_GOAL;
+		if (!FindGoalWaypoint())
 		{
 			m_State = STATE_FAILED;
 			#ifdef DM_BOT_DEBUG_ROADS
@@ -536,20 +692,19 @@ class dmRoadHoneycomb
 			#endif
 			return;
 		}
-		if (!FindPathAStar())
+		int goalIdx = CellIndex(m_GoalCol, m_GoalRow);
+		if (m_Cells[goalIdx] == CELL_SAFE)
 		{
-			m_State = STATE_FAILED;
-			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] FAILED astar");
-			#endif
-			return;
+			m_GoalCell = goalIdx;
+			BeginStartPhase();
 		}
-		SmoothPath();
+		else
+			StartBFS(m_GoalCol, m_GoalRow);
 	}
 
 	//! Goal = the route waypoint deepest inside the territory (the "far side"),
 	//! snapped to the nearest SAFE cell. Fallback: the far-center cell.
-	private bool FindGoal()
+	private bool FindGoalWaypoint()
 	{
 		if (!m_Route)
 			return false;
@@ -581,53 +736,159 @@ class dmRoadHoneycomb
 		}
 		m_GoalRow = goalRow;
 		m_GoalCol = goalCol;
-		m_GoalCell = FindNearestSafe(goalCol, goalRow);
-		if (m_GoalCell < 0)
-			return false;
-		m_StartCell = FindNearestSafe(0, 0);
-		if (m_StartCell < 0)
-			return false;
 		return true;
 	}
 
-	//! A* over SAFE cells (6-directional) from the start (nearest safe to the car)
-	//! to the goal, using a binary min-heap and a doubled-distance heuristic.
-	private bool FindPathAStar()
+	//! Advance the goal-cell BFS one tick; on find, begin the start-cell search.
+	private void TickGoal()
+	{
+		int found;
+		bool exhausted;
+		TickBFS(found, exhausted);
+		if (found >= 0)
+		{
+			m_GoalCell = found;
+			BeginStartPhase();
+			return;
+		}
+		if (exhausted)
+		{
+			m_State = STATE_FAILED;
+			#ifdef DM_BOT_DEBUG_ROADS
+			dmBotLog.Debug("[GRID] FAILED goal");
+			#endif
+		}
+	}
+
+	//! Advance the start-cell BFS one tick; on find, initialize A*.
+	private void TickStart()
+	{
+		int found;
+		bool exhausted;
+		TickBFS(found, exhausted);
+		if (found >= 0)
+		{
+			m_StartCell = found;
+			m_PFPhase = PF_ASTAR;
+			return;
+		}
+		if (exhausted)
+		{
+			m_State = STATE_FAILED;
+			#ifdef DM_BOT_DEBUG_ROADS
+			dmBotLog.Debug("[GRID] FAILED start");
+			#endif
+		}
+	}
+
+	//! Begin the start-cell search (nearest SAFE to (0,0) = the car): skip straight
+	//! to A* when the origin cell is already SAFE.
+	private void BeginStartPhase()
+	{
+		int startIdx = CellIndex(0, 0);
+		if (m_Cells[startIdx] == CELL_SAFE)
+		{
+			m_StartCell = startIdx;
+			m_PFPhase = PF_ASTAR;
+		}
+		else
+		{
+			StartBFS(0, 0);
+			m_PFPhase = PF_START;
+		}
+	}
+
+	//! Initialize the async BFS: reset visited, enqueue the start cell.
+	private void StartBFS(int col, int row)
 	{
 		int cellCount = m_RowCount * m_Width;
-		ref array<float> g = new array<float>();
-		ref array<int> parent = new array<int>();
-		ref array<bool> settled = new array<bool>();
 		int i;
+		m_BFSVisited = new array<bool>();
 		for (i = 0; i < cellCount; i++)
-		{
-			g.Insert(DM_GRID_INF);
-			parent.Insert(-1);
-			settled.Insert(false);
-		}
-		g[m_StartCell] = 0.0;
-		ref dmRouterMinHeap heap = new dmRouterMinHeap();
-		heap.Push(m_StartCell, Heuristic(m_StartCell));
+			m_BFSVisited.Insert(false);
+		m_BFSQueue = new array<int>();
+		int startIdx = CellIndex(col, row);
+		m_BFSQueue.Insert(startIdx);
+		m_BFSVisited[startIdx] = true;
+		m_BFSHead = 0;
+		m_BFSBudget = DM_GRID_ASTAR_NODES_PER_TICK;
+	}
 
+	//! Advance the BFS one tick (≤ budget expansions). foundIdx = the first SAFE
+	//! cell reached (or -1), exhausted = queue drained without finding.
+	private void TickBFS(out int foundIdx, out bool exhausted)
+	{
+		foundIdx = -1;
+		exhausted = false;
+		int processed = 0;
 		int cur;
+		int ccol;
+		int crow;
+		int nb;
+		int ncol;
+		int nrow;
+		int nIdx;
+		while (m_BFSHead < m_BFSQueue.Count() && processed < m_BFSBudget)
+		{
+			cur = m_BFSQueue[m_BFSHead];
+			m_BFSHead = m_BFSHead + 1;
+			processed = processed + 1;
+			ccol = CellCol(cur);
+			crow = CellRow(cur);
+			for (nb = 0; nb < m_NeighDCol.Count(); nb++)
+			{
+				ncol = ccol + m_NeighDCol[nb];
+				nrow = crow + m_NeighDRow[nb];
+				if (ncol < -m_HalfWidth || ncol > m_HalfWidth || nrow < 0 || nrow >= m_RowCount)
+					continue;
+				nIdx = CellIndex(ncol, nrow);
+				if (m_BFSVisited[nIdx])
+					continue;
+				m_BFSVisited[nIdx] = true;
+				if (m_Cells[nIdx] == CELL_SAFE)
+				{
+					foundIdx = nIdx;
+					return;
+				}
+				m_BFSQueue.Insert(nIdx);
+			}
+		}
+		if (m_BFSHead >= m_BFSQueue.Count())
+			exhausted = true;
+	}
+
+	//! A* over SAFE cells (6-directional) — advances ≤ DM_GRID_ASTAR_NODES_PER_TICK
+	//! pops per tick. Initializes g/parent/settled/heap once (m_AStarInit), then
+	//! pops + relaxes until the goal is settled (reconstruct + SMOOTH) or the heap
+	//! empties (FAILED).
+	private void TickAStar()
+	{
+		int processed;
+		int cur;
+		float fPop;
 		int col;
 		int row;
 		int nb;
 		int ncol;
 		int nrow;
 		int nIdx;
-		float fPop;
 		float gu;
 		float nd;
-		while (heap.Count() > 0)
+
+		if (!m_AStarInit)
+			InitAStar();
+
+		processed = 0;
+		while (processed < DM_GRID_ASTAR_NODES_PER_TICK && m_AStarHeap.Count() > 0)
 		{
-			heap.Pop(cur, fPop);
-			if (settled[cur])
+			m_AStarHeap.Pop(cur, fPop);
+			processed = processed + 1;
+			if (m_AStarSettled[cur])
 				continue;
-			settled[cur] = true;
+			m_AStarSettled[cur] = true;
 			if (cur == m_GoalCell)
 				break;
-			gu = g[cur];
+			gu = m_AStarG[cur];
 			col = CellCol(cur);
 			row = CellRow(cur);
 			for (nb = 0; nb < m_NeighDCol.Count(); nb++)
@@ -639,29 +900,71 @@ class dmRoadHoneycomb
 				nIdx = CellIndex(ncol, nrow);
 				if (m_Cells[nIdx] != CELL_SAFE)
 					continue;
-				if (settled[nIdx])
+				if (m_AStarSettled[nIdx])
 					continue;
 				nd = gu + DM_GRID_HEX_SIZE;
-				if (nd < g[nIdx])
+				if (nd < m_AStarG[nIdx])
 				{
-					g[nIdx] = nd;
-					parent[nIdx] = cur;
-					heap.Push(nIdx, nd + Heuristic(nIdx));
+					m_AStarG[nIdx] = nd;
+					m_AStarParent[nIdx] = cur;
+					m_AStarHeap.Push(nIdx, nd + Heuristic(nIdx));
 				}
 			}
 		}
 
-		if (!settled[m_GoalCell])
-			return false;
+		if (m_AStarSettled[m_GoalCell])
+		{
+			if (ReconstructPath())
+			{
+				m_PFPhase = PF_SMOOTH;
+				return;
+			}
+			m_State = STATE_FAILED;
+			return;
+		}
+		if (m_AStarHeap.Count() == 0)
+		{
+			m_State = STATE_FAILED;
+			#ifdef DM_BOT_DEBUG_ROADS
+			dmBotLog.Debug("[GRID] FAILED astar");
+			#endif
+		}
+	}
 
+	//! One-time A* init: g = INF, parent = -1, settled = false, seed heap with
+	//! (start, Heuristic(start)).
+	private void InitAStar()
+	{
+		int cellCount = m_RowCount * m_Width;
+		int i;
+		m_AStarG = new array<float>();
+		m_AStarParent = new array<int>();
+		m_AStarSettled = new array<bool>();
+		for (i = 0; i < cellCount; i++)
+		{
+			m_AStarG.Insert(DM_GRID_INF);
+			m_AStarParent.Insert(-1);
+			m_AStarSettled.Insert(false);
+		}
+		m_AStarG[m_StartCell] = 0.0;
+		m_AStarHeap = new dmRouterMinHeap();
+		m_AStarHeap.Push(m_StartCell, Heuristic(m_StartCell));
+		m_AStarInit = true;
+	}
+
+	//! Walk the parent chain from the goal back to the start, emit m_PathCells in
+	//! forward order.
+	private bool ReconstructPath()
+	{
 		ref array<int> rev = new array<int>();
-		cur = m_GoalCell;
+		int cur = m_GoalCell;
+		int nb;
 		while (true)
 		{
 			rev.Insert(cur);
 			if (cur == m_StartCell)
 				break;
-			nb = parent[cur];
+			nb = m_AStarParent[cur];
 			if (nb < 0)
 			{
 				dmBotLog.Error("[GRID] A* broken parent chain");
@@ -670,6 +973,7 @@ class dmRoadHoneycomb
 			cur = nb;
 		}
 		m_PathCells = new array<int>();
+		int i;
 		for (i = rev.Count() - 1; i >= 0; i--)
 			m_PathCells.Insert(rev[i]);
 		return true;
@@ -757,53 +1061,6 @@ class dmRoadHoneycomb
 			t = t + stepT;
 		}
 		return false;
-	}
-
-	//! Nearest SAFE cell to (col, row), searched by BFS over the 6-neighbor
-	//! doubled adjacency (BFS distance == doubled distance on a uniform hex grid).
-	private int FindNearestSafe(int col, int row)
-	{
-		int startIdx = CellIndex(col, row);
-		if (m_Cells[startIdx] == CELL_SAFE)
-			return startIdx;
-		ref array<bool> visited = new array<bool>();
-		int cellCount = m_RowCount * m_Width;
-		int i;
-		for (i = 0; i < cellCount; i++)
-			visited.Insert(false);
-		ref array<int> queue = new array<int>();
-		queue.Insert(startIdx);
-		visited[startIdx] = true;
-		int head = 0;
-		int cur;
-		int ccol;
-		int crow;
-		int nb;
-		int ncol;
-		int nrow;
-		int nIdx;
-		while (head < queue.Count())
-		{
-			cur = queue[head];
-			head = head + 1;
-			ccol = CellCol(cur);
-			crow = CellRow(cur);
-			for (nb = 0; nb < m_NeighDCol.Count(); nb++)
-			{
-				ncol = ccol + m_NeighDCol[nb];
-				nrow = crow + m_NeighDRow[nb];
-				if (ncol < -m_HalfWidth || ncol > m_HalfWidth || nrow < 0 || nrow >= m_RowCount)
-					continue;
-				nIdx = CellIndex(ncol, nrow);
-				if (visited[nIdx])
-					continue;
-				visited[nIdx] = true;
-				if (m_Cells[nIdx] == CELL_SAFE)
-					return nIdx;
-				queue.Insert(nIdx);
-			}
-		}
-		return -1;
 	}
 
 	//! World XZ position of a cell center (Y is the car's height; callers that need
