@@ -721,11 +721,12 @@ class dmRoadHoneycomb
 	}
 
 	//! "Green middles" of one row: split the valid SAFE columns into contiguous
-	//! intervals (step 2 apart) and emit the center cell of each interval. The
-	//! center is taken over the road-lane sub-segment (IsRoadCol) when it holds
-	//! more than 5 cells — otherwise over the whole interval (shoulder noise would
-	//! skew a clear road's center). For an even count the right of the two middle
-	//! cells is taken (deterministic).
+	//! intervals (step 2 apart) and emit the center of each. The rule is global
+	//! per row: if the row's total road-lane cells (SAFE && IsRoadCol) exceed 5,
+	//! emit only the centers of the road-lane sub-segments and ignore intervals
+	//! fully on the shoulder (0 road cells); otherwise emit the center of every
+	//! SAFE interval (shoulder included), as before. For an even count the right
+	//! of the two middle cells is taken (deterministic).
 	private void GreenMiddles(int row, out array<int> middles)
 	{
 		int col0;
@@ -739,9 +740,20 @@ class dmRoadHoneycomb
 		int roadLast;
 		int roadCount;
 		int rc;
-		int segFirst;
-		int segLast;
+		int totalRoadCells;
+		int i;
+		array<int> firstArr;
+		array<int> lastArr;
+		array<int> roadFirstArr;
+		array<int> roadLastArr;
+		array<int> roadCountArr;
 		middles = new array<int>();
+		firstArr = new array<int>();
+		lastArr = new array<int>();
+		roadFirstArr = new array<int>();
+		roadLastArr = new array<int>();
+		roadCountArr = new array<int>();
+		totalRoadCells = 0;
 		col0 = -m_HalfWidth;
 		if ((col0 + row) % 2 != 0)
 			col0 = col0 + 1;
@@ -776,20 +788,33 @@ class dmRoadHoneycomb
 				}
 				rc = rc + 2;
 			}
-			if (roadCount > 5)
-			{
-				segFirst = roadFirst;
-				segLast = roadLast;
-			}
-			else
-			{
-				segFirst = first;
-				segLast = last;
-			}
-			count = (segLast - segFirst) / 2 + 1;
-			mid = segFirst + 2 * (count / 2);
-			middles.Insert(CellIndex(mid, row));
+			firstArr.Insert(first);
+			lastArr.Insert(last);
+			roadFirstArr.Insert(roadFirst);
+			roadLastArr.Insert(roadLast);
+			roadCountArr.Insert(roadCount);
+			totalRoadCells = totalRoadCells + roadCount;
 			col = c;
+		}
+		if (totalRoadCells > 5)
+		{
+			for (i = 0; i < firstArr.Count(); i++)
+			{
+				if (roadCountArr[i] == 0)
+					continue;
+				count = (roadLastArr[i] - roadFirstArr[i]) / 2 + 1;
+				mid = roadFirstArr[i] + 2 * (count / 2);
+				middles.Insert(CellIndex(mid, row));
+			}
+		}
+		else
+		{
+			for (i = 0; i < firstArr.Count(); i++)
+			{
+				count = (lastArr[i] - firstArr[i]) / 2 + 1;
+				mid = firstArr[i] + 2 * (count / 2);
+				middles.Insert(CellIndex(mid, row));
+			}
 		}
 	}
 
