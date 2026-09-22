@@ -25,6 +25,7 @@ Input 1 — griddump.json (produced by the E2E `griddump` op):
       "Status":    "done",
       "CellCount": 35763,
       "Cells":     [ { "Row": 0, "Col": -90, "Color": 2, "X": .., "Z": .. }, ... ],
+      "WaypointCells": [ { "Row": .., "Col": .., "Color": 0, "X": .., "Z": .. }, ... ],
       "Route":     [ [x, y, z], ... ],
       "LeftEdge":  [ [x, y, z], ... ],
       "RightEdge": [ [x, y, z], ... ]
@@ -33,6 +34,9 @@ Input 1 — griddump.json (produced by the E2E `griddump` op):
     Cell "Color": 0 = unset (white), 1 = RED, 2 = GREEN, 3 = SAFE (dark green).
     Cell "Row"/"Col" are the doubled coords (row along, col across); "X"/"Z" are
     the world center of the hexagon. Odd (col+row) slots are skipped by the dump.
+
+    "WaypointCells" are the final smoothed waypoint cells (the effective-center
+    line). Their hexes are drawn black and a black polyline joins their centers.
 
 Input 2 — scanbox.json (objects from the E2E `scanbox` op; the op dumps one
 line per entity as "ent[D|S] <ClassName> pos=(x,y,z)" — the tester converts
@@ -100,6 +104,7 @@ def main(argv):
     status = grid.get("Status", "")
 
     cells = grid.get("Cells", [])
+    waypoint_cells = grid.get("WaypointCells", [])
     route = grid.get("Route", [])
     left_edge = grid.get("LeftEdge", [])
     right_edge = grid.get("RightEdge", [])
@@ -124,6 +129,10 @@ def main(argv):
     for cell in cells:
         gx, gy = project((float(cell["X"]), 0.0, float(cell["Z"])), origin, dirv, sidev)
         cell_pts.append((gx, gy))
+
+    waypoint_keys = set()
+    for wcell in waypoint_cells:
+        waypoint_keys.add((int(wcell["Row"]), int(wcell["Col"])))
 
     def feature_pts(points):
         return [project(as_float3(p), origin, dirv, sidev) for p in points]
@@ -173,6 +182,8 @@ def main(argv):
     for idx, cell in enumerate(cells):
         color = int(cell["Color"])
         fill = COLOR_FILL.get(color, "#ffffff")
+        if (int(cell["Row"]), int(cell["Col"])) in waypoint_keys:
+            fill = "#000000"
         gx, gy = cell_pts[idx]
         pts = []
         for k in range(6):
@@ -204,6 +215,18 @@ def main(argv):
     parts.append(polyline(left_edge, "#999999", "6,4"))
     parts.append(polyline(right_edge, "#999999", "6,4"))
     parts.append(polyline(route, "#000000"))
+
+    # Waypoint centerline: project each waypoint cell's world X/Z (no Y) and draw
+    # a black polyline joining them, in the dump's list order.
+    way_pts = []
+    for wcell in waypoint_cells:
+        gx, gy = project((float(wcell["X"]), 0.0, float(wcell["Z"])), origin, dirv, sidev)
+        way_pts.append("{0},{1}".format(sx(gx), sy(gy)))
+    if way_pts:
+        parts.append(
+            '<polyline points="{0}" fill="none" stroke="#000000" '
+            'stroke-width="3"/>'.format(" ".join(way_pts))
+        )
 
     # Objects (scanbox) with their ClassName as a label.
     for name, pos in objects:

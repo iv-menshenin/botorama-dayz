@@ -10,13 +10,15 @@
 //! GREEN = clear, solid, level. SAFE = GREEN with all 6 neighbours GREEN. The
 //! territory is a band along the route direction `d`, growing forward row-by-row
 //! until the road is clear again (DM_GRID_CLEAR_ROWS consecutive all-green road
-//! rows). A* runs over SAFE cells (6 doubled neighbours, doubled-distance
-//! heuristic), then the path is smoothed (string-pulling: cut collinear points,
-//! go straight while the segment does not cross RED cells). The WHOLE pipeline is
-//! spread over ticks: coloring advances one sub-step (slope / water / one raycast)
-//! per tick, mark-safe advances DM_GRID_ROWS_PER_TICK rows per tick, and
-//! pathfinding runs goal-BFS / start-BFS / A* / smoothing in bounded per-tick
-//! budgets (DM_GRID_ASTAR_NODES_PER_TICK nodes) so per-tick spikes stay minimal.
+//! rows). The route is a CENTERLINE: one waypoint per row, snapped to the middle
+//! of the widest walkable (GREEN/SAFE) corridor across the road ("effective
+//! center"), so a partially blocked road pushes the line toward the open side.
+//! The centerline is then smoothed (string-pulling: cut collinear points, go
+//! straight while the segment does not cross RED cells). The pipeline runs
+//! COLORING (one sub-step per tick: slope / water / one raycast) → MARK_SAFE
+//! (DM_GRID_ROWS_PER_TICK rows per tick) → a bounded synchronous centerline +
+//! smoothing pass (O(rows×width) + O(n) string-pulling), so per-tick spikes stay
+//! minimal.
 
 class dmRoadHoneycomb
 {
@@ -26,9 +28,8 @@ class dmRoadHoneycomb
 	static const int STATE_IDLE = 0;
 	static const int STATE_COLORING = 1;
 	static const int STATE_MARK_SAFE = 2;
-	static const int STATE_PATHFINDING = 3;
-	static const int STATE_DONE = 4;
-	static const int STATE_FAILED = 5;
+	static const int STATE_DONE = 3;
+	static const int STATE_FAILED = 4;
 
 	//! Cell colors.
 	static const int CELL_UNSET = 0;
@@ -69,11 +70,6 @@ class dmRoadHoneycomb
 	//! Territory length hard cap (rows, ~82 m at 0.5 m hex) — a safety net if the
 	//! road never clears; the adaptive stop normally ends coloring far earlier.
 	static const int DM_GRID_MAX_ROWS = 110;
-	//! A* sentinel cost.
-	static const float DM_GRID_INF = 1000000000.0;
-	//! A*/BFS node budget per tick (pops/expansions) — bounds the pathfinding
-	//! per-tick spike.
-	static const int DM_GRID_ASTAR_NODES_PER_TICK = 150;
 
 	//! Coloring sub-steps (one per tick): slope (4 corner SurfaceY), water, then
 	//! one raycast per tick for the 4-cell ray fan (top→bot, ul→lr, ur→ll, vertical).
@@ -83,12 +79,6 @@ class dmRoadHoneycomb
 	static const int STEP_RAY1 = 3;
 	static const int STEP_RAY2 = 4;
 	static const int STEP_RAY3 = 5;
-
-	//! Pathfinding sub-phases: goal-cell BFS, start-cell BFS, A*, smoothing.
-	static const int PF_GOAL = 0;
-	static const int PF_START = 1;
-	static const int PF_ASTAR = 2;
-	static const int PF_SMOOTH = 3;
 
 	static dmRoadHoneycomb Get()
 	{
@@ -123,34 +113,18 @@ class dmRoadHoneycomb
 	private bool m_RowRoadClear;
 	//! Курсор MarkSafe (текущий ряд).
 	private int m_MarkRow;
-	//! Фаза pathfinding (PF_*).
-	private int m_PFPhase;
-	//! A* state (persists across ticks): g-cost, parent, settled, min-heap, init flag.
-	private ref array<float> m_AStarG;
-	private ref array<int> m_AStarParent;
-	private ref array<bool> m_AStarSettled;
-	private ref dmRouterMinHeap m_AStarHeap;
-	private bool m_AStarInit;
-	//! Async BFS state (goal/start nearest-safe search): visited, queue, head cursor,
-	//! per-tick budget.
-	private ref array<bool> m_BFSVisited;
-	private ref array<int> m_BFSQueue;
-	private int m_BFSHead;
-	private int m_BFSBudget;
 	//! 6 doubled neighbours (pointy-top) as parallel dcol/drow offset tables,
-	//! shared by MarkSafe/AllNeighborsWalkable/A*/BFS:
+	//! shared by MarkSafe/AllNeighborsWalkable:
 	//! (+2,0) (-2,0) (+1,-1) (-1,-1) (+1,+1) (-1,+1).
 	private ref array<int> m_NeighDCol;
 	private ref array<int> m_NeighDRow;
 	private ref array<int> m_Cells;
 	private ref array<vector> m_Route;
 	private int m_RouteIdx;
-	private int m_StartCell;
-	private int m_GoalCell;
 	private int m_GoalRow;
-	private int m_GoalCol;
 	private ref array<int> m_PathCells;
 	private ref array<vector> m_Waypoints;
+	private ref array<int> m_WaypointCells;
 	//! Машина (pIgnore в райкасте клеток) и её водитель: без них соты видят
 	//! собственный кузов в первых рядах территории как «препятствие», раньше
 	//! времени ставят m_SeenRed и гасят грид на ~10 м, не дойдя до реального барьера.
@@ -179,25 +153,13 @@ class dmRoadHoneycomb
 		m_CellY3 = 0.0;
 		m_RowRoadClear = true;
 		m_MarkRow = 0;
-		m_PFPhase = PF_GOAL;
-		m_AStarG = null;
-		m_AStarParent = null;
-		m_AStarSettled = null;
-		m_AStarHeap = null;
-		m_AStarInit = false;
-		m_BFSVisited = null;
-		m_BFSQueue = null;
-		m_BFSHead = 0;
-		m_BFSBudget = 0;
 		m_Cells = null;
 		m_Route = null;
 		m_RouteIdx = 0;
-		m_StartCell = -1;
-		m_GoalCell = -1;
 		m_GoalRow = 0;
-		m_GoalCol = 0;
 		m_PathCells = null;
 		m_Waypoints = null;
+		m_WaypointCells = null;
 		m_CarObj = null;
 		m_DriverObj = null;
 		m_NeighDCol = new array<int>();
@@ -259,15 +221,11 @@ class dmRoadHoneycomb
 		m_ColorStep = STEP_SLOPE;
 		m_RowRoadClear = true;
 		m_MarkRow = 0;
-		m_PFPhase = PF_GOAL;
-		m_AStarInit = false;
 		m_RouteIdx = routeIdx;
 		m_GoalRow = 0;
-		m_GoalCol = 0;
-		m_StartCell = -1;
-		m_GoalCell = -1;
 		m_PathCells = null;
 		m_Waypoints = null;
+		m_WaypointCells = null;
 
 		m_Route = new array<vector>();
 		for (i = 0; i < route.Count(); i++)
@@ -292,8 +250,6 @@ class dmRoadHoneycomb
 			TickColor();
 		else if (m_State == STATE_MARK_SAFE)
 			MarkSafe();
-		else if (m_State == STATE_PATHFINDING)
-			TickPathfinding();
 	}
 
 	bool IsDone()
@@ -315,6 +271,24 @@ class dmRoadHoneycomb
 		int i;
 		for (i = 0; i < m_Waypoints.Count(); i++)
 			waypoints.Insert(m_Waypoints[i]);
+		return true;
+	}
+
+	//! Final smoothed waypoint cells (cell indices, same order as GetPath) — the
+	//! effective-center line after string-pulling, for the E2E grid dump.
+	int GetWaypointCount()
+	{
+		if (!m_WaypointCells)
+			return 0;
+		return m_WaypointCells.Count();
+	}
+
+	bool GetWaypointCell(int i, out int col, out int row)
+	{
+		if (!m_WaypointCells || i < 0 || i >= m_WaypointCells.Count())
+			return false;
+		col = CellCol(m_WaypointCells[i]);
+		row = CellRow(m_WaypointCells[i]);
 		return true;
 	}
 
@@ -620,10 +594,7 @@ class dmRoadHoneycomb
 			rowsDone = rowsDone + 1;
 		}
 		if (m_MarkRow >= m_RowCount)
-		{
-			m_State = STATE_PATHFINDING;
-			StartPathfinding();
-		}
+			BuildCenterlineAndSmooth();
 	}
 
 	//! Mark one row's GREEN cells as SAFE when all 6 neighbours are walkable.
@@ -662,56 +633,15 @@ class dmRoadHoneycomb
 		return color == CELL_GREEN || color == CELL_SAFE;
 	}
 
-	//! Dispatch pathfinding by sub-phase (goal BFS → start BFS → A* → smoothing).
-	private void TickPathfinding()
-	{
-		#ifdef DM_BOT_PROFILE
-		dmBotSpan _span = dmBotProfiler.Start("Road.GridPath");
-		#endif
-
-		if (m_PFPhase == PF_GOAL)
-			TickGoal();
-		else if (m_PFPhase == PF_START)
-			TickStart();
-		else if (m_PFPhase == PF_ASTAR)
-			TickAStar();
-		else if (m_PFPhase == PF_SMOOTH)
-			SmoothPath();
-	}
-
-	//! Enter pathfinding: resolve the goal waypoint (cheap loop), then begin the
-	//! goal-cell BFS (or skip it when the waypoint's own cell is already SAFE).
-	private void StartPathfinding()
-	{
-		m_PFPhase = PF_GOAL;
-		if (!FindGoalWaypoint())
-		{
-			m_State = STATE_FAILED;
-			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] FAILED goal");
-			#endif
-			return;
-		}
-		int goalIdx = CellIndex(m_GoalCol, m_GoalRow);
-		if (m_Cells[goalIdx] == CELL_SAFE)
-		{
-			m_GoalCell = goalIdx;
-			BeginStartPhase();
-		}
-		else
-			StartBFS(m_GoalCol, m_GoalRow);
-	}
-
-	//! Goal = the route waypoint deepest inside the territory (the "far side"),
-	//! snapped to the nearest SAFE cell. Fallback: the far-center cell.
+	//! Goal = the deepest route waypoint row inside the territory; fallback: the
+	//! far row (m_RowCount - 1). Only the row matters — the centerline walks row
+	//! by row and picks each row's effective center.
 	private bool FindGoalWaypoint()
 	{
 		if (!m_Route)
 			return false;
 		int goalRow = m_RowCount - 1;
-		int goalCol = 0;
 		int bestRow = -1;
-		int bestCol = 0;
 		int i;
 		for (i = m_RouteIdx; i < m_Route.Count(); i++)
 		{
@@ -721,311 +651,200 @@ class dmRoadHoneycomb
 			WorldToCell(wp, col, row);
 			if (row < 0 || row >= m_RowCount)
 				continue;
-			if (col < -m_HalfWidth || col > m_HalfWidth)
-				continue;
 			if (row > bestRow)
-			{
 				bestRow = row;
-				bestCol = col;
-			}
 		}
 		if (bestRow >= 0)
-		{
 			goalRow = bestRow;
-			goalCol = bestCol;
-		}
 		m_GoalRow = goalRow;
-		m_GoalCol = goalCol;
 		return true;
 	}
 
-	//! Advance the goal-cell BFS one tick; on find, begin the start-cell search.
-	private void TickGoal()
+	//! Build the centerline, then smooth it into waypoints. Goal = the deepest
+	//! route waypoint inside the territory (FindGoalWaypoint), snapped per-row to
+	//! the effective center of the walkable corridor; on any failure the detour
+	//! is marked FAILED.
+	private void BuildCenterlineAndSmooth()
 	{
-		int found;
-		bool exhausted;
-		TickBFS(found, exhausted);
-		if (found >= 0)
-		{
-			m_GoalCell = found;
-			BeginStartPhase();
-			return;
-		}
-		if (exhausted)
+		if (!FindGoalWaypoint())
 		{
 			m_State = STATE_FAILED;
 			#ifdef DM_BOT_DEBUG_ROADS
 			dmBotLog.Debug("[GRID] FAILED goal");
 			#endif
-		}
-	}
-
-	//! Advance the start-cell BFS one tick; on find, initialize A*.
-	private void TickStart()
-	{
-		int found;
-		bool exhausted;
-		TickBFS(found, exhausted);
-		if (found >= 0)
-		{
-			m_StartCell = found;
-			m_PFPhase = PF_ASTAR;
 			return;
 		}
-		if (exhausted)
+		if (!BuildCenterline())
 		{
 			m_State = STATE_FAILED;
 			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] FAILED start");
+			dmBotLog.Debug("[GRID] FAILED centerline");
 			#endif
-		}
-	}
-
-	//! Begin the start-cell search (nearest SAFE to (0,0) = the car): skip straight
-	//! to A* when the origin cell is already SAFE.
-	private void BeginStartPhase()
-	{
-		int startIdx = CellIndex(0, 0);
-		if (m_Cells[startIdx] == CELL_SAFE)
-		{
-			m_StartCell = startIdx;
-			m_PFPhase = PF_ASTAR;
-		}
-		else
-		{
-			StartBFS(0, 0);
-			m_PFPhase = PF_START;
-		}
-	}
-
-	//! Initialize the async BFS: reset visited, enqueue the start cell.
-	private void StartBFS(int col, int row)
-	{
-		int cellCount = m_RowCount * m_Width;
-		int i;
-		m_BFSVisited = new array<bool>();
-		for (i = 0; i < cellCount; i++)
-			m_BFSVisited.Insert(false);
-		m_BFSQueue = new array<int>();
-		int startIdx = CellIndex(col, row);
-		m_BFSQueue.Insert(startIdx);
-		m_BFSVisited[startIdx] = true;
-		m_BFSHead = 0;
-		m_BFSBudget = DM_GRID_ASTAR_NODES_PER_TICK;
-	}
-
-	//! Advance the BFS one tick (≤ budget expansions). foundIdx = the first SAFE
-	//! cell reached (or -1), exhausted = queue drained without finding.
-	private void TickBFS(out int foundIdx, out bool exhausted)
-	{
-		foundIdx = -1;
-		exhausted = false;
-		int processed = 0;
-		int cur;
-		int ccol;
-		int crow;
-		int nb;
-		int ncol;
-		int nrow;
-		int nIdx;
-		while (m_BFSHead < m_BFSQueue.Count() && processed < m_BFSBudget)
-		{
-			cur = m_BFSQueue[m_BFSHead];
-			m_BFSHead = m_BFSHead + 1;
-			processed = processed + 1;
-			ccol = CellCol(cur);
-			crow = CellRow(cur);
-			for (nb = 0; nb < m_NeighDCol.Count(); nb++)
-			{
-				ncol = ccol + m_NeighDCol[nb];
-				nrow = crow + m_NeighDRow[nb];
-				if (ncol < -m_HalfWidth || ncol > m_HalfWidth || nrow < 0 || nrow >= m_RowCount)
-					continue;
-				nIdx = CellIndex(ncol, nrow);
-				if (m_BFSVisited[nIdx])
-					continue;
-				m_BFSVisited[nIdx] = true;
-				if (m_Cells[nIdx] == CELL_SAFE)
-				{
-					foundIdx = nIdx;
-					return;
-				}
-				m_BFSQueue.Insert(nIdx);
-			}
-		}
-		if (m_BFSHead >= m_BFSQueue.Count())
-			exhausted = true;
-	}
-
-	//! A* over SAFE cells (6-directional) — advances ≤ DM_GRID_ASTAR_NODES_PER_TICK
-	//! pops per tick. Initializes g/parent/settled/heap once (m_AStarInit), then
-	//! pops + relaxes until the goal is settled (reconstruct + SMOOTH) or the heap
-	//! empties (FAILED).
-	private void TickAStar()
-	{
-		int processed;
-		int cur;
-		float fPop;
-		int col;
-		int row;
-		int nb;
-		int ncol;
-		int nrow;
-		int nIdx;
-		float gu;
-		float nd;
-
-		if (!m_AStarInit)
-			InitAStar();
-
-		processed = 0;
-		while (processed < DM_GRID_ASTAR_NODES_PER_TICK && m_AStarHeap.Count() > 0)
-		{
-			m_AStarHeap.Pop(cur, fPop);
-			processed = processed + 1;
-			if (m_AStarSettled[cur])
-				continue;
-			m_AStarSettled[cur] = true;
-			if (cur == m_GoalCell)
-				break;
-			gu = m_AStarG[cur];
-			col = CellCol(cur);
-			row = CellRow(cur);
-			for (nb = 0; nb < m_NeighDCol.Count(); nb++)
-			{
-				ncol = col + m_NeighDCol[nb];
-				nrow = row + m_NeighDRow[nb];
-				if (ncol < -m_HalfWidth || ncol > m_HalfWidth || nrow < 0 || nrow >= m_RowCount)
-					continue;
-				nIdx = CellIndex(ncol, nrow);
-				if (m_Cells[nIdx] != CELL_SAFE)
-					continue;
-				if (m_AStarSettled[nIdx])
-					continue;
-				nd = gu + DM_GRID_HEX_SIZE;
-				if (nd < m_AStarG[nIdx])
-				{
-					m_AStarG[nIdx] = nd;
-					m_AStarParent[nIdx] = cur;
-					m_AStarHeap.Push(nIdx, nd + Heuristic(nIdx));
-				}
-			}
-		}
-
-		if (m_AStarSettled[m_GoalCell])
-		{
-			if (ReconstructPath())
-			{
-				m_PFPhase = PF_SMOOTH;
-				return;
-			}
-			m_State = STATE_FAILED;
 			return;
 		}
-		if (m_AStarHeap.Count() == 0)
-		{
-			m_State = STATE_FAILED;
-			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] FAILED astar");
-			#endif
-		}
+		SmoothPath();
 	}
 
-	//! One-time A* init: g = INF, parent = -1, settled = false, seed heap with
-	//! (start, Heuristic(start)).
-	private void InitAStar()
+	//! One cell per row (0..m_GoalRow), each at the effective center of that row's
+	//! walkable corridor. prevCol carries continuity from the previous row (start
+	//! at col=0, the road centerline).
+	private bool BuildCenterline()
 	{
-		int cellCount = m_RowCount * m_Width;
-		int i;
-		m_AStarG = new array<float>();
-		m_AStarParent = new array<int>();
-		m_AStarSettled = new array<bool>();
-		for (i = 0; i < cellCount; i++)
-		{
-			m_AStarG.Insert(DM_GRID_INF);
-			m_AStarParent.Insert(-1);
-			m_AStarSettled.Insert(false);
-		}
-		m_AStarG[m_StartCell] = 0.0;
-		m_AStarHeap = new dmRouterMinHeap();
-		m_AStarHeap.Push(m_StartCell, Heuristic(m_StartCell));
-		m_AStarInit = true;
-	}
-
-	//! Walk the parent chain from the goal back to the start, emit m_PathCells in
-	//! forward order.
-	private bool ReconstructPath()
-	{
-		ref array<int> rev = new array<int>();
-		int cur = m_GoalCell;
-		int nb;
-		while (true)
-		{
-			rev.Insert(cur);
-			if (cur == m_StartCell)
-				break;
-			nb = m_AStarParent[cur];
-			if (nb < 0)
-			{
-				dmBotLog.Error("[GRID] A* broken parent chain");
-				return false;
-			}
-			cur = nb;
-		}
 		m_PathCells = new array<int>();
-		int i;
-		for (i = rev.Count() - 1; i >= 0; i--)
-			m_PathCells.Insert(rev[i]);
+		int prevCol = 0;
+		int centerCol;
+		int row;
+		for (row = 0; row <= m_GoalRow; row++)
+		{
+			if (!CenterColForRow(row, prevCol, centerCol))
+				return false;
+			m_PathCells.Insert(CellIndex(centerCol, row));
+			prevCol = centerCol;
+		}
 		return true;
 	}
 
-	//! Doubled hex distance heuristic (admissible for 6-directional): hex steps
-	//! = |drow| + max(0, (|dcol| - |drow|)/2), times DM_GRID_HEX_SIZE (uniform
-	//! step cost — the scale cancels and does not affect optimality).
-	private float Heuristic(int idx)
+	//! Effective center of one row: split the walkable (GREEN/SAFE) valid slots
+	//! into connected intervals (step 2 apart), pick the interval containing
+	//! prevCol (else the interval whose middle is closest), then step toward that
+	//! interval's middle by at most one column. prevCol is never a valid cell of
+	//! this row (adjacent rows have opposite column parity), so a ±1 step is the
+	//! forward-diagonal neighbour — this keeps the centerline a connected hex path.
+	//! If the gradual ±1 step is blocked (RED / out of bounds — the corridor gap is
+	//! wider than one cell, e.g. a barrier's end face), we jump to the interval
+	//! middle instead; that jump's segment is validated by SmoothPath.
+	private bool CenterColForRow(int row, int prevCol, out int centerCol)
 	{
-		int col = CellCol(idx);
-		int row = CellRow(idx);
-		int dcol = col - m_GoalCol;
-		int drow = row - m_GoalRow;
-		int adc = dcol;
-		int adr = drow;
-		if (adc < 0)
-			adc = -adc;
-		if (adr < 0)
-			adr = -adr;
-		float steps = (float)adr;
-		if (adc > adr)
-			steps = steps + ((float)adc - (float)adr) * 0.5;
-		return steps * DM_GRID_HEX_SIZE;
+		centerCol = prevCol;
+		int col0 = -m_HalfWidth;
+		if ((col0 + row) % 2 != 0)
+			col0 = col0 + 1;
+
+		bool haveInterval = false;
+		int chosenFirst = 0;
+		int chosenLast = 0;
+		float chosenDist = 0.0;
+
+		int col = col0;
+		int first;
+		int last;
+		int c;
+		float mid;
+		float dist;
+		int target;
+		int cand;
+		while (col <= m_HalfWidth)
+		{
+			if (!IsWalkable(m_Cells[CellIndex(col, row)]))
+			{
+				col = col + 2;
+				continue;
+			}
+			first = col;
+			last = col;
+			c = col + 2;
+			while (c <= m_HalfWidth && IsWalkable(m_Cells[CellIndex(c, row)]))
+			{
+				last = c;
+				c = c + 2;
+			}
+			if (prevCol >= first && prevCol <= last)
+			{
+				chosenFirst = first;
+				chosenLast = last;
+				haveInterval = true;
+				break;
+			}
+			mid = (float)(first + last) * 0.5;
+			dist = Math.AbsFloat(mid - (float)prevCol);
+			if (!haveInterval || dist < chosenDist)
+			{
+				haveInterval = true;
+				chosenFirst = first;
+				chosenLast = last;
+				chosenDist = dist;
+			}
+			col = c;
+		}
+		if (!haveInterval)
+		{
+			centerCol = prevCol;
+			return false;
+		}
+		target = SnapInterval(chosenFirst, chosenLast, prevCol);
+		//! Постепенный шаг к середине коридора (≤1 колонки): связный hex-путь.
+		if (Math.AbsFloat((float)(target - prevCol)) <= 1.0)
+			cand = target;
+		else if (target > prevCol)
+			cand = prevCol + 1;
+		else
+			cand = prevCol - 1;
+		//! Если постепенный шаг заблокирован (RED/за границей — разрыв коридора шире
+		//! 1 соты, напр. торцевая грань барьера), прыгаем к середине интервала target
+		//! (target всегда walkable — он внутри выбранного интервала). Отрезок прыжка
+		//! валидирует SmoothPath (SegmentCrossesRed).
+		if (cand >= -m_HalfWidth && cand <= m_HalfWidth && IsWalkable(m_Cells[CellIndex(cand, row)]))
+			centerCol = cand;
+		else
+			centerCol = target;
+		return true;
 	}
 
-	//! String-pulling over the SAFE cell path: cut collinear points, and advance
-	//! each segment straight while it does not cross a RED cell.
+	//! The valid cell of [first..last] nearest the interval's middle (step 2);
+	//! when the middle falls between two cells, pick the one closer to prevCol.
+	private int SnapInterval(int first, int last, int prevCol)
+	{
+		int span = (last - first) / 2;
+		int lowK = span / 2;
+		int highK = span - lowK;
+		if (lowK == highK)
+			return first + 2 * lowK;
+		int lowCol = first + 2 * lowK;
+		int highCol = first + 2 * highK;
+		float dLow = Math.AbsFloat((float)lowCol - (float)prevCol);
+		float dHigh = Math.AbsFloat((float)highCol - (float)prevCol);
+		if (dLow <= dHigh)
+			return lowCol;
+		return highCol;
+	}
+
+	//! String-pulling over the walkable centerline: cut collinear points, and
+	//! advance each segment straight while it does not cross a RED cell.
 	private void SmoothPath()
 	{
 		m_Waypoints = new array<vector>();
+		m_WaypointCells = new array<int>();
 		int n = m_PathCells.Count();
+		int anchor;
+		int i;
+		int emit;
 		if (n == 0)
 		{
 			m_State = STATE_FAILED;
 			return;
 		}
 		m_Waypoints.Insert(CellWorld(m_PathCells[0]));
+		m_WaypointCells.Insert(m_PathCells[0]);
 		if (n == 1)
 		{
 			m_State = STATE_DONE;
 			return;
 		}
-		int anchor = 0;
-		int front = 1;
-		while (front < n)
+		anchor = 0;
+		i = 1;
+		while (i < n)
 		{
-			while (front + 1 < n && !SegmentCrossesRed(m_PathCells[anchor], m_PathCells[front + 1]))
-				front = front + 1;
-			m_Waypoints.Insert(CellWorld(m_PathCells[front]));
-			anchor = front;
-			front = front + 1;
+			//! Тянем прямую от anchor, пока отрезок anchor→i не пересекает RED.
+			while (i < n && !SegmentCrossesRed(m_PathCells[anchor], m_PathCells[i]))
+				i = i + 1;
+			//! anchor→i теперь пересекает RED (или i==n). Выпускаем path[i-1] — последнюю чистую точку.
+			emit = i - 1;
+			if (emit == anchor)
+				emit = anchor + 1;
+			m_Waypoints.Insert(CellWorld(m_PathCells[emit]));
+			m_WaypointCells.Insert(m_PathCells[emit]);
+			anchor = emit;
+			i = emit + 1;
 		}
 		m_State = STATE_DONE;
 
@@ -1034,8 +853,8 @@ class dmRoadHoneycomb
 		#endif
 	}
 
-	//! True when the straight segment between two SAFE cell centers crosses a RED
-	//! cell (sampled at half-cell steps in doubled float space).
+	//! True when the straight segment between two walkable cell centers crosses a
+	//! RED cell (sampled at half-cell steps in doubled float space).
 	private bool SegmentCrossesRed(int a, int b)
 	{
 		float cola = (float)CellCol(a);

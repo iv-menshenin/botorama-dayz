@@ -105,6 +105,7 @@ class dmGridDump
 	string Status;
 	int CellCount;
 	ref array<ref dmGridDumpCell> Cells;
+	ref array<ref dmGridDumpCell> WaypointCells;
 	ref array<vector> Route;
 	ref array<vector> LeftEdge;
 	ref array<vector> RightEdge;
@@ -2491,6 +2492,27 @@ class dmE2EBridge
 			}
 		}
 		dump.CellCount = cellCount;
+
+		dump.WaypointCells = new array<ref dmGridDumpCell>();
+		int wcount = dmRoadHoneycomb.Get().GetWaypointCount();
+		int wi2;
+		int wcol;
+		int wrow;
+		dmGridDumpCell wcell;
+		for (wi2 = 0; wi2 < wcount; wi2++)
+		{
+			if (dmRoadHoneycomb.Get().GetWaypointCell(wi2, wcol, wrow))
+			{
+				wcell = new dmGridDumpCell();
+				wcell.Row = wrow;
+				wcell.Col = wcol;
+				wcell.Color = 0;
+				center = dmRoadHoneycomb.Get().GetCellCenter(wcol, wrow);
+				wcell.X = center[0];
+				wcell.Z = center[2];
+				dump.WaypointCells.Insert(wcell);
+			}
+		}
 
 		int ri;
 		for (ri = 0; ri < route.Count(); ri++)
