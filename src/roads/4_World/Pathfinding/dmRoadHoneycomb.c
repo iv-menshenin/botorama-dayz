@@ -11,14 +11,16 @@
 //! band along the route direction `d`, growing forward row-by-row until the road
 //! is clear again (DM_GRID_CLEAR_ROWS consecutive all-green road rows). Its
 //! half-width is the MEASURED road width (dmRoadProbe.RoadWidth), so the grid is
-//! 2× the road. The route is a shortest path on a layered graph: per row we keep
-//! the "green middles" (centers of the SAFE intervals), every vertex of one row
-//! connects to every vertex of the next row (a forward edge, valid iff the
-//! straight segment between the cell centers does not cross a RED cell; weight =
-//! XZ length), and a forward DP finds the shortest entry→exit path. No A* — the
-//! full per-row path is then collapsed by string-pulling to its turning points
-//! (straight stretches merge into single waypoints, segments re-validated against
-//! RED). The pipeline runs COLORING (one sub-step per tick: slope / water / one
+//! 2× the road. The route is a shortest path on a layered graph over KEYFRAMES:
+//! walking every 2nd row (so a stable corridor's center column does not wobble
+//! with hex parity), we keep the "green middles" (centers of the SAFE intervals)
+//! and emit a vertex only where a middle CHANGES relative to the previous kept
+//! row (a shift >±1 column, or a split/merge). Every keyframe vertex connects to
+//! every vertex of the previous keyframe (a forward edge, valid iff the straight
+//! segment between the cell centers does not cross a RED cell; weight = XZ
+//! length), and a forward DP finds the shortest entry→exit path. No A*, no
+//! string-pulling — the emitted waypoints ARE the keyframe vertices. The pipeline
+//! runs COLORING (one sub-step per tick: slope / water / one
 //! raycast) → MARK_SAFE (DM_GRID_ROWS_PER_TICK rows per tick) → a bounded
 //! synchronous graph build (O(rows×width²) for the DP edges), so per-tick spikes
 //! stay minimal.
@@ -283,8 +285,8 @@ class dmRoadHoneycomb
 		return true;
 	}
 
-	//! Final waypoint cells (cell indices, same order as GetPath) — the collapsed
-	//! path (turning points after string-pulling), for the E2E grid dump.
+	//! Final waypoint cells (cell indices, same order as GetPath) — the keyframe
+	//! vertices of the corridor-center trace, for the E2E grid dump.
 	int GetWaypointCount()
 	{
 		if (!m_WaypointCells)
@@ -757,15 +759,35 @@ class dmRoadHoneycomb
 		}
 	}
 
-	//! Build the layered graph route: entry = nearest SAFE to (0,0), exit = nearest
-	//! SAFE to the goal waypoint. Vertices are the entry, then one "green middle"
-	//! per row from the entry row to the exit row, then the exit. Every vertex of
-	//! one row connects to every vertex of the next row (a forward edge, valid iff
-	//! the straight segment between their centers does not cross a RED cell; weight
-	//! = XZ length). A forward DP finds the shortest entry→exit path; then the
-	//! per-row path is collapsed to its turning points (string-pulling, segments
-	//! re-validated against RED) so redundant straight stretches merge into single
-	//! vertices. On any failure — FAILED.
+	//! True when the current row's middle columns differ from the previous
+	//! processed row's (a split/merge changes the count; a shift of more than ±1
+	//! column counts as a change — ±1 wobble from hex parity is ignored).
+	private bool MidsChanged(array<int> aCols, array<int> bCols)
+	{
+		if (aCols.Count() != bCols.Count())
+			return true;
+		int i;
+		int diff;
+		for (i = 0; i < aCols.Count(); i++)
+		{
+			diff = aCols[i] - bCols[i];
+			if (diff < 0)
+				diff = -diff;
+			if (diff > 1)
+				return true;
+		}
+		return false;
+	}
+
+	//! Build the graph route as a deterministic centerline trace over every 2nd
+	//! row: entry = nearest SAFE to (0,0), exit = nearest SAFE to the goal
+	//! waypoint. A KEYFRAME is emitted only when a row's "green middles" (centers
+	//! of the SAFE intervals, columns) change vs the previous processed row (shift
+	//! > ±1 column, or a split/merge): the entry layer, then the keyframe layers,
+	//! then the exit layer. Edges are full bipartite forward between adjacent
+	//! layers (valid iff SegmentCrossesRed is false; weight = XZ length), and a
+	//! forward DP picks the shortest entry→exit path. The keyframes themselves are
+	//! the waypoints (no string-pulling). On any failure — FAILED.
 	private void BuildGraphRoute()
 	{
 		int entryCell;
@@ -774,10 +796,11 @@ class dmRoadHoneycomb
 		int exitRow;
 		ref array<int> vertCells;
 		ref array<int> layerStart;
-		int layer;
 		int r;
 		int mi;
 		array<int> middles;
+		array<int> prevCols;
+		array<int> curCols;
 		int vcount;
 		int layerCount;
 		ref array<float> dist;
@@ -796,10 +819,6 @@ class dmRoadHoneycomb
 		int cur;
 		int pi;
 		int cell;
-		ref array<int> cells;
-		int n;
-		int anchor;
-		int emit;
 
 		if (!FindGoalWaypoint())
 		{
@@ -847,23 +866,42 @@ class dmRoadHoneycomb
 		vertCells.Insert(entryCell);
 		layerStart.Insert(0);
 
-		layer = 1;
-		for (r = entryRow; r <= exitRow; r++)
+		prevCols = null;
+		for (r = entryRow; r <= exitRow; r = r + 2)
 		{
-			layerStart.Insert(vertCells.Count());
 			GreenMiddles(r, middles);
+			if (middles.Count() == 0)
+			{
+				m_State = STATE_FAILED;
+				#ifdef DM_BOT_DEBUG_ROADS
+				dmBotLog.Debug("[GRID] FAILED corridor ended");
+				#endif
+				return;
+			}
+			curCols = new array<int>();
 			for (mi = 0; mi < middles.Count(); mi++)
 			{
-				vertCells.Insert(middles[mi]);
+				curCols.Insert(CellCol(middles[mi]));
 			}
-			layer = layer + 1;
+			if (prevCols)
+			{
+				if (MidsChanged(curCols, prevCols))
+				{
+					layerStart.Insert(vertCells.Count());
+					for (mi = 0; mi < middles.Count(); mi++)
+					{
+						vertCells.Insert(middles[mi]);
+					}
+				}
+			}
+			prevCols = curCols;
 		}
 		layerStart.Insert(vertCells.Count());
 		vertCells.Insert(exitCell);
 		layerStart.Insert(vertCells.Count());
 
 		vcount = vertCells.Count();
-		layerCount = layer + 1;
+		layerCount = layerStart.Count() - 1;
 
 		dist = new array<float>();
 		parent = new array<int>();
@@ -916,41 +954,13 @@ class dmRoadHoneycomb
 			cur = parent[cur];
 		}
 
-		cells = new array<int>();
+		m_Waypoints = new array<vector>();
+		m_WaypointCells = new array<int>();
 		for (pi = pathIdx.Count() - 1; pi >= 0; pi--)
 		{
 			cell = vertCells[pathIdx[pi]];
-			cells.Insert(cell);
-		}
-
-		m_Waypoints = new array<vector>();
-		m_WaypointCells = new array<int>();
-		n = cells.Count();
-		if (n == 0)
-		{
-			m_State = STATE_FAILED;
-			return;
-		}
-		m_WaypointCells.Insert(cells[0]);
-		m_Waypoints.Insert(CellWorld(cells[0]));
-		if (n > 1)
-		{
-			anchor = 0;
-			i = 1;
-			while (i < n)
-			{
-				//! Тянем прямую от anchor, пока отрезок anchor→i не пересекает RED.
-				while (i < n && !SegmentCrossesRed(cells[anchor], cells[i]))
-					i = i + 1;
-				//! anchor→i пересекает RED (или i==n). Выпускаем cells[i-1] — последнюю чистую точку.
-				emit = i - 1;
-				if (emit == anchor)
-					emit = anchor + 1;   //! защита (идентичные/смежные точки) — не выпускать anchor дважды
-				m_WaypointCells.Insert(cells[emit]);
-				m_Waypoints.Insert(CellWorld(cells[emit]));
-				anchor = emit;
-				i = emit + 1;
-			}
+			m_WaypointCells.Insert(cell);
+			m_Waypoints.Insert(CellWorld(cell));
 		}
 		m_State = STATE_DONE;
 
