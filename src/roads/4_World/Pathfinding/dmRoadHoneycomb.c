@@ -2,15 +2,19 @@
 //! obstructions that the box-obstacle check cannot route around.
 //!
 //! The honeycomb defines FREE territory and builds a smooth path through it. A
-//! cell is 1/3 of the car's width (DM_GRID_CELL_SIZE). RED = blocking object
-//! (even partially) or slope above ~15° or water; GREEN = clear, solid, level.
-//! SAFE = GREEN with all 8 neighbours GREEN (three GREEN across = car width).
-//! The territory is a rectangle along the route direction `d`, growing forward
-//! row-by-row (DM_GRID_ROWS_PER_TICK per tick) until the road is clear again
-//! (DM_GRID_CLEAR_ROWS consecutive all-green road rows). A* runs over SAFE cells,
-//! then the path is smoothed (string-pulling: cut collinear points, go straight
-//! while the segment does not cross RED cells). Coloring is spread over ticks;
-//! mark-safe and pathfinding run in a single tick each.
+//! cell is a pointy-top hexagon (circumradius DM_GRID_HEX_SIZE) in DOUBLED
+//! coordinates: col across (m_Side), row along (m_Dir). col = 2*q + r, row = r
+//! in axial terms — the across offset is S*sqrt(3)/2*col, independent of row, so
+//! the col=0 column stays exactly over the road for any row (no side drift).
+//! RED = blocking object (even partially) or slope above ~15° or water;
+//! GREEN = clear, solid, level. SAFE = GREEN with all 6 neighbours GREEN. The
+//! territory is a band along the route direction `d`, growing forward row-by-row
+//! (DM_GRID_ROWS_PER_TICK per tick) until the road is clear again
+//! (DM_GRID_CLEAR_ROWS consecutive all-green road rows). A* runs over SAFE cells
+//! (6 doubled neighbours, doubled-distance heuristic), then the path is smoothed
+//! (string-pulling: cut collinear points, go straight while the segment does not
+//! cross RED cells). Coloring is spread over ticks; mark-safe and pathfinding
+//! run in a single tick each.
 
 class dmRoadHoneycomb
 {
@@ -30,14 +34,15 @@ class dmRoadHoneycomb
 	static const int CELL_GREEN = 2;
 	static const int CELL_SAFE = 3;
 
-	//! Cell size (meters) = 1/3 of the car's width (~2 m).
-	static const float DM_GRID_CELL_SIZE = 0.66;
-	//! Diagonal step cost (cell * sqrt(2)).
-	static const float DM_GRID_DIAG_COST = 0.933;
+	//! Circumradius of a honeycomb hexagon (m) — the single size constant. All
+	//! derived geometry (center spacing, neighbor step cost, ray fan) is computed
+	//! inline from it (sqrt(3)/2 = 0.8660254, 1.5).
+	static const float DM_GRID_HEX_SIZE = 0.5;
 	//! Slope: tan(15°) — a cell whose corner heights differ more than tan*hdist is
 	//! too steep (red). Avoids a trig call per corner pair.
 	static const float DM_GRID_SLOPE_TAN = 0.267949;
-	//! Territory width in cells (3-4 road widths; ~20 m at 0.66 m/cell).
+	//! Territory width in DOUBLED cols across the road (half of them empty slots;
+	//! 30 cols each side ≈ ±13 m at 0.5 m hex, S*sqrt(3)/2 = 0.433 per col).
 	static const int DM_GRID_WIDTH_CELLS = 30;
 	//! Rows colored per tick (the expensive SurfaceY/raycast work is spread).
 	static const int DM_GRID_ROWS_PER_TICK = 3;
@@ -53,16 +58,14 @@ class dmRoadHoneycomb
 	//! Тип пересечения всех 4 лучей соты: физическая геометрия (ObjIntersectGeom)
 	//! ловит baked-static ограждения (бетон/забор) по коллизии.
 	static const int DM_GRID_RAY_INTERSECT = ObjIntersectGeom;
-	//! Циркумрадиус гексагона соты (м).
-	static const float DM_GRID_HEX_RADIUS = 0.5;
 	//! Consecutive all-green road rows after which the territory stops growing
 	//! ("the road is clear again").
 	static const int DM_GRID_CLEAR_ROWS = 10;
 	//! Road-lane half width (m) for the clear-row check: only cells within ±3 m of
 	//! the centerline count; roadside trees outside the lane are ignored.
 	static const float DM_GRID_ROAD_HALF_WIDTH = 3.0;
-	//! Territory length hard cap (rows, ~60 m) — a safety net if the road never
-	//! clears; the adaptive stop normally ends coloring far earlier.
+	//! Territory length hard cap (rows, ~82 m at 0.5 m hex) — a safety net if the
+	//! road never clears; the adaptive stop normally ends coloring far earlier.
 	static const int DM_GRID_MAX_ROWS = 110;
 	//! A* sentinel cost.
 	static const float DM_GRID_INF = 1000000000.0;
@@ -88,6 +91,11 @@ class dmRoadHoneycomb
 	private int m_ColorRow;
 	private int m_RoadClearRun;
 	private bool m_SeenRed;
+	//! 6 doubled neighbours (pointy-top) as parallel dcol/drow offset tables,
+	//! shared by MarkSafe/AllNeighborsWalkable/A*/FindNearestSafe:
+	//! (+2,0) (-2,0) (+1,-1) (-1,-1) (+1,+1) (-1,+1).
+	private ref array<int> m_NeighDCol;
+	private ref array<int> m_NeighDRow;
 	private ref array<int> m_Cells;
 	private ref array<vector> m_Route;
 	private int m_RouteIdx;
@@ -128,12 +136,26 @@ class dmRoadHoneycomb
 		m_Waypoints = null;
 		m_CarObj = null;
 		m_DriverObj = null;
+		m_NeighDCol = new array<int>();
+		m_NeighDRow = new array<int>();
+		m_NeighDCol.Insert(2);
+		m_NeighDRow.Insert(0);
+		m_NeighDCol.Insert(-2);
+		m_NeighDRow.Insert(0);
+		m_NeighDCol.Insert(1);
+		m_NeighDRow.Insert(-1);
+		m_NeighDCol.Insert(-1);
+		m_NeighDRow.Insert(-1);
+		m_NeighDCol.Insert(1);
+		m_NeighDRow.Insert(1);
+		m_NeighDCol.Insert(-1);
+		m_NeighDRow.Insert(1);
 	}
 
 	//! Start a detour: car position, route direction (horizontal), the route
 	//! waypoints and the index of the next waypoint to reach. Resets all state.
 	//! lengthMeters > 0 — фиксированная длина территории (м, без адаптивного
-	//! стопа); widthCells > 0 — ширина территории в клетках (иначе дефолт
+	//! стопа); widthCells > 0 — ширина территории в doubled-колонках (иначе дефолт
 	//! DM_GRID_WIDTH_CELLS). Диагностический прогон (griddump) передаёт 0/null
 	//! в carObj/driverObj — соты работают без машины и водителя.
 	void Start(vector carPos, vector dir, array<vector> route, int routeIdx, Object carObj, Object driverObj, float lengthMeters, int widthCells)
@@ -152,13 +174,13 @@ class dmRoadHoneycomb
 		m_Side = Vector(-m_Dir[2], 0.0, m_Dir[0]);
 		m_Origin = carPos;
 		if (widthCells > 0)
-			m_HalfWidth = widthCells / 2;
+			m_HalfWidth = widthCells;
 		else
-			m_HalfWidth = DM_GRID_WIDTH_CELLS / 2;
+			m_HalfWidth = DM_GRID_WIDTH_CELLS;
 		m_Width = m_HalfWidth * 2 + 1;
 		if (lengthMeters > 0.0)
 		{
-			m_RowCount = Math.Floor(lengthMeters / DM_GRID_CELL_SIZE);
+			m_RowCount = Math.Floor(lengthMeters / (DM_GRID_HEX_SIZE * 1.5));
 			m_FixedLength = true;
 		}
 		else
@@ -260,15 +282,15 @@ class dmRoadHoneycomb
 	}
 
 	//! Cell color value (CELL_UNSET/CELL_RED/CELL_GREEN/CELL_SAFE).
-	int GetCellColor(int row, int col)
+	int GetCellColor(int col, int row)
 	{
-		return m_Cells[CellIndex(row, col)];
+		return m_Cells[CellIndex(col, row)];
 	}
 
 	//! World XZ center of a cell (Y = territory origin height — dump only).
-	vector GetCellCenter(int row, int col)
+	vector GetCellCenter(int col, int row)
 	{
-		return CellCenter(row, col);
+		return CellCenter(col, row);
 	}
 
 	//! Color up to DM_GRID_ROWS_PER_TICK rows forward; stop growing the territory
@@ -296,15 +318,18 @@ class dmRoadHoneycomb
 	}
 
 	//! Color one row (across the territory width) and update the road-clear run.
-	private void ColorRow(int row)
+	//! Only valid (even col+row) cells are colored; odd-parity slots stay UNSET.
+	private void ColorRow(int r)
 	{
 		bool roadClear = true;
 		int col;
 		for (col = -m_HalfWidth; col <= m_HalfWidth; col++)
 		{
-			vector center = CellCenter(row, col);
+			if ((col + r) % 2 != 0)
+				continue;
+			vector center = CellCenter(col, r);
 			int color = ColorCell(center[0], center[2]);
-			int cidx = CellIndex(row, col);
+			int cidx = CellIndex(col, r);
 			m_Cells[cidx] = color;
 			if (IsRoadCol(col) && color != CELL_GREEN)
 				roadClear = false;
@@ -329,8 +354,8 @@ class dmRoadHoneycomb
 	//! or water marks the cell red.
 	private int ColorCell(float cx, float cz)
 	{
-		float h = DM_GRID_CELL_SIZE * 0.5;
-		float edgeLimit = DM_GRID_SLOPE_TAN * DM_GRID_CELL_SIZE;
+		float h = DM_GRID_HEX_SIZE * 0.5;
+		float edgeLimit = DM_GRID_SLOPE_TAN * DM_GRID_HEX_SIZE;
 		float diagLimit = edgeLimit * 1.414214;
 		float y0 = GetGame().SurfaceY(cx - h, cz - h);
 		float y1 = GetGame().SurfaceY(cx + h, cz - h);
@@ -359,40 +384,41 @@ class dmRoadHoneycomb
 		return CELL_GREEN;
 	}
 
-	//! Гексагональный веер тонких лучей (flat-top hexagon в плоскости m_Dir/m_Side,
-	//! центр O=(cx,cz), радиус DM_GRID_HEX_RADIUS): 3 диагонали A→D, B→E, C→F (начинающиеся
-	//! на высоте DM_GRID_RAY_HORIZ_HEIGHT_BEG над локальным террейном вершины и
-	//! на высоте DM_GRID_RAY_HORIZ_HEIGHT_END во второй точке) + 1 вертикаль
+	//! Гексагональный веер тонких лучей (pointy-top hexagon в плоскости m_Dir/m_Side,
+	//! центр O=(cx,cz), циркумрадиус DM_GRID_HEX_SIZE): 3 диагонали top→bottom,
+	//! upper-left→lower-right, upper-right→lower-left (верхние вершины начинаются
+	//! на высоте DM_GRID_RAY_HORIZ_HEIGHT_BEG над локальным террейном вершины,
+	//! нижние — на высоте DM_GRID_RAY_HORIZ_HEIGHT_END) + 1 вертикаль
 	//! в O сверху (groundY + DM_GRID_RAY_TOP) вниз до (groundY + DM_GRID_RAY_BOTTOM).
 	//! Все лучи ТОНКИЕ (radius 0), type = ObjIntersectGeom (ловит baked-static
 	//! ограждения). Хит с физической коллизией (hit.obj != null) — препятствие;
 	//! null-хиты (без коллизии) отбрасываются.
 	private bool RaycastBlocked(float cx, float cz)
 	{
-		float r = DM_GRID_HEX_RADIUS;
-		float rHalf = r * 0.5;
-		float rCos = r * 0.8660254;
+		float s = DM_GRID_HEX_SIZE;
+		float sCos = s * 0.8660254;
+		float sHalf = s * 0.5;
 		vector o = Vector(cx, 0.0, cz);
-		vector a = o - m_Side * rHalf + m_Dir * rCos;
-		vector b = o + m_Side * rHalf + m_Dir * rCos;
-		vector c = o + m_Side * r;
-		vector d = o + m_Side * rHalf - m_Dir * rCos;
-		vector e = o - m_Side * rHalf - m_Dir * rCos;
-		vector f = o - m_Side * r;
-		a[1] = GetGame().SurfaceY(a[0], a[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
-		b[1] = GetGame().SurfaceY(b[0], b[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
-		c[1] = GetGame().SurfaceY(c[0], c[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
-		d[1] = GetGame().SurfaceY(d[0], d[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
-		e[1] = GetGame().SurfaceY(e[0], e[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
-		f[1] = GetGame().SurfaceY(f[0], f[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
+		vector top = o + m_Dir * s;
+		vector bot = o - m_Dir * s;
+		vector ur = o + m_Side * sCos + m_Dir * sHalf;
+		vector ul = o - m_Side * sCos + m_Dir * sHalf;
+		vector lr = o + m_Side * sCos - m_Dir * sHalf;
+		vector ll = o - m_Side * sCos - m_Dir * sHalf;
+		top[1] = GetGame().SurfaceY(top[0], top[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
+		ur[1] = GetGame().SurfaceY(ur[0], ur[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
+		ul[1] = GetGame().SurfaceY(ul[0], ul[2]) + DM_GRID_RAY_HORIZ_HEIGHT_BEG;
+		bot[1] = GetGame().SurfaceY(bot[0], bot[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
+		lr[1] = GetGame().SurfaceY(lr[0], lr[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
+		ll[1] = GetGame().SurfaceY(ll[0], ll[2]) + DM_GRID_RAY_HORIZ_HEIGHT_END;
 		float groundY = GetGame().SurfaceY(cx, cz);
 		vector vFrom = Vector(cx, groundY + DM_GRID_RAY_TOP, cz);
 		vector vTo = Vector(cx, groundY + DM_GRID_RAY_BOTTOM, cz);
-		if (RayHitsObstacle(a, d))
+		if (RayHitsObstacle(top, bot))
 			return true;
-		if (RayHitsObstacle(b, e))
+		if (RayHitsObstacle(ul, lr))
 			return true;
-		if (RayHitsObstacle(c, f))
+		if (RayHitsObstacle(ur, ll))
 			return true;
 		if (RayHitsObstacle(vFrom, vTo))
 			return true;
@@ -453,42 +479,39 @@ class dmRoadHoneycomb
 		return false;
 	}
 
-	//! Mark SAFE: a GREEN cell with all 8 neighbours walkable (GREEN or SAFE).
+	//! Mark SAFE: a GREEN cell with all 6 neighbours walkable (GREEN or SAFE).
+	//! Only valid (even col+row) cells are considered.
 	private void MarkSafe()
 	{
-		int row;
+		int r;
 		int col;
-		for (row = 0; row < m_RowCount; row++)
+		for (r = 0; r < m_RowCount; r++)
 		{
 			for (col = -m_HalfWidth; col <= m_HalfWidth; col++)
 			{
-				int idx = CellIndex(row, col);
+				if ((col + r) % 2 != 0)
+					continue;
+				int idx = CellIndex(col, r);
 				if (m_Cells[idx] != CELL_GREEN)
 					continue;
-				if (AllNeighborsWalkable(row, col))
+				if (AllNeighborsWalkable(col, r))
 					m_Cells[idx] = CELL_SAFE;
 			}
 		}
 		m_State = STATE_PATHFINDING;
 	}
 
-	private bool AllNeighborsWalkable(int row, int col)
+	private bool AllNeighborsWalkable(int col, int row)
 	{
-		int dr;
-		int dc;
-		for (dr = -1; dr <= 1; dr++)
+		int i;
+		for (i = 0; i < m_NeighDCol.Count(); i++)
 		{
-			for (dc = -1; dc <= 1; dc++)
-			{
-				if (dr == 0 && dc == 0)
-					continue;
-				int nr = row + dr;
-				int nc = col + dc;
-				if (nr < 0 || nr >= m_RowCount || nc < -m_HalfWidth || nc > m_HalfWidth)
-					return false;
-				if (!IsWalkable(m_Cells[CellIndex(nr, nc)]))
-					return false;
-			}
+			int ncol = col + m_NeighDCol[i];
+			int nrow = row + m_NeighDRow[i];
+			if (ncol < -m_HalfWidth || ncol > m_HalfWidth || nrow < 0 || nrow >= m_RowCount)
+				return false;
+			if (!IsWalkable(m_Cells[CellIndex(ncol, nrow)]))
+				return false;
 		}
 		return true;
 	}
@@ -538,8 +561,9 @@ class dmRoadHoneycomb
 		for (i = m_RouteIdx; i < m_Route.Count(); i++)
 		{
 			vector wp = m_Route[i];
-			int row = WorldToRow(wp);
-			int col = WorldToCol(wp);
+			int col;
+			int row;
+			WorldToCell(wp, col, row);
 			if (row < 0 || row >= m_RowCount)
 				continue;
 			if (col < -m_HalfWidth || col > m_HalfWidth)
@@ -557,7 +581,7 @@ class dmRoadHoneycomb
 		}
 		m_GoalRow = goalRow;
 		m_GoalCol = goalCol;
-		m_GoalCell = FindNearestSafe(goalRow, goalCol);
+		m_GoalCell = FindNearestSafe(goalCol, goalRow);
 		if (m_GoalCell < 0)
 			return false;
 		m_StartCell = FindNearestSafe(0, 0);
@@ -566,8 +590,8 @@ class dmRoadHoneycomb
 		return true;
 	}
 
-	//! A* over SAFE cells (8-directional) from the start (nearest safe to the car)
-	//! to the goal, using a binary min-heap and an octile heuristic.
+	//! A* over SAFE cells (6-directional) from the start (nearest safe to the car)
+	//! to the goal, using a binary min-heap and a doubled-distance heuristic.
 	private bool FindPathAStar()
 	{
 		int cellCount = m_RowCount * m_Width;
@@ -586,18 +610,15 @@ class dmRoadHoneycomb
 		heap.Push(m_StartCell, Heuristic(m_StartCell));
 
 		int cur;
-		int r;
-		int c;
-		int dr;
-		int dc;
-		int nr;
-		int nc;
-		int nIdx;
+		int col;
+		int row;
 		int nb;
+		int ncol;
+		int nrow;
+		int nIdx;
 		float fPop;
 		float gu;
 		float nd;
-		float stepCost;
 		while (heap.Count() > 0)
 		{
 			heap.Pop(cur, fPop);
@@ -607,34 +628,25 @@ class dmRoadHoneycomb
 			if (cur == m_GoalCell)
 				break;
 			gu = g[cur];
-			r = CellRow(cur);
-			c = CellCol(cur);
-			for (dr = -1; dr <= 1; dr++)
+			col = CellCol(cur);
+			row = CellRow(cur);
+			for (nb = 0; nb < m_NeighDCol.Count(); nb++)
 			{
-				for (dc = -1; dc <= 1; dc++)
+				ncol = col + m_NeighDCol[nb];
+				nrow = row + m_NeighDRow[nb];
+				if (ncol < -m_HalfWidth || ncol > m_HalfWidth || nrow < 0 || nrow >= m_RowCount)
+					continue;
+				nIdx = CellIndex(ncol, nrow);
+				if (m_Cells[nIdx] != CELL_SAFE)
+					continue;
+				if (settled[nIdx])
+					continue;
+				nd = gu + DM_GRID_HEX_SIZE;
+				if (nd < g[nIdx])
 				{
-					if (dr == 0 && dc == 0)
-						continue;
-					nr = r + dr;
-					nc = c + dc;
-					if (nr < 0 || nr >= m_RowCount || nc < -m_HalfWidth || nc > m_HalfWidth)
-						continue;
-					nIdx = CellIndex(nr, nc);
-					if (m_Cells[nIdx] != CELL_SAFE)
-						continue;
-					if (settled[nIdx])
-						continue;
-					if (dr != 0 && dc != 0)
-						stepCost = DM_GRID_DIAG_COST;
-					else
-						stepCost = DM_GRID_CELL_SIZE;
-					nd = gu + stepCost;
-					if (nd < g[nIdx])
-					{
-						g[nIdx] = nd;
-						parent[nIdx] = cur;
-						heap.Push(nIdx, nd + Heuristic(nIdx));
-					}
+					g[nIdx] = nd;
+					parent[nIdx] = cur;
+					heap.Push(nIdx, nd + Heuristic(nIdx));
 				}
 			}
 		}
@@ -663,31 +675,25 @@ class dmRoadHoneycomb
 		return true;
 	}
 
-	//! Octile heuristic (admissible for 8-directional): min(dr,dc) diagonal steps
-	//! at DM_GRID_DIAG_COST plus the remainder at DM_GRID_CELL_SIZE.
+	//! Doubled hex distance heuristic (admissible for 6-directional): hex steps
+	//! = |drow| + max(0, (|dcol| - |drow|)/2), times DM_GRID_HEX_SIZE (uniform
+	//! step cost — the scale cancels and does not affect optimality).
 	private float Heuristic(int idx)
 	{
-		int r = CellRow(idx);
-		int c = CellCol(idx);
-		int dr = r - m_GoalRow;
-		int dc = c - m_GoalCol;
-		if (dr < 0)
-			dr = -dr;
-		if (dc < 0)
-			dc = -dc;
-		int dmin;
-		int dmax;
-		if (dr < dc)
-		{
-			dmin = dr;
-			dmax = dc;
-		}
-		else
-		{
-			dmin = dc;
-			dmax = dr;
-		}
-		return (float)dmin * DM_GRID_DIAG_COST + (float)(dmax - dmin) * DM_GRID_CELL_SIZE;
+		int col = CellCol(idx);
+		int row = CellRow(idx);
+		int dcol = col - m_GoalCol;
+		int drow = row - m_GoalRow;
+		int adc = dcol;
+		int adr = drow;
+		if (adc < 0)
+			adc = -adc;
+		if (adr < 0)
+			adr = -adr;
+		float steps = (float)adr;
+		if (adc > adr)
+			steps = steps + ((float)adc - (float)adr) * 0.5;
+		return steps * DM_GRID_HEX_SIZE;
 	}
 
 	//! String-pulling over the SAFE cell path: cut collinear points, and advance
@@ -725,79 +731,109 @@ class dmRoadHoneycomb
 	}
 
 	//! True when the straight segment between two SAFE cell centers crosses a RED
-	//! cell (sampled at half-cell steps in cell space).
+	//! cell (sampled at half-cell steps in doubled float space).
 	private bool SegmentCrossesRed(int a, int b)
 	{
-		float ra = CellRow(a);
-		float ca = CellCol(a);
-		float rb = CellRow(b);
-		float cb = CellCol(b);
-		float dr = rb - ra;
-		float dc = cb - ca;
-		float len = Math.Sqrt(dr * dr + dc * dc);
+		float cola = (float)CellCol(a);
+		float rowa = (float)CellRow(a);
+		float colb = (float)CellCol(b);
+		float rowb = (float)CellRow(b);
+		float dcol = colb - cola;
+		float drow = rowb - rowa;
+		float len = Math.Sqrt(dcol * dcol + drow * drow);
 		int steps = Math.Floor(len * 2.0 + 0.5) + 1;
 		float stepT = 1.0 / (float)steps;
 		float t = stepT;
 		int i;
 		for (i = 1; i < steps; i++)
 		{
-			float fr = ra + dr * t;
-			float fc = ca + dc * t;
-			int r = Math.Floor(fr + 0.5);
-			int c = Math.Floor(fc + 0.5);
-			if (m_Cells[CellIndex(r, c)] == CELL_RED)
+			float fcol = cola + dcol * t;
+			float frow = rowa + drow * t;
+			int col;
+			int row;
+			SnapToCell(fcol, frow, col, row);
+			if (m_Cells[CellIndex(col, row)] == CELL_RED)
 				return true;
 			t = t + stepT;
 		}
 		return false;
 	}
 
-	//! Nearest SAFE cell to (row, col), searched by expanding rings.
-	private int FindNearestSafe(int row, int col)
+	//! Nearest SAFE cell to (col, row), searched by BFS over the 6-neighbor
+	//! doubled adjacency (BFS distance == doubled distance on a uniform hex grid).
+	private int FindNearestSafe(int col, int row)
 	{
-		int radius;
-		int dr;
-		int dc;
-		for (radius = 0; radius <= m_RowCount + m_HalfWidth; radius++)
+		int startIdx = CellIndex(col, row);
+		if (m_Cells[startIdx] == CELL_SAFE)
+			return startIdx;
+		ref array<bool> visited = new array<bool>();
+		int cellCount = m_RowCount * m_Width;
+		int i;
+		for (i = 0; i < cellCount; i++)
+			visited.Insert(false);
+		ref array<int> queue = new array<int>();
+		queue.Insert(startIdx);
+		visited[startIdx] = true;
+		int head = 0;
+		int cur;
+		int ccol;
+		int crow;
+		int nb;
+		int ncol;
+		int nrow;
+		int nIdx;
+		while (head < queue.Count())
 		{
-			for (dr = -radius; dr <= radius; dr++)
+			cur = queue[head];
+			head = head + 1;
+			ccol = CellCol(cur);
+			crow = CellRow(cur);
+			for (nb = 0; nb < m_NeighDCol.Count(); nb++)
 			{
-				for (dc = -radius; dc <= radius; dc++)
-				{
-					if (dr != radius && dc != radius && dr != -radius && dc != -radius)
-						continue;
-					int nr = row + dr;
-					int nc = col + dc;
-					if (nr < 0 || nr >= m_RowCount || nc < -m_HalfWidth || nc > m_HalfWidth)
-						continue;
-					if (m_Cells[CellIndex(nr, nc)] == CELL_SAFE)
-						return CellIndex(nr, nc);
-				}
+				ncol = ccol + m_NeighDCol[nb];
+				nrow = crow + m_NeighDRow[nb];
+				if (ncol < -m_HalfWidth || ncol > m_HalfWidth || nrow < 0 || nrow >= m_RowCount)
+					continue;
+				nIdx = CellIndex(ncol, nrow);
+				if (visited[nIdx])
+					continue;
+				visited[nIdx] = true;
+				if (m_Cells[nIdx] == CELL_SAFE)
+					return nIdx;
+				queue.Insert(nIdx);
 			}
 		}
 		return -1;
 	}
 
 	//! World XZ position of a cell center (Y is the car's height; callers that need
-	//! ground height use CellWorld).
-	private vector CellCenter(int row, int col)
+	//! ground height use CellWorld). Pointy-top doubled: across = S*sqrt(3)/2*col,
+	//! along = S*1.5*row — across does not depend on row, so col=0 stays over the
+	//! road for any row.
+	private vector CellCenter(int col, int row)
 	{
-		float along = (float)row * DM_GRID_CELL_SIZE;
-		float across = (float)col * DM_GRID_CELL_SIZE;
-		return m_Origin + m_Dir * along + m_Side * across;
+		float across = DM_GRID_HEX_SIZE * 0.8660254 * (float)col;
+		float along = DM_GRID_HEX_SIZE * 1.5 * (float)row;
+		return m_Origin + m_Side * across + m_Dir * along;
 	}
 
 	//! World position of a cell center snapped to the ground (SurfaceY).
 	private vector CellWorld(int idx)
 	{
-		vector p = CellCenter(CellRow(idx), CellCol(idx));
+		vector p = CellCenter(CellCol(idx), CellRow(idx));
 		p[1] = GetGame().SurfaceY(p[0], p[2]);
 		return p;
 	}
 
-	private int CellIndex(int row, int col)
+	private int CellIndex(int col, int row)
 	{
 		return row * m_Width + col + m_HalfWidth;
+	}
+
+	private int CellCol(int idx)
+	{
+		int row = idx / m_Width;
+		return idx - row * m_Width - m_HalfWidth;
 	}
 
 	private int CellRow(int idx)
@@ -805,33 +841,58 @@ class dmRoadHoneycomb
 		return idx / m_Width;
 	}
 
-	private int CellCol(int idx)
-	{
-		int r = idx / m_Width;
-		return idx - r * m_Width - m_HalfWidth;
-	}
-
-	//! True when the column is within the road lane (for the clear-row check).
+	//! True when the cell's across offset (col) is within the road lane (for the
+	//! clear-row check).
 	private bool IsRoadCol(int col)
 	{
-		return Math.AbsFloat((float)col * DM_GRID_CELL_SIZE) <= DM_GRID_ROAD_HALF_WIDTH;
+		float across = DM_GRID_HEX_SIZE * 0.8660254 * (float)col;
+		return Math.AbsFloat(across) <= DM_GRID_ROAD_HALF_WIDTH;
 	}
 
-	private int WorldToRow(vector wp)
+	//! Doubled rounding world→cell: row = Round(along / (S*1.5)),
+	//! col = Round(across / (S*0.8660254)), then a parity correction snaps to the
+	//! nearest valid (even col+row) cell.
+	private void WorldToCell(vector wp, out int col, out int row)
 	{
 		float dx = wp[0] - m_Origin[0];
 		float dz = wp[2] - m_Origin[2];
 		float along = dx * m_Dir[0] + dz * m_Dir[2];
-		int row = Math.Floor(along / DM_GRID_CELL_SIZE + 0.5);
-		return row;
+		float across = dx * m_Side[0] + dz * m_Side[2];
+		float rowFrac = along / (DM_GRID_HEX_SIZE * 1.5);
+		float colFrac = across / (DM_GRID_HEX_SIZE * 0.8660254);
+		SnapToCell(colFrac, rowFrac, col, row);
 	}
 
-	private int WorldToCol(vector wp)
+	//! Round fractional doubled coords to the nearest valid (even col+row) cell.
+	//! A plain Round of col/row can land on an odd-parity "gap" slot (~half the
+	//! plane); the correction moves the coordinate with the larger rounding error
+	//! by one toward the true fractional position so the result is a real cell.
+	private void SnapToCell(float colFrac, float rowFrac, out int col, out int row)
 	{
-		float dx = wp[0] - m_Origin[0];
-		float dz = wp[2] - m_Origin[2];
-		float across = dx * m_Side[0] + dz * m_Side[2];
-		int col = Math.Floor(across / DM_GRID_CELL_SIZE + 0.5);
-		return col;
+		col = RoundF(colFrac);
+		row = RoundF(rowFrac);
+		float dcol = colFrac - (float)col;
+		float drow = rowFrac - (float)row;
+		if ((col + row) % 2 == 0)
+			return;
+		if (Math.AbsFloat(dcol) > Math.AbsFloat(drow))
+		{
+			if (dcol > 0.0)
+				col = col + 1;
+			else
+				col = col - 1;
+		}
+		else
+		{
+			if (drow > 0.0)
+				row = row + 1;
+			else
+				row = row - 1;
+		}
+	}
+
+	private int RoundF(float v)
+	{
+		return Math.Floor(v + 0.5);
 	}
 }

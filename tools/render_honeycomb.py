@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """render_honeycomb.py — render a dmRoadHoneycomb grid dump to an SVG.
 
-Draws everything in the GRID coordinate system (rows -> +X axis, columns ->
-+Y axis). World points (route, road edges, objects) are projected into grid
-space through the territory frame (origin/dir/side) from the dump:
+Draws everything in the honeycomb's doubled frame (row along the road -> +X axis,
+col across -> +Y axis), in meters. World points (route, road edges, objects) are
+projected into that frame through the territory frame (origin/dir/side) from
+the dump:
 
     along  = (p - origin) . dir
     across = (p - origin) . side
-    px     = along / cellSize        (cellSize = 0.66 m)
-    py     = across / cellSize
+
+Cell centers come straight from the dump's world X/Z (CellCenter(col,row)); each is
+drawn as a pointy-top hexagon of circumradius HEX_SIZE (0.5 m) so adjacent
+hexagons tile edge-to-edge and match the dump centers.
 
 Input 1 — griddump.json (produced by the E2E `griddump` op):
 
@@ -17,17 +20,19 @@ Input 1 — griddump.json (produced by the E2E `griddump` op):
       "Dir":       [dx, dy, dz],
       "Side":      [sx, sy, sz],
       "Rows":      393,
-      "Width":     91,
-      "HalfWidth": 45,
+      "Width":     181,
+      "HalfWidth": 90,
       "Status":    "done",
       "CellCount": 35763,
-      "Cells":     [ { "Row": 0, "Col": -45, "Color": 2, "X": .., "Z": .. }, ... ],
+      "Cells":     [ { "Row": 0, "Col": -90, "Color": 2, "X": .., "Z": .. }, ... ],
       "Route":     [ [x, y, z], ... ],
       "LeftEdge":  [ [x, y, z], ... ],
       "RightEdge": [ [x, y, z], ... ]
     }
 
     Cell "Color": 0 = unset (white), 1 = RED, 2 = GREEN, 3 = SAFE (dark green).
+    Cell "Row"/"Col" are the doubled coords (row along, col across); "X"/"Z" are
+    the world center of the hexagon. Odd (col+row) slots are skipped by the dump.
 
 Input 2 — scanbox.json (objects from the E2E `scanbox` op; the op dumps one
 line per entity as "ent[D|S] <ClassName> pos=(x,y,z)" — the tester converts
@@ -53,7 +58,9 @@ import math
 import os
 import sys
 
-CELL_SIZE = 0.66
+# Circumradius of a honeycomb hexagon (m) — must match DM_GRID_HEX_SIZE in
+# dmRoadHoneycomb.c (0.5).
+HEX_SIZE = 0.5
 
 # Cell color -> SVG fill.
 COLOR_FILL = {
@@ -73,7 +80,7 @@ def project(p, origin, dirv, sidev):
     dz = p[2] - origin[2]
     along = dx * dirv[0] + dz * dirv[2]
     across = dx * sidev[0] + dz * sidev[2]
-    return along / CELL_SIZE, across / CELL_SIZE
+    return along, across
 
 
 def main(argv):
@@ -90,7 +97,6 @@ def main(argv):
     dirv = as_float3(grid["Dir"])
     sidev = as_float3(grid["Side"])
     rows = int(grid["Rows"])
-    half_width = int(grid["HalfWidth"])
     status = grid.get("Status", "")
 
     cells = grid.get("Cells", [])
@@ -112,13 +118,34 @@ def main(argv):
                 name = str(obj.get("ClassName", "?"))
             objects.append((name, as_float3(pos)))
 
-    # Territory bounds in grid units, padded half a cell so cell rects fit.
-    min_x = -0.5
-    max_x = float(rows) - 0.5
-    min_y = -float(half_width) - 0.5
-    max_y = float(half_width) + 0.5
+    # Project cell centers (dump world X/Z) and world features into the territory
+    # frame (meters); bounds are derived from them so hexes always fit.
+    cell_pts = []
+    for cell in cells:
+        gx, gy = project((float(cell["X"]), 0.0, float(cell["Z"])), origin, dirv, sidev)
+        cell_pts.append((gx, gy))
 
-    scale = 5.0
+    def feature_pts(points):
+        return [project(as_float3(p), origin, dirv, sidev) for p in points]
+
+    all_pts = list(cell_pts)
+    all_pts += feature_pts(route)
+    all_pts += feature_pts(left_edge)
+    all_pts += feature_pts(right_edge)
+
+    pad = HEX_SIZE + 1.0
+    if all_pts:
+        min_x = min(p[0] for p in all_pts) - pad
+        max_x = max(p[0] for p in all_pts) + pad
+        min_y = min(p[1] for p in all_pts) - pad
+        max_y = max(p[1] for p in all_pts) + pad
+    else:
+        min_x = -1.0
+        max_x = 1.0
+        min_y = -1.0
+        max_y = 1.0
+
+    scale = 8.0
     margin = 80.0
 
     def sx(gx):
@@ -140,18 +167,13 @@ def main(argv):
         '<rect x="0" y="0" width="{0}" height="{1}" fill="#ffffff"/>'.format(view_w, view_h)
     )
 
-    # Cells as hexagons (honeycomb), pointy-top along the road (rows), odd rows
-    # staggered by half a hex so they tile; thin black outline. NOTE: this is a
-    # visual hex layout over the square grid data — true hex topology (6 neighbors
-    # in A*) is a separate task.
-    HEX_R = 0.58
-    for cell in cells:
-        row = int(cell["Row"])
-        col = int(cell["Col"])
+    # Cells as pointy-top hexagons (honeycomb), vertices edge-to-edge with the
+    # dump centers; thin black outline.
+    HEX_R = HEX_SIZE
+    for idx, cell in enumerate(cells):
         color = int(cell["Color"])
         fill = COLOR_FILL.get(color, "#ffffff")
-        gx = float(row)
-        gy = float(col) + (row % 2) * 0.5
+        gx, gy = cell_pts[idx]
         pts = []
         for k in range(6):
             ang = math.pi / 3.0 * k

@@ -2465,20 +2465,22 @@ class dmE2EBridge
 		dump.LeftEdge = new array<vector>();
 		dump.RightEdge = new array<vector>();
 
-		int row;
-		int col;
+		int cellRow;
+		int cellCol;
 		int cellCount = 0;
 		vector center;
 		dmGridDumpCell cell;
-		for (row = 0; row < dump.Rows; row++)
+		for (cellRow = 0; cellRow < dump.Rows; cellRow++)
 		{
-			for (col = -dump.HalfWidth; col <= dump.HalfWidth; col++)
+			for (cellCol = -dump.HalfWidth; cellCol <= dump.HalfWidth; cellCol++)
 			{
+				if ((cellCol + cellRow) % 2 != 0)
+					continue;
 				cell = new dmGridDumpCell();
-				cell.Row = row;
-				cell.Col = col;
-				cell.Color = dmRoadHoneycomb.Get().GetCellColor(row, col);
-				center = dmRoadHoneycomb.Get().GetCellCenter(row, col);
+				cell.Row = cellRow;
+				cell.Col = cellCol;
+				cell.Color = dmRoadHoneycomb.Get().GetCellColor(cellCol, cellRow);
+				center = dmRoadHoneycomb.Get().GetCellCenter(cellCol, cellRow);
 				cell.X = center[0];
 				cell.Z = center[2];
 				dump.Cells.Insert(cell);
