@@ -10,10 +10,11 @@ static const float DM_TEST_RANGE_DISTANCE = 15.0;
 //! Command word (first word after the leading "/"), e.g. "/bot spawn test".
 static const string DM_CHAT_CMD = "bot";
 
-static const string DM_CHAT_SHOW = "show";
+static const string DM_CHAT_SHOW = "w";
 static const string DM_CHAT_SHOW_VERSION = "version";
 static const string DM_CHAT_SHOW_POSITION = "position";
 static const string DM_CHAT_SHOW_AGRESSION = "agression";
+static const string DM_CHAT_SHOW_RAYCAST = "rc";
 
 //! Sub-command "spawn" / kind "test".
 static const string DM_CHAT_SPAWN = "spawn";
