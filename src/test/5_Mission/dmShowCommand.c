@@ -143,7 +143,7 @@ class dmShowCommand : dmCommandModule
 			result.Insert( "NO HIT count=" + hits.Count() );
 		}
 
-		return result
+		return result;
 	}
 
 	private string HandleShowRaycastRV(PlayerBase player, vector beg, vector end, int cf)
