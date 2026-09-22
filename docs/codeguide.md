@@ -301,6 +301,13 @@ class CfgSoundSets
   `vector / float` недопустимо (не нормирует/не компилируется). Нормировать — `dir.Normalize()`;
   уменьшить длину — `dir * (1.0 / len)` (только умножение на скаляр). Ошибка:
   `dir = dir / distTo;` → правильно `dir.Normalize();`.
+- **`RaycastRVResult.obj` для baked-static геометрии** (монолиты `Static_rock_monolith`,
+  палатки `Land_Mil_Tent`, остовы) — это **НЕ-null объект с пустым `GetType()`**, `parent == null`,
+  `surface == null`, `hier == 0`. Это НЕ «нет хита»: луч реально упёрся в статическую коллизию
+  без скриптового объекта. Фильтр «препятствие = `hit.obj != null`» корректно ловит такие хиты
+  (пустой тип — всё ещё не-null), но в логах `GetType()` будет пустой строкой, а `parent == null`
+  (см. ниже про null-guard в self-фильтре). Отличать «хит baked-статики» от «нет хита» — по
+  `obj != null`, а НЕ по непустому имени типа.
 
 ## Проверочный список при написании кода
 
@@ -325,4 +332,8 @@ class CfgSoundSets
 - **`map<K,V>.Find(key, out v)` для ПРИМИТИВНЫХ value-типов при промахе пишет в `out` дефолт (0.0/0/false), а НЕ оставляет прежнее значение** (reference-типы — оставляет). Не полагайся на сентинел, предустановленный до `Find`: проверяй возврат и при `false` явно ставь сентинел (`if (!m.Find(k, v)) v = INF;`). Баг: A*-релаксация `gv=INF; g.Find(v,gv); if (nd<gv)` обнуляла gv → релаксация никогда не шла → пустой путь при связных парах (тишина скрывала баг — всегда логируй неудачу `dmBotLog.Error`).
 - **`EntityAI.SetLifetime(0)` = «истечь сразу», а НЕ «бесконечно».** Объект из `CreateObject` без CE-профиля молча деспавнится (CE-чистка «протухшего» `lifetime <= 0`). Чтобы тестовый/спавнимый объект жил — ставь большой положительный `SetLifetime(3600)` + `SetLifetimeMax(3600)` (потолок; канонический «никогда» у Expansion — `SetLifetimeMax(3888000)` = 45 дней). Эталоны: `ExplosivesBase.c` (`0.15` = живи 0.15 с), `ExpansionGarageVehicle.c` (`3888000`).
 - **Enforce Script отвергает смешанную арифметику `int*float` и `float/int` без каста** — грамматическая ошибка `Syntax error`, которая каскадит на объявление класса (`Syntax error` на строке `class X` + `Unexpected scope` на `{` + `Function definition inside block` где-то ещё — парсер не восстанавливается). Кастуй явно: `(float)intVar * floatConst`, `float / (float)intVar`. Эталон — `(float)chosenStart * DM_DRIVE_LANE_STEP` в `dmBotIntent_Drive`. (Смежно: `Math.Round` ненадёжен — используй `Math.Floor(x + 0.5)`; `array[method()] = v` и `RaycastRVParams(a,b)` (2 арг) — тоже вызывали проблемы, замени на локаль индекса и 3-арг `(a,b,null)`.)
+- **Сравнение с объектом без null-guard** (`hit.parent == m_CarObj` при `m_CarObj == null`)
+  вырождается в `hit.parent == null` и молча ловит ВСЕ хиты с `parent == null` (baked-static,
+  см. выше). Guard обязателен: `if (m_CarObj && (hit.obj == m_CarObj || hit.parent == m_CarObj))`
+  — тогда при `m_CarObj == null` self-фильтр короткозамкнут и null-хиты доходят до проверки.
 - Сомневаешься в синтаксисе → ищи пример в ванильных/Expansion скриптах.
