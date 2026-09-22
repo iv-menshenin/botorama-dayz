@@ -42,6 +42,11 @@ class dmE2EStep
 	string Wheel;     // wheel CfgVehicles class (spawncar)
 	vector From;      // raycast start point (world)
 	vector To;        // raycast end point (world)
+	string Type;      // raycast intersect type: fire|view|geom|ifire|none (empty -> view)
+	float RayRadius;  // raycast ray radius (0 = thin)
+	string Flags;     // raycast collision flags: allobjects|nearestcontact|firstcontact|onlystatic|onlydynamic|onlywater (empty -> allobjects)
+	bool Sorted;      // raycast sorted flag
+	bool GroundOnly;  // raycast groundOnly flag
 	vector Min;       // scanbox min corner (world)
 	vector Max;       // scanbox max corner (world)
 	string Obj;       // object name (getpos, setpos, clearobj, driveto, drive, cardump, carpos, carspeed)
@@ -1299,8 +1304,10 @@ class dmE2EBridge
 		#endif
 	}
 
-	//! Raycast between two eye-height points (ground-snapped, raised by
-	//! DM_E2E_EYE_HEIGHT). Every hit is dumped (obj/parent/pos/dist/component).
+	//! Raycast between two points (ground-snapped, raised by DM_E2E_EYE_HEIGHT).
+	//! Every hit is dumped in full (obj/parent/pos/dir/dist/component/hier/
+	//! entry/exit/surface/surfaceType) so the detector obstacle diagnostics can
+	//! see exactly what each ray touches.
 	private void RunRaycast(dmE2EStep step, dmE2EStepResult r)
 	{
 		vector fromPos = step.From;
@@ -1316,8 +1323,12 @@ class dmE2EBridge
 			toPos[1] = toPos[1] + DM_E2E_EYE_HEIGHT;
 		}
 
-		RaycastRVParams params = new RaycastRVParams(fromPos, toPos);
-		params.flags = CollisionFlags.ALLOBJECTS;
+		RaycastRVParams params = new RaycastRVParams(fromPos, toPos, null);
+		params.type = ResolveIntersectType(step.Type);
+		params.flags = ResolveCollisionFlags(step.Flags);
+		params.radius = step.RayRadius;
+		params.sorted = step.Sorted;
+		params.groundOnly = step.GroundOnly;
 
 		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>();
 		DayZPhysics.RaycastRVProxy(params, hits);
@@ -1332,12 +1343,24 @@ class dmE2EBridge
 			string parentName = "null";
 			if (hit.parent)
 				parentName = hit.parent.GetType();
+			string surfName = "null";
+			if (hit.surface)
+				surfName = hit.surface.GetName();
+			string surfType = "null";
+			if (hit.surface)
+				surfType = hit.surface.GetSurfaceType();
 			float dist = vector.Distance(fromPos, hit.pos);
 
 			string line = "hit: obj=" + objName + " parent=" + parentName;
 			line += " pos=" + hit.pos;
+			line += " dir=" + hit.dir;
 			line += " dist=" + dist;
 			line += " component=" + hit.component;
+			line += " hier=" + hit.hierLevel;
+			line += " entry=" + hit.entry;
+			line += " exit=" + hit.exit;
+			line += " surf=" + surfName;
+			line += " surfType=" + surfType;
 			AppendDump(r, line);
 		}
 
@@ -1346,6 +1369,40 @@ class dmE2EBridge
 			r.Reason = "0 hits (clear)";
 		else
 			r.Reason = hits.Count().ToString() + " hits";
+	}
+
+	//! Map the raycast "Type" string to an ObjIntersect enum; empty -> ObjIntersectView.
+	private int ResolveIntersectType(string t)
+	{
+		if (t == "fire")
+			return ObjIntersectFire;
+		if (t == "view")
+			return ObjIntersectView;
+		if (t == "geom")
+			return ObjIntersectGeom;
+		if (t == "ifire")
+			return ObjIntersectIFire;
+		if (t == "none")
+			return ObjIntersectNone;
+		return ObjIntersectView;
+	}
+
+	//! Map the raycast "Flags" string to a CollisionFlags enum; empty -> ALLOBJECTS.
+	private CollisionFlags ResolveCollisionFlags(string f)
+	{
+		if (f == "allobjects")
+			return CollisionFlags.ALLOBJECTS;
+		if (f == "nearestcontact")
+			return CollisionFlags.NEARESTCONTACT;
+		if (f == "firstcontact")
+			return CollisionFlags.FIRSTCONTACT;
+		if (f == "onlystatic")
+			return CollisionFlags.ONLYSTATIC;
+		if (f == "onlydynamic")
+			return CollisionFlags.ONLYDYNAMIC;
+		if (f == "onlywater")
+			return CollisionFlags.ONLYWATER;
+		return CollisionFlags.ALLOBJECTS;
 	}
 
 	//! Scene box query (static + dynamic) with a per-entity dump line. Static
