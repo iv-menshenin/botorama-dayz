@@ -721,8 +721,11 @@ class dmRoadHoneycomb
 	}
 
 	//! "Green middles" of one row: split the valid SAFE columns into contiguous
-	//! intervals (step 2 apart) and emit the center cell of each interval. For an
-	//! even count the right of the two middle cells is taken (deterministic).
+	//! intervals (step 2 apart) and emit the center cell of each interval. The
+	//! center is taken over the road-lane sub-segment (IsRoadCol) when it holds
+	//! more than 5 cells — otherwise over the whole interval (shoulder noise would
+	//! skew a clear road's center). For an even count the right of the two middle
+	//! cells is taken (deterministic).
 	private void GreenMiddles(int row, out array<int> middles)
 	{
 		int col0;
@@ -732,6 +735,12 @@ class dmRoadHoneycomb
 		int c;
 		int count;
 		int mid;
+		int roadFirst;
+		int roadLast;
+		int roadCount;
+		int rc;
+		int segFirst;
+		int segLast;
 		middles = new array<int>();
 		col0 = -m_HalfWidth;
 		if ((col0 + row) % 2 != 0)
@@ -752,8 +761,33 @@ class dmRoadHoneycomb
 				last = c;
 				c = c + 2;
 			}
-			count = (last - first) / 2 + 1;
-			mid = first + 2 * (count / 2);
+			roadFirst = 0;
+			roadLast = 0;
+			roadCount = 0;
+			rc = first;
+			while (rc <= last)
+			{
+				if (IsRoadCol(rc))
+				{
+					if (roadCount == 0)
+						roadFirst = rc;
+					roadLast = rc;
+					roadCount = roadCount + 1;
+				}
+				rc = rc + 2;
+			}
+			if (roadCount > 5)
+			{
+				segFirst = roadFirst;
+				segLast = roadLast;
+			}
+			else
+			{
+				segFirst = first;
+				segLast = last;
+			}
+			count = (segLast - segFirst) / 2 + 1;
+			mid = segFirst + 2 * (count / 2);
 			middles.Insert(CellIndex(mid, row));
 			col = c;
 		}
