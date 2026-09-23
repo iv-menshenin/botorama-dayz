@@ -2,12 +2,10 @@
 //!
 //! Наследует dmBotIntent_GetInVehicle и переиспользует весь lifecycle посадки
 //! (walk к двери → открыть дверь → GetInVehicle → сел). После посадки переводит
-//! канал на DRIVE и ведёт машину ИМПУЛЬСНЫМ приводом: толчок dBodyApplyImpulseAt
-//! вдоль курса, пропорциональный ошибке скорости (целевая − текущая), + нативный
-//! руль SetSteering (через dm_DriveSteering) — поворот делает нативный руль.
-//! Нативный газ/тормоз НЕ используются: на ручной КПП без сцепления SetThrottle
-//! буксует (rpm высокий, колёса не крутятся) и глохнет при замыкании сцепления —
-//! импульс двигает машину напрямую, минуя сцепление/КПП.
+//! канал на DRIVE и ведёт машину нативным приводом: газ по отклонению от целевой
+//! скорости (dm_DriveThrottle через SetThrottle в CarScript.OnInput) + передачи
+//! ShiftTo (вперёд по скорости) + нативный руль SetSteering (через
+//! dm_DriveSteering) — поворот делает нативный руль, как у реальной машины.
 //! Маршрут — инкрементальный: интент доливает точки чанками из dmRoadRouter
 //! (RefillRoute → NextChunk) в хвост очереди; предзаполненный владельцем маршрут
 //! (E2E-мост) долива не требует. Застревание детектится по прогрессу
@@ -62,17 +60,14 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! горизонтально (dir[1]≈0). 0.7 = cos 45°: нормаль с dir[1] > 0.7 считаем «вверх»
 	//! (земля, пропускаем), dir[1] <= 0.7 — препятствие.
 	static const float DM_DRIVE_GROUND_NORMAL_EPS = 0.7;
-	//! Импульсный привод: доля ошибки скорости, прикладываемая за тик (пропорциональный
-	//! контроллер толчка dBodyApplyImpulseAt). 1.0 = полная ошибка (снап скорости за тик);
-	//! <1.0 сглаживает подход к целевой скорости. Сглаживание усиливает кап
-	//! DM_DRIVE_IMPULSE_MAX_DV.
-	static const float DM_DRIVE_IMPULSE_GAIN = 0.5;
-
-	//! Импульсный привод: кап дельта-V за тик (м/с). Ограничивает рывок при большом
-	//! отклонении от целевой скорости (разгон с места / жёсткое торможение). Единицы
-	//! dBodyApplyImpulseAt — сырой импульс (кг·м/с): deltaV домножается на массу тела
-	//! в ApplyDriveForce (без этого толчок на ~1000 кг машине ничтожен).
-	static const float DM_DRIVE_IMPULSE_MAX_DV = 0.4;
+	//! Локальный объезд: сила тормоза при превышении лимита скорости (0..1). Реальный
+	//! тормоз (SetBrake в CarScript.OnInput), а не сброс газа: на 47 км/ч машина без
+	//! тормоза катится ещё десятки метров и не успевает замедлиться до
+	//! DM_DRIVE_DETOUR_SPEED до барьера.
+	//! 0.5, а не 1.0: полный тормоз (1.0) на ручной КПП на высокой передаче глушит
+	//! мотор (столл). Умеренный тормоз замедляет достаточно (детект на ~100 м даёт
+	//! запас), но не блокирует колёса наглухо.
+	static const float DM_DRIVE_BRAKE_STRENGTH = 0.5;
 
 	//! Локальный объезд: минимальная скорость для детекта (км/ч). На старте машина
 	//! ещё не выровнялась на оси дороги и едва едет — проба полос от невыровненной
@@ -321,7 +316,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		super.OnUpdate(bot, pDt);
 	}
 
-	//! Один тик вождения: цель → скорость → импульсный толчок/тормоз → передача → руль.
+	//! Один тик вождения: цель → скорость → газ/тормоз (нативный) → передача → руль.
 	void TickDriving(dmAISurvivor bot, float pDt)
 	{
 		m_Car = CarScript.Cast(m_Transport);
@@ -518,11 +513,11 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			limit = DM_DRIVE_MAX_SPEED_TURNING;
 		m_SpeedLimit = Math.Lerp(m_SpeedLimit, limit, DM_DRIVE_SPEED_SMOOTH);
 
-		//! 7. Импульсный толчок/тормоз (dBodyApplyImpulseAt).
-		bool pushing = ApplyDriveForce(speedAbs, carDir);
+		//! 7. Нативный газ/тормоз (dm_DriveThrottle) + передачи.
+		bool pushing = ApplyDriveForce(speedAbs);
 
-		//! 8. Передачи (нейтраль — импульс едет напрямую).
-		ShiftGear();
+		//! 8. Передачи (вперёд по скорости).
+		ShiftGear(speedAbs);
 
 		//! 9. Руль (нативный).
 		ApplySteering(angle, speedAbs, pDt);
@@ -596,79 +591,86 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		#endif
 	}
 
-	//! Импульсный привод: толчок dBodyApplyImpulseAt вдоль курса машины, пропорциональный
-	//! ошибке скорости (целевая − текущая). Нативный газ/тормоз НЕ используются: на ручной
-	//! КПП без сцепления SetThrottle буксует (rpm высокий, колёса не крутятся) и глохнет
-	//! при замыкании сцепления — импульс двигает машину напрямую, минуя сцепление/КПП.
-	//! Превышение лимита — тормозим (отрицательный deltaV, импульс против движения), ниже
-	//! цели — разгоняемся, иначе накат. Возвращает true, если сейчас разгоняемся.
-	bool ApplyDriveForce(float speedAbs, vector carDir)
+	//! Нативный привод: газ по отклонению от целевой скорости (dm_DriveThrottle,
+	//! применяется через SetThrottle в CarScript.OnInput) + передачи ShiftTo.
+	//! Превышение лимита — реальный тормоз (dm_DriveBrake > 0), а не просто сброс газа:
+	//! сброс газа катит машину ещё десятки метров (врез в барьер). Возвращает true,
+	//! если сейчас разгоняемся (используется в драйв-логе).
+	bool ApplyDriveForce(float speedAbs)
 	{
 		float margin = 3.0;
 		bool pushing = false;
 
-		//! Нативный газ/тормоз не нужны — пишем нули (OnInput прикладывает только руль).
-		m_Car.dm_DriveThrottle = 0.0;
-		m_Car.dm_DriveBrake = 0.0;
-
-		//! Направление толчка: вперёд по курсу; назад — при реверсе (застревание/K-разворот).
-		vector dir = carDir;
-		if (m_Reverse)
-			dir = carDir * -1.0;
-
-		float deltaV = 0.0;
 		if (speedAbs > m_SpeedLimit + margin)
 		{
-			//! Превышаем лимит — тормозим: deltaV отрицателен (импульс против движения).
-			deltaV = (m_SpeedLimit - speedAbs) / 3.6;
+			//! Превышаем лимит — реально тормозим (не катимся): быстрое замедление
+			//! до целевой скорости (напр. с 47 до 20 км/ч при детекте препятствия).
+			m_Car.dm_DriveThrottle = 0.0;
+			m_Car.dm_DriveBrake = DM_DRIVE_BRAKE_STRENGTH;
 		}
 		else if (speedAbs < m_SpeedLimit - margin)
 		{
-			//! Ниже цели — разгоняемся (deltaV положителен).
+			//! Ниже цели — разгоняемся нативным газом (реальная тяга от двигателя);
+			//! тормоз обязательно снимаем, иначе не разгонится.
 			pushing = true;
-			deltaV = (m_SpeedLimit - speedAbs) / 3.6;
+			m_Car.dm_DriveThrottle = 0.6;
+			m_Car.dm_DriveBrake = 0.0;
 		}
-		//! Иначе — накат в коридоре (deltaV == 0, без импульса).
-
-		//! Пропорциональный контроллер с капом: прикладываем долю ошибки (не полный снап
-		//! скорости). deltaV (м/с) домножаем на массу — единицы dBodyApplyImpulseAt это
-		//! сырой импульс (кг·м/с), иначе толчок на машине ничтожен (см. ActionPushCar).
-		deltaV = deltaV * DM_DRIVE_IMPULSE_GAIN;
-		deltaV = Math.Clamp(deltaV, -DM_DRIVE_IMPULSE_MAX_DV, DM_DRIVE_IMPULSE_MAX_DV);
-
-		if (Math.AbsFloat(deltaV) > 0.001)
+		else
 		{
-			float mass = dBodyGetMass(m_Car);
-			if (mass <= 0.0)
-				mass = 1.0;
-			vector impulse = dir * deltaV * mass;
-			dBodyApplyImpulseAt(m_Car, impulse, m_Car.ModelToWorld(m_Car.GetEnginePos()));
+			//! Накат в коридоре — газ убираем, тормоз снят.
+			m_Car.dm_DriveThrottle = 0.0;
+			m_Car.dm_DriveBrake = 0.0;
 		}
 
 		//! Руль остаётся активным через dm_DriveActive (SetSteering в CarScript.OnInput).
 		m_Car.dm_DriveActive = true;
 
-		//! RPM-звук: нативный газ убран — двигатель держим заведённым (idle-звук), подмену
-		//! OnSound(RPM) не включаем (диапазон контроллера не проверен).
+		//! RPM-звук — нативный (dm_DriveThrottle поднимает EngineGetRPM через
+		//! OnInput); dm_DriveSimRPM остаётся выключенным (-1).
 		m_Car.dm_DriveSimRPM = -1.0;
 
 		return pushing;
 	}
 
-	//! Передачи: при импульсном приводе передачи не нужны (импульс двигает машину
-	//! напрямую, минуя сцепление/КПП). Держим нейтраль, чтобы ручная КПП не глохла —
-	//! включённая передача без сцепления сопротивляется импульсу и глушит мотор при
-	//! замыкании сцепления. Реверс управляется направлением импульса (ApplyDriveForce),
-	//! а не передачей.
-	void ShiftGear()
+	//! Передачи: МКПП по скорости, АКПП по режиму D/R/N.
+	void ShiftGear(float speedAbs)
 	{
-		ShiftToNeutral();
+		CarGearboxType type = m_Car.GearboxGetType();
+		if (type == CarGearboxType.MANUAL)
+		{
+			//! МКПП: передача вперёд по скорости, реверс при m_Reverse.
+			int targetGear = CarGear.FIRST;
+			if (m_Reverse)
+				targetGear = CarGear.REVERSE;
+			else if (speedAbs < 15.0)
+				targetGear = CarGear.FIRST;
+			else if (speedAbs < 30.0)
+				targetGear = CarGear.SECOND;
+			else if (speedAbs < 45.0)
+				targetGear = CarGear.THIRD;
+			else
+				targetGear = CarGear.FOURTH;
+
+			if (m_Car.GetCurrentGear() != targetGear)
+				m_Car.ShiftTo(targetGear);
+		}
+		else
+		{
+			CarAutomaticGearboxMode target = CarAutomaticGearboxMode.D;
+			if (m_Reverse)
+				target = CarAutomaticGearboxMode.R;
+			else if (speedAbs < 2.0)
+				target = CarAutomaticGearboxMode.N;
+
+			if (m_Car.GearboxGetMode() != target)
+				m_Car.ShiftTo(target);
+		}
 	}
 
-	//! Нейтраль: отсоединяем двигатель от колёс. Основная передача при импульсном
-	//! приводе (ShiftGear зовёт её каждый тик) и перед жёстким тормозом сот/объезда —
-	//! на ручной КПП включённая передача без сцепления глушит мотор (rpm=0 →
-	//! engine=false), машина глохнет и не едет дальше.
+	//! Нейтраль: отсоединяем двигатель от колёс. Нужна перед жёстким тормозом
+	//! (фаза сот/объезда) — на ручной КПП тормоз на высокой передаче глушит мотор
+	//! (rpm=0 → engine=false), машина глохнет и не едет дальше.
 	void ShiftToNeutral()
 	{
 		CarGearboxType type = m_Car.GearboxGetType();
@@ -778,9 +780,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 
 		if (m_TurnState == K_TURN_REVERSING)
 		{
-			//! Реверс: толчок назад (m_Reverse → ApplyDriveForce меняет направление
-			//! импульса), нос доворачиваем к маршруту. Выход по гистерезису (|angle|
-			//! упал ниже ANGLE-MARGIN ~40°) ИЛИ по таймаут-страховке.
+			//! Реверс: задняя передача (ShiftGear по m_Reverse), нос доворачиваем к
+			//! маршруту. Выход по гистерезису (|angle| упал ниже ANGLE-MARGIN ~40°)
+			//! ИЛИ по таймаут-страховке.
 			m_Reverse = true;
 			float exitRad = (DM_DRIVE_REVERSE_TURN_ANGLE - DM_DRIVE_REVERSE_TURN_MARGIN) * Math.DEG2RAD;
 			if (absAngle < exitRad || m_TurnTimer > DM_DRIVE_REVERSE_TURN_TIMEOUT)
@@ -1310,9 +1312,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 
 		//! Жёсткий тормоз до полной остановки, пока соты считают объезд (маршрута
-		//! ещё нет). Нейтраль перед тормозом, чтобы ручная КПП не глохла; в нейтрали
-		//! полный тормоз (1.0) безопасен. Остановка тут НАТИВНАЯ (dm_DriveBrake), а не
-		//! импульсная — в фазе сот ApplyDriveForce не зовётся, толчок не прикладывается.
+		//! ещё нет). Нейтраль перед тормозом, чтобы ручная КПП не глохла на высокой
+		//! передаче; в нейтрали полный тормоз (1.0) безопасен и гасит скорость
+		//! быстрее щадящего DM_DRIVE_BRAKE_STRENGTH (0.5, для КПП на передаче).
 		float speedAbs = m_Car.GetSpeedometerAbsolute();
 		ShiftToNeutral();
 		m_SpeedLimit = 0.0;
