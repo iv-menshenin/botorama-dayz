@@ -60,6 +60,7 @@ class dmE2EStep
 	vector TargetPos; // griddump end point (world); `string Target` is a bot name, so the end position uses a vector field
 	int WidthCells;   // griddump territory width in cells (0 = default 90)
 	float LengthMeters; // griddump territory length in meters (0 = default 260)
+	bool ImmediateGrid; // drive/driveto: сразу строить сетку объезда (тест-режим)
 }
 
 //! Per-step outcome.
@@ -2251,6 +2252,7 @@ class dmE2EBridge
 		{
 			drive.m_DriveRoute.Insert(ResolveWorldPos(step.Pos));
 		}
+		drive.m_ImmediateGrid = step.ImmediateGrid;
 		bot.AddCommandIntent(drive);
 
 		r.Ok = true;
@@ -2298,6 +2300,7 @@ class dmE2EBridge
 		dmBotIntent_Drive drive = new dmBotIntent_Drive();
 		drive.m_Transport = transport;
 		drive.m_Seat = 0;
+		drive.m_ImmediateGrid = step.ImmediateGrid;
 		bot.AddCommandIntent(drive);
 
 		r.Ok = true;

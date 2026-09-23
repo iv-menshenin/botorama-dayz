@@ -218,6 +218,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Включается, когда коробка не влезла (no clear corridor / узкий коридор).
 	int m_HoneyState = 0;
 
+	//! Тест-режим: сразу строить сетку объезда при старте вождения (без детекта).
+	bool m_ImmediateGrid = false;
+
 	void dmBotIntent_Drive()
 	{
 		//! Посадка = walk → канал MOVE (как у GetInVehicle); в фазе вождения
@@ -366,6 +369,30 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		}
 
 		vector carPos = m_Car.GetPosition();
+		vector gridDir;
+		vector gridOrigin;
+		Human gridDriver;
+
+		//! Тест-режим: сразу строим сетку объезда от машины вперёд (однократно).
+		if (m_ImmediateGrid && m_HoneyState == 0)
+		{
+			m_ImmediateGrid = false;
+			m_Reverse = false;
+			m_DetourActive = false;
+			gridDir = m_Car.GetDirection();
+			gridDir[1] = 0.0;
+			if (gridDir.Length() < 0.01)
+				gridDir = Vector(1.0, 0.0, 0.0);
+			else
+				gridDir.Normalize();
+			gridOrigin = carPos + gridDir * DM_DRIVE_HONEY_ORIGIN_OFFSET;
+			gridDriver = m_Car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER);
+			dmRoadHoneycomb.Get().Start(gridOrigin, gridDir, m_DriveRoute, m_DriveRouteIdx, m_Car, gridDriver, 0.0, 0);
+			m_HoneyState = 1;
+			#ifdef DM_BOT_DEBUG_CAR
+			dmBotLog.Debug("[CAR] Drive: immediate grid origin=" + gridOrigin);
+			#endif
+		}
 
 		//! Соты: пока считают объезд — монопольно владеем тиком (тормозим, ждём
 		//! результат). Детект/K-разворот/застревание в это время не работают.
@@ -1291,9 +1318,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		if (dmRoadHoneycomb.Get().IsDone())
 		{
 			array<vector> path = new array<vector>();
-			//! Вырожденный путь (< 3 точек) = грид не дотянулся до препятствия
-			//! (прямая, а не объезд). Не вставляем и не финишим — настоящий тупик.
-			if (dmRoadHoneycomb.Get().GetPath(path) && path.Count() >= 3)
+			//! Путь из ≥2 точек (вход+выход — прямая дорога без препятствия, или
+			//! объезд) валиден: вставляем и едем по нему.
+			if (dmRoadHoneycomb.Get().GetPath(path) && path.Count() >= 2)
 			{
 				InsertHoneycombPath(path);
 				m_LastWaypointDist = -1.0;
@@ -1304,7 +1331,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			}
 			else
 			{
-				//! Гейт высадки: вырожденный путь (< 3 точек) — настоящий тупик,
+				//! Гейт высадки: путь < 2 точек (нет выхода) — настоящий тупик,
 				//! но сдаёмся только когда машина реально остановилась. Пока катится
 				//! быстрее DM_DRIVE_EXIT_MAX_SPEED — остаёмся за рулём и тормозим
 				//! (как в ветке IsFailed).
