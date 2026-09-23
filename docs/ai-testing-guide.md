@@ -132,6 +132,17 @@ cp build/*.pbo build/*.bisign "$AD/"
 nohup ~/dayz-cherno > /tmp/dayz_console.log 2>&1 &
 ```
 
+> **Готча (запуск из ИИ-агента)**: `nohup ~/dayz-cherno > /tmp/dayz_console.log 2>&1 &`
+> **зависает** на таймауте bash-инструмента: `~/dayz-cherno` держит `./DayZServer` в
+> foreground, а дочерний процесс остаётся привязанным к stdout/stderr pipe — инструмент
+> ждёт завершения сервера. Правильная форма:
+>
+> ```
+> setsid nohup ~/dayz-cherno >/tmp/dayz_console.log 2>&1 </dev/null & disown
+> ```
+>
+> `setsid` + `</dev/null` + `disown` полностью отвязывают процесс от терминала/pipe.
+
 Под капотом (скрипт чистит старые логи и стартует):
 
 ```
