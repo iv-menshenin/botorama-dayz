@@ -10,10 +10,11 @@
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
 //! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
-//! driveto | drive | cardump | griddump, and observe (teleport a connected player). `wait` and `sleep`
-//! are the deferred ops: they tick across frames (wait until a condition is met
-//! or its timeout expires; sleep until its timeout). Everything else executes in
-//! a single tick.
+//! driveto | drive | cardump | griddump, and observe (teleport a connected player). `wait`, `sleep`
+//! and `drivetest` are the deferred ops: they tick across frames (wait until a
+//! condition is met or its timeout expires; sleep until its timeout; drivetest
+//! until the bot drives to the exit or a guard aborts). Everything else executes
+//! in a single tick.
 
 //! A job (input): an id and the list of steps to run.
 class dmE2EJob
@@ -26,7 +27,7 @@ class dmE2EJob
 //! One job step (op plus per-op parameters).
 class dmE2EStep
 {
-	string Op;        // "ping" | "spawn" | "moveto" | "follow" | "patrol" | ...
+	string Op;        // "ping" | "spawn" | "moveto" | "follow" | "patrol" | ... | "drivetest"
 	string Who;       // bot name (spawn, moveto, ...) / object name (spawnobj)
 	string Target;    // target bot name (follow, distance, look)
 	vector Pos;       // [x,y,z] world position (spawn, moveto, reached, look, ...)
@@ -34,7 +35,7 @@ class dmE2EStep
 	autoptr array<vector> Points;  // patrol points [[x,z],...]
 	float Speed;      // preferred movement speed (1..3)
 	string Loadout;   // loadout name
-	string Cond;      // wait/assert condition: state|reached|distance|alive|moving|carpos|carspeed
+	string Cond;      // wait/assert condition: state|reached|distance|alive|moving|carpos|carspeed|enginestate|carspeedavg|driver|intent
 	string Value;     // condition value (state name / "true"/"false" / lineId for say)
 	float Tolerance;  // reached/distance tolerance (meters)
 	float Timeout;    // wait timeout / sleep duration (seconds)
@@ -61,6 +62,11 @@ class dmE2EStep
 	int WidthCells;   // griddump territory width in cells (0 = default 90)
 	float LengthMeters; // griddump territory length in meters (0 = default 260)
 	bool ImmediateGrid; // drive/driveto: сразу строить сетку объезда (тест-режим)
+	float SeatTimeout;    // drivetest: дедлайн посадки (с), default 45
+	float StopWindow;     // drivetest: окно скользящего среднего скорости (с), default 30
+	float MinSpeed;       // drivetest: порог средней скорости (км/ч), default 0.5
+	float IdleRpmMargin;  // drivetest: превышение RPM над idle, чтобы считать мотор "работает" (default 100)
+	float GuardGrace;     // drivetest: грейс (с) до включения speed/engine guard'ов (default 10)
 }
 
 //! Per-step outcome.
@@ -132,6 +138,17 @@ class dmE2EBridge
 	//! Default army spawn scatter radius (meters) when step.Radius is 0.
 	static const float DM_E2E_ARMY_RADIUS = 50.0;
 
+	//! drivetest: fixed window (seconds) for the per-car rolling speed EMA.
+	//! step.StopWindow currently does NOT override this (Tick has no current step).
+	static const float DM_E2E_STOP_WINDOW = 30.0;
+
+	//! drivetest: defaults for the deferred judge. JsonSerializer не применяет
+	//! инициализаторы полей, поэтому нули в step трактуем как эти дефолты.
+	static const float DM_E2E_DRIVETEST_MIN_SPEED = 0.5;
+	static const float DM_E2E_DRIVETEST_SEAT_TIMEOUT = 45.0;
+	static const float DM_E2E_DRIVETEST_GUARD_GRACE = 10.0;
+	static const float DM_E2E_DRIVETEST_IDLE_RPM_MARGIN = 100.0;
+
 	private ref map<string, ref dmAISurvivor> m_Named;
 	private ref map<string, Object> m_Objects;
 	private float m_ScanAccum;
@@ -143,6 +160,12 @@ class dmE2EBridge
 	private int m_StepIndex;            // next step to run
 	private float m_JobTimer;           // elapsed time of the whole job
 	private float m_WaitTimer;          // elapsed time of the current wait step
+
+	private int m_DriveTestPhase;         // drivetest: 0=PREP, 1=TEST
+	private float m_DriveTestElapsed;     // drivetest: time inside the step
+	private float m_DriveTestTestElapsed; // drivetest: time inside TEST phase (GuardGrace)
+	private bool m_DriveTestMovedOnce;    // drivetest: latch, car showed speed > MinSpeed
+	private ref map<string, float> m_CarSpeedAvg; // drivetest: per-car rolling speed EMA
 
 	static dmE2EBridge Get()
 	{
@@ -163,12 +186,19 @@ class dmE2EBridge
 		m_StepIndex = 0;
 		m_JobTimer = 0.0;
 		m_WaitTimer = 0.0;
+		m_DriveTestPhase = 0;
+		m_DriveTestElapsed = 0.0;
+		m_DriveTestTestElapsed = 0.0;
+		m_DriveTestMovedOnce = false;
+		m_CarSpeedAvg = new map<string, float>();
 	}
 
 	void Tick(float dt)
 	{
 		if (!FileExist(DM_E2E_ENABLED_FILE))
 			return;
+
+		UpdateCarSpeedAvg(dt);
 
 		if (m_Job != null)
 		{
@@ -197,6 +227,29 @@ class dmE2EBridge
 		if (fileName != "")
 			StartJob(DM_E2E_IN_DIR + "/" + fileName, fileName);
 		CloseFindFile(handle);
+	}
+
+	//! drivetest: advance the per-car rolling speed EMA (fixed window
+	//! DM_E2E_STOP_WINDOW) for every named object that is a CarScript.
+	private void UpdateCarSpeedAvg(float dt)
+	{
+		TStringArray names = m_Objects.GetKeyArray();
+		int i;
+		for (i = 0; i < names.Count(); i++)
+		{
+			Object obj;
+			if (!m_Objects.Find(names[i], obj) || !obj)
+				continue;
+			CarScript car = CarScript.Cast(obj);
+			if (!car)
+				continue;
+
+			float speed = car.GetSpeedometerAbsolute();
+			float avg = 0.0;
+			m_CarSpeedAvg.Find(names[i], avg);
+			avg = avg + (dt / DM_E2E_STOP_WINDOW) * (speed - avg);
+			m_CarSpeedAvg.Set(names[i], avg);
+		}
 	}
 
 	//! Load the job file and initialize the deferred automaton state. On load
@@ -240,6 +293,11 @@ class dmE2EBridge
 		m_StepIndex = 0;
 		m_JobTimer = 0.0;
 		m_WaitTimer = 0.0;
+		m_DriveTestPhase = 0;
+		m_DriveTestElapsed = 0.0;
+		m_DriveTestTestElapsed = 0.0;
+		m_DriveTestMovedOnce = false;
+		m_CarSpeedAvg.Clear();
 	}
 
 	//! Advance the automaton one step (or stay on the current wait step).
@@ -305,6 +363,12 @@ class dmE2EBridge
 			return;
 		}
 
+		if (step.Op == "drivetest")
+		{
+			TickDriveTest(step, dt);
+			return;
+		}
+
 		dmE2EStepResult stepResult = new dmE2EStepResult();
 		stepResult.Index = m_StepIndex;
 		stepResult.Op = step.Op;
@@ -347,6 +411,233 @@ class dmE2EBridge
 		m_StepIndex = 0;
 		m_JobTimer = 0.0;
 		m_WaitTimer = 0.0;
+	}
+
+	//! "drivetest" — deferred judge for the obstacle-avoidance drive builder. PREP
+	//! waits for the bot to seat the car (guarding the Drive intent); TEST guards
+	//! the intent, driver seat, engine state and rolling speed until the car reaches
+	//! the exit. The first violated guard aborts the whole job.
+	private void TickDriveTest(dmE2EStep step, float dt)
+	{
+		dmAISurvivor bot;
+		CarScript car;
+		PlayerBase pawn;
+		HumanCommandVehicle hcv;
+		bool gettingIn;
+		vector exitPos;
+		float minSpeed;
+		float seatTimeout;
+		float guardGrace;
+		float margin;
+		float avgSpeed;
+
+		m_DriveTestElapsed = m_DriveTestElapsed + dt;
+
+		if (!m_Named.Find(step.Who, bot))
+		{
+			AbortDriveTest(step, "no such bot/car");
+			return;
+		}
+		if (!FindCar(step.Obj, car))
+		{
+			AbortDriveTest(step, "no such bot/car");
+			return;
+		}
+		pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			AbortDriveTest(step, "no such bot/car");
+			return;
+		}
+
+		//! JsonSerializer не применяет инициализаторы полей — нули трактуем как
+		//! «дефолт по умолчанию» (как Radius/Spread в остальных раннерах).
+		minSpeed = step.MinSpeed;
+		if (minSpeed <= 0.0)
+			minSpeed = DM_E2E_DRIVETEST_MIN_SPEED;
+		seatTimeout = step.SeatTimeout;
+		if (seatTimeout <= 0.0)
+			seatTimeout = DM_E2E_DRIVETEST_SEAT_TIMEOUT;
+		guardGrace = step.GuardGrace;
+		if (guardGrace <= 0.0)
+			guardGrace = DM_E2E_DRIVETEST_GUARD_GRACE;
+
+		exitPos = ResolveWorldPos(step.Pos);
+
+		if (!m_DriveTestMovedOnce && car.GetSpeedometerAbsolute() > minSpeed)
+			m_DriveTestMovedOnce = true;
+
+		if (m_DriveTestPhase == 0)
+		{
+			if (!HasCommandIntent(bot, "Drive"))
+			{
+				AbortDriveTest(step, "intent died in prep (Fail/removed)");
+				return;
+			}
+			//! Переход в TEST только когда бот реально сидит: член экипажа И
+			//! get-in анимация завершена (CrewMember кратковременно true во время
+			//! get-in, хотя экипаж так и не формируется).
+			hcv = pawn.GetCommand_Vehicle();
+			gettingIn = false;
+			if (hcv != null && hcv.IsGettingIn())
+				gettingIn = true;
+			if (car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER) == pawn && !gettingIn)
+			{
+				#ifdef DM_BOT_DEBUG_E2E
+				dmBotLog.Debug("[E2E] drivetest: seated");
+				#endif
+				m_DriveTestPhase = 1;
+				m_DriveTestTestElapsed = 0.0;
+			}
+			else if (m_DriveTestElapsed > seatTimeout)
+			{
+				AbortDriveTest(step, "seating timeout");
+				return;
+			}
+			return;
+		}
+
+		m_DriveTestTestElapsed = m_DriveTestTestElapsed + dt;
+
+		//! Достижение выхода — приоритетно над guard'ами (успешный финиш): как
+		//! только машина в пределах Tolerance, это PASS независимо от состояния
+		//! двигателя/интента (Drive-интент штатно финиширует и удаляется из пула,
+		//! мотор глохнет, EMA скорости падает — всё это уже не должно абортить).
+		if (vector.Distance(car.GetPosition(), exitPos) < step.Tolerance)
+		{
+			dmE2EStepResult passResult = new dmE2EStepResult();
+			passResult.Index = m_StepIndex;
+			passResult.Op = step.Op;
+			passResult.Dump = new array<string>();
+			passResult.Ok = true;
+			passResult.Reason = "reached exit";
+			m_Result.Steps.Insert(passResult);
+			m_StepIndex = m_StepIndex + 1;
+			m_DriveTestPhase = 0;
+			m_WaitTimer = 0.0;
+			LogStep(passResult);
+			return;
+		}
+
+		//! Выход ещё не достигнут — включаются guard'ы.
+		if (!HasCommandIntent(bot, "Drive"))
+		{
+			AbortDriveTest(step, "intent Fail/removed");
+			return;
+		}
+		if (car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER) != pawn)
+		{
+			AbortDriveTest(step, "driver lost (unseat/escape)");
+			return;
+		}
+
+		if (m_DriveTestMovedOnce || m_DriveTestTestElapsed >= guardGrace)
+		{
+			avgSpeed = 0.0;
+			m_CarSpeedAvg.Find(step.Obj, avgSpeed);
+			if (avgSpeed <= minSpeed)
+			{
+				AbortDriveTest(step, "stop-guard: avg speed 0");
+				return;
+			}
+
+			margin = step.IdleRpmMargin;
+			if (margin == 0.0)
+				margin = DM_E2E_DRIVETEST_IDLE_RPM_MARGIN;
+			if (!EngineRunning(car, margin))
+			{
+				AbortDriveTest(step, "engine off / rpm idle");
+				return;
+			}
+		}
+	}
+
+	//! Abort the drivetest step (Ok=false) and finish the job immediately. The
+	//! job folds to "error" because the step is Ok=false.
+	private void AbortDriveTest(dmE2EStep step, string reason)
+	{
+		string dump = DriveTestCarDump(step);
+
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] drivetest abort: " + reason);
+		dmBotLog.Debug("[E2E] drivetest cardump: " + dump);
+		#endif
+
+		dmE2EStepResult abortResult = new dmE2EStepResult();
+		abortResult.Index = m_StepIndex;
+		abortResult.Op = step.Op;
+		abortResult.Dump = new array<string>();
+		abortResult.Dump.Insert(dump);
+		abortResult.Ok = false;
+		abortResult.Reason = reason;
+		m_Result.Steps.Insert(abortResult);
+		LogStep(abortResult);
+
+		FinalizeJob();
+	}
+
+	//! True while the bot has a live command intent named `name`. «Живой» =
+	//! присутствует в пуле И не IsFailed(). Успешно завершившийся, но ещё не
+	//! удалённый пулом интент ловится reach-first PASS в TickDriveTest, поэтому
+	//! !IsFailed() достаточно (не путать с «активный»: Fail() ставит и m_Failed,
+	//! и m_Finished).
+	private bool HasCommandIntent(dmAISurvivor bot, string name)
+	{
+		dmBotIntentPool pool = bot.GetCommandIntents();
+		if (!pool)
+			return false;
+		ref array<ref dmBotIntent> intents = pool.GetIntents();
+		int i;
+		for (i = 0; i < intents.Count(); i++)
+		{
+			dmBotIntent intent = intents[i];
+			if (intent && intent.GetIntentName() == name && !intent.IsFailed())
+				return true;
+		}
+		return false;
+	}
+
+	//! True while the car engine is running above idle (engine-guard + enginestate).
+	private bool EngineRunning(CarScript car, float margin)
+	{
+		return car.EngineIsOn() && car.EngineGetRPM() > car.EngineGetRPMIdle() + margin;
+	}
+
+	//! Resolve a named probe object to a CarScript. Returns false when the object
+	//! is not found or is not a CarScript; on success fills `car` (out).
+	private bool FindCar(string name, out CarScript car)
+	{
+		Object obj;
+		car = null;
+		if (!m_Objects.Find(name, obj) || !obj)
+			return false;
+		car = CarScript.Cast(obj);
+		return car != null;
+	}
+
+	//! Reason string for a failed FindCar: "not a car" when the object exists but
+	//! is not a CarScript, else "no such car" (keeps car-conditions consistent).
+	private string CarFailReason(string name)
+	{
+		Object obj;
+		if (m_Objects.Find(name, obj) && obj)
+			return "not a car";
+		return "no such car";
+	}
+
+	//! One-line car dump (pos/speed/engine/rpm/gear/driver) for the abort result.
+	private string DriveTestCarDump(dmE2EStep step)
+	{
+		CarScript car;
+		if (!FindCar(step.Obj, car))
+			return "car=none";
+		string driverState = "absent";
+		if (car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER) != null)
+			driverState = "present";
+		string line = "pos=" + car.GetPosition() + " speed=" + car.GetSpeedometerAbsolute();
+		line = line + " engine=" + car.EngineIsOn() + " rpm=" + car.EngineGetRPM();
+		line = line + " gear=" + car.GetCurrentGear() + " driver=" + driverState;
+		return line;
 	}
 
 	//! Dispatch a single-tick op to its runner.
@@ -1132,17 +1423,20 @@ class dmE2EBridge
 		Object carObj;
 		CarScript car;
 		bool fast;
+		Transport transport;
+		float margin;
+		float avgSpeed;
 
 		//! Car conditions operate on a named probe object (m_Objects), not a bot.
 		if (step.Cond == "carpos")
 		{
-			if (!m_Objects.Find(step.Obj, carObj) || !carObj)
+			if (!FindCar(step.Obj, car))
 			{
 				r.Ok = false;
-				r.Reason = "no such car";
+				r.Reason = CarFailReason(step.Obj);
 				return false;
 			}
-			result = vector.Distance(carObj.GetPosition(), ResolveWorldPos(step.Pos)) < step.Tolerance;
+			result = vector.Distance(car.GetPosition(), ResolveWorldPos(step.Pos)) < step.Tolerance;
 			r.Ok = result;
 			r.Reason = "";
 			return result;
@@ -1150,16 +1444,46 @@ class dmE2EBridge
 
 		if (step.Cond == "carspeed")
 		{
-			if (!m_Objects.Find(step.Obj, carObj) || !carObj)
+			if (!FindCar(step.Obj, car))
 			{
 				r.Ok = false;
-				r.Reason = "no such car";
+				r.Reason = CarFailReason(step.Obj);
 				return false;
 			}
-			fast = false;
-			car = CarScript.Cast(carObj);
-			if (car)
-				fast = car.GetSpeedometerAbsolute() > step.Value.ToFloat();
+			fast = car.GetSpeedometerAbsolute() > step.Value.ToFloat();
+			r.Ok = fast;
+			r.Reason = "";
+			return fast;
+		}
+
+		if (step.Cond == "enginestate")
+		{
+			if (!FindCar(step.Obj, car))
+			{
+				r.Ok = false;
+				r.Reason = CarFailReason(step.Obj);
+				return false;
+			}
+			margin = step.IdleRpmMargin;
+			if (margin == 0.0)
+				margin = DM_E2E_DRIVETEST_IDLE_RPM_MARGIN;
+			result = EngineRunning(car, margin);
+			r.Ok = result;
+			r.Reason = "";
+			return result;
+		}
+
+		if (step.Cond == "carspeedavg")
+		{
+			if (!FindCar(step.Obj, car))
+			{
+				r.Ok = false;
+				r.Reason = CarFailReason(step.Obj);
+				return false;
+			}
+			avgSpeed = 0.0;
+			m_CarSpeedAvg.Find(step.Obj, avgSpeed);
+			fast = avgSpeed > step.Value.ToFloat();
 			r.Ok = fast;
 			r.Reason = "";
 			return fast;
@@ -1213,6 +1537,20 @@ class dmE2EBridge
 			mv = vector.Distance(vel, vector.Zero) > DM_E2E_MOVING_THRESHOLD;
 			if (mv == want)
 				result = true;
+		}
+		else if (step.Cond == "driver")
+		{
+			if (m_Objects.Find(step.Obj, carObj) && carObj)
+			{
+				transport = Transport.Cast(carObj);
+				pawn = bot.GetPawn();
+				if (transport && pawn && transport.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER) == pawn)
+					result = true;
+			}
+		}
+		else if (step.Cond == "intent")
+		{
+			result = HasCommandIntent(bot, step.Value);
 		}
 
 		r.Ok = result;
@@ -1937,6 +2275,28 @@ class dmE2EBridge
 		line = "fsmIntents=" + bot.GetFSMIntents().Count();
 		AppendDump(r, line);
 
+		dmBotIntentPool cmdPool = bot.GetCommandIntents();
+		string driveState = "none";
+		if (cmdPool)
+		{
+			ref array<ref dmBotIntent> cmdIntents = cmdPool.GetIntents();
+			int i;
+			for (i = 0; i < cmdIntents.Count(); i++)
+			{
+				dmBotIntent cmdIntent = cmdIntents[i];
+				if (cmdIntent && cmdIntent.GetIntentName() == "Drive")
+				{
+					if (cmdIntent.IsFailed())
+						driveState = "failed";
+					else
+						driveState = "active";
+					break;
+				}
+			}
+		}
+		line = "commandIntents=" + bot.GetCommandIntents().Count() + " drive=" + driveState;
+		AppendDump(r, line);
+
 		r.Ok = true;
 		r.Reason = "dumped";
 	}
@@ -2371,6 +2731,12 @@ class dmE2EBridge
 		AppendDump(r, line);
 
 		line = "engine=" + car.EngineIsOn();
+		AppendDump(r, line);
+
+		string driverState = "absent";
+		if (car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER) != null)
+			driverState = "present";
+		line = "driver=" + driverState;
 		AppendDump(r, line);
 
 		r.Ok = true;

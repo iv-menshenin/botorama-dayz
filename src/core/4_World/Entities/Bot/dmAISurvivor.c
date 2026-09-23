@@ -1235,6 +1235,11 @@ class dmAISurvivor
 		return m_FSMIntents;
 	}
 
+	dmBotIntentPool GetCommandIntents()
+	{
+		return m_CommandIntents;
+	}
+
 	//------------------------------------------------------------------
 	// Patrol points
 	//------------------------------------------------------------------
