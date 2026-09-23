@@ -155,10 +155,10 @@ class dmBotIntent_GetInVehicle : dmBotIntent_MoveTo
 	if ( m_Phase == PHASE_ENTERING )
 	{
 		m_PhaseTimer -= pDt;
-		bool seated = false;
-		if (m_Transport)
-			seated = (m_Transport.CrewMember(m_Seat) == m_Pawn);
-		if ( seated || m_PhaseTimer <= 0.0 )
+		HumanCommandVehicle cmd = null;
+		if ( m_Pawn )
+			cmd = m_Pawn.GetCommand_Vehicle();
+		if ( (cmd && !cmd.IsGettingIn()) || m_PhaseTimer <= 0.0 )
 		{
 			SetCarDoorOpen(false);
 			m_Phase = PHASE_SEATED;
