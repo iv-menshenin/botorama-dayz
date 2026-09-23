@@ -40,6 +40,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! нулевого ряда стартует ЗА бампером, кузов/капот остаются позади территории
 	//! и не красятся RED (иначе m_SeenRed ставится рано и грид гаснет до барьера).
 	static const float DM_DRIVE_HONEY_ORIGIN_OFFSET = 3.5;
+	//! Соты: бюджет CPU на один кадр для асинхронной раскраски/маркировки (мс).
+	//! Рейкасты сот дёшевы (~1.4 мкс/под-шаг), но троттлинг «1 под-шаг/тик» даёт ~9.4 мин
+	//! на 110 рядов — бюджетный цикл сжимает до долей секунды без заметного спайка кадра.
+	static const float DM_DRIVE_GRID_BUDGET_MS = 3.0;
 	//! Локальный объезд: высота нижнего детект-луча над землёй (м). Верхний луч на
 	//! высоте кузова перелетает низкие заграждения (бордюры, низкие бетонные барьеры
 	//! ~0.5–1 м) и ловит их только вплотную — нижний луч у земли цепляет их на полной
@@ -195,6 +199,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 	//! Последнее время драйв-лога (троттлинг ~2 c).
 	float m_LastDriveLogTime = 0.0;
 
+	//! Последнее время лога «водитель/фаза посадки» (троттлинг ~2 c) — отдельный
+	//! таймер, чтобы не глушить драйв-телеметрию в конце TickDriving.
+	float m_LastSeatLogTime = 0.0;
+
 	//! Локальный объезд: таймер троттлинга детекта (с).
 	float m_DetectTimer = 0.0;
 
@@ -270,6 +278,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_TurnState = K_TURN_NONE;
 		m_TurnTimer = 0.0;
 		m_LastDriveLogTime = 0.0;
+		m_LastSeatLogTime = 0.0;
 		m_DetectTimer = 0.0;
 		m_DetourActive = false;
 		m_DetourCooldown = 0.0;
@@ -317,6 +326,16 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			Fail();
 			return;
 		}
+
+		#ifdef DM_BOT_DEBUG_CAR
+		float seatNow = GetGame().GetTickTime();
+		if (seatNow - m_LastSeatLogTime >= 2.0)
+		{
+			m_LastSeatLogTime = seatNow;
+			bool driverSeated = (m_Car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER) != null);
+			dmBotLog.Debug("[CAR] Drive: driver=" + driverSeated + " phase=" + m_Phase);
+		}
+		#endif
 
 		//! 1. Пауза после посадки: сидим, двигатель ещё не заводим (газ/руль не трогаем).
 		m_SeatedFor += pDt;
@@ -1284,7 +1303,13 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		dmBotSpan _span = dmBotProfiler.Start("Drive.Honeycomb");
 		#endif
 
-		dmRoadHoneycomb.Get().Tick(pDt);
+		float gridStart = GetGame().GetTickTime();
+		while (!dmRoadHoneycomb.Get().IsDone() && !dmRoadHoneycomb.Get().IsFailed())
+		{
+			dmRoadHoneycomb.Get().Tick(pDt);
+			if ((GetGame().GetTickTime() - gridStart) * 1000.0 >= DM_DRIVE_GRID_BUDGET_MS)
+				break;
+		}
 
 		//! Жёсткий тормоз до полной остановки, пока соты считают объезд (маршрута
 		//! ещё нет). Нейтраль перед тормозом, чтобы ручная КПП не глохла на высокой

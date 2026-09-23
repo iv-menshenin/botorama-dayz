@@ -212,15 +212,18 @@ class dmBotIntent_GetInVehicle : dmBotIntent_MoveTo
 
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
+		if (m_Pawn && m_Pawn.IsInVehicle())
+			return;
+
 		bot.SetMove(0.0, 0.0);
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] GetInVehicle.OnReachedGoal pos=" + pos);
 		#endif
 
+		vector vehicleSitPos;
+		vector vehicleSitDir;
 		if (m_Transport && m_Phase == PHASE_WALK && !m_CommandInvoked)
 		{
-			vector vehicleSitPos;
-			vector vehicleSitDir;
 			m_Transport.CrewEntryWS(m_Seat, vehicleSitPos, vehicleSitDir);
 			m_Pawn.SetPosition(vehicleSitPos);
 			m_Pawn.SetOrientation(Vector(vehicleSitDir.VectorToAngles()[0], 0.0, 0.0));

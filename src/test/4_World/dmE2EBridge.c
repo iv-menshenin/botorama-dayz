@@ -517,6 +517,10 @@ class dmE2EBridge
 		{
 			RunGridDump(step, r);
 		}
+		else if (step.Op == "dumpgrid")
+		{
+			RunDumpGridState(step, r);
+		}
 		else
 		{
 			r.Ok = false;
@@ -2539,6 +2543,99 @@ class dmE2EBridge
 		r.Ok = saved;
 		r.Reason = hStatus + " cells=" + cellCount + " route=" + route.Count() + " -> " + dumpPath;
 		r.Reason = r.Reason + " buildMs=" + buildMs;
+	}
+
+	//! "dumpgrid" — дамп ТЕКУЩЕГО состояния сот (после драйв-потока) БЕЗ перезапуска
+	//! сетки: геометрия/цвета/путь берутся из dmRoadHoneycomb геттерами, а не
+	//! пересчитываются. Формат тот же, что у griddump; LeftEdge/RightEdge пустые
+	//! (для PNG линии объезда важнее WaypointCells).
+	private void RunDumpGridState(dmE2EStep step, dmE2EStepResult r)
+	{
+		string hStatus = "running";
+		if (dmRoadHoneycomb.Get().GetStatusId() == 3)
+			hStatus = "done";
+		else if (dmRoadHoneycomb.Get().GetStatusId() == 4)
+			hStatus = "failed";
+
+		dmGridDump dump = new dmGridDump();
+		dump.Origin = dmRoadHoneycomb.Get().GetOrigin();
+		dump.Dir = dmRoadHoneycomb.Get().GetDir();
+		dump.Side = dmRoadHoneycomb.Get().GetSide();
+		dump.Rows = dmRoadHoneycomb.Get().GetRowCount();
+		dump.Width = dmRoadHoneycomb.Get().GetWidth();
+		dump.HalfWidth = dmRoadHoneycomb.Get().GetHalfWidth();
+		dump.Status = hStatus;
+		dump.Cells = new array<ref dmGridDumpCell>();
+		dump.WaypointCells = new array<ref dmGridDumpCell>();
+		dump.Route = new array<vector>();
+		dump.LeftEdge = new array<vector>();
+		dump.RightEdge = new array<vector>();
+
+		int cellRow;
+		int cellCol;
+		int cellCount = 0;
+		vector center;
+		dmGridDumpCell cell;
+		for (cellRow = 0; cellRow < dump.Rows; cellRow++)
+		{
+			for (cellCol = -dump.HalfWidth; cellCol <= dump.HalfWidth; cellCol++)
+			{
+				if ((cellCol + cellRow) % 2 != 0)
+					continue;
+				cell = new dmGridDumpCell();
+				cell.Row = cellRow;
+				cell.Col = cellCol;
+				cell.Color = dmRoadHoneycomb.Get().GetCellColor(cellCol, cellRow);
+				center = dmRoadHoneycomb.Get().GetCellCenter(cellCol, cellRow);
+				cell.X = center[0];
+				cell.Z = center[2];
+				dump.Cells.Insert(cell);
+				cellCount = cellCount + 1;
+			}
+		}
+		dump.CellCount = cellCount;
+
+		int wcount = dmRoadHoneycomb.Get().GetWaypointCount();
+		int wi2;
+		int wcol;
+		int wrow;
+		dmGridDumpCell wcell;
+		for (wi2 = 0; wi2 < wcount; wi2++)
+		{
+			if (dmRoadHoneycomb.Get().GetWaypointCell(wi2, wcol, wrow))
+			{
+				wcell = new dmGridDumpCell();
+				wcell.Row = wrow;
+				wcell.Col = wcol;
+				wcell.Color = 0;
+				center = dmRoadHoneycomb.Get().GetCellCenter(wcol, wrow);
+				wcell.X = center[0];
+				wcell.Z = center[2];
+				dump.WaypointCells.Insert(wcell);
+			}
+		}
+
+		array<vector> route = dmRoadHoneycomb.Get().GetRoute();
+		if (route)
+		{
+			int ri;
+			for (ri = 0; ri < route.Count(); ri++)
+				dump.Route.Insert(route[ri]);
+		}
+
+		string dumpPath = DM_E2E_DIR + "/griddump.json";
+		EnsureDir(dumpPath);
+		string saveError;
+		bool saved = JsonFileLoader<dmGridDump>.SaveFile(dumpPath, dump, saveError);
+		if (!saved)
+			dmBotLog.Error("[E2E] dumpgrid save failed: " + saveError);
+
+		#ifdef DM_BOT_DEBUG_E2E
+		dmBotLog.Debug("[E2E] dumpgrid: " + hStatus + " cells=" + cellCount + " route=" + dump.Route.Count());
+		#endif
+
+		r.Ok = saved;
+		r.Reason = "dumped " + cellCount + " cells";
 	}
 
 	//! Create the parent directory chain of a file path (mirrors dmJsonFile.EnsureDirectory,

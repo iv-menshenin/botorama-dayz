@@ -63,9 +63,10 @@ class dmRoadHoneycomb
 	//! Тип пересечения всех 4 лучей соты: физическая геометрия (ObjIntersectGeom)
 	//! ловит baked-static ограждения (бетон/забор) по коллизии.
 	static const int DM_GRID_RAY_INTERSECT = ObjIntersectGeom;
-	//! Consecutive all-green road rows after which the territory stops growing
-	//! ("the road is clear again").
-	static const int DM_GRID_CLEAR_ROWS = 10;
+	//! 50 м чистого дорожного полотна: подряд все-зелёных дорожных рядов, после
+	//! которых территория перестаёт расти ("дорога снова чистая"). 50 м / шаг
+	//! ряда 0.75 м = 66.7 → 67.
+	static const int DM_GRID_CLEAR_ROWS = 67;
 	//! Territory length hard cap (rows, ~82 m at 0.5 m hex) — a safety net if the
 	//! road never clears; the adaptive stop normally ends coloring far earlier.
 	static const int DM_GRID_MAX_ROWS = 110;
@@ -89,6 +90,8 @@ class dmRoadHoneycomb
 	}
 
 	private int m_State;
+	//! Время начала постройки (тик-тайм) — для отчёта buildMs в DONE-логе.
+	private float m_BuildStartTime;
 	private vector m_CarPos;
 	private vector m_Dir;
 	private vector m_Side;
@@ -138,6 +141,7 @@ class dmRoadHoneycomb
 	void dmRoadHoneycomb()
 	{
 		m_State = STATE_IDLE;
+		m_BuildStartTime = 0.0;
 		m_CarPos = vector.Zero;
 		m_Dir = Vector(1.0, 0.0, 0.0);
 		m_Side = Vector(0.0, 0.0, 1.0);
@@ -195,6 +199,7 @@ class dmRoadHoneycomb
 		int i;
 		float roadWidth;
 		m_State = STATE_IDLE;
+		m_BuildStartTime = GetGame().GetTickTime();
 		m_CarPos = carPos;
 		m_CarObj = carObj;
 		m_DriverObj = driverObj;
@@ -333,6 +338,20 @@ class dmRoadHoneycomb
 	vector GetSide()
 	{
 		return m_Side;
+	}
+
+	//! Текущее состояние пайплайна (STATE_*): 0 idle / 1 coloring / 2 mark /
+	//! 3 done / 4 failed. Для E2E-дампа текущего состояния (op dumpgrid).
+	int GetStatusId()
+	{
+		return m_State;
+	}
+
+	//! Маршрут (точки дороги), переданный в Start, или null если сетка ещё не
+	//! запускалась. Для E2E-дампа текущего состояния (op dumpgrid).
+	array<vector> GetRoute()
+	{
+		return m_Route;
 	}
 
 	//! Cell color value (CELL_UNSET/CELL_RED/CELL_GREEN/CELL_SAFE).
@@ -941,9 +960,7 @@ class dmRoadHoneycomb
 			m_WaypointCells.Insert(entryCell);
 			m_Waypoints.Insert(CellWorld(entryCell));
 			m_State = STATE_DONE;
-			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] DONE path=" + m_Waypoints.Count());
-			#endif
+			LogGridDone();
 			return;
 		}
 
@@ -1096,9 +1113,24 @@ class dmRoadHoneycomb
 			}
 		}
 		m_State = STATE_DONE;
+		LogGridDone();
+	}
 
+	//! Единый отчётный лог о завершении постройки сетки: путь / длина территории
+	//! / время постройки / причина остановки роста. Причина: fixed — фиксированная
+	//! длина; cap — дошло до DM_GRID_MAX_ROWS без очистки дороги; clean —
+	//! адаптивный стоп по DM_GRID_CLEAR_ROWS чистых рядов.
+	private void LogGridDone()
+	{
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[GRID] DONE path=" + m_Waypoints.Count());
+		float meters = (float)m_RowCount * DM_GRID_HEX_SIZE * 1.5;
+		float buildMs = (GetGame().GetTickTime() - m_BuildStartTime) * 1000.0;
+		string stopReason = "clean";
+		if (m_FixedLength)
+			stopReason = "fixed";
+		else if (m_RowCount == DM_GRID_MAX_ROWS)
+			stopReason = "cap";
+		dmBotLog.Debug("[GRID] DONE path=" + m_Waypoints.Count() + " rows=" + m_RowCount + " meters=" + meters + " buildMs=" + buildMs + " stop=" + stopReason);
 		#endif
 	}
 

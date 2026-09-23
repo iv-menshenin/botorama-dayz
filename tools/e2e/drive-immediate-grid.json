@@ -1,12 +1,16 @@
 {
   "Name": "drive-immediate-grid",
-  "Timeout": 300,
+  "Timeout": 600,
   "Steps": [
     { "Op": "clearall" },
     { "Op": "clearobj", "Obj": "*" },
     { "Op": "spawncar", "Who": "car1", "ClassName": "CivilianSedan", "Pos": [6956.6, 0, 12663.4], "Yaw": 71.75 },
-    { "Op": "spawn", "Who": "bot1", "Pos": [6956.6, 0, 12663.4], "Preset": "nomad" },
+    { "Op": "spawn", "Who": "bot1", "Pos": [6956.6, 0, 12658.4], "Yaw": 71.75, "Preset": "nomad" },
+    { "Op": "prof", "Value": "clear" },
     { "Op": "driveto", "Who": "bot1", "Obj": "car1", "Pos": [7215, 0, 12720], "ImmediateGrid": true },
+    { "Op": "sleep", "Timeout": 200 },
+    { "Op": "dumpgrid" },
+    { "Op": "prof", "Value": "dump" },
     { "Op": "wait", "Cond": "carpos", "Obj": "car1", "Pos": [7215, 0, 12720], "Tolerance": 30.0, "Timeout": 280 },
     { "Op": "cardump", "Obj": "car1" },
     { "Op": "clearall" },
