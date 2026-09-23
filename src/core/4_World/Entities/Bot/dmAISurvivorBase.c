@@ -1732,54 +1732,53 @@ class dmAISurvivorBase : PlayerBase
 	
 	vector m_VehicleSitPos;
 	vector m_VehicleSitDir;
-	bool m_VehiclePendingEnter;
 	bool m_VehiclePendingExit;
+	private int m_VehicleSeat = -1;
 
-	//! Enter a vehicle at the given crew seat. Starts the vanilla vehicle command
-	//! (get-in animation). Returns false when the command can't start.
+	//! Enter a vehicle at the given crew seat. Uses the direct CrewGetIn teleport
+	//! (server-side, no animation): the animated StartCommand_Vehicle get-in is
+	//! unreliable for a server AI — the get-in animation never registers the pawn
+	//! as crew (CrewMember(DRIVER) stays null). CrewGetIn seats and registers the
+	//! pawn immediately; no HumanCommandVehicle command exists afterward (the bot
+	//! is detected as in-vehicle via GetParent().IsInherited(Transport)).
 	bool GetInVehicle(Transport transport, int seatIndex)
 	{
-		if (!transport) return false;
-
-		int seatAnim = transport.GetSeatAnimationType(seatIndex);
-		HumanCommandVehicle cmd = StartCommand_Vehicle(transport, seatIndex, seatAnim);
-		if (!cmd)
-		{
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Bot] GetInVehicle: fail seat=" + seatIndex);
-			#endif
+		if (!transport)
 			return false;
-		}
+
+		m_VehicleSeat = seatIndex;
+		transport.CrewGetIn(this, seatIndex);
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Bot] GetInVehicle: seat=" + seatIndex);
+		dmBotLog.Debug("[Bot] GetInVehicle: crew direct seat=" + seatIndex);
 		#endif
-		cmd.SetVehicleType(transport.GetAnimInstance());
-		m_VehiclePendingEnter = true;
 		return true;
 	}
 
-	//! Exit the vehicle the bot is seated in. Starts the vanilla get-out animation.
-	//! Returns false when there is no active vehicle command (not in a vehicle).
+	//! Exit the vehicle the bot is seated in. Uses the direct CrewGetOut transfer
+	//! (no HumanCommandVehicle — after CrewGetIn there is no vehicle command, so
+	//! GetCommand_Vehicle() is null). The seat is resolved from m_VehicleSeat
+	//! (stored on boarding); falls back to CrewMemberIndex for an already-seated
+	//! pawn that never went through GetInVehicle.
 	bool GetOutVehicle()
 	{
-		HumanCommandVehicle cmd = GetCommand_Vehicle();
-		if (!cmd)
-		{
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Bot] GetOutVehicle: not in vehicle");
-			#endif
+		Transport transport = Transport.Cast(GetParent());
+		if (!transport)
 			return false;
-		}
-		Transport transport = cmd.GetTransport();
-		if (transport)
-			transport.CrewEntryWS(cmd.GetVehicleSeat(), m_VehicleSitPos, m_VehicleSitDir);
 
-		cmd.KeepInVehicleSpaceAfterLeave(false);
-		cmd.GetOutVehicle();
+		int seat = m_VehicleSeat;
+		if (seat < 0)
+			seat = transport.CrewMemberIndex(this);
+		if (seat < 0)
+			return false;
+
+		//! Точка выхода у двери (world-space) — заснапим после detach'а.
+		transport.CrewEntryWS(seat, m_VehicleSitPos, m_VehicleSitDir);
+
+		transport.CrewGetOut(seat);
 		m_VehiclePendingExit = true;
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Bot] GetOutVehicle: start");
+		dmBotLog.Debug("[Bot] GetOutVehicle: crew direct seat=" + seat);
 		#endif
 		return true;
 	}
@@ -1788,21 +1787,13 @@ class dmAISurvivorBase : PlayerBase
 	{
 		if (m_VehiclePendingExit)
 		{
-			if (GetCommand_Vehicle()) return true;
-
 			//! Snap the exit point to the terrain surface so the bot can't be left
 			//! in the air / under the ground after detach (fall-death bug).
 			m_VehicleSitPos[1] = GetGame().SurfaceY(m_VehicleSitPos[0], m_VehicleSitPos[2]);
 			SetPosition(m_VehicleSitPos);
 			SetOrientation(Vector(m_VehicleSitDir.VectorToAngles()[0], 0.0, 0.0));
 			m_VehiclePendingExit = false;
-			return true;
-		}
-
-		if ( m_VehiclePendingEnter )
-		{
-			if ( GetCommand_Vehicle())
-				m_VehiclePendingEnter = GetCommand_Vehicle().IsGettingIn();
+			m_VehicleSeat = -1;
 			return true;
 		}
 
