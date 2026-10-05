@@ -3,7 +3,7 @@ class dmLaunchCommand : dmCommandModule
 {
 	override string GetName()
 	{
-		return "launch";
+		return DM_CHAT_LAUNCH;
 	}
 
 	override bool Handle(PlayerBase player, array<string> parts)

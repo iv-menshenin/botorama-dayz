@@ -14,7 +14,7 @@ class dmPoiCommand : dmCommandModule
 			return true;
 		}
 
-		if (parts[1] == "goto" && parts.Count() >= 3)
+		if (parts[1] == DM_CHAT_POI_GOTO && parts.Count() >= 3)
 			return HandleGoto(player, parts[2]);
 
 		return HandleReport(player);

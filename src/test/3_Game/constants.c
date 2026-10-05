@@ -4,6 +4,10 @@ static const float DM_SPAWN_DISTANCE = 5.0;
 
 static const string DM_COMMAND_PREFIX = "/";
 
+//! COT permission: all botorama command families (bot/fsm/test/...) are gated
+//! behind this right (admin-only in multiplayer, always allowed offline).
+static const string DM_COT_PERMISSION = "Botorama.Commands";
+
 //! Test-zone distance (meters) in front of the player.
 static const float DM_TEST_RANGE_DISTANCE = 15.0;
 
@@ -120,6 +124,9 @@ static const string DM_CHAT_CAR = "car";
 static const string DM_CHAT_CAR_SITDOWN = "sitdown";
 static const string DM_CHAT_CAR_GETOUT = "getout";
 
+//! Sub-command "drive" — bot drives to a world point ("/bot drive {x} {z}").
+static const string DM_CHAT_DRIVE = "drive";
+
 //! Sub-command "deadmans" — report the vanilla corpse-decay state (CorpseData).
 static const string DM_CHAT_DEADMANS = "deadmans";
 
@@ -173,6 +180,7 @@ static const string DM_CHAT_TEST_LOOTING_CHANGE = "change";
 static const string DM_CHAT_TEST_ENEMY = "enemy";
 
 //! Launch command family ("/launch ...") — stress-test scenarios.
+static const string DM_CHAT_LAUNCH = "launch";
 static const string DM_CHAT_LAUNCH_INVASION = "invasion";
 
 //! Invasion scenario: 3*N bots at DM_INVASION_DISTANCE, each on its own random
@@ -244,9 +252,14 @@ static const string DM_CHAT_CMD_TP_ME = "me";
 
 //! POI command family ("/poi ...") — сводка по поселениям/точкам.
 static const string DM_CHAT_POI = "poi";
+//! POI sub-command "goto" ("/poi goto <тип>"). Separate token from DM_CHAT_GOTO
+//! (which is the "/bot intent goto" action).
+static const string DM_CHAT_POI_GOTO = "goto";
 
 //! SpawnCity command ("/spawncity") — принудительный спавн всех ботов.
 static const string DM_CHAT_SPAWNCITY = "spawncity";
+//! SpawnCity COT sub-command (the command ignores it; COT needs one subcommand).
+static const string DM_CHAT_SPAWNCITY_RUN = "run";
 
 //! E2E file bridge: the agent drops JSON jobs under $profile:dmBotorama/e2e/in/,
 //! the bridge executes them and writes results to e2e/out/. The bridge only runs

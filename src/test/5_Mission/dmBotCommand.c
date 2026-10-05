@@ -74,7 +74,7 @@ class dmBotCommand : dmCommandModule
 			return HandleCombat(player, parts);
 		if (parts[1] == DM_CHAT_CAR)
 			return HandleCar(player, parts);
-		if (parts[1] == "drive")
+		if (parts[1] == DM_CHAT_DRIVE)
 			return HandleDrive(player, parts);
 		if (parts[1] == DM_CHAT_KILLALL)
 			return HandleKillAll(player);
