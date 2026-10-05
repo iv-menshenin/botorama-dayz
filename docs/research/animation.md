@@ -289,3 +289,156 @@ variable» — т.е. кастомный граф, ванильные подгр
 - Содержимое `.agr` Expansion (`DayZExpansion\Animations\AI\player_main.agr`) недоступно
   (бинарный PBO вне репо) — прямое сравнение с botorama невозможно; сравнивали только
   `config.cpp`.
+
+---
+
+# Foot-step доворот корпуса: root motion vs визуал, и почему осциллирует ~25°
+
+Цель: разобрать, почему foot-step-доворот (`dmAI_Turn`/`dmAI_TurnAmount`) у ИИ-бота
+botorama осциллирует — тело поворачивается ~22° и отскакивает обратно, не доходит до
+цели (`Turn: bodyYaw 0 → 21.92 → 0`, `state=1` зависает), из-за чего `HumanCommandMelee2`
+делает «fast exit» без Hit-события.
+
+Связанное уже известно: `combat.md` («Ванильный HeadingModel во время MELEE2 — крутит
+корпус? ДА») и `decisions.md` («melee: кручение при ударе — глушить HeadingModel для
+MELEE2»). Здесь — именно idle-ветка `ApplyBodyTurn` (foot-step), а не slide-turn.
+
+## 1. Root motion или визуал — в графе ЕСТЬ root-motion-путь
+
+### Структура foot-step-узла (подтверждено, file:line)
+
+Кастомный граф botorama (`src/core/Animations/Locomotion.agr`) **идентичен ванильному**
+кроме рейнеймов (см. выше «Бленд локомоции не тронут»); ваниль =
+`DayZ Projects/DZ/anims/workspaces/player/player_main/locomotion.agr`.
+
+- Бленд выбора позы `ErcTurnNBlend` (botorama `Locomotion.agr:7788-7800`): читает
+  **`dmAI_TurnAmount`** (наш кастом), входы `-2.0/-1.0/0.0/1.0/2.0` →
+  `ErcTurnL180/L90/Idle/R90/R180SyncAnim`. Ваниль на том же месте читает ванильный
+  `TurnAmount` (ваниль `locomotion.agr:7788`).
+- Сами turn-анимации — `AnimNodeSourceSync` с тегом `"Turn"` и **root-motion-декларацией**:
+  ```
+  "ErcTurnR180SyncAnim" "" "Locomotion.TurnR180" "noloop" "Turn"
+  $Predictions { $Prediction { "PredictionTurn" "EntityPosition" "" 1.0 7 } }
+  ```
+  (botorama `Locomotion.agr:7801-7822`; то же для R90/L90/L180). `PredictionTurn` +
+  `EntityPosition` — это и есть root motion: анимация вращает сущность (как `JumpPrediction`/
+  `ClimbPrediction` для прыжков/клаймбов). Mode **7** у erect/crouch, mode **3** у prone
+  (ваниль `locomotion.agr:5219-5354` — prone mode 3; `:7514-8210` — erect/crouch/prone mode 7).
+- Нода `TurnVar` = `AnimNodeVarUpdate` (botorama `Locomotion.agr:8538`):
+  ```
+  "TurnVar" "" "TurnStanceSTM" 1 "TurnAmount" 7
+  ```
+  ПИШЕТ в **ванильный `TurnAmount`** (НЕ в `dmAI_TurnAmount`), mode **7** — совпадает с
+  mode `PredictionTurn`. Т.е. `TurnVar` извлекает угол вращения из turn-анимации и пишет его
+  в ванильный `TurnAmount`, который **нативный код читает и крутит корпус**.
+- IdleStateMachine (botorama `Locomotion.agr:8030-8058`): состояния `Idles`/`TurnMaster`;
+  переходы `Idles→TurnMaster` по `IsCommand(dmAI_Turn)` (`:8047`), `TurnMaster→Idles` по
+  `GetLowerTime() > 0.85 || IsCommand(dmAI_StopTurn)` (`:8050`), `""→TurnMaster` по
+  `IsCommand(dmAI_Turn)` (`:8053`). Ваниль — те же переходы с `CMD_Turn`/`CMD_StopTurn`
+  (ваниль `locomotion.agr:8039-8053`).
+- Команды/переменные объявлены в `player_main.agr`: `CMD_Turn`/`CMD_StopTurn` **оставлены**
+  (`:68,70`), `dmAI_Turn`/`dmAI_StopTurn` добавлены (`:69,71`); `TurnAmount` оставлен (`:82`),
+  `dmAI_TurnAmount` добавлен (`:83`).
+
+### Вывод (1)
+
+Root-motion-путь в графе **есть**: `PredictionTurn`+`EntityPosition` → `TurnVar` →
+ванильный `TurnAmount` → натив крутит тело. Foot-step-поворот — НЕ «чисто визуальный» в
+ванили. **НО** применяет ли натив этот root motion для server-side AI (`INSTANCETYPE_AI_SERVER`,
+не имеющего native-инпута `CMD_Turn`) — не подтверждено (см. ниже «причина отскока»).
+
+## 2. Почему отскок ~22° (точная причина — гипотезы, ранжированы)
+
+Факт из лога: `bodyYaw` (это `GetOrientation()[0]`, т.е. физическая ориентация) мечется
+`0 → 21.92 → 0`, `state=1` не сбрасывается между сэмплами (т.е. цикл «включил поворот →
+через 2 с стоп → сразу снова включил», лог троттлится 2 с и ловит `state=1`).
+
+Ключевой факт: `ApplyBodyTurn` idle-ветка (`dmAISurvivorBase.c:1430-1453`) ставит
+`dmAI_TurnAmount` **один раз** на входе в turn и не «дожимает»; стоп по `m_TurnTime > 2.0`
+ставит `dmAI_TurnAmount = 0` → бленд уходит в `Turn0` (нейтраль) → визуал (и/или
+root-motion) откатывается к исходному яу.
+
+Гипотезы (по убыванию вероятности):
+
+- **(а) Root motion НЕ коммитится в `GetOrientation()` для server-AI — turn чисто визуальный.**
+  Нативный `HumanCommandMove` (`3_game/human.c:433-504`) **не имеет** ни одного
+  turn/`TurnAmount`-метода, доступного скрипту; `CMD_Turn`/`TurnAmount` в ванильных скриптах
+  не встречаются вовсе (grep по `scripts/` — 0 вхождений). Т.е. foot-step-turn у ванильного
+  игрока запускается **нативным инпутом** (`HumanInputController` при A/D стоя на месте),
+  который сам ставит `CMD_Turn` + `TurnAmount` и сам применяет root motion. Наш `dmAI_Turn`
+  (кастомная граф-команда) триггерит только **граф**-переход в `TurnMaster`, но НЕ нативный
+  turn-режим → `TurnVar` пишет `TurnAmount`, но натив его не читает (нет turn-режима) →
+  корпус не крутится. Видимая «22°» — частичное смещение от самой turn-анимации (или transient
+  root-motion в один кадр), которое при выходе из turn откатывается. **[нужно подтвердить]**
+  эмпирически: заспавнить бота, вызвать foot-step-turn на большой угол и залогировать
+  `GetOrientation()` ПОКАДРОВО (не троттля) — если корпус не растёт монотонно к цели, а
+  прыгает туда-сюда ±десятки градусов → root motion не применяется.
+- **(б) Turn-анимация `noloop` — один шаг, выход по `GetLowerTime() > 0.85`, нет «дожима».**
+  `ErcTurnR180SyncAnim` — `"noloop"`. Одна нога-ступенька вращает ~несколько десятков градусов;
+  после неё `TurnMaster→Idles` (85% времени) сбрасывает в нейтраль. `ApplyBodyTurn` не
+  перезапускает turn до `m_TurnTime > 2.0` → за 2 с происходит 1 шаг, потом откат. Это
+  объясняет периодичность и малую амплитуду, но САМ откат на 0 объясняет только (а)/(в).
+- **(в) Сброс `dmAI_TurnAmount` в 0 при стопе откатывает бленд в нейтраль.** `ResetActuation`/
+  `ResetMotorActuation` (`dmAISurvivorBase.c:1309-1348`) зовутся только при `!CanAct()`/
+  `inVehicle` — в мили-бою НЕ вызываются (бот живой, не в машине). `ApplyMovement`/`ApplyLookVars`
+  turn-переменные не трогают. Так что сброс — только в самом `ApplyBodyTurn` при стопе
+  (`:1447-1451`) и при переключении в slide-turn (`:1406-1413`). Т.е. гипотеза «сброс каждый
+  кадр» НЕ подтверждается кодом; сброс — только на стопе (раз в 2 с).
+
+## 3. Ванильный эталон (как игрок поворачивается стоя)
+
+- Скриптовый `DayZPlayerImplement.HeadingModel` (`DayZ Projects/scripts/4_world/entities/
+  dayzplayerimplement.c:1619-1700`) для обычного стоячего MOVE **не крутит корпус** шагово:
+  он в конце падает в `DayZPlayerImplementHeading.RotateOrient` (`:1699`), который
+  (`dayzplayerimplementheading.c:64-120`) — это **слайд-поворот** `m_fOrientationAngle` →
+  `m_fHeadingAngle` и срабатывает только при разнице > `CONST_ROTLIMIT = π·0.95 ≈ 171°`.
+  Т.е. у ванили «тело стоит на месте, но разворачивается» делается **двумя путями**:
+  (1) нативный foot-step-turn (инпут `CMD_Turn`+`TurnAmount`, нативно, не в скриптах) для
+  обычных доворотов; (2) `RotateOrient` (слайд) для разворота ~180°.
+- Для MELEE2 ваниль падает в тот же `RotateOrient` (см. `combat.md` «HeadingModel во время
+  MELEE2») — то есть во время удара корпус крутится **слайдом**, а не шагами.
+
+## 4. Что чинить (ранжировано)
+
+1. **[рекомендовано] Для мили-фейсинга (idle) использовать slide-turn, а не foot-step.**
+   Тот же паттерн, что Expansion использует для MELEE2: `HeadingModel` override ставит
+   `SetOrientation(Vector(heading, 0, 0))` (снап/слайд) — `eAIBase.c:10093-10102`; плюс
+   `eAIMeleeCombat.Update` держит `m_AI.SetOrientation(m_AI.GetOrientation())` (`eAIMeleeCombat.c:217`),
+   чтобы натив мили не крутил. Для botorama: в idle-ветке `ApplyBodyTurn` доворачивать
+   `SetOrientation(bodyYaw + step)` с rate-limit (как уже делает slide-ветка `:1415-1421`),
+   убрав foot-step для стоячего мили. Это «человеческий» замкнутый контур (меряем `dBody` →
+   доворачиваем) и не зависит от нативного turn-режима. **[нужно проверить]** что slide-доворот
+   стоя НЕ даёт «скольжения»/дёрганья и что `HeadingModel`-лок (`MOVE`+`MELEE2`) не перетирает
+   `SetOrientation` (сейчас лок возвращает текущую ориентацию — должен быть совместим).
+2. **[если foot-step принципиально нужен]** Сначала эмпирически подтвердить/опровергнуть (а):
+   логировать `GetOrientation()` покадрово во время `dmAI_Turn`. Если root motion НЕ коммитится
+   — foot-step для AI нерабочий без нативного turn-инпута, и его надо заменять на slide (п.1).
+   Если коммитится, но откатывается — виноват (в): «дожимать» turn непрерывно (перезапускать
+   `dmAI_Turn`/не сбрасывать `dmAI_TurnAmount` в 0 до достижения `|dBody| < 1°`), а не раз в 2 с.
+3. **[минор]** Отличие от Expansion: Expansion `SetTurnAmount(diff/90.0)` НЕ клампит в ±2 и НЕ
+   сбрасывает amount при стопе (`eAICommandMove.c:1967/1977` — только `CallStopTurn`); botorama
+   клампит `Clamp(dBody/90, -2, 2)` и сбрасывает `dmAI_TurnAmount=0` при стопе. Для dBody≈177°
+   это `1.975` vs `2.0` — на выбор R180 не влияет, но сброс в 0 на стопе — кандидат на откат (в).
+
+## Источники (file:line)
+
+- Мод: `src/core/4_World/Entities/Bot/dmAISurvivorBase.c:374-376` (бинды `dmAI_TurnAmount`/
+  `dmAI_Turn`/`dmAI_StopTurn`), `:1354-1366` (HeadingModel override: MOVE+MELEE2 → текущая
+  ориентация, `return true`), `:1382-1454` (`ApplyBodyTurn`: slide `:1400-1423`, idle foot-step
+  `:1427-1453`), `:1309-1348` (`ResetActuation`/`ResetMotorActuation` — НЕ зовутся в мили-бою).
+- Мод `src/core/Animations/player_main.agr:68-71` (команды), `:82-83` (`TurnAmount`/
+  `dmAI_TurnAmount`); `Locomotion.agr:7788-7822` (ErcTurnNBlend + R180/R90 sync-anim с
+  `PredictionTurn`/`EntityPosition` mode 7), `:8030-8058` (IdleStateMachine TurnMaster),
+  `:8492-8542` (TurnStanceSTM + `TurnVar`→`TurnAmount` mode 7).
+- Ваниль `DZ/anims/workspaces/player/player_main/locomotion.agr:7788` (ErcTurnNBlend читает
+  `TurnAmount`), `:8039-8053` (TurnMaster с `CMD_Turn`/`CMD_StopTurn`), `:8538` (`TurnVar`),
+  `:5219-5354`/`:7514-8210` (PredictionTurn mode 3/7).
+- Ваниль `scripts/3_game/human.c:433-504` (`HumanCommandMove` — НЕТ turn-методов).
+- Ваниль `scripts/4_world/entities/dayzplayerimplement.c:1619-1700` (HeadingModel→RotateOrient),
+  `dayzplayerimplementheading.c:64-120` (`RotateOrient`, `CONST_ROTLIMIT=π·0.95`).
+- Expansion `AI/.../Classes/Commands/eAICommandMove.c:1957-1983` (turn-state = копия нашей
+  idle-ветки), `:1966-1967` (`CallTurn`+`SetTurnAmount(diff/90)`), `:2028-2043`
+  (`Anim_SetFilteredHeading`→`SetOrientation`); `Core/.../ExpansionHumanST.c:88-89,110-112`
+  (`CMD_eAI_Turn`/`eAI_TurnAmount`); `AI/.../eAIBase.c:10093-10102` (HeadingModel MELEE2 →
+  `SetOrientation(heading)`), `:10135` (fallback `NoHeading`); `AI/.../eAIMeleeCombat.c:217`
+  (`SetOrientation(GetOrientation())`).

@@ -30,11 +30,6 @@ class dmAISurvivorBase : PlayerBase
 	private int m_VarLookDirY = -1;
 	private bool m_VarsBound = false;
 
-	//! Body turn (foot-stepping) animation variable and commands.
-	private int m_VarTurnAmount = -1;
-	private int m_CmdTurn = -1;
-	private int m_CmdStopTurn = -1;
-
 	//! Weapon raise (aiming) state: a flag + timer, like Expansion eAIBase, rather
 	//! than a raised stance. AimX/AimY are bound now but used by A3.
 	private bool m_WeaponRaised = false;
@@ -115,13 +110,9 @@ class dmAISurvivorBase : PlayerBase
 	//! Desired body yaw (world, degrees), set by the controller each tick.
 	private float m_TargetBodyYaw = 0.0;
 
-	//! 0 = not turning, 1 = foot-stepping turn in progress.
-	private int m_TurnState = 0;
-	private float m_TurnTime = 0.0;
-
-	//! Whether the brain intends the bot to move (set by SetMove). Used to pick
-	//! slide-turn (moving) vs foot-step turn (idle) — NOT GetCurrentMovementSpeed(),
-	//! which flips non-zero during the foot-step turn itself and cancels it.
+	//! Whether the brain intends the bot to move (set by SetMove). Used to gate
+	//! the sharp-turn slowdown (m_TurnSharp) — NOT GetCurrentMovementSpeed(),
+	//! which flips non-zero while the body itself is turning.
 	private bool m_IsMoving = false;
 
 	//! Desired movement direction (relative to body, degrees) and speed (0..3),
@@ -371,9 +362,6 @@ class dmAISurvivorBase : PlayerBase
 			m_VarLook = hai.BindVariableBool("dmAI_Look");
 			m_VarLookDirX = hai.BindVariableFloat("dmAI_LookDirX");
 			m_VarLookDirY = hai.BindVariableFloat("dmAI_LookDirY");
-			m_VarTurnAmount = hai.BindVariableFloat("dmAI_TurnAmount");
-			m_CmdTurn = hai.BindCommand("dmAI_Turn");
-			m_CmdStopTurn = hai.BindCommand("dmAI_StopTurn");
 			m_VarRaised = hai.BindVariableBool("dmAI_Raised");
 			m_VarAimX = hai.BindVariableFloat("dmAI_AimX");
 			m_VarAimY = hai.BindVariableFloat("dmAI_AimY");
@@ -381,7 +369,7 @@ class dmAISurvivorBase : PlayerBase
 			m_VarsBound = true;
 
 			#ifdef DM_BOT_DEBUG_PAWN
-			dmBotLog.Debug("dmAISurvivorBase.BindLookVars() Look=" + m_VarLook + " LookDirX=" + m_VarLookDirX + " LookDirY=" + m_VarLookDirY + " TurnAmount=" + m_VarTurnAmount + " CmdTurn=" + m_CmdTurn + " CmdStopTurn=" + m_CmdStopTurn + " instType=" + GetInstanceType());
+			dmBotLog.Debug("dmAISurvivorBase.BindLookVars() Look=" + m_VarLook + " LookDirX=" + m_VarLookDirX + " LookDirY=" + m_VarLookDirY + " instType=" + GetInstanceType());
 			#endif
 		}
 		else
@@ -1304,19 +1292,10 @@ class dmAISurvivorBase : PlayerBase
 	}
 
 	//! Stop any in-progress body actuation and drop the head to neutral. Called
-	//! every frame while CanAct() is false, so a foot-step turn or a movement
-	//! speed can't resume mid-incapacitation.
+	//! every frame while CanAct() is false, so a movement speed can't resume
+	//! mid-incapacitation.
 	void ResetActuation()
 	{
-		if (m_TurnState != 0)
-		{
-			if (m_CmdStopTurn >= 0)
-				AnimCallCommand(m_CmdStopTurn, 0, 0.0);
-			if (m_VarTurnAmount >= 0)
-				AnimSetFloat(m_VarTurnAmount, 0.0);
-		}
-		m_TurnState = 0;
-		m_TurnTime = 0.0;
 		m_TurnSharp = false;
 		m_ActualSpeed = 0.0;
 		m_FireRequest = false;
@@ -1332,15 +1311,6 @@ class dmAISurvivorBase : PlayerBase
 	//! vehicle, so the vanilla vehicle command owns the body.
 	void ResetMotorActuation()
 	{
-		if (m_TurnState != 0)
-		{
-			if (m_CmdStopTurn >= 0)
-				AnimCallCommand(m_CmdStopTurn, 0, 0.0);
-			if (m_VarTurnAmount >= 0)
-				AnimSetFloat(m_VarTurnAmount, 0.0);
-		}
-		m_TurnState = 0;
-		m_TurnTime = 0.0;
 		m_TurnSharp = false;
 		m_ActualSpeed = 0.0;
 		m_IsMoving = false;
@@ -1374,16 +1344,15 @@ class dmAISurvivorBase : PlayerBase
 		return d;
 	}
 
-	//! Rotate the body toward m_TargetBodyYaw. Two modes, mirroring Expansion AI
-	//! (eAICommandMove):
-	//!   - while moving  -> slide-turn via SetOrientation (limited rate), no foot-step;
-	//!   - while idle    -> native foot-stepping "Turn" state (root motion).
-	//! Runs inside the CommandHandler after super.
+	//! Поворот корпуса к m_TargetBodyYaw через slide-turn (SetOrientation, с
+	//! ограничением скорости). Один механизм для «двигаюсь» и «стою» — foot-step
+	//! (`dmAI_Turn`) убран, т.к. для server-AI его root motion не коммитится в
+	//! GetOrientation() и корпус отскакивал обратно. m_TurnSharp тормозит движение
+	//! только при резком довороте ВО ВРЕМЯ ходьбы.
 	void ApplyBodyTurn(float pDt)
 	{
 		float bodyYaw = GetOrientation()[0];
 		float dBody = AngleDiff(m_TargetBodyYaw, bodyYaw);
-
 		bool moving = m_IsMoving;
 
 		#ifdef DM_BOT_DEBUG_BODY
@@ -1391,65 +1360,18 @@ class dmAISurvivorBase : PlayerBase
 		{
 			m_LastTurnLogTime = GetGame().GetTickTime();
 			dmBotLog.Debug("Turn: targetYaw=" + m_TargetBodyYaw + " bodyYaw=" + bodyYaw + " dBody=" + dBody);
-			dmBotLog.Debug("Turn: moving=" + moving + " state=" + m_TurnState);
+			dmBotLog.Debug("Turn: moving=" + moving);
 		}
 		#endif
 
-		//! Slide-turn (SetOrientation) while moving (vanilla HeadingModel disabled,
-		//! so SetOrientation is authoritative).
-		if (moving)
+		m_TurnSharp = moving && (Math.AbsFloat(dBody) > DM_MOVE_TURN_SLOW_THRESHOLD);
+
+		if (Math.AbsFloat(dBody) > 1.0)
 		{
-			//! Sharp turn while moving -> slow down (consumed by ApplyMovement).
-			m_TurnSharp = Math.AbsFloat(dBody) > DM_MOVE_TURN_SLOW_THRESHOLD;
-
-			//! Cancel any in-progress foot-step turn; slide instead.
-			if (m_TurnState != 0)
-			{
-				if (m_CmdStopTurn >= 0)
-					AnimCallCommand(m_CmdStopTurn, 0, 0.0);
-				if (m_VarTurnAmount >= 0)
-					AnimSetFloat(m_VarTurnAmount, 0.0);
-				m_TurnState = 0;
-			}
-
-			if (Math.AbsFloat(dBody) > 1.0)
-			{
-				float maxStep = DM_MOVE_TURN_RATE * pDt * DM_MOVE_TURN_SPEED;
-				float step = dBody * DM_MOVE_TURN_RESPONSE;
-				step = Math.Clamp(step, -maxStep, maxStep);
-				SetOrientation(Vector(bodyYaw + step, 0.0, 0.0));
-			}
-			return;
-		}
-
-		m_TurnSharp = false;
-
-		//! Idle: native foot-stepping turn (root motion) for ALL stances — the
-		//! graph's TurnStanceSTM picks the stance-specific turn (erect step, crouch
-		//! step, prone roll).
-		if (m_TurnState == 0)
-		{
-			if (Math.AbsFloat(dBody) > 1.0)
-			{
-				if (m_VarTurnAmount >= 0)
-					AnimSetFloat(m_VarTurnAmount, Math.Clamp(dBody / 90.0, -2.0, 2.0));
-				if (m_CmdTurn >= 0)
-					AnimCallCommand(m_CmdTurn, 0, 0.0);
-				m_TurnTime = 0.0;
-				m_TurnState = 1;
-			}
-		}
-		else
-		{
-			m_TurnTime += pDt;
-			if (m_TurnTime > 2.0 || Math.AbsFloat(dBody) < 1.0)
-			{
-				if (m_CmdStopTurn >= 0)
-					AnimCallCommand(m_CmdStopTurn, 0, 0.0);
-				if (m_VarTurnAmount >= 0)
-					AnimSetFloat(m_VarTurnAmount, 0.0);
-				m_TurnState = 0;
-			}
+			float maxStep = DM_MOVE_TURN_RATE * pDt * DM_MOVE_TURN_SPEED;
+			float step = dBody * DM_MOVE_TURN_RESPONSE;
+			step = Math.Clamp(step, -maxStep, maxStep);
+			SetOrientation(Vector(bodyYaw + step, 0.0, 0.0));
 		}
 	}
 
