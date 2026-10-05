@@ -794,6 +794,11 @@ static const float DM_EXPLORE_REFRESH_INTERVAL = 5.0;
 static const float DM_EXPLORE_EMPTY_LOCATION_TIME = 60.0;
 //! Loot exploration: сдаться на здании спустя N секунд (многоэтажки с интерьер-точками на разных этажах).
 static const float DM_EXPLORE_BUILDING_TIMEOUT = 20.0;
+//! Loot exploration: радиус «увидел» интерьер-точку (3D) — точка в пределах этого
+//! расстояния считается посещённой без подхода (проксимити-скип).
+static const float DM_EXPLORE_INTERIOR_SEE = 2.0;
+//! Loot exploration: число кандидатов разведки на шаг жадного обхода интерьера.
+static const int DM_EXPLORE_ROUTE_PROBE_COUNT = 3;
 
 //! TidyInventory: cooldown (seconds) between individual ammo/magazine steps.
 static const float DM_TIDY_STEP_INTERVAL = 1.0;

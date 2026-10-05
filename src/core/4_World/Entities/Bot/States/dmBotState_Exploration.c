@@ -3,8 +3,8 @@ class dmBotState_Exploration : dmBotState
 	ref dmBotIntent_MoveTo m_Move;     // маршрут к зданию (DESIRABLE)
 	ref dmBotIntent_PickUp m_PickUp;   // подбор предмета (EXCLUSIVE)
 	Building m_CurrentBuilding;
-	ref array<vector> m_InteriorPoints; // интерьер-точки текущего здания (порядок обхода)
-	int m_PointIndex;                   // индекс следующей интерьер-точки
+	ref array<vector> m_InteriorPoints; // интерьер-точки текущего здания (исходный список)
+	ref dmBuildingRoutePlanner m_Planner; // жадный планировщик обхода интерьера (переиспользуется)
 	float m_DropCooldown;
 	float m_BuildingTime;               // сколько времени бот возится с текущим зданием
 
@@ -24,7 +24,7 @@ class dmBotState_Exploration : dmBotState
 		m_PickUp = null;
 		m_CurrentBuilding = null;
 		m_InteriorPoints = null;
-		m_PointIndex = 0;
+		m_Planner = new dmBuildingRoutePlanner();
 		m_DropCooldown = 0.0;
 		m_BuildingTime = 0.0;
 
@@ -49,8 +49,10 @@ class dmBotState_Exploration : dmBotState
 
 		if (!EnsurePickUp(bot, pawn))
 		{
-			EnsureExplore(bot);
+			EnsureExplore(bot, pawn);
 		}
+
+		TickRoute(pawn);
 
 		bot.GetExplorer().RefreshBuildingsIfEmpty(pDt);
 
@@ -168,9 +170,9 @@ class dmBotState_Exploration : dmBotState
 		return best;
 	}
 
-	//! Обход здания: интерьер-точки по порядку, затем позиция здания как якорь;
-	//! по завершении последней точки — пометить здание посещённым.
-	void EnsureExplore(dmAISurvivor bot)
+	//! Обход здания: планировщик (жадный коммивояжёр) упорядочивает интерьер-точки,
+	//! бот идёт по готовому маршруту; по опустошении — здание помечается посещённым.
+	void EnsureExplore(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
 		dmExplorer explorer = bot.GetExplorer();
 
@@ -179,36 +181,28 @@ class dmBotState_Exploration : dmBotState
 			if (m_Move) { m_Move.Finish(); m_Move = null; }
 			dmBotLog.Error("[Loot] Explore: здание слишком долго, пропускаю " + m_CurrentBuilding.GetType());
 			explorer.MarkLocationBuildingVisited(m_CurrentBuilding);
-			m_CurrentBuilding = null;
-			m_InteriorPoints = null;
-			m_PointIndex = 0;
-			m_BuildingTime = 0.0;
+			ResetBuilding();
 		}
 
 		if (m_Move && (m_Move.IsFinished() || m_Move.IsExpired() || m_Move.IsFailed()))
-		{
-			bool failed = m_Move.IsFailed();
 			m_Move = null;
-			if (m_CurrentBuilding && m_InteriorPoints && m_PointIndex >= m_InteriorPoints.Count())
+
+		if (!m_Move && m_CurrentBuilding)
+		{
+			vector next;
+			if (m_Planner.NextPoint(next))
 			{
-				if (failed)
-				{
-					dmBotLog.Error("[Loot] Explore: здание недостижимо, пропускаю " + m_CurrentBuilding.GetType());
-				}
-				else
-				{
-					#ifdef DM_BOT_DEBUG_LOOTING
-					dmBotLog.Debug("[Loot] Explore: здание обойдено " + m_CurrentBuilding.GetType());
-					#endif
-				}
+				StartMoveTo(bot, next);
+			}
+			else if (m_Planner.IsDone())
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] Explore: здание обойдено " + m_CurrentBuilding.GetType());
+				#endif
 				explorer.MarkLocationBuildingVisited(m_CurrentBuilding);
-				m_CurrentBuilding = null;
-				m_InteriorPoints = null;
-				m_PointIndex = 0;
+				ResetBuilding();
 			}
 		}
-		if (m_Move)
-			return;
 
 		if (!m_CurrentBuilding)
 		{
@@ -217,27 +211,44 @@ class dmBotState_Exploration : dmBotState
 				return;
 			m_CurrentBuilding = b;
 			m_BuildingTime = 0.0;
-			m_PointIndex = 0;
 			m_InteriorPoints = new array<vector>();
 			dmBuildingInteriorMap.Get().GetRoamWorldPoints(b, m_InteriorPoints);
-		}
+			if (m_InteriorPoints.Count() == 0)
+				m_InteriorPoints.Insert(b.GetPosition());
 
-		vector goal;
-		if (m_PointIndex < m_InteriorPoints.Count())
-		{
-			goal = m_InteriorPoints[m_PointIndex];
-			m_PointIndex = m_PointIndex + 1;
+			m_Planner.Init(pawn.GetPosition(), m_InteriorPoints);
 		}
-		else
-		{
-			goal = m_CurrentBuilding.GetPosition();
-		}
+	}
 
+	//! Пер-тик сопровождение маршрута: шаг планировщика + проксимити-скип «увидел
+	//! точку → посетил». Первую точку бот получает через обычный цикл EnsureExplore.
+	void TickRoute(dmAISurvivorBase pawn)
+	{
+		if (!m_Planner)
+			return;
+
+		if (!m_Planner.IsDone())
+			m_Planner.Tick();
+
+		m_Planner.RemovePointsNear(pawn.GetPosition(), DM_EXPLORE_INTERIOR_SEE);
+	}
+
+	//! Выдать MoveTo к точке маршрута (DESIRABLE, как и раньше).
+	void StartMoveTo(dmAISurvivor bot, vector goal)
+	{
 		m_Move = new dmBotIntent_MoveTo();
 		m_Move.m_Goal = goal;
 		m_Move.m_ReachDistance = DM_EXPLORE_INTERIOR_REACH;
 		m_Move.m_Priority = dmBotIntentPriority.DESIRABLE;
 		bot.AddFSMIntent(m_Move);
+	}
+
+	//! Сбросить текущее здание (планировщик переиспользуется для следующего).
+	void ResetBuilding()
+	{
+		m_CurrentBuilding = null;
+		m_InteriorPoints = null;
+		m_BuildingTime = 0.0;
 	}
 
 	//! Проверить условия выхода из исследования (looting.json). При срабатывании —

@@ -342,7 +342,7 @@ class dmBotPathfinder
 	}
 
 	//! 2D-длина navmesh-пути (сумма горизонтальных дистанций соседних вейпоинтов).
-	private float PathLength2D(array<vector> path)
+	float PathLength2D(array<vector> path)
 	{
 		float total = 0.0;
 		int i;
