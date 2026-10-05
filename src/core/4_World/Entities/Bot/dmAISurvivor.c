@@ -340,7 +340,10 @@ class dmAISurvivor
 
 		float bodyYaw = m_Pawn.GetOrientation()[0];
 		m_TargetLookYawAbs = angles[0]; // absolute world yaw to the target
-		m_LookTurnMode = turn;
+		//! Не понижаем удержанный FULL: MOVE-канал (NONE/AUTO) не должен перетирать
+		//! FULL, выставленный LOOK-каналом (HoldLook/Aim). FULL сбрасывается явно в LookForward().
+		if (m_LookTurnMode != dmBotLookTurn.FULL || turn == dmBotLookTurn.FULL)
+			m_LookTurnMode = turn;
 
 		//! VectorToAngles returns pitch in [0, 360); normalize to [-180, 180]
 		//! so "slightly below level" (e.g. 359.5) doesn't clamp to +85 (look up).
@@ -365,13 +368,21 @@ class dmAISurvivor
 
 		m_TargetLookYawAbs = bodyYaw + v;
 		m_TargetLookPitch = h;
-		m_LookTurnMode = turn;
+		//! Не понижаем удержанный FULL: MOVE-канал (NONE/AUTO) не должен перетирать
+		//! FULL, выставленный LOOK-каналом (HoldLook/Aim). FULL сбрасывается явно в LookForward().
+		if (m_LookTurnMode != dmBotLookTurn.FULL || turn == dmBotLookTurn.FULL)
+			m_LookTurnMode = turn;
 	}
 
 	//! Reset look to forward (head aligned with body).
 	void LookForward()
 	{
-		LookAtDirection(0.0, 0.0, dmBotLookTurn.NONE);
+		float bodyYaw = 0.0;
+		if (m_Pawn)
+			bodyYaw = m_Pawn.GetOrientation()[0];
+		m_TargetLookYawAbs = bodyYaw;
+		m_TargetLookPitch = 0.0;
+		m_LookTurnMode = dmBotLookTurn.NONE;   // форс-сброс, в обход sticky
 	}
 
 	//! Set the look target to an absolute world yaw.
@@ -379,7 +390,10 @@ class dmAISurvivor
 	{
 		m_TargetLookYawAbs = worldYaw;
 		m_TargetLookPitch = 0.0;
-		m_LookTurnMode = turn;
+		//! Не понижаем удержанный FULL: MOVE-канал (NONE/AUTO) не должен перетирать
+		//! FULL, выставленный LOOK-каналом (HoldLook/Aim). FULL сбрасывается явно в LookForward().
+		if (m_LookTurnMode != dmBotLookTurn.FULL || turn == dmBotLookTurn.FULL)
+			m_LookTurnMode = turn;
 	}
 
 	//! Signed angle difference (degrees) from the body yaw to the given world yaw.
