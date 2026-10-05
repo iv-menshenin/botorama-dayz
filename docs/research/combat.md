@@ -2061,3 +2061,253 @@ m_fOrientationAngle = GetOrientation()[0]` и `return true`).
   `RPC_SpawnZombie` (`CreateObject(..., false, true, true)`).
 - botorama: `core/4_World/Entities/Bot/dmAISurvivorBase.c:1303-1315` (HeadingModel override),
   `src/reg/4_World/modded_ZombieBase.c` / `dmEntityRegistry.c` (реестр зомби).
+
+---
+
+# Спин при ударе мили (кручение корпуса во время MELEE2)
+
+## Цель
+
+Почему ИИ-бот крутится вокруг оси на КАЖДОМ ударе мили (спин-оракул `TickMeleeSpinOracle`
+фиксирует 673°/788°/1788° накопленного |Δyaw| за один замах, порог `DM_MELEE_SPIN_THRESHOLD=180`),
+если НАШ код (HeadingModel + ApplyBodyTurn) уже отключён на время удара.
+
+## Вывод (кратко)
+
+**Крутит НЕ наш код и НЕ скриптовый `HeadingModel`, а нативный `HumanCommandMelee2`**:
+первый аргумент `StartCommand_Melee2(EntityAI pTarget, ...)` — это «alignable target», к которому
+натив доворачивает модель ПРЯМО в симуляции команды (не через скриптовый `HeadingModel`-хук).
+Поэтому наш `HeadingModel`-override (return true + заморозка heading=orientation) на MELEE2
+**не может** остановить спин — натив не читает этот хук для своего доворота. Expansion это
+обходит двумя вещами: (1) пересброс ориентации `SetOrientation(GetOrientation())` в
+`eAIMeleeCombat.Update()` и (2) ветка MELEE2 в `HeadingModel`, которая **снэпает**
+`orientation = heading` через `SetOrientation(...)` и возвращает `false`.
+
+**Механизм блокировки для botorama — не передавать цель нативу** (передать `null`), как
+делает ваниль для NONALIGNABLE-целей (стены/здания/машины), и применить урон самим (уже
+делаем через `EvaluateHit` → `ProcessMeleeHitName`, который читает СВОЮ цель
+`m_MeleeCombat.GetTargetEntity()`, а не нативную).
+
+---
+
+## 1. Где именно крутится корпус — (а) граф/root motion или (б) натив
+
+**Ответ: (б) нативный `HumanCommandMelee2`, доворот к `pTarget`.** Доказательства:
+
+1. **`StartCommand_Melee2` принимает `EntityAI pTarget` первым аргументом**
+   (`3_game/human.c:1457`): `proto native HumanCommandMelee2 StartCommand_Melee2(EntityAI pTarget, int pHitType, float pComboValue, vector hitPos = vector.Zero);`.
+   Класс `HumanCommandMelee2` (`3_game/human.c:536-566`) не имеет ни одного сеттера
+   ориентации/доворота — только `ContinueCombo`/`IsInComboRange`/`WasHit`/`Cancel`/
+   `IsOnBack`/`GetComboCount`/`GetCurrentHitType`/`IsFinisher`. Весь доворот — нативный.
+
+2. **Ваниль «нуллит» цель именно для NONALIGNABLE-объектов** — а доворот возможен только
+   к «alignable» сущности. `GetTargetData` (`4_world/.../dayzplayermeleefightlogic_lightheavy.c:744-765`):
+   ```c
+   target = m_MeleeCombat.GetTargetEntity();
+   targetType = (target) ? target.GetMeleeTargetType() : ALIGNABLE;
+   if (targetType == NONALIGNABLE) target = null;   // :761-764
+   ```
+   `GetMeleeTargetType()` по умолчанию `ALIGNABLE` (`3_game/entities/entityai.c:3811-3814`);
+   `Building` (`3_game/entities/building.c:269-271`), `Transport` (`3_game/vehicles/transport.c:91-93`),
+   `InventoryItem` (`4_world/entities/core/inherited/inventoryitem.c:281-283,465-467`) возвращают
+   `NONALIGNABLE`. Т.е. ваниль передаёт `null` нативу, чтобы НЕ доворачиваться к стене/машине —
+   это ровно признак «`pTarget` управляет доворотом».
+
+3. **Скриптовый `HeadingModel` НЕ имеет ветки MELEE2 и падает в `RotateOrient`**
+   (`4_world/entities/dayzplayerimplement.c:1619-1700`, fall-through `:1699`). `RotateOrient`
+   (`dayzplayerimplementheading.c:67-120`) крутит только когда `|heading−orient| > CONST_ROTLIMIT
+   = π·0.95 ≈ 171°` (`:64`), и то оставляет ~171° лаг (слайд-поворот). Скорость такого поворота
+   ограничена; она **не объясняет** 2–5 полных оборотов (1788°) за один замах (~0.4–0.8 c → 2500–4500°/с).
+   Это характерно для нативного доворота без сходимости, а не для `RotateOrient`.
+
+4. **Root motion в `.agr` не содержит «кручения»**: наши графы (`src/core/Animations/*.agr`)
+   ссылаются на мили-качели по имени/хешу (`Combat.Erc.*`, `Damage.Erc.Heavy B` — бинарные
+   ассеты движка `Tests.agr:112`), а не определяют их. Root motion качелей — это ПОСТУПАТЕЛЬНЫЙ
+   шаг вперёд (гасится `pComboValue=1.0`, см. §2), а не вращение на 360°. Поворот на 2–5 оборотов
+   в root-motion ассете мили физически невозможен — это доворот команды к цели.
+
+> `[нужно подтвердить]` — что доворот идёт именно по позиции `pTarget` (а не по `hitPos`):
+> натурный тест «передать `null` цель + `hitPos` = точка ПЕРЕД ботом» и замерить spin-ораклом.
+> Если спин ~0 → подтверждено, что доворот по цели; если спин остался — доворот по `hitPos`.
+
+---
+
+## 2. Что делает `attackByDistance` / `pComboValue` (3-й аргумент)
+
+**Это НЕ доворот и НЕ выбор анимации — это переключатель «на месте vs шаг вперёд»**
+(поступательное root-motion translation).
+
+`GetAttackTypeByDistanceToTarget` (`dayzplayermeleefightlogic_lightheavy.c:120-135`):
+```c
+if (pTargetType == NONALIGNABLE) return 1.0;                       // нет цели → на месте
+if (IsShortDistance(pTarget, SqrFloat(CLOSE_TARGET_DISTANCE)))     // CLOSE_TARGET_DISTANCE=1.5 (:13)
+    return 1.0;  //! "target in short distance - in place attack"
+return 0.0;      //! "target is far from the player - forward movement attack"
+```
+`IsShortDistance` (`:936-939`) сравнивает `DistanceSq(playerPos, hitPos)` и
+`DistanceSq(headBonePos, hitPos)` с `1.5²`.
+
+- **`1.0` = атака на месте** (нет forward root-motion шага).
+- **`0.0` = forward movement attack** (натив двигает персонажа вперёд к цели во время качели).
+
+**Наш хардкод `1.0` — ВЕРНЫЙ** (`dmBotMeleeFightLogic_LightHeavy.c:73`): мы НЕ хотим, чтобы бот
+шагал вперёд во время удара (дистанцию держит `Approach`/`HitTo`-проверка `DM_MELEE_FACE_ANGLE` +
+`dist <= reach`). `pComboValue` на доворот **не влияет** — доворот задаётся `pTarget` (см. §1).
+
+---
+
+## 3. Как заблокировать доворот (ранжировано)
+
+### РЕКОМЕНДАЦИЯ (вариант б) — передать `null` как цель нативу
+
+В `dmBotMeleeFightLogic_LightHeavy.HandleFightLogic` (`:73`) заменить
+`m_Player.StartCommand_Melee2(target, ..., 1.0, m_MeleeCombat.GetHitPos())`
+на `m_Player.StartCommand_Melee2(null, ..., 1.0, m_MeleeCombat.GetHitPos())`.
+
+Урон НЕ сломается: он применяется нашим `EvaluateHit` → `ProcessMeleeHitName(weapon, weaponMode,
+target, compName, hitPos)` (`:91-109`), где `target = m_MeleeCombat.GetTargetEntity()` — это НАША
+цель из `dmBotMeleeCombat.TargetSelection` (`SetTargetObject(target)`, `dmBotMeleeCombat.c:35`),
+а НЕ нативная цель. Нативный `WasHit()` (триггер `HandleHitEvent` → `EvaluateHit`,
+`dayzplayermeleefightlogic_lightheavy.c:291-303`) — это момент качели по анимации, а не детект
+попадания по цели (ваниль и по стенам бьёт с `null` целью).
+
+**Минус/риск** — `[нужно проверить]`:
+- `WasHit()` всё ещё стреляет при `null` цели? (иначе `EvaluateHit` не вызовется).
+- Не сменится ли анимация качели на «no-target»-вариант (визуально хуже, но не ломает урон).
+- Если доворот идёт по `hitPos` (а не по `pTarget`) — дополнительно выставить `hitPos` в точку
+  ПЕРЕД ботом (`pos + GetDirection()*reach`), чтобы доворот был нулевым. (Эмпирика: spin-оракл ≈ 0.)
+
+### Вариант г (эталон Expansion) — пересброс ориентации каждый кадр
+
+Expansion блокирует спин НЕ отключением доворота, а **принудительным пересбросом**:
+- `eAIMeleeCombat.Update()` (`eAIMeleeCombat.c:200-218`) в конце зовёт
+  `m_AI.SetOrientation(m_AI.GetOrientation());` (`:217`) — «re-assert» текущей ориентации,
+  гасящий нативный доворот в момент выбора цели.
+- `eAIBase.HeadingModel` (`eAIBase.c:9998`), ветка MELEE/MELEE2/FALL (`:10094-10102`):
+  ```c
+  case COMMANDID_MELEE2:
+      if (ShoryukenSpin) pModel.m_fHeadingAngle = m_eAI_MeleeFightLogic.m_eAI_ShoryukenSpinAngle;
+      pModel.m_fOrientationAngle = pModel.m_fHeadingAngle;
+      SetOrientation(Vector(pModel.m_fHeadingAngle * Math.RAD2DEG, 0, 0));
+      m_fLastHeadingDiff = 0;
+      return false;
+  ```
+  Т.е. Expansion НЕ замораживает, а **снэпает** `orientation = heading` (heading натив ставит к
+  цели) через `SetOrientation` и возвращает `false`. Смысл: натив УЖЕ установил heading к цели —
+  Exp одним вызовом `SetOrientation` доводит тело до него, не давая нативному слайд-довороту
+  раскрутиться. Для нас это более инвазивно (каждый кадр `SetOrientation` во время MELEE2 +
+  другая семантика `HeadingModel`), но это проверенный эталон. Вариант (г) применим, если (б)
+  не даст нулевой спин.
+
+### Вариант а — правка `.agr` (root-motion узла) — НЕПРИМЕНИМ/СЛОЖЕН
+
+Мили-качели — бинарные ассеты движка (`Combat.Erc.*`/`Damage.Erc.*`), в наших текстовых `.agr`
+их нет (только ссылки по имени). Править root-motion качелей в текстовом графе нечего; нужно
+редактировать бинарные `.abt`/`.asi` в инструменте (недоступно). Да и «кручение» — не root-motion,
+а доворот команды (см. §1), так что анимационный узел тут вообще не виноват.
+
+### Вариант в — не использовать `StartCommand_Melee2` вовсе
+
+Кастомный удар: `ProcessMeleeHitName` вручную + не-root-motion анимация (эмоция/граф-команда).
+Максимальный контроль (нет ни доворота, ни root-motion), но теряем нативное таймирование `WasHit()`
+(придётся городить свой таймер/поллинг) и анимационную качель. Сложность — высокая, только как
+fallback, если (б)/(г) не сработают.
+
+**Итог рейтинга: (б) → (г) → (в). (а) — отпадает (неприменим).**
+
+---
+
+## 4. Expansion-референс (механизм мили-удара)
+
+- **Запуск удара** — `eAIMeleeFightLogic_LightHeavy` (`DayZExpansion/AI/Scripts/4_World/.../Classes/Melee/eaimeleefightlogic_lightheavy.c`)
+  зовёт тот же `m_AI.StartCommand_Melee2(target, ..., attackByDistance, GetHitPos())` (`:276`) через
+  `HandleInitialFirearmMelee`/`HandleInitialMeleeErc`. Т.е. Expansion НЕ отключает натив — он гасит
+  спин пост-фактум.
+- **`eAIMeleeCombat`** (`Classes/Melee/eAIMeleeCombat.c`) — magic-таргетинг + анти-спин:
+  - `Update()` (`:200-218`) → `Reset` + `TargetSelection` + `SetFinisherType` + **`SetOrientation(GetOrientation())`** (`:217`).
+  - `eAI_IsAimingAhead()` (`:118-134`) — отсекает цели позади (|angle| > 60°, `:128`) — не даёт
+    нативу доворачиваться на 180° к цели за спиной.
+  - `TargetSelection()` (`:24-97`) — свой райкаст (`HitZoneSelectionRaycast`, `:136-198`), не ванильный конус.
+- **`eAIBase.HeadingModel`** (`eAIBase.c:9998`) — ветка MELEE/MELEE2/FALL (`:10094-10102`) снэпает
+  `orientation = heading` + `SetOrientation` + `return false` (см. §3, вариант г).
+- **`OnCommandMelee2Start`** (`eAIBase.c:4420-4425`) — только `super` + трейс; блокировки доворота там НЕТ.
+
+Вывод: **Expansion блокирует спин парой «SetOrientation-пересброс в Update + снэп в HeadingModel»,
+а НЕ отключением нативного доворота.** Для botorama минимальный эквивалент — передать `null` цель
+(§3, б) и/или перенять `SetOrientation(GetOrientation())` в `dmBotMeleeCombat.Update()` + снэп в
+`dmAISurvivorBase.HeadingModel`.
+
+---
+
+## 5. Почему спин гигантский (2–5 оборотов, а не ~90° доворота)
+
+**Гипотеза: нативный доворот к цели не сходится у server-side AI.** Механика (проверяемо):
+
+1. Натив `HumanCommandMelee2` каждый кадр ставит «desired heading» = направление на `pTarget`
+   (живую цель). Если цель близко и/или шевелится, этот heading **дрейфует**.
+2. Для server-side AI нет клиентского ввода, стабилизирующего доворот; натив применяет доворот
+   к модели напрямую (мимо скриптового `HeadingModel`), без clamp'а `RotateOrient` (171°).
+3. Наш `HeadingModel`-override читает `GetOrientation()` (уже довёрнутое нативом) и
+   пере-записывает `heading=orientation=текущее` — **но натив на следующем кадре снова**
+   ставит heading к цели и снова доворачивает. Возникает **натив↔скрипт осцилляция**: скрипт
+   «фиксирует» текущее, натив «доворачивает» к дрейфующей цели → суммарный |Δyaw| накапливается
+   в 2–5 оборотов, а не затухает.
+
+> `[нужно проверить]` (эмпирика, spin-оракл уже есть):
+> - Передать `null` цель → spin-оракл должен упасть к ~0. Если да — подтверждена гипотеза
+>   «доворот по цели» и фикс (б) достаточен.
+> - Передать `null` + `hitPos` = точка ПЕРЕД ботом → если спин и так 0, значит доворот именно по
+>   `pTarget`, а не по `hitPos`.
+> - Лог `Turn: bodyYaw/dBody` под `DM_BOT_DEBUG_BODY` во время удара + замер `GetOrientation()`
+>   покажет, меняется ли `GetOrientation()` нативом (а не нашим `ApplyBodyTurn`, который уже
+>   загашен) — отделяет «натив» от «наша осцилляция».
+
+---
+
+## Файлы для правки
+
+- `botorama/src/core/4_World/Entities/Bot/Melee/dmBotMeleeFightLogic_LightHeavy.c:73` —
+  передать `null` цель (вариант б).
+- (опц.) `botorama/src/core/4_World/Entities/Bot/Melee/dmBotMeleeCombat.c:14-19` —
+  добавить `SetOrientation(GetOrientation())` в `Update()` (как Expansion `:217`), если (б) не хватит.
+- (опц.) `botorama/src/core/4_World/Entities/Bot/dmAISurvivorBase.c:1354-1366` —
+  переделать ветку MELEE2 с «заморозки» на снэп `SetOrientation` (вариант г), если (б) не хватит.
+
+## Открытые вопросы / не подтверждено
+
+- `WasHit()` натива и выбор анимации при `null` цели — не подтверждено (нужен эмпирический прогон).
+- Доворот по `pTarget` vs по `hitPos` — не подтверждено (косвенно: ваниль нуллит цель, а не hitPos).
+- Побочно: как `EvaluateHit` получает `m_MeleeCombat.GetTargetEntity()`, если `m_MeleeTarget`
+  уже поглощён (`ConsumeMeleeAttackRequest` null-ит `m_MeleeTarget` в конце `HandleFightLogic`,
+  а `HandleHitEvent` на hit-frame зовёт `m_MeleeCombat.Update(wasHitEvent=true)` → наша
+  `TargetSelection` перечитает `GetMeleeAttackTarget()` = null → цель в `EvaluateHit` может быть
+  null). Если урон реально работает — надо понять почему (возможно `WasHit()` приходит в тот же
+  кадр, что и старт). Пометить как `[нужно подтвердить]` отдельно.
+
+## Источники (файл:строка)
+
+- `3_game/human.c:536-566` (`HumanCommandMelee2`), `:1457` (`StartCommand_Melee2`), `:1459` (`GetCommand_Melee2`).
+- `3_game/entities/entityai.c:3811-3814` (`GetMeleeTargetType` = ALIGNABLE по умолчанию).
+- `3_game/entities/building.c:269-271`, `3_game/vehicles/transport.c:91-93`,
+  `4_world/entities/core/inherited/inventoryitem.c:281-283,465-467` (NONALIGNABLE).
+- `3_game/enums/emeleetargettype.c:1-5` (`ALIGNABLE=0, NONALIGNABLE`).
+- `4_world/entities/manbase/dayzplayer/dayzplayermeleefightlogic_lightheavy.c:13`
+  (`CLOSE_TARGET_DISTANCE=1.5`), `:120-135` (`GetAttackTypeByDistanceToTarget`), `:282-334`
+  (`HandleHitEvent`, `WasHit` `:291`), `:744-765` (`GetTargetData`), `:936-939` (`IsShortDistance`).
+- `4_world/entities/dayzplayerimplementmeleecombat.c:151-154` (`GetTargetEntity`),
+  `:510-517` (`InternalResetTarget`), `:519-528` (`SetTarget`).
+- `4_world/entities/manbase/playerbase.c:4098-4114` (`OnCommandMelee2Start`/`Finish`).
+- `4_world/entities/dayzplayerimplement.c:1619-1700` (`HeadingModel`), `:1707-1724` (`AimingModel` MELEE2).
+- `4_world/entities/dayzplayerimplementheading.c:64` (`CONST_ROTLIMIT=π·0.95`), `:67-120`
+  (`RotateOrient`), `:187-192` (`NoHeading`).
+- Expansion `.../Classes/Melee/eAIMeleeCombat.c:24-97` (`TargetSelection`), `:118-134`
+  (`eAI_IsAimingAhead`), `:200-218` (`Update` + `SetOrientation(GetOrientation())` `:217`).
+- Expansion `.../Classes/Melee/eaimeleefightlogic_lightheavy.c:276` (`StartCommand_Melee2`).
+- Expansion `.../Entities/AI/eAIBase.c:9998` (`HeadingModel`), `:10094-10102` (ветка MELEE2),
+  `:4420-4425` (`OnCommandMelee2Start`).
+- botorama: `Melee/dmBotMeleeFightLogic_LightHeavy.c:73` (`StartCommand_Melee2(target,...,1.0,...)`),
+  `:91-109` (`EvaluateHit` → `ProcessMeleeHitName`), `Melee/dmBotMeleeCombat.c:14-46`
+  (`Update`/`TargetSelection`/`SetTargetObject`/`SetHitPos`),
+  `dmAISurvivorBase.c:1354-1366` (`HeadingModel`), `:1079` (пропуск `ApplyBodyTurn`),
+  `:1671-1674` (`IsMeleeStriking`), `:1682-1708` (`TickMeleeSpinOracle`),
+  `:1824-1827` (`ConsumeMeleeAttackRequest`).

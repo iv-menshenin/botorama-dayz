@@ -70,7 +70,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 			return false;
 		}
 
-		m_Player.StartCommand_Melee2(target, m_HitType == EMeleeHitType.HEAVY, 1.0, m_MeleeCombat.GetHitPos());
+		m_Player.StartCommand_Melee2(null, m_HitType == EMeleeHitType.HEAVY, 1.0, m_MeleeCombat.GetHitPos());
 
 		if (m_HitType == EMeleeHitType.HEAVY)
 			m_Player.DepleteStamina(EStaminaModifiers.MELEE_HEAVY);
