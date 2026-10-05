@@ -408,7 +408,7 @@ class dmAISurvivor
 		}
 
 		//! Tick the strike cooldown (bot-level, read by Fighting systems).
-		if ( m_MeleeCooldown > 0.0 ) m_MeleeCooldown =- pDt;
+		if ( m_MeleeCooldown > 0.0 ) m_MeleeCooldown -= pDt;
 		if (m_MeleeCooldown < 0.0) m_MeleeCooldown = 0.0;
 
 		//! Unconscious -> skip the brain (the body is out; nothing to decide).
