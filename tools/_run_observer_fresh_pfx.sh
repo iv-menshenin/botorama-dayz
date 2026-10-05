@@ -12,7 +12,7 @@ export SteamGameId=221100
 RT="/home/devalio/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-entry-point"
 PROTON="/home/devalio/.local/share/Steam/steamapps/common/Proton Hotfix/proton"
 GAME="/home/devalio/.local/share/Steam/steamapps/common/DayZ"
-MOD='Z:\mnt\deep-space\Steam\steamapps\common\DayZServer\@Botorama'
+MOD='Z:\mnt\deep-space\Steam\steamapps\common\DayZServer\@CF;Z:\mnt\deep-space\Steam\steamapps\common\DayZServer\@COT;Z:\mnt\deep-space\Steam\steamapps\common\DayZServer\@Botorama'
 rm -rf /tmp/opencode/dayz-obs-pfx
 mkdir -p /tmp/opencode/dayz-obs-pfx
 timeout 600 "$RT" --verb=waitforexitandrun -- \

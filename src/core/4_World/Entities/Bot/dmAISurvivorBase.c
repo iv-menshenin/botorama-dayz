@@ -1742,10 +1742,18 @@ class dmAISurvivorBase : PlayerBase
 		if (!transport) return false;
 
 		int seatAnim = transport.GetSeatAnimationType(seatIndex);
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[GETIN] base seat=" + seatIndex + " seatAnim=" + seatAnim);
+		int animInst = transport.GetAnimInstance();
+		GetMovementState(m_MovementState);
+		int cmdTypeId = m_MovementState.m_CommandTypeId;
+		dmBotLog.Debug("[GETIN] base animInst=" + animInst + " preCmdType=" + cmdTypeId);
+		#endif
 		HumanCommandVehicle cmd = StartCommand_Vehicle(transport, seatIndex, seatAnim);
 		if (!cmd)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[GETIN] base cmd=false pendingEnter=" + m_VehiclePendingEnter);
 			dmBotLog.Debug("[Bot] GetInVehicle: fail seat=" + seatIndex);
 			#endif
 			return false;
@@ -1755,6 +1763,10 @@ class dmAISurvivorBase : PlayerBase
 		#endif
 		cmd.SetVehicleType(transport.GetAnimInstance());
 		m_VehiclePendingEnter = true;
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[GETIN] base vehicleType=" + cmd.GetVehicleType() + " seat=" + cmd.GetVehicleSeat());
+		dmBotLog.Debug("[GETIN] base cmd=true pendingEnter=" + m_VehiclePendingEnter);
+		#endif
 		return true;
 	}
 
