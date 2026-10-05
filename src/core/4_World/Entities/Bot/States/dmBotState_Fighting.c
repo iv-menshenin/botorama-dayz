@@ -271,7 +271,7 @@ class dmBotState_Fighting : dmBotState
 		{
 			dmBotMeleeCombat mc = dmBotMeleeCombat.Cast(pawn.GetMeleeCombat());
 			if (mc)
-				return mc.GetReach();
+				return mc.GetWeaponReach(InventoryItem.Cast(pawn.GetItemInHands()));
 		}
 
 		#ifdef DM_BOT_DEBUG_FSM

@@ -50,4 +50,25 @@ class dmBotMeleeCombat : DayZPlayerImplementMeleeCombat
 	{
 		return GetRange();
 	}
+
+	//! Дальность мили из оружия напрямую (light-режим как представитель), БЕЗ
+	//! трогания кэша m_WeaponMode/m_WeaponRange (их читает EvaluateHit для урона —
+	//! нельзя сбрасывать на каждый запрос дальности). Эталон — Expansion
+	//! Reset(weapon, EMeleeHitType.NONE) (light-режим) на смену оружия.
+	float GetWeaponReach(InventoryItem weapon)
+	{
+		MeleeCombatData data;
+		int mode;
+		if (weapon)
+		{
+			data = weapon.GetMeleeCombatData();
+			mode = weapon.GetMeleeMode();
+		}
+		else
+		{
+			data = m_DZPlayer.GetMeleeCombatData();
+			mode = 0;
+		}
+		return data.GetModeRange(mode) + RANGE_EXTENDER_NORMAL;
+	}
 }
