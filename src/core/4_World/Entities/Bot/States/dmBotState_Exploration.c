@@ -134,6 +134,8 @@ class dmBotState_Exploration : dmBotState
 		#ifdef DM_BOT_DEBUG_LOOTING
 		dmBotLog.Debug("[Loot] Рядом " + items.Count() + " вещей, выбираю, что подобрать");
 		#endif
+
+		//! Чистый выбор по desire — БЕЗ CanCarry/выброса: мутация только для победителя.
 		ItemBase best = null;
 		float bestDesire = 0.0;
 		int i;
@@ -141,19 +143,17 @@ class dmBotState_Exploration : dmBotState
 		{
 			ItemBase item = ItemBase.Cast(items[i]);
 			if (!item) continue;
-			if (!dmLoot.CanCarry(pawn, item))
-			{
-				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] Не могу это нести: " + item.GetType() + " pos=" + item.GetPosition());
-				#endif
+
+			//! Ruined — не подбираем (дёшево: только здоровье, без рейтинга/переборки).
+			if (item.IsDamageDestroyed() || item.GetHealth01() <= 0.0)
 				continue;
-			}
+
 			float desire = bot.CalcDesired(item);
-			if (desire > DM_EXPLORE_PICKUP_THRESHOLD && desire > bestDesire)
+			if (desire <= DM_EXPLORE_PICKUP_THRESHOLD)
+				continue;
+
+			if (desire > bestDesire)
 			{
-				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] Мне нравится: " + item.GetType() + " на " + desire);
-				#endif
 				best = item;
 				bestDesire = desire;
 			}
@@ -167,7 +167,224 @@ class dmBotState_Exploration : dmBotState
 			return null;
 		}
 
+		//! Единственная точка мутации: сделать место под победителя, затем CanCarry.
+		dmLoot.ClearWeaponRatingCache();
+		if (!EnsureCarry(bot, pawn, best, bestDesire))
+		{
+			bot.GetWishlist().Ignore(best);   // НЕ пересоревноваться за ту же вещь
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Не могу это нести: " + best.GetType() + " pos=" + best.GetPosition());
+			#endif
+			return null;
+		}
+
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] Мне нравится: " + best.GetType() + " на " + bestDesire);
+		#endif
 		return best;
+	}
+
+	//! «Сделать место» под победителя (единственная мутация, вне цикла выбора):
+	//! мили-лимит, конкуренция огнестрела за SHOULDER/MELEE, либо эвакуация.
+	//! true = теперь CanCarry.
+	bool EnsureCarry(dmAISurvivor bot, dmAISurvivorBase pawn, ItemBase item, float desire)
+	{
+		dmLootCategory cat = dmLoot.GetCategory(item);
+
+		//! Мили: лимит DM_LOOT_MELEE_MAX суммарно (независимо от того, есть ли место).
+		if (cat == dmLootCategory.MELEE)
+		{
+			if (!ApplyMeleeLimit(bot, pawn))
+				return false;   // на лимите и карго-мили нет — не опустошаем слот, отвергаем
+			return dmLoot.CanCarry(pawn, item);
+		}
+
+		if (dmLoot.CanCarry(pawn, item))
+			return true;
+
+		//! Огнестрел (не пистолет) при занятых слотах — конкуренция за SHOULDER/MELEE.
+		if (item.IsInherited(Weapon_Base) && !item.IsInherited(Pistol_Base))
+			return CompeteFirearm(bot, pawn, item);
+
+		//! Одежда — конкуренция «кандидат vs надетое в ТОМ ЖЕ слоте».
+		if (cat == dmLootCategory.CLOTHING)
+			return CompeteClothing(bot, pawn, item);
+
+		//! Прочее — эвакуация (выбросить наименее ценное, если желание это оправдывает).
+		return EvacuateForItem(bot, pawn, item, desire);
+	}
+
+	//! Эвакуация под «прочий» предмет: выбросить наименее ценное по необходимости
+	//! (GetDiscardOrder) и повторить CanCarry. Выбрасываются ТОЛЬКО карго-предметы —
+	//! надетое из слота (Body/Feet/Legs/...) эвакуацией не трогается.
+	bool EvacuateForItem(dmAISurvivor bot, dmAISurvivorBase pawn, ItemBase item, float desire)
+	{
+		dmRequirements req = bot.GetRequirements();
+		if (!req)
+			return false;
+		ref array<EntityAI> order = req.GetDiscardOrder();
+		if (order.Count() == 0)
+			return false;
+		if (!req.WorthEvacuating(desire))
+			return false;
+
+		EntityAI drop = null;
+		InventoryLocation loc = new InventoryLocation();
+		int i;
+		for (i = 0; i < order.Count(); i++)
+		{
+			EntityAI candidate = order[i];
+			if (!candidate)
+				continue;
+			if (candidate.GetInventory().GetCurrentInventoryLocation(loc))
+			{
+				if (loc.GetType() == InventoryLocationType.CARGO)
+				{
+					drop = candidate;
+					break;
+				}
+			}
+		}
+
+		if (!drop)
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] эвакуировать нечего (нет карго-кандидата) ради " + item.GetType());
+			#endif
+			return false;
+		}
+
+		if (!DropAndIgnore(bot, pawn, drop))
+			return false;
+
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] эвакуирую " + drop.GetType() + " ради " + item.GetType());
+		#endif
+		return dmLoot.CanCarry(pawn, item);
+	}
+
+	//! Выбросить предмет и внести его в игнор (чтобы не подбирать выброшенное заново).
+	bool DropAndIgnore(dmAISurvivor bot, dmAISurvivorBase pawn, EntityAI item)
+	{
+		if (!item || !pawn.DropItem(ItemBase.Cast(item)))
+			return false;
+		bot.GetWishlist().Ignore(item);
+		return true;
+	}
+
+	//! Конкуренция огнестрела за SHOULDER/MELEE: выбросить ruined в слотах, затем —
+	//! слабейший занятый слот (по RateWeapon), если он слабее кандидата. Единый
+	//! механизм покрывает и «мили против мили», и «слабый огнестрел против кандидата».
+	//! true = слот освобождён и кандидат помещается.
+	bool CompeteFirearm(dmAISurvivor bot, dmAISurvivorBase pawn, ItemBase item)
+	{
+		float rate = dmLoot.RateWeapon(item, bot);
+		if (rate <= 0.0)
+			return false;
+
+		GameInventory inv = pawn.GetInventory();
+		if (!inv)
+			return false;
+
+		//! Ruined в слотах SHOULDER/MELEE — выбросить немедленно.
+		ItemBase slotted = ItemBase.Cast(inv.FindAttachment(InventorySlots.SHOULDER));
+		if (slotted && dmLoot.RateWeapon(slotted, bot) == -1.0)
+			DropAndIgnore(bot, pawn, slotted);
+		slotted = ItemBase.Cast(inv.FindAttachment(InventorySlots.MELEE));
+		if (slotted && dmLoot.RateWeapon(slotted, bot) == -1.0)
+			DropAndIgnore(bot, pawn, slotted);
+
+		if (dmLoot.CanCarry(pawn, item))
+			return true;
+
+		//! Слабейший занятый SHOULDER/MELEE — вытеснить, если слабее кандидата.
+		array<EntityAI> occupied = new array<EntityAI>();
+		slotted = ItemBase.Cast(inv.FindAttachment(InventorySlots.SHOULDER));
+		if (slotted)
+			occupied.Insert(slotted);
+		slotted = ItemBase.Cast(inv.FindAttachment(InventorySlots.MELEE));
+		if (slotted)
+			occupied.Insert(slotted);
+
+		EntityAI weaker = dmLoot.FindWeakest(occupied, bot);
+		if (weaker && dmLoot.RateWeapon(ItemBase.Cast(weaker), bot) < rate)
+		{
+			DropAndIgnore(bot, pawn, weaker);
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] огнестрел вытесняет " + weaker.GetType() + " ради " + item.GetType());
+			#endif
+		}
+		return dmLoot.CanCarry(pawn, item);
+	}
+
+	//! Конкуренция одежды «кандидат vs надетое в ТОМ ЖЕ слоте»: слот пуст → нести;
+	//! занят → выбросить надетое (IsBetterClothing уже прогейтил CalcDesired) и
+	//! повторить CanCarry. Носимое выкидывается только своей конкуренцией в том же слоте.
+	bool CompeteClothing(dmAISurvivor bot, dmAISurvivorBase pawn, ItemBase item)
+	{
+		GameInventory inv = pawn.GetInventory();
+		if (!inv)
+			return false;
+		int slotId = dmLoot.GetClothingSlotId(pawn, item);
+		if (slotId == InventorySlots.INVALID)
+			return false;
+		ItemBase worn = ItemBase.Cast(inv.FindAttachment(slotId));
+		if (!worn)
+			return dmLoot.CanCarry(pawn, item);
+		if (!DropAndIgnore(bot, pawn, worn))
+			return false;
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] одежда вытесняет " + worn.GetType() + " ради " + item.GetType());
+		#endif
+		return dmLoot.CanCarry(pawn, item);
+	}
+
+	//! Лимит мили: если уже >= DM_LOOT_MELEE_MAX мили — выбросить слабейшее мили В КАРГО.
+	//! Слоты (MELEE/SHOULDER) и руки НЕ трогаем — слот не должен пустеть.
+	//! true = под лимитом ИЛИ выбросили карго-место (можно CanCarry); false = на лимите
+	//! и карго-мили нет (входящее отвергаем, чтобы не опустошать слот).
+	bool ApplyMeleeLimit(dmAISurvivor bot, dmAISurvivorBase pawn)
+	{
+		dmRequirements req = bot.GetRequirements();
+		if (!req)
+			return true;
+
+		array<EntityAI> meleeItems = req.GetAllMelee(bot);
+		if (meleeItems.Count() < DM_LOOT_MELEE_MAX)
+			return true;
+
+		//! Только карго-мили участвует в конкуренции — слоты и руки не трогаем.
+		array<EntityAI> cargoMelee = new array<EntityAI>();
+		InventoryLocation loc = new InventoryLocation();
+		int i;
+		for (i = 0; i < meleeItems.Count(); i++)
+		{
+			EntityAI candidate = meleeItems[i];
+			if (!candidate)
+				continue;
+			if (candidate.GetInventory().GetCurrentInventoryLocation(loc))
+			{
+				if (loc.GetType() == InventoryLocationType.CARGO)
+					cargoMelee.Insert(candidate);
+			}
+		}
+
+		if (cargoMelee.Count() == 0)
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] мили лимит: карго-мили нет — входящее отвергаю (слот не трогаю)");
+			#endif
+			return false;
+		}
+
+		EntityAI weakest = dmLoot.FindWeakest(cargoMelee, bot);
+		if (!DropAndIgnore(bot, pawn, weakest))
+			return false;
+
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] мили лимит: выбрасываю " + weakest.GetType() + " (карго)");
+		#endif
+		return true;
 	}
 
 	//! Обход здания: планировщик (жадный коммивояжёр) упорядочивает интерьер-точки,

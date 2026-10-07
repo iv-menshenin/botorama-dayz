@@ -510,3 +510,221 @@ chamber-loading нужен отдельный проход, который НЕ 
 | `eAIWeaponManager.CanLoadBullet_NoHandsCheck(_NoChamberCheck)` | `eAIWeaponManager.c:326/352` |
 | `eAIBase.ReloadWeaponAI` (ветка chamber-load на 8955) | `eAIBase.c:8825` |
 | `eAIBase.eAI_GetMagazineToReload` (выбор пачки) | `eAIBase.c:1583` |
+
+---
+
+## Рейтинг оружия: `initSpeed` из `CfgAmmo`
+
+Статус: подтверждено по ванили + Expansion (референс). Задача — посчитать
+`rate = ammoCount * (initSpeed/1000) * GetHealth01()` для `Weapon_Base` (в руках/инвентаре).
+
+### Константы путей конфига (ваниль `3_game/constants.c`)
+
+| Константа | Значение | Строка |
+|---|---|---|
+| `CFG_VEHICLESPATH` | `"CfgVehicles"` | 220 |
+| `CFG_WEAPONSPATH` | `"CfgWeapons"` | 221 |
+| `CFG_MAGAZINESPATH` | `"CfgMagazines"` | 222 |
+| `CFG_AMMO` | `"CfgAmmo"` | 223 |
+
+### Структура конфига (ключ к пониманию)
+
+- **`CfgAmmo`** = типы пуль (`Bullet_762x39`, `Bullet_308Win`, …): `initSpeed`, `airFriction`,
+  `typicalSpeed`, `DamageApplied`, `spawnPileType` (имя пачки → `Ammunition_Base.GetAmmoWeightByBulletType`,
+  `ammunitionpiles.c:6`).
+- **`CfgMagazines`** = И магазины (`Mag_AKM_30Rnd`), И россыпные пачки (`Ammo_762x39`). Каждая запись
+  имеет поле `ammo` = имя пули в `CfgAmmo`.
+- **`CfgWeapons`** у оружия — `chamberableFrom[]` = список имён из `CfgMagazines` (у магазинного —
+  магазины, у болтового/переломного — пачки). Считывается `ConfigGetTextArray("chamberableFrom", …)`
+  (эталон Expansion Core `Weapon_Base.c:70`) или `g_Game.ConfigGetTextArray("CfgWeapons " + type + " chamberableFrom", …)`
+  (ваниль `dayzgame.c:3794`).
+
+Вывод: **имя типа в стволе/`chamberableFrom` — это имя `CfgMagazines`, а НЕ имя `CfgAmmo`**. Чтобы
+добраться до `initSpeed`, нужно конвертировать через `CfgMagazines <имя> ammo` → `CfgAmmo` имя пули.
+
+### Как получить тип патрона оружия (нативы на `Weapon`, `4_world/entities/core/inherited/weapon.c`)
+
+| Натив | Что возвращает | Строка |
+|---|---|---|
+| `proto native owned string GetChamberAmmoTypeName(int muzzleIndex)` | имя патрона **уже в стволе** (валидно только при `!IsChamberEmpty`); имя `CfgMagazines` | 150 |
+| `proto native owned string GetRandomChamberableAmmoTypeName(int muzzleIndex)` | **случайная** запись из `chamberableFrom`; имя `CfgMagazines` | 143 |
+| `proto native Magazine GetMagazine(int muzzleIndex)` | отъёмный магазин (для M4/пистолета), `null` у болтовки | 240 |
+
+Доказательство, что `GetChamberAmmoTypeName` возвращает имя `CfgMagazines`, а не пули:
+- ваниль `weapon_base.c:193-194` читает `CfgMagazines <имя> weight` напрямую;
+- Expansion `eAIPlayerTargetInformation.c:338` берёт `GetChamberAmmoTypeName(mi)` и гонит его через
+  `ExpansionWeaponUtils.GetDamageAppliedByAmmo` (`ExpansionWeaponUtils.c:24`), который читает
+  `CfgMagazines <имя> ammo` → пуля → `CfgAmmo <пуля> DamageApplied`.
+
+### Конвертация «имя CfgMagazines → имя пули CfgAmmo»
+
+```c
+// AmmoTypesAPI.MagazineTypeToAmmoType — 3_game/global/ammotypes.c:14
+// Если вход уже имя CfgAmmo (Exists), возвращает как есть; иначе читает поле 'ammo'.
+string magType;    // напр. "Mag_AKM_30Rnd" или "Ammo_762x54"
+string bulletType;
+if (!AmmoTypesAPI.MagazineTypeToAmmoType(magType, bulletType)) return; // ErrorEx при мусоре
+
+// Альтернатива-натив (ammotypes.c:11): static proto bool GetAmmoType(string magazineType, out string ammoType)
+// Сырая: g_Game.ConfigGetText("CfgMagazines " + magType + " ammo", bulletType)  // Expansion Core Weapon_Base.c:78
+```
+
+### Чтение `initSpeed` (НАТИВ-ГЕТТЕРА НЕТ — только `ConfigGetFloat`)
+
+```c
+float initSpeed = g_Game.ConfigGetFloat("CfgAmmo " + bulletType + " initSpeed");
+```
+
+Подтверждено Expansion AI `Weapon_Base.c:546` (`eAI_CalculateProjectileDamageCoefAtPosition`):
+`initSpeed = g_Game.ConfigGetFloat("CfgAmmo " + ammoType + " initSpeed")`. Там же (547) применяется
+`initSpeedMultiplier` оружия (`ConfigGetFloat("initSpeedMultiplier")`, `CfgWeapons <weapon>`), а
+`ExpansionWeaponUtils.GetWeaponInitSpeedMultiplier` (`ExpansionWeaponUtils.c:69-83`) кэширует его.
+Ваниль (`dayzgame.c:3659`) пишет путь строчными `"cfgAmmo "` — регистр в config-путях не важен,
+но Expansion в боевых хелперах использует `"CfgAmmo "`.
+
+### Какой метод брать по типу оружия
+
+- **Магазинный (M4) и пистолет**: `weapon.GetMagazine(0)` → если не null, `magType = mag.GetType()`
+  → `MagazineTypeToAmmoType`. Фолбэк (магазин не вставлен) — `chamberableFrom[0]` из конфига.
+- **Болтовка (Mosin, внутренний магазин, без отъёмного)**: `GetChamberAmmoTypeName(0)` при
+  `!IsChamberEmpty(0)`; иначе `chamberableFrom[0]` (это пачка, напр. `Ammo_762x54`). `GetMagazine(0)`
+  вернёт null. `GetRandomChamberableAmmoTypeName` — случайный, для **рейтинга не годится** (недетерминирован).
+- Детерминированный универсальный путь (рекомендуется для рейтинга): прочитать `chamberableFrom[0]`
+  из конфига оружия (не зависит от заряженности), `MagazineTypeToAmmoType` → `initSpeed`. Для оружия
+  с несколькими калибрами (tracer/обычный) — у всех одна `initSpeed`, разница только в `DamageApplied`.
+
+### `ammoCount` — «патроны подходящего калибра в инвентаре»
+
+НЕ `IsInherited(ammoType)` (это проверка наследования класса, не калибра). Правильно — по
+**разрешённому имени пули** (результат `MagazineTypeToAmmoType`):
+
+```c
+int ammoCount;
+string weaponBullet;                 // пуля оружия (см. выше)
+MagazineBase item;                   // Magazine_Base покрывает и Magazine, и Ammunition_Base
+foreach (/* item в инвентаре пешки, item.IsMagazine()/IsAmmoPile() */)
+{
+    string itemBullet;
+    if (!AmmoTypesAPI.MagazineTypeToAmmoType(item.GetType(), itemBullet)) continue;
+    if (itemBullet == weaponBullet)  // или IsInherited по имени пули, если нужны подтипы (tracer)
+        ammoCount += item.GetAmmoCount();   // magazine.c:68, native
+}
+```
+
+`Ammunition_Base : Magazine_Base` (`ammunitionpiles.c:2`), а `typedef Magazine Magazine_Base`
+(`magazine.c:1`) — оба `GetType()` — имена `CfgMagazines`, оба конвертируются одним вызовом.
+Эталон подсчёта «N патронов под тип» — Expansion `eAI_GetMagazineTypeWithAmmoCount`
+(`eAIBase.c:6559`), но он сравнивает `mag.GetType() == type` (точное имя), а для калибра нужно
+сравнивать **разрешённое имя пули** (tracer/обычный = разные `GetType()`, но один `initSpeed`).
+
+### Открытые вопросы / `[нужно проверить]`
+
+1. **[нужно подтвердить]** точный вид строки от `GetChamberAmmoTypeName(i)` (имя магазина/пачки, а не
+   пули) — прогон с логом строки на тест-сервере (`botdump` оружия + chambered тип).
+2. **[нужно проверить]** `AmmoTypesAPI.GetAmmoType` vs `MagazineTypeToAmmoType` — обе конвертируют
+   `CfgMagazines → CfgAmmo`; `GetAmmoType` — натив, не печатает `ErrorEx` на мусоре. Для болтовки
+   (пачка `Ammo_762x54`) обе вернут `Bullet_762x54` — подтвердить эмпирически на Mosin.
+3. **[нужно проверить]** что `GetHealth01()` оружия = нормированное здоровье (`GetHealth01()` на
+   `ItemBase`) — для `rate` брать именно его, а не `GetHealth()`.
+
+---
+
+## Слот `Backpack_1` (инструмент на рюкзаке)
+
+Статус: подтверждено по ванили + Expansion (референс). Задача — цеплять Hatchet/Machete в
+attachment-слот рюкзака.
+
+### Что такое `Backpack_1`
+
+Это **имя attachment-слота** (не слота игрока). Объявлен в `CfgSlots` ванили:
+
+```c
+// "DayZ Projects/scripts/config.cpp":2504 (ванильный config.cpp)
+class Slot_Backpack_1 { name="Backpack_1"; displayName="#STR_CfgTool0"; ghostIcon="set:dayz_inventory image:Backpack_1"; }
+```
+
+- `displayName="#STR_CfgTool0"` = «Tool» → слот инструментов (топор/мачете/молоток/нож и т.п.).
+- `Backpack_1` — слот **предмета-рюкзака** (`Backpack_Base : Clothing`, `clothing_base.c:165`):
+  рюкзак экспонирует его через свой `attachments[]`, а инструмент заявляет его в своём `inventorySlot[]`.
+- Соседние слоты-аналоги: `Slot_Knife_Holster` (`name="KnifeHolster"`, 2432), `Slot_Chemlight`
+  (`name="Chemlight"`, 2438), `Slot_WalkieTalkie` (2444) — тоже «навесные» на рюкзак/одежду.
+
+### Имя слота → id (и обратно)
+
+`class InventorySlots` — `3_game/systems/inventory/inventoryslots.c` (статика, нативы):
+
+| Метод | Что делает | Строка |
+|---|---|---|
+| `static proto native int GetSlotIdFromString(string slot_name)` | имя → id (`InventorySlots.INVALID` если нет) | 42 |
+| `static proto native owned string GetSlotName(int id)` | id → имя | 48 |
+| `static proto native owned string GetSlotDisplayName(int id)` | id → displayName | 54 |
+| `static proto native bool IsSlotIdValid(int slotId)` | валиден ли id | 59 |
+
+**Готча (док-коммент `inventoryslots.c:37-41`):** `GetSlotIdFromString("Backpack_1")` ищет **имя класса**
+`class Slot_Backpack_1`, а НЕ значение атрибута `name=`. Т.е. `GetSlotIdFromString("Backpack_1")` →
+валидный id (т.к. класс называется `Slot_Backpack_1`, а `name` у него `"Backpack_1"`). Совпадение здесь
+полное, но помнить: строка-аргумент = суффикс имени класса `Slot_<arg>`.
+
+### Проверка «можно ли прицепить в слот рюкзака» (рантайм)
+
+`GameInventory` методы (`3_game/systems/inventory/inventory.c`):
+
+| Метод | Смысл | Строка |
+|---|---|---|
+| `proto native EntityAI FindAttachment(int slot)` | предмет в слоте (или null) | 224 |
+| `bool HasAttachmentSlot(int slotId)` | у контейнера есть этот attachment-слот (из его `attachments[]`) | 188 |
+| `proto native bool HasInventorySlot(int slotId)` | предмет сам заявляет этот слот (из `inventorySlot[]`) | 201 |
+| `proto native bool CanAddAttachmentEx(notnull EntityAI e, int slot)` | влезет ли `e` в этот слот | 246 |
+| `proto native bool CanAddAttachment(notnull EntityAI e)` | влезет ли `e` в **любой** слот | 241 |
+| `proto native int GetSlotId(int index)` / `GetSlotIdCount()` | слоты, куда МОЖЕТ лечь **этот** предмет (`inventorySlot[]`) | 171/175 |
+| `proto native int GetAttachmentSlotId(int index)` / `GetAttachmentSlotsCount()` | слоты, что **этот** контейнер принимает (`attachments[]`) | 180/184 |
+
+**Цепочка для надетого рюкзака** (ванильный паттерн получения рюкзака — `dayzplayerimplement.c:3109`):
+
+```c
+// 1) рюкзак на игроке/пешке
+EntityAI backpack = pawn.GetInventory().FindAttachment(InventorySlots.BACK); // BACK — слот рюкзака игрока
+if (!backpack) return false;
+
+// 2) id слота инструмента
+int slotId = InventorySlots.GetSlotIdFromString("Backpack_1");
+
+// 3) проверки на ИНВЕНТАРЕ РЮКЗАКА (не на инвентаре игрока!)
+GameInventory bpInv = backpack.GetInventory();
+if (!bpInv.HasAttachmentSlot(slotId)) return false;        // есть ли слот Backpack_1 у этого рюкзака
+if (bpInv.FindAttachment(slotId))      return false;       // слот уже занят
+if (!bpInv.CanAddAttachmentEx(hatchet, slotId)) return false; // влезет ли конкретный топор
+```
+
+Отличие `HasAttachmentSlot` (слоты, что рюкзак ПРИНИМАЕТ, `attachments[]`) от `HasInventorySlot`
+(слоты, куда ПРЕДМЕТ может лечь, `inventorySlot[]`) — важно не перепутать: проверка «влезет ли топор
+в этот рюкзак» = `bpInv.HasAttachmentSlot(Backpack_1)` + `bpInv.CanAddAttachmentEx(item, slotId)`;
+проверка «топор вообще носит на себе слот Backpack_1» = `hatchet.GetInventory().HasInventorySlot(slotId)`.
+
+### Expansion-хелперы (референс, Core `ItemBase.c`)
+
+```c
+TStringArray Expansion_GetInventorySlots() // ConfigGetTextArray("inventorySlot", ...)   — 1385
+TStringArray Expansion_GetAttachmentSlots()// ConfigGetTextArray("attachments", ...)     — 1378
+bool Expansion_HasAttachmentSlot(string)   // GetInventory().HasAttachmentSlot(GetSlotIdFromString) — 1392
+bool Expansion_HasInventorySlot(string)    // GetInventory().HasInventorySlot(...)       — 1426
+```
+
+Примечание из скилла `dayz-ai-bot` (секция «Лут»): для **одежды/рюкзака** как ПРИКРЕПЛЯЕМОГО предмета
+`CanAddAttachmentEx` на инвентаре игрока возвращает `false` (поэтому в `dmLoot.FindAttachmentSlot`
+проверяют `HasAttachmentSlot` + `!FindAttachment`). Для **инструмента (melee) в слот рюкзака** — это
+другое направление (`backpack.GetInventory().CanAddAttachmentEx(item, slotId)`), и для топора/мачете
+(не одежда) `CanAddAttachmentEx` валиден.
+
+### Открытые вопросы / `[нужно проверить]`
+
+1. **[нужно подтвердить]** что Hatchet/Machete в игровых данных DayZ действительно объявляют
+   `inventorySlot[] = {"Backpack_1", ...}` (и возможно `"Melee"`) — в script-diff этих конфигов нет
+   (они в PBO игровых данных). Проверить дампом конфига на тест-сервере (`ConfigGetTextArray("CfgVehicles Hatchet inventorySlot")`).
+2. **[нужно подтвердить]** какие рюкзаки экспонируют `Backpack_1` в `attachments[]` (большинство —
+   да, но мелкие/спец. могут нет): `ConfigGetTextArray("CfgVehicles <backpack> attachments")`.
+3. **[нужно проверить]** что `backpack.GetInventory().CanAddAttachmentEx(hatchet, slotId)` возвращает
+   `true` на реальном надетом рюкзаке для топора (эмпирика через probe-ручку `botdump`/`raycast`-не нужно,
+   нужен инвентарь-проверочный хук).
+4. **[нужно проверить]** `InventorySlots.GetSlotIdFromString("Backpack_1")` действительно возвращает
+   валидный id (не `INVALID`) — т.к. класс слота называется `Slot_Backpack_1` (суффикс = "Backpack_1").

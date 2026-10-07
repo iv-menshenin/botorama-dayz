@@ -126,45 +126,56 @@ class dmWishlist
 		}
 	}
 
-	//! Скорер: 0..1, насколько бот хочет эту вещь.
-	float CalcDesired(ItemBase item)
+	//! Игнорируется ли вещь прямо сейчас (с ленивой чисткой истёкших игноров).
+	bool IsIgnored(EntityAI item)
 	{
 		if (!item)
-			return 0.0;
+			return false;
 
 		float now = GetGame().GetTickTime();
 
 		int i;
-
-		// 1) ленивая чистка истёкших игноров
 		for (i = m_Ignored.Count() - 1; i >= 0; i--)
 		{
 			if (m_Ignored[i].m_ExpireTime <= now)
 				m_Ignored.Remove(i);
 		}
 
-		// 2) игнор конкретной вещи → 0
 		for (i = 0; i < m_Ignored.Count(); i++)
 		{
 			if (m_Ignored[i].m_Item == item)
-				return 0.0;
+				return true;
 		}
+		return false;
+	}
 
-		// 3) junk: наследование класса → 0
+	//! Скорер: 0..1, насколько бот хочет эту вещь.
+	float CalcDesired(ItemBase item)
+	{
+		if (!item)
+			return 0.0;
+
+		int i;
+
+		// 1) игнор конкретной вещи → 0 (с ленивой чисткой истёкших игноров)
+		if (IsIgnored(item))
+			return 0.0;
+
+		// 2) junk: наследование класса → 0
 		for (i = 0; i < m_Junk.Count(); i++)
 		{
 			if (item.IsInherited(m_Junk[i].m_Class))
 				return 0.0;
 		}
 
-		// 4) desired: наследование класса → необходимость
+		// 3) desired: наследование класса → необходимость
 		for (i = 0; i < m_Desired.Count(); i++)
 		{
 			if (item.IsInherited(m_Desired[i].m_Class))
 				return m_Desired[i].m_Necessity;
 		}
 
-		// 5) fallback — базовое желание по категории
+		// 4) fallback — базовое желание по категории
 		dmLootCategory category = dmLoot.GetCategory(item);
 		
 		float categoryWant = m_Categories.Get( category );

@@ -1924,6 +1924,8 @@ class dmAISurvivor
 
 	float CalcDesired(ItemBase item)
 	{
+		if (m_Wishlist.IsIgnored(item)) return 0.0;
+
 		if ( item.IsClothing() )
 		{
 			if ( IsBetterClothing(item) ) return 1.0;

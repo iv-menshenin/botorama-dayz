@@ -284,6 +284,28 @@ class dmLoot
 		InventorySlots.FEET
 	};
 
+	//! Слот одежды из конфига inventorySlot[0] (Body/Feet/Legs/...); INVALID если нет/нет слота.
+	static int GetClothingSlotId(PlayerBase pawn, ItemBase item)
+	{
+		if (!pawn || !item)
+			return InventorySlots.INVALID;
+
+		array<string> names = new array<string>();
+		item.ConfigGetTextArray("inventorySlot", names);
+		if (names.Count() == 0)
+			return InventorySlots.INVALID;
+
+		int slotId = InventorySlots.GetSlotIdFromString(names[0]);
+		if (slotId == InventorySlots.INVALID)
+			return InventorySlots.INVALID;
+
+		GameInventory inv = pawn.GetInventory();
+		if (!inv || !inv.HasAttachmentSlot(slotId))
+			return InventorySlots.INVALID;
+
+		return slotId;
+	}
+
 	//! Свободный ПОДХОДЯЩИЙ слот для предмета: WEAPON → SHOULDER; MELEE → MELEE, затем
 	//! SHOULDER; CLOTHING → слот из inventorySlot[]; прочие → false. Возвращает true и
 	//! заполняет slotId только если слот свободен и подходит.
@@ -538,5 +560,164 @@ class dmLoot
 		bool ok = pawn.LocalTakeToDst(src, dst);
 		GetGame().RemoteObjectTreeCreate(item);
 		return ok;
+	}
+
+	//! -------------------------------------------------------------------------
+	//! Рейтинг оружия — БОЕВАЯ ЦЕННОСТЬ. Ось, ОТЛИЧНАЯ от dmRequirements.GetBaseIndex
+	//! (та — «необходимость категории» для порядка выброса при переполнении:
+	//! GetDiscardOrder/MaybeDrop). RateWeapon отвечает «какое оружие ценнее в бою»
+	//! для конкуренции SHOULDER/MELEE: мили = 0.1 × здоровье, огнестрел = патроны ×
+	//! (initSpeed / 1000) × здоровье. Эти две системы НЕ смешиваются: GetBaseIndex
+	//! никогда не участвует в конкуренции оружия, а RateWeapon — в порядке выброса.
+	//! -------------------------------------------------------------------------
+
+	//! Кэш «пуля → патроны» на время ОДНОЙ оценки (pickUpItemSelect → EnsureCarry),
+	//! чтобы EnumerateInventory по одному калибру не повторялся. Очищается в начале
+	//! оценки через ClearWeaponRatingCache().
+	static string s_LastBulletType = "";
+	static float s_LastAmmoCount = 0.0;
+
+	static void ClearWeaponRatingCache()
+	{
+		s_LastBulletType = "";
+		s_LastAmmoCount = 0.0;
+	}
+
+	//! Рейтинг оружия (выше = нужнее в бою): ruined → -1 (выбросить немедленно),
+	//! мили → 0.1 × здоровье, огнестрел (не пистолет) → ammoCount × (initSpeed / 1000) ×
+	//! здоровье, пистолет → 0 (не участвует в конкуренции SHOULDER/MELEE в Фазе 1).
+	//! ammoCount — патроны подходящего калибра в инвентаре пешки; initSpeed — из CfgAmmo.
+	static float RateWeapon(ItemBase item, dmAISurvivor bot)
+	{
+		if (!item)
+			return -1.0;
+
+		float hp = item.GetHealth01();
+		if (item.IsDamageDestroyed() || hp <= 0.0)
+			return -1.0;
+
+		float rate;
+
+		if (IsMelee(item))
+		{
+			rate = DM_LOOT_MELEE_RATE_MULT * hp;
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] rate " + item.GetType() + " = " + rate + " hp=" + hp);
+			#endif
+			return rate;
+		}
+
+		if (item.IsInherited(Pistol_Base))
+		{
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] rate " + item.GetType() + " = 0.0 (пистолет)");
+			#endif
+			return 0.0;
+		}
+
+		if (item.IsInherited(Weapon_Base))
+		{
+			Weapon_Base weapon = Weapon_Base.Cast(item);
+			if (!weapon)
+				return 0.0;
+
+			string bulletType;
+			if (!GetFirearmBulletType(weapon, bulletType))
+				return 0.0;
+
+			float ammo = GetFirearmAmmoCount(bot, bulletType);
+			float speed = GetFirearmInitSpeed(bulletType);
+			rate = ammo * (speed / DM_LOOT_FIREARM_SPEED_DIV) * hp;
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] rate " + item.GetType() + " = " + rate);
+			dmBotLog.Debug("[Loot] rate: ammo=" + ammo + " speed=" + speed + " hp=" + hp);
+			#endif
+			return rate;
+		}
+
+		return 0.0;
+	}
+
+	//! Слабейший предмет списка по RateWeapon (боевая ценность). null — список пуст.
+	static EntityAI FindWeakest(array<EntityAI> items, dmAISurvivor bot)
+	{
+		if (!items || items.Count() == 0)
+			return null;
+
+		EntityAI weakest = items[0];
+		float weakestRate = RateWeapon(ItemBase.Cast(weakest), bot);
+		int i;
+		float r;
+		for (i = 1; i < items.Count(); i++)
+		{
+			r = RateWeapon(ItemBase.Cast(items[i]), bot);
+			if (r < weakestRate)
+			{
+				weakestRate = r;
+				weakest = items[i];
+			}
+		}
+		return weakest;
+	}
+
+	//! Патронов подходящего калибра в инвентаре пешки (магазины + россыпные пачки).
+	//! Калибр — по разрешённому имени пули (tracer/обычный — один initSpeed).
+	//! Magazine — typedef Magazine_Base, поэтому Magazine.Cast покрывает И отъёмный
+	//! Magazine, И Ammunition_Base (россыпные пачки). Результат кэшируется на время оценки.
+	private static float GetFirearmAmmoCount(dmAISurvivor bot, string bulletType)
+	{
+		if (!bot || bulletType == "")
+			return 0.0;
+
+		if (bulletType == s_LastBulletType)
+			return s_LastAmmoCount;
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return 0.0;
+
+		array<EntityAI> items = new array<EntityAI>();
+		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+
+		int count = 0;
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			Magazine mag = Magazine.Cast(items[i]);
+			if (!mag)
+				continue;
+			string itemBullet;
+			if (!AmmoTypesAPI.MagazineTypeToAmmoType(mag.GetType(), itemBullet))
+				continue;
+			if (itemBullet == bulletType)
+				count = count + mag.GetAmmoCount();
+		}
+
+		s_LastBulletType = bulletType;
+		s_LastAmmoCount = (float)count;
+		return s_LastAmmoCount;
+	}
+
+	//! Начальная скорость пули (initSpeed из CfgAmmo). Фолбэк — DM_AI_DEFAULT_INIT_SPEED.
+	private static float GetFirearmInitSpeed(string bulletType)
+	{
+		float speed = g_Game.ConfigGetFloat("CfgAmmo " + bulletType + " initSpeed");
+		if (speed <= 0.0)
+			return DM_AI_DEFAULT_INIT_SPEED;
+		return speed;
+	}
+
+	//! Тип пули оружия: chamberableFrom[0] (имя CfgMagazines, детерминированно) →
+	//! имя пули CfgAmmo через AmmoTypesAPI.MagazineTypeToAmmoType.
+	private static bool GetFirearmBulletType(Weapon_Base weapon, out string bulletType)
+	{
+		bulletType = "";
+		if (!weapon)
+			return false;
+		array<string> chamberable = new array<string>();
+		weapon.ConfigGetTextArray("chamberableFrom", chamberable);
+		if (chamberable.Count() == 0)
+			return false;
+		return AmmoTypesAPI.MagazineTypeToAmmoType(chamberable[0], bulletType);
 	}
 }

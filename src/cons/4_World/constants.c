@@ -770,6 +770,16 @@ static const float DM_LOOT_IGNORE_TIMEOUT = 300.0;
 //! (less than 25% free space). See dmRequirements.IsFull.
 static const float DM_LOOT_FULL_THRESHOLD = 0.75;
 
+//! Loot: максимум мили-предметов (ножи/топоры) в инвентаре; при взятии
+//! следующего сверх лимита наименее ценное мили выбрасывается.
+static const int DM_LOOT_MELEE_MAX = 2;
+
+//! Loot: множитель рейтинга мили (0.1 × здоровье) в dmLoot.RateWeapon.
+static const float DM_LOOT_MELEE_RATE_MULT = 0.1;
+
+//! Loot: нормировка initSpeed огнестрела (м/с → условные единицы) в dmLoot.RateWeapon.
+static const float DM_LOOT_FIREARM_SPEED_DIV = 1000.0;
+
 //! Loot: needs-coordinator tick interval (seconds) — how often inventory -> desires.
 static const float DM_NEEDS_TICK_INTERVAL = 5.0;
 

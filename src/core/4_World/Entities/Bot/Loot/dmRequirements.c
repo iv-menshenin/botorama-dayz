@@ -29,8 +29,11 @@ class dmRequirements
 		m_TotalCapacity = 0;
 	}
 
-	//! Базовый индекс необходимости по категории (ванильное наследование уже в dmLoot).
-	//! FOOD=1, WEAPON=1, MAGAZINE=1, AMMO=1, CLOTHING=0.5, REPAIR=1, MEDICAL=1, OTHER=0.5.
+	//! Индекс НЕОБХОДИМОСТИ категории — для порядка выброса при переполнении
+	//! (GetDiscardOrder/MaybeDrop): выше = нужнее, ниже = выбросить первым.
+	//! Это НЕ боевая ценность оружия — её считает dmLoot.RateWeapon (отдельная ось для
+	//! конкуренции SHOULDER/MELEE). Две системы НЕ смешиваются.
+	//! FOOD=1, WEAPON=0.9, MELEE=1, MAGAZINE=1, AMMO=1, CLOTHING=0.5, REPAIR=0.7, MEDICAL=1, OTHER=0.5.
 	float GetBaseIndex(dmLootCategory category)
 	{
 		if (category == dmLootCategory.FOOD)
@@ -185,6 +188,39 @@ class dmRequirements
 		for (i = 0; i < m_Items.Count(); i++)
 			order.Insert(m_Items[i].m_Item);
 		return order;
+	}
+
+	//! Стоит ли эвакуироваться ради предмета с desire: желание выше индекса наименее
+	//! ценного предмета (иначе выбросили бы более нужное ради менее нужного). Без
+	//! предметов в инвентаре эвакуировать нечего.
+	bool WorthEvacuating(float desire)
+	{
+		if (m_Items.Count() == 0)
+			return false;
+		return desire > m_Items[0].m_Index;
+	}
+
+	//! Все мили-предметы на персонаже (слоты SHOULDER/MELEE/руки/карго) — живая
+	//! перебор инвентаря пешки (не кэш m_Items).
+	array<EntityAI> GetAllMelee(dmAISurvivor bot)
+	{
+		array<EntityAI> result = new array<EntityAI>();
+		if (!bot)
+			return result;
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return result;
+
+		array<EntityAI> items = new array<EntityAI>();
+		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			if (dmLoot.IsMelee(items[i]))
+				result.Insert(items[i]);
+		}
+		return result;
 	}
 
 	ref array<EntityAI> GetRuined()
