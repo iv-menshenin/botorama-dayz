@@ -157,6 +157,9 @@ class dmAISurvivorBase : PlayerBase
 	//! mid-strike, to detect the "spin" bug where ApplyBodyTurn foot-step turns
 	//! during the swing. Logged by TickMeleeSpinOracle (see DM_MELEE_SPIN_THRESHOLD).
 	private float m_MeleeTurnAccum = 0.0;
+	//! Body yaw на момент старта удара (заморозка тела во время MELEE2, чтобы нативный
+	//! HumanCommandMelee2 не доворачивал модель — «спин»).
+	private float m_MeleeStrikeYaw = 0.0;
 	private float m_LastFrameYaw = 0.0;
 	private bool m_YawInit = false;
 	private bool m_Striking = false;
@@ -1064,8 +1067,13 @@ class dmAISurvivorBase : PlayerBase
 		bool onLadder = IsClimbingLadder();
 
 		ApplyWeaponADS();
-		if (!onLadder && !IsMeleeStriking())
-			ApplyBodyTurn(pDt);
+		if (!onLadder)
+		{
+			if (IsMeleeStriking())
+				SetOrientation(Vector(m_MeleeStrikeYaw, 0.0, 0.0));   // заморозка на замахе
+			else
+				ApplyBodyTurn(pDt);
+		}
 		if (onLadder)
 			m_TurnSharp = false;   // иначе устаревший флаг резкого поворота затормозит подъём
 		ApplyMovement(pDt);
@@ -1324,10 +1332,22 @@ class dmAISurvivorBase : PlayerBase
 	override bool HeadingModel(float pDt, SDayZPlayerHeadingModel pModel)
 	{
 		GetMovementState(m_MovementState);
-		if (m_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_MOVE || m_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_MELEE2)
+		float angle;
+		if (m_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_MELEE2)
+		{
+			//! Заморозка на время замаха: снап orientation к стартовому яу, чтобы
+			//! нативный доворот к цели не раскрутил модель (натив↔скрипт осцилляция).
+			m_fLastHeadingDiff = 0;
+			angle = m_MeleeStrikeYaw * Math.DEG2RAD;
+			pModel.m_fHeadingAngle = angle;
+			pModel.m_fOrientationAngle = angle;
+			SetOrientation(Vector(m_MeleeStrikeYaw, 0.0, 0.0));
+			return true;
+		}
+		if (m_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_MOVE)
 		{
 			m_fLastHeadingDiff = 0;
-			float angle = GetOrientation()[0] * Math.DEG2RAD;
+			angle = GetOrientation()[0] * Math.DEG2RAD;
 			pModel.m_fHeadingAngle = angle;
 			pModel.m_fOrientationAngle = angle;
 			return true;
@@ -1570,6 +1590,7 @@ class dmAISurvivorBase : PlayerBase
 	{
 		m_MeleeAttackRequest = true;
 		m_MeleeTarget = target;
+		m_MeleeStrikeYaw = GetOrientation()[0];
 
 		//! Melee stall oracle (diagnostic): record the strike-request moment on the
 		//! brain so dmBotState_Fighting can measure "time without a strike".
