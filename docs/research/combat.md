@@ -2311,3 +2311,20 @@ fallback, если (б)/(г) не сработают.
   `dmAISurvivorBase.c:1354-1366` (`HeadingModel`), `:1079` (пропуск `ApplyBodyTurn`),
   `:1671-1674` (`IsMeleeStriking`), `:1682-1708` (`TickMeleeSpinOracle`),
   `:1824-1827` (`ConsumeMeleeAttackRequest`).
+
+---
+
+## Подтверждено (v3.293, регресс спина)
+
+После фиксов `9cb03df` (лок `HeadingModel` для MELEE2 + пропуск `ApplyBodyTurn`) и `eecbd3e`
+(`null`-цель в `StartCommand_Melee2`) спин **вернулся** — `Melee spin: turn=2022.96/1153.66 deg`.
+Вывод §5 подтверждён: нативный `HumanCommandMelee2` доворачивает модель к цели мимо
+`HeadingModel`-лока, а наш override читал уже довёрнутое `GetOrientation()` и перезаписывал
+`heading=orientation=текущее` → натив↔скрипт осцилляция (накапливает 2–5 оборотов). `null`-цель
+не устранила спин — нативный доворот срабатывает и без `pTarget`.
+
+Принят **вариант г (эталон Expansion)**: снап `SetOrientation(m_MeleeStrikeYaw)` во время MELEE2 —
+в `HeadingModel` (ветка MELEE2) и в `CommandHandler` при `IsMeleeStriking()`; `m_MeleeStrikeYaw`
+фиксируется в `RequestMeleeAttack` (момент, когда бот уже смотрит на цель в `DM_MELEE_FACE_ANGLE`).
+Поворот к цели остаётся в MOVE-фазе (`ApplyBodyTurn`). E2E: `Melee spin`=0, 3/3 зомби убиты,
+поворот/удар работают, `SCRIPT(E)`=0.

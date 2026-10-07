@@ -324,3 +324,15 @@ Fail/removed»), мотор глохнет → «engine off», скорость 
 `StartCommand_Melee2(null, …)`; урон — через `dmBotMeleeCombat.GetTargetEntity()` (наш `EvaluateHit`), не через натив.
 Почему: натив `HumanCommandMelee2` доворачивает модель к `pTarget` мимо `HeadingModel`-лока → у server-side AI осцилляция 673–1788° за удар. Ваниль сама нуллит цель для NONALIGNABLE (стены/машины) — «null» = «не доворачивайся». Подтверждено E2E: спин 0, зомби умирает.
 Действует пока: используется нативный `StartCommand_Melee2`; если урон/`WasHit` при null сломается — запасной вариант Expansion (`SetOrientation(GetOrientation())` в `MeleeCombat.Update` + снэп `orientation=heading`).
+
+### melee: заморозка тела на замахе — финальный фикс спина (v3.293)
+Решение: зафиксировать яу тела на момент старта удара (`m_MeleeStrikeYaw` в `RequestMeleeAttack`)
+и снапать `SetOrientation(m_MeleeStrikeYaw)` во время MELEE2 — в `HeadingModel` (ветка MELEE2)
+и в `CommandHandler` при `IsMeleeStriking()`. Поворот к цели остаётся в MOVE-фазе (`ApplyBodyTurn`).
+Почему: `null`-цель (`eecbd3e`) спин не устранил (регресс 2022°/замах): нативный `HumanCommandMelee2`
+доворачивает модель к цели мимо `HeadingModel`-лока, а наш override читал уже довёрнутое
+`GetOrientation()` и перезаписывал `heading=orientation` → натив↔скрипт осцилляция (накапливает
+2–5 оборотов). Снап `SetOrientation(стартовый яу)` каждый кадр гасит нативный доворот (эталон
+Expansion `eAIBase.c:10094-10102`). E2E: `Melee spin`=0, 3/3 зомби убиты, `SCRIPT(E)`=0.
+Действует пока: используется нативный `StartCommand_Melee2`; урон наносится нашим
+`EvaluateHit`/`ProcessMeleeHitName` (цель держит `dmBotMeleeCombat`, не поглощённый `m_MeleeTarget`).
