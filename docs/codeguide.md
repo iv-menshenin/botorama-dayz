@@ -199,13 +199,23 @@ class CfgSoundSets
   dmBotLog.Debug("...");
   #endif
   ```
-- **Ограничение на число конкатенаций в одном выражении**: длинная цепочка `a + b + c + ...`
-  (в типичном логе > ~8-10 слагаемых) даёт ошибку компиляции
-  `Formula too complex — слишком много конкатенаций`. Разбивай лог на несколько
+- **Ограничение на число слагаемых в одном выражении (`Formula too complex`)**: длинная цепочка
+  `a + b + c + ...` (в типичном логе > ~8-10 слагаемых) даёт ошибку компиляции
+  `Formula too complex`. Разбивай лог на несколько
   отдельных вызовов `dmBotLog.Debug(...)` по 3-6 слагаемых:
   ```c
   dmBotLog.Debug("[FSM] MoveTo: subGoal=" + subGoal + " pos=" + pos + " dist=" + dist);
   dmBotLog.Debug("[FSM] MoveTo: moveAngle=" + moveAngle + " speed=" + speed + " deadline=" + deadline);
+  ```
+  **Это касается НЕ только конкатенации `+` — длинная булева цепочка `||`/`&&` тоже падает.**
+  Живой пример (devaliada `BastionPrisoner.c`): `return A.IsInherited(..) || B.IsInherited(..) || …`
+  на ~23 слагаемых → `Can't compile "Mission" script module! … Formula too complex`.
+  Разбивай булевы цепочки на отдельные `if (…) return true;` (по одному условию на строку):
+  ```c
+  if ( entity.IsInherited(BandageDressing) ) return true;
+  if ( entity.IsInherited(DisinfectantSpray) ) return true;
+  // ...
+  return false;
   ```
 - **Конкатенация должна начинаться со `string`**: выражение `int + string` не компилируется
   (`Incompatible parameter '<строка>'`). Число-первое слагаемое — ошибка:
