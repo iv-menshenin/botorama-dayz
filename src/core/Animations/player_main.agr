@@ -1,559 +1,1633 @@
-$AnimGraph 7 {
-	#AnimSetTemplate "{F0C651DE8E24A5DE}DZ/anims/workspaces/player/player_main/player_main.ast"
-	#AnimSyncTable "{8F89313B7FBB0B66}DZ/anims/workspaces/player/Player_SyncTable.asy"
-	$Controls {
-		$Commands {
-			 CMD_Weapon_Hide -1
-			 CMD_Weapon_Show -1
-			 CMD_Action -1
-			 CMD_InternalAction -1
-			 CMD_FullBodyAction -1
-			 CMD_VehicleAction -1
-			 CMD_GunShoulder -1
-			 CMD_GunShoulderOut -1
-			 CMD_Expression -1
-			 CMD_Expression_Blink -1
-			 CMD_Roll -1
-			 CMD_Jump -1
-			 CMD_JumpFall -1
-			 CMD_Climb -1
-			 CMD_ClimbOver -1
-			 CMD_Fall -1
-			 CMD_FallCancel -1
-			 CMD_Land -1
-			 CMD_LandImmediate -1
-			 CMD_Reload_Magazine -1
-			 CMD_Reload_BoltAction -1
-			 CMD_Reload_Chambering -1
-			 CMD_Reload_ChamberingFast -1
-			 CMD_Reload_Exit -1
-			 CMD_Reload_Clip -1
-			 CMD_Death -1
-			 CMD_Death_To_Water -1
-			 CMD_Swim -1
-			 CMD_Surrender -1
-			 CMD_Restrain -1
-			 CMD_Restrain_Self -1
-			 CMD_Restrain_Instant -1
-			 CMD_Restrained_Struggle -1
-			 CMD_Restrained_Fall -1
-			 CMD_Ladder_Enter -1
-			 CMD_Ladder_Exit -1
-			 CMD_Ladder_Exit_Left -1
-			 CMD_Ladder_Exit_Right -1
-			 CMD_InternalAttack -1
-			 CMD_ItemDrop -1
-			 CMD_Throwing -1
-			 CMD_ItemRoll -1
-			 CMD_Modifier_Additive -1
-			 CMD_Vehicle_GetIn -1
-			 CMD_Vehicle_SwitchSeat -1
-			 CMD_Vehicle_GetOut -1
-			 CMD_Vehicle_ClimbOut -1
-			 CMD_Vehicle_CrawlOut -1
-			 CMD_Vehicle_JumpOut -1
-			 CMD_Weapon_Jam -1
-			 CMD_Weapon_Interrupt -1
-			 CMD_WeaponFire -1
-			 CMD_Weapon_Obstruction -1
-			 CMD_Melee_Attack -1
-			 CMD_Melee_Attack2 -1
-			 CMD_Melee_Stealth -1
-			 CMD_Melee_Combo -1
-			 CMD_Melee_Exit -1
-			 CMD_Melee_Weapon -1
-			 CMD_Melee_Evade -1
-			 CMD_Damage -1
-			 CMD_DamageHeavy -1
-			 CMD_Turn -1
-			 dmAI_Turn -1
-			 CMD_StopTurn -1
-			 dmAI_StopTurn -1
-			 CMD_SlidingPose -1
-			 CMD_Unconscious -1
-			 CMD_Unconscious_Exit -1
-			 CMD_PulledOut -1
-			 CMD_TRAILER_WALK_AWAY -1
-		}
-		$Vars {
-			#Var MovementSpeed float 0.0 0.0 3.0 ""
-			#Var MovementDirection float 0.0 -180.0 180.0 ""
-			#Var Stance int 0 0 2 ""
-			#Var TurnAmount float 0.0 -2.0 2.0 ""
-			#Var dmAI_TurnAmount float 0.0 -2.0 2.0 ""
-			#Var Look bool 0 ""
-			#Var dmAI_Look bool 0 ""
-			#Var LookDirY float 0.0 -85.0 85.0 ""
-			#Var dmAI_LookDirY float 0.0 -85.0 85.0 ""
-			#Var LookDirX float 0.0 -180.0 180.0 ""
-			#Var dmAI_LookDirX float 0.0 -180.0 180.0 ""
-			#Var dmAI_AimX float 0.0 -180.0 180.0 ""
-			#Var dmAI_AimY float 0.0 -85.0 85.0 ""
-			#Var dmAI_AimIKX float 0.0 -180.0 180.0 ""
-			#Var Injured float 0.0 0.0 1.0 ""
-			#Var Exhaustion float 0.0 0.0 1.0 ""
-			#Var Raised bool 0 ""
-			#Var dmAI_Raised bool 0 ""
-			#Var ADS bool 0 ""
-			#Var MeleeBlock bool 0 ""
-			#Var AimY float 0.0 -85.0 85.0 ""
-			#Var AimX float 0.0 -180.0 180.0 ""
-			#Var AimIKX float 0.0 -180.0 180.0 ""
-			#Var RaiseTime float 0.4 0.0 2.0 ""
-			#Var LowerTime float 0.4 0.0 2.0 ""
-			#Var LeanForward float 0.0 -90.0 90.0 ""
-			#Var Lean float 0.0 -1.0 1.0 ""
-			#Var WaterLevel float 0.0 0.0 1.0 ""
-			#Var DamageDirection float 0.0 -180.0 180.0 ""
-			#Var LadderMovement int 0 -2 2 ""
-			#Var VehicleType int -1 -1 10 ""
-			#Var VehicleSteering float 0.0 -1.0 1.0 ""
-			#Var VehicleThrottle float 0.0 0.0 1.0 ""
-			#Var VehicleClutch float 0.0 0.0 1.0 ""
-			#Var VehicleBrake bool 0 ""
-			#Var VehicleAccelerationFB float 0.0 -1.0 1.0 ""
-			#Var VehicleAccelerationLR float 0.0 -1.0 1.0 ""
-			#Var WeaponType int 1 0 10 ""
-			#Var MovementAngleX float 0.0 -35.0 35.0 ""
-			#Var WeaponChamberType int 0 0 4 ""
-			#Var ArmIK int 0 0 7 ""
-			#Var Talking bool 0 ""
-			#Var TestFloat float 0.0 0.0 1.0 ""
-			#Var ActionProgress float 0.0 0.0 1.0 ""
-			#Var ActionProgressEnd float 1.0 0.0 1.0 ""
-			#Var ActionState int 0 0 7 ""
-			#Var ThrowingOnBack bool 0 ""
-			#Var ObstructionFloat float 0.0 0.0 1.0 ""
-		}
-		$Expressions {
-		}
-		$DebugControls {
-			
-			#DCtrl 2 "Ladder" "EnterGround" "" "CMD_Ladder_Enter" 0.0 0
-			
-			#DCtrl 2 "Ladder" "EnterRoof" "" "CMD_Ladder_Enter" 0.0 1
-			
-			#DCtrl 2 "Ladder" "ExitGround" "" "CMD_Ladder_Exit" 0.0 0
-			
-			#DCtrl 2 "Ladder" "ExitRoof" "" "CMD_Ladder_Exit" 0.0 1
-			
-			#DCtrl 2 "Ladder" "LadderExitLeft" "" "CMD_Ladder_Exit_Left" 0.0 0
-			
-			#DCtrl 2 "Ladder" "LadderExitRight" "" "CMD_Ladder_Exit_Right" 0.0 0
-			
-			#DCtrl 2 "Vehicles" "EnterDriver" "" "CMD_Vehicle_GetIn" 0.0 0
-			
-			#DCtrl 2 "Vehicles" "EnterCodriver" "" "CMD_Vehicle_GetIn" 0.0 1
-			
-			#DCtrl 2 "Vehicles" "EnterPassengerL" "" "CMD_Vehicle_GetIn" 0.0 2
-			
-			#DCtrl 2 "Vehicles" "EnterPassengerR" "" "CMD_Vehicle_GetIn" 0.0 3
-			
-			#DCtrl 2 "Vehicles" "Exit" "" "CMD_Vehicle_GetOut" 0.0 0
-			
-			#DCtrl 2 "Vehicles" "ExitJumpOut" "" "CMD_Vehicle_GetOut" 1.0 0
-			
-			#DCtrl 2 "Vehicles" "ExitClimbOutL" "" "CMD_Vehicle_GetOut" 0.0 90
-			
-			#DCtrl 2 "Vehicles" "ExitClimbOutR" "" "CMD_Vehicle_GetOut" 0.0 -90
-			
-			#DCtrl 2 "Vehicles" "ExitCrawlOut" "" "CMD_Vehicle_GetOut" 0.0 180
-			
-			#DCtrl 2 "Vehicles" "SwitchSeat" "" "CMD_Vehicle_SwitchSeat" 0.0 0
-			
-			#DCtrl 2 "Vehicles" "OpenDoor" "" "CMD_Action" 0.0 301
-			
-			#DCtrl 2 "Vehicles" "CloseDoor" "" "CMD_Action" 0.0 300
-			
-			#DCtrl 2 "Vehicles" "Start Engine" "" "CMD_Action" 0.0 402
-			
-			#DCtrl 2 "Vehicles" "Stop Engine" "" "CMD_Action" 0.0 302
-			
-			#DCtrl 2 "Vehicles" "Stop Actions" "" "CMD_InternalAction" 0.0 0
-			
-			#DCtrl 2 "Falling" "LandImmediate" "" "CMD_LandImmediate" 0.0 0
-			
-			#DCtrl 2 "Full Body Gestures" "Dance" "" "CMD_FullBodyAction" 0.0 1100
-			
-			#DCtrl 2 "Full Body Gestures" "MilitarySalute" "" "CMD_FullBodyAction" 0.0 1000
-			
-			#DCtrl 2 "Full Body Gestures" "Campfire" "" "CMD_FullBodyAction" 0.0 1001
-			
-			#DCtrl 2 "Full Body Gestures" "LyingDown" "" "CMD_FullBodyAction" 0.0 1002
-			
-			#DCtrl 2 "Full Body Gestures" "SOS" "" "CMD_FullBodyAction" 0.0 1003
-			
-			#DCtrl 2 "Full Body Gestures" "SitA" "" "CMD_FullBodyAction" 0.0 1004
-			
-			#DCtrl 2 "Full Body Gestures" "SitB" "" "CMD_FullBodyAction" 0.0 1005
-			
-			#DCtrl 2 "Full Body Gestures" "Dabbing" "" "CMD_FullBodyAction" 0.0 1006
-			
-			#DCtrl 2 "Full Body Gestures" "EndGesture" "" "CMD_InternalAction" 0.0 0
-			
-			#DCtrl 2 "Full Body Gestures" "HardEndGesture" "" "CMD_InternalAction" 0.0 -2
-			
-			#DCtrl 2 "Gestures Once" "CutThroat" "" "CMD_Action" 0.0 1100
-			
-			#DCtrl 2 "Gestures Once" "Clap" "" "CMD_Action" 0.0 1101
-			
-			#DCtrl 2 "Gestures Once" "Dabbing" "" "CMD_Action" 0.0 1102
-			
-			#DCtrl 2 "Gestures Once" "Move" "" "CMD_Action" 0.0 1103
-			
-			#DCtrl 2 "Gestures Once" "Down" "" "CMD_Action" 0.0 1104
-			
-			#DCtrl 2 "Gestures Once" "Come" "" "CMD_Action" 0.0 1105
-			
-			#DCtrl 2 "Gestures Once" "Taunt Kiss" "" "CMD_Action" 0.0 1106
-			
-			#DCtrl 2 "Gestures Once" "Taunt Elbow" "" "CMD_Action" 0.0 1107
-			
-			#DCtrl 2 "Gestures Once" "Taunt Think" "" "CMD_Action" 0.0 1108
-			
-			#DCtrl 2 "Gestures" "Greetings" "" "CMD_Action" 0.0 1000
-			
-			#DCtrl 2 "Gestures" "Point" "" "CMD_Action" 0.0 1001
-			
-			#DCtrl 2 "Gestures" "ThumbUp" "" "CMD_Action" 0.0 1002
-			
-			#DCtrl 2 "Gestures" "ThumbDown" "" "CMD_Action" 0.0 1003
-			
-			#DCtrl 2 "Gestures" "Silence" "" "CMD_Action" 0.0 1004
-			
-			#DCtrl 2 "Gestures" "Taunt Finger" "" "CMD_Action" 0.0 1005
-			
-			#DCtrl 2 "Gestures" "TimeOut" "" "CMD_Action" 0.0 1006
-			
-			#DCtrl 2 "Gestures" "Heart" "" "CMD_Action" 0.0 1007
-			
-			#DCtrl 2 "Gestures" "Facepalm" "" "CMD_Action" 0.0 1008
-			
-			#DCtrl 2 "Gestures" "Watching" "" "CMD_Action" 0.0 1009
-			
-			#DCtrl 2 "Gestures" "Hold" "" "CMD_Action" 0.0 1010
-			
-			#DCtrl 2 "Gestures" "Listening" "" "CMD_Action" 0.0 1011
-			
-			#DCtrl 2 "Gestures" "Point to Self" "" "CMD_Action" 0.0 1012
-			
-			#DCtrl 2 "Gestures" "Look At Me" "" "CMD_Action" 0.0 1013
-			
-			#DCtrl 2 "RockPaperScissors" "RPS_Start" "" "CMD_Action" 0.0 10000
-			
-			#DCtrl 2 "RockPaperScissors" "RPS_Rock" "" "CMD_InternalAction" 0.0 10
-			
-			#DCtrl 2 "RockPaperScissors" "RPS_Paper" "" "CMD_InternalAction" 0.0 11
-			
-			#DCtrl 2 "RockPaperScissors" "RPS_Scissor" "" "CMD_InternalAction" 0.0 12
-			
-			#DCtrl 2 "RockPaperScissors" "RPS_Cancel" "" "CMD_InternalAction" 0.0 0
-			
-			#DCtrl 2 "Gestures" "GunOnShoulder" "" "CMD_GunShoulder" 0.0 0
-			
-			#DCtrl 2 "Gestures" "GunOffShoulder" "" "CMD_GunShoulderOut" 0.0 0
-			
-			#DCtrl 2 "Gestures" "SwitchGesture" "" "CMD_InternalAction" 0.0 1
-			
-			#DCtrl 2 "Gestures" "EndGesture" "" "CMD_InternalAction" 0.0 0
-			
-			#DCtrl 2 "Gestures" "HardEndGesture" "" "CMD_InternalAction" 0.0 -2
-			
-			#DCtrl 2 "Full Body Actions" "DrinkPond" "" "CMD_FullBodyAction" 0.0 0
-			
-			#DCtrl 2 "Full Body Actions" "DrinkWell" "" "CMD_FullBodyAction" 0.0 1
-			
-			#DCtrl 2 "Full Body Actions" "FillBottleWell" "" "CMD_FullBodyAction" 0.0 2
-			
-			#DCtrl 2 "Full Body Actions" "FireExtinguisher" "" "CMD_FullBodyAction" 0.0 3
-			
-			#DCtrl 2 "Full Body Actions" "WringCloth" "" "CMD_FullBodyAction" 0.0 4
-			
-			#DCtrl 2 "Full Body Actions" "GatherBerries" "" "CMD_FullBodyAction" 0.0 5
-			
-			#DCtrl 2 "Full Body Actions" "ChopTree" "" "CMD_FullBodyAction" 0.0 6
-			
-			#DCtrl 2 "Full Body Actions" "DigShovel" "" "CMD_FullBodyAction" 0.0 7
-			
-			#DCtrl 2 "Full Body Actions" "DigHoe" "" "CMD_FullBodyAction" 0.0 8
-			
-			#DCtrl 2 "Full Body Actions" "Fishing" "" "CMD_FullBodyAction" 0.0 9
-			
-			#DCtrl 2 "Full Body Actions" "CPR" "" "CMD_FullBodyAction" 0.0 10
-			
-			#DCtrl 2 "Full Body Actions" "Bandage" "" "CMD_FullBodyAction" 0.0 11
-			
-			#DCtrl 2 "Full Body Actions" "Crafting" "" "CMD_FullBodyAction" 0.0 12
-			
-			#DCtrl 2 "Full Body Actions" "Interact Player" "" "CMD_FullBodyAction" 0.0 13
-			
-			#DCtrl 2 "Full Body Actions" "Drink Cannister" "" "CMD_FullBodyAction" 0.0 14
-			
-			#DCtrl 2 "Full Body Actions" "Force Feed" "" "CMD_FullBodyAction" 0.0 15
-			
-			#DCtrl 2 "Full Body Actions" "Bandage Target" "" "CMD_FullBodyAction" 0.0 16
-			
-			#DCtrl 2 "Full Body Actions" "Disinfect Target" "" "CMD_FullBodyAction" 0.0 17
-			
-			#DCtrl 2 "Full Body Actions" "Deploy" "" "CMD_FullBodyAction" 0.0 18
-			
-			#DCtrl 2 "Full Body Actions" "Start Fire Match" "" "CMD_FullBodyAction" 0.0 19
-			
-			#DCtrl 2 "Full Body Actions" "Animal Skinning" "" "CMD_FullBodyAction" 0.0 20
-			
-			#DCtrl 2 "Full Body Actions" "Wash Hands Well" "" "CMD_FullBodyAction" 0.0 21
-			
-			#DCtrl 2 "Full Body Actions" "Wash Hands Pond" "" "CMD_FullBodyAction" 0.0 22
-			
-			#DCtrl 2 "Full Body Actions" "Saline/Blood Bag Target" "" "CMD_FullBodyAction" 0.0 23
-			
-			#DCtrl 2 "Full Body Actions" "Saline/Blood Bag" "" "CMD_FullBodyAction" 0.0 24
-			
-			#DCtrl 2 "Full Body Actions" "Stitch Self Up" "" "CMD_FullBodyAction" 0.0 25
-			
-			#DCtrl 2 "Full Body Actions" "Vomiting" "" "CMD_FullBodyAction" 0.0 26
-			
-			#DCtrl 2 "Full Body Actions" "CutTies" "" "CMD_FullBodyAction" 0.0 27
-			
-			#DCtrl 2 "Full Body Actions" "Tie up target" "" "CMD_FullBodyAction" 0.0 28
-			
-			#DCtrl 2 "Full Body Actions" "Light Fire w Torch" "" "CMD_FullBodyAction" 0.0 29
-			
-			#DCtrl 2 "Full Body Actions" "Check Pulse" "" "CMD_FullBodyAction" 0.0 30
-			
-			#DCtrl 2 "Full Body Actions" "Empty Seeds Pack" "" "CMD_FullBodyAction" 0.0 31
-			
-			#DCtrl 2 "Full Body Actions" "Clean Wounds Target" "" "CMD_FullBodyAction" 0.0 32
-			
-			#DCtrl 2 "Full Body Actions" "Light Fire w Handdrill" "" "CMD_FullBodyAction" 0.0 33
-			
-			#DCtrl 2 "Full Body Actions" "Light Fire w Lighter" "" "CMD_FullBodyAction" 0.0 34
-			
-			#DCtrl 2 "Full Body Actions" "Collect Blood Self" "" "CMD_FullBodyAction" 0.0 35
-			
-			#DCtrl 2 "Full Body Actions" "EndAction" "" "CMD_InternalAction" 0.0 0
-			
-			#DCtrl 2 "Full Body Actions" "AltEndAction" "" "CMD_InternalAction" 0.0 -1
-			
-			#DCtrl 2 "Full Body Actions" "HardEndAction" "" "CMD_InternalAction" 0.0 -2
-			
-			#DCtrl 2 "Full Body Actions Once" "Handcuff Taget" "" "CMD_FullBodyAction" 0.0 100
-			
-			#DCtrl 2 "Full Body Actions Once" "Morphine Self" "" "CMD_FullBodyAction" 0.0 101
-			
-			#DCtrl 2 "Full Body Actions Once" "Inject Self" "" "CMD_FullBodyAction" 0.0 102
-			
-			#DCtrl 2 "Full Body Actions Once" "Inject Target" "" "CMD_FullBodyAction" 0.0 103
-			
-			#DCtrl 2 "Actions" "Drink" "" "CMD_Action" 0.0 0
-			
-			#DCtrl 2 "Actions" "Eat" "" "CMD_Action" 0.0 1
-			
-			#DCtrl 2 "Actions" "Empty Cannister" "" "CMD_Action" 0.0 2
-			
-			#DCtrl 2 "Actions" "Catch Rain" "" "CMD_Action" 0.0 3
-			
-			#DCtrl 2 "Actions" "Eat Pills" "" "CMD_Action" 0.0 4
-			
-			#DCtrl 2 "Actions" "Eat Tablets" "" "CMD_Action" 0.0 5
-			
-			#DCtrl 2 "Actions" "Empty Bottle" "" "CMD_Action" 0.0 6
-			
-			#DCtrl 2 "Actions" "Compass" "" "CMD_Action" 0.0 7
-			
-			#DCtrl 2 "Actions" "Drink Can" "" "CMD_Action" 0.0 8
-			
-			#DCtrl 2 "Actions" "Walkie Talkie Tune Down" "" "CMD_Action" 0.0 9
-			
-			#DCtrl 2 "Actions" "Give Left Item" "" "CMD_Action" 0.0 10
-			
-			#DCtrl 2 "Actions" "Give Right Item" "" "CMD_Action" 0.0 11
-			
-			#DCtrl 2 "Actions" "Shave" "" "CMD_Action" 0.0 12
-			
-			#DCtrl 2 "Actions" "Fill Magazine" "" "CMD_Action" 0.0 13
-			
-			#DCtrl 2 "Actions" "Empty Magazine" "" "CMD_Action" 0.0 14
-			
-			#DCtrl 2 "Actions" "Drink Pot" "" "CMD_Action" 0.0 15
-			
-			#DCtrl 2 "Actions" "Empty Pot" "" "CMD_Action" 0.0 16
-			
-			#DCtrl 2 "Actions Once" "LickBattery" "" "CMD_Action" 0.0 100
-			
-			#DCtrl 2 "Actions Once" "PickupItem" "" "CMD_Action" 0.0 101
-			
-			#DCtrl 2 "Actions Once" "Flare" "" "CMD_Action" 0.0 102
-			
-			#DCtrl 2 "Actions Once" "Chemlight" "" "CMD_Action" 0.0 103
-			
-			#DCtrl 2 "Actions Once" "UnpinGrenade" "" "CMD_Action" 0.0 104
-			
-			#DCtrl 2 "Actions Once" "OpenDoorForward" "" "CMD_Action" 0.0 105
-			
-			#DCtrl 2 "Actions Once" "OpenDoorBackward" "" "CMD_Action" 0.0 106
-			
-			#DCtrl 2 "Actions Once" "CloseSwipeLDoor" "" "CMD_Action" 0.0 107
-			
-			#DCtrl 2 "Actions Once" "CloseSwipeRDoor" "" "CMD_Action" 0.0 108
-			
-			#DCtrl 2 "Actions Once" "OpenLid" "" "CMD_Action" 0.0 109
-			
-			#DCtrl 2 "Actions Once" "CloseLid" "" "CMD_Action" 0.0 110
-			
-			#DCtrl 2 "Actions Once" "Walkie Talkie On" "" "CMD_Action" 0.0 111
-			
-			#DCtrl 2 "Actions Once" "Walkie Talkie Off" "" "CMD_Action" 0.0 112
-			
-			#DCtrl 2 "Actions Once" "Baton Extend" "" "CMD_Action" 0.0 113
-			
-			#DCtrl 2 "Actions Once" "Baton Retract" "" "CMD_Action" 0.0 114
-			
-			#DCtrl 2 "Actions Once" "Unlock Handcuff Target" "" "CMD_Action" 0.0 115
-			
-			#DCtrl 2 "Actions Once" "Fishing Rod Extend" "" "CMD_Action" 0.0 116
-			
-			#DCtrl 2 "Actions Once" "Fishing Rod Retract" "" "CMD_Action" 0.0 117
-			
-			#DCtrl 2 "Actions Once" "Take Item" "" "CMD_Action" 0.0 115
-			
-			#DCtrl 2 "Actions Once" "Hide Item" "" "CMD_Action" 0.0 113
-			
-			#DCtrl 2 "Actions" "EndAction" "" "CMD_InternalAction" 0.0 0
-			
-			#DCtrl 2 "Actions" "AltEndAction" "" "CMD_InternalAction" 0.0 -1
-			
-			#DCtrl 2 "Actions" "HardEndAction" "" "CMD_InternalAction" 0.0 -2
-			
-			#DCtrl 2 "Actions Once" "HardEndAction" "" "CMD_InternalAction" 0.0 -2
-			
-			#DCtrl 2 "Falling" "FallForward" "" "CMD_Fall" 0.0 0
-			
-			#DCtrl 2 "Falling" "FallBackwards" "" "CMD_Fall" 0.0 3
-			
-			#DCtrl 2 "Falling" "LandLight" "" "CMD_Land" 0.0 0
-			
-			#DCtrl 2 "Falling" "LandMedium" "" "CMD_Land" 0.0 1
-			
-			#DCtrl 2 "Falling" "LandHard" "" "CMD_Land" 0.0 2
-			
-			#DCtrl 2 "Weapons" "Fire" "" "CMD_WeaponFire" 0.0 0
-			
-			#DCtrl 2 "Weapons" "Fire Last" "" "CMD_WeaponFire" 0.0 1
-			
-			#DCtrl 2 "Weapons" "Fire Empty Cocked" "" "CMD_WeaponFire" 0.0 2
-			
-			#DCtrl 2 "Weapons" "Fire Empty Uncocked" "" "CMD_WeaponFire" 0.0 3
-			
-			#DCtrl 2 "Weapons" "Fire Empty Automatic" "" "CMD_WeaponFire" 0.0 4
-			
-			#DCtrl 2 "Weapons" "End Fire" "" "CMD_WeaponFire" 0.0 -1
-			
-			#DCtrl 2 "Weapons" "Arm" "" "CMD_Arm" 0.0 0
-			
-			#DCtrl 2 "Weapons" "Disarm" "" "CMD_Disarm" 0.0 0
-			
-			#DCtrl 2 "Weapons" "Reload_BoltAction_OpenBolt" "" "CMD_Reload_BoltAction" 0.0 0
-			
-			#DCtrl 2 "Weapons" "Reload_BoltAction_ClosedBolt" "" "CMD_Reload_BoltAction" 0.0 1
-			
-			#DCtrl 2 "Weapons" "Reload_BoltAction_Special" "" "CMD_Reload_BoltAction" 0.0 2
-			
-			#DCtrl 2 "Weapons" "Reload_Magazine_Bullet" "" "CMD_Reload_Magazine" 0.0 0
-			
-			#DCtrl 2 "Weapons" "Reload_NoMagazine_Bullet" "" "CMD_Reload_Magazine" 0.0 1
-			
-			#DCtrl 2 "Weapons" "Reload_Magazine_NoBullet" "" "CMD_Reload_Magazine" 0.0 2
-			
-			#DCtrl 2 "Weapons" "Reload_NoMagazine_NoBullet" "" "Reload_NoMagazine_Bullet" 0.0 3
-			
-			#DCtrl 2 "Weapons" "Reload_ChamberingFast" "" "CMD_Reload_ChamberingFast" 0.0 0
-			
-			#DCtrl 2 "Weapons" "Reload_Chambering_OpenBolt" "" "CMD_Reload_Chambering" 0.0 0
-			
-			#DCtrl 2 "Weapons" "Reload_Chambering_ClosedBolt" "" "CMD_Reload_Chambering" 0.0 1
-			
-			#DCtrl 2 "Weapons" "Reload_Chambering_Look" "" "CMD_Reload_Chambering" 0.0 2
-			
-			#DCtrl 2 "Weapons" "Reload_Chambering_End" "" "Reload_Chambering_ClosedBolt" 0.0 3
-			
-			#DCtrl 2 "Suicide" "1HD" "" "CMD_FullBodyAction" 0.0 2000
-			
-			#DCtrl 2 "Suicide" "FireAxe" "" "CMD_FullBodyAction" 0.0 2001
-			
-			#DCtrl 2 "Suicide" "Pitchfork" "" "CMD_FullBodyAction" 0.0 2002
-			
-			#DCtrl 2 "Suicide" "Pistol" "" "CMD_FullBodyAction" 0.0 2003
-			
-			#DCtrl 2 "Suicide" "Rifle" "" "CMD_FullBodyAction" 0.0 2004
-			
-			#DCtrl 2 "Suicide" "Sword" "" "CMD_FullBodyAction" 0.0 2005
-			
-			#DCtrl 2 "Suicide" "Unarmed" "" "CMD_FullBodyAction" 0.0 2006
-			
-			#DCtrl 2 "Suicide" "WoodAxe" "" "CMD_FullBodyAction" 0.0 2007
-			
-			#DCtrl 2 "Suicide" "Spear" "" "CMD_FullBodyAction" 0.0 2008
-			
-			#DCtrl 2 "Suicide" "Cancel" "" "CMD_InternalAction" 0.0 0
-			
-			#DCtrl 2 "Suicide" "Commit" "" "CMD_InternalAction" 0.0 -1
-			
-			#DCtrl 2 "Surrender Restrained" "Surrender In" "" "CMD_Surrender" 0.0 1
-			
-			#DCtrl 2 "Surrender Restrained" "Surrender Out" "" "CMD_Surrender" 0.0 0
-			
-			#DCtrl 2 "Surrender Restrained" "Restrain" "" "CMD_Restrain" 0.0 1
-			
-			#DCtrl 2 "Surrender Restrained" "Restrain Out" "" "CMD_Restrain" 0.0 0
-			
-			#DCtrl 2 "Surrender Restrained" "Restrained Struggle" "" "CMD_RestrainedStruggle" 0.0 0
-			
-			#DCtrl 2 "Surrender Restrained" "Restrain Sneaky" "" "CMD_RestrainSneaky" 0.0 0
-			
-			#DCtrl 2 "Surrender Restrained" "Restrain Self Rope" "" "CMD_RestrainSelf" 0.0 0
-			
-			#DCtrl 2 "Surrender Restrained" "Restrain Self Rope Cancel" "" "CMD_RestrainSelf" 0.0 -1
-			
-			#DCtrl 2 "Surrender Restrained" "Restrain Self Handcuffs" "" "CMD_RestrainSelf" 0.0 1
-			
-			#DCtrl 2 "Movement" "EvadeRollR" "" "CMD_Roll" 0.0 1
-			
-			#DCtrl 2 "Movement" "EvadeRollL" "" "CMD_Roll" 0.0 0
-			
-			#DCtrl 2 "Combat" "ChargeAttack" "" "CMD_Attack" 0.0 0
-			
-			#DCtrl 2 "Combat" "Attack" "" "CMD_InternalAttack" 0.0 1
-			
-			#DCtrl 2 "Combat" "Cancel" "" "CMD_InternalAttack" 0.0 0
-			
-			#DCtrl 2 "Combat" "Chamber" "" "CMD_Attack" 0.0 1
-			
-			#DCtrl 2 "Combat" "Reload" "" "CMD_Attack" 0.0 2
-			
-			#DCtrl 2 "Combat" "CancelReload" "" "CMD_InternalAttack" 0.0 2
-			
-			#DCtrl 2 "Combat" "Bayonet" "" "CMD_Attack" 0.0 1
-			
-			#DCtrl 2 "Combat" "Buttstock" "" "CMD_Attack" 0.0 2
-			
-			#DCtrl 2 "Combat" "Shove" "" "CMD_Attack" 0.0 3
-			
-			#DCtrl 2 "Combat" "Hit Light" "" "CMD_Hit" 0.0 0
-			
-			#DCtrl 2 "Unconscious" "Fast" "" "CMD_Unconscious" 0.0 0
-			
-			#DCtrl 2 "Unconscious" "Slow" "" "CMD_Unconscious" 0.0 1
-		}
-	}
-	$Files {
-		 "dm_core/Animations/Locomotion.agr"
-		 "DZ/anims/workspaces/player/player_main/Combat.agr"
-		 "DZ/anims/workspaces/player/player_main/Weapons.agr"
-		 "DZ/anims/workspaces/player/player_main/Gestures.agr"
-		 "DZ/anims/workspaces/player/player_main/Vehicles.agr"
-		 "dm_core/Animations/Actions.agr"
-		 "DZ/anims/workspaces/player/player_main/Master.agr"
-		 "dm_core/Animations/Tests.agr"
-	}
+AnimSrcGraph {
+ AnimSetTemplate "{F0C651DE8E24A5DE}DZ/anims/workspaces/player/player_main/player_main.ast"
+ AnimSyncTable "{8F89313B7FBB0B66}DZ/anims/workspaces/player/Player_SyncTable.asy"
+ ControlTemplate AnimSrcGCT "{6930A8DE269B0B95}" {
+  Variables {
+   AnimSrcGCTVarFloat MovementSpeed {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 3
+   }
+   AnimSrcGCTVarFloat MovementDirection {
+    DefaultValue 0
+    MinValue -180
+    MaxValue 180
+   }
+   AnimSrcGCTVarInt Stance {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 2
+   }
+   AnimSrcGCTVarFloat TurnAmount {
+    DefaultValue 0
+    MinValue -2
+    MaxValue 2
+   }
+AnimSrcGCTVarFloat dmAI_TurnAmount {
+    DefaultValue 0
+    MinValue -2
+    MaxValue 2
+   }
+   AnimSrcGCTVarBool Look {
+    DefaultValue 0
+   }
+AnimSrcGCTVarBool dmAI_Look {
+    DefaultValue 0
+   }
+   AnimSrcGCTVarFloat LookDirY {
+    DefaultValue 0
+    MinValue -85
+    MaxValue 85
+   }
+AnimSrcGCTVarFloat dmAI_LookDirY {
+    DefaultValue 0
+    MinValue -85
+    MaxValue 85
+   }
+   AnimSrcGCTVarFloat LookDirX {
+    DefaultValue 0
+    MinValue -180
+    MaxValue 180
+   }
+AnimSrcGCTVarFloat dmAI_LookDirX {
+    DefaultValue 0
+    MinValue -180
+    MaxValue 180
+   }
+   AnimSrcGCTVarFloat Injured {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 1
+   }
+   AnimSrcGCTVarFloat Exhaustion {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 1
+   }
+   AnimSrcGCTVarBool Raised {
+    DefaultValue 0
+   }
+AnimSrcGCTVarBool dmAI_Raised {
+    DefaultValue 0
+   }
+   AnimSrcGCTVarBool ADS {
+    DefaultValue 0
+   }
+   AnimSrcGCTVarBool MeleeBlock {
+    DefaultValue 0
+   }
+   AnimSrcGCTVarFloat AimY {
+    DefaultValue 0
+    MinValue -85
+    MaxValue 85
+   }
+AnimSrcGCTVarFloat dmAI_AimY {
+    DefaultValue 0
+    MinValue -85
+    MaxValue 85
+   }
+   AnimSrcGCTVarFloat AimX {
+    DefaultValue 0
+    MinValue -180
+    MaxValue 180
+   }
+AnimSrcGCTVarFloat dmAI_AimX {
+    DefaultValue 0
+    MinValue -180
+    MaxValue 180
+   }
+   AnimSrcGCTVarFloat AimIKX {
+    DefaultValue 0
+    MinValue -180
+    MaxValue 180
+   }
+AnimSrcGCTVarFloat dmAI_AimIKX {
+    DefaultValue 0
+    MinValue -180
+    MaxValue 180
+   }
+   AnimSrcGCTVarFloat RaiseTime {
+    DefaultValue 0.4
+    MinValue 0
+    MaxValue 2
+   }
+   AnimSrcGCTVarFloat LowerTime {
+    DefaultValue 0.4
+    MinValue 0
+    MaxValue 2
+   }
+   AnimSrcGCTVarFloat LeanForward {
+    DefaultValue 0
+    MinValue -90
+    MaxValue 90
+   }
+   AnimSrcGCTVarFloat Lean {
+    DefaultValue 0
+    MinValue -1
+    MaxValue 1
+   }
+   AnimSrcGCTVarFloat WaterLevel {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 1
+   }
+   AnimSrcGCTVarFloat DamageDirection {
+    DefaultValue 0
+    MinValue -180
+    MaxValue 180
+   }
+   AnimSrcGCTVarInt LadderMovement {
+    DefaultValue 0
+    MinValue -2
+    MaxValue 2
+   }
+   AnimSrcGCTVarInt VehicleType {
+    DefaultValue -1
+    MinValue -1
+    MaxValue 12
+   }
+   AnimSrcGCTVarFloat VehicleSteering {
+    DefaultValue 0
+    MinValue -1
+    MaxValue 1
+   }
+   AnimSrcGCTVarFloat VehicleThrottle {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 1
+   }
+   AnimSrcGCTVarFloat VehicleClutch {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 1
+   }
+   AnimSrcGCTVarBool VehicleBrake {
+    DefaultValue 0
+   }
+   AnimSrcGCTVarFloat VehicleAccelerationFB {
+    DefaultValue 0
+    MinValue -1
+    MaxValue 1
+   }
+   AnimSrcGCTVarFloat VehicleAccelerationLR {
+    DefaultValue 0
+    MinValue -1
+    MaxValue 1
+   }
+   AnimSrcGCTVarInt WeaponType {
+    DefaultValue 1
+    MinValue 0
+    MaxValue 10
+   }
+   AnimSrcGCTVarFloat MovementAngleX {
+    DefaultValue 0
+    MinValue -35
+    MaxValue 35
+   }
+   AnimSrcGCTVarInt WeaponChamberType {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 4
+   }
+   AnimSrcGCTVarInt ArmIK {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 7
+   }
+   AnimSrcGCTVarBool Talking {
+    DefaultValue 0
+   }
+   AnimSrcGCTVarFloat TestFloat {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 1
+   }
+   AnimSrcGCTVarFloat ActionProgress {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 1
+   }
+   AnimSrcGCTVarFloat ActionProgressEnd {
+    DefaultValue 1
+    MinValue 0
+    MaxValue 1
+   }
+   AnimSrcGCTVarInt ActionState {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 7
+   }
+   AnimSrcGCTVarBool ThrowingOnBack {
+    DefaultValue 0
+   }
+   AnimSrcGCTVarFloat ObstructionFloat {
+    DefaultValue 0
+    MinValue 0
+    MaxValue 1
+   }
+   AnimSrcGCTVarFloat VehicleSpeed {
+    DefaultValue 0
+    MinValue -1
+    MaxValue 10
+   }
+   AnimSrcGCTVarFloat VehicleLean {
+    DefaultValue 0
+    MinValue -180
+    MaxValue 180
+   }
+   AnimSrcGCTVarBool VehicleWalking {
+    DefaultValue 0
+   }
+   AnimSrcGCTVarFloat VehicleSuspension {
+    DefaultValue 0
+    MinValue -1
+    MaxValue 1
+   }
+  }
+  Commands {
+   AnimSrcGCTCmd CMD_Weapon_Hide {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Weapon_Show {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Action {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_InternalAction {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_FullBodyAction {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_VehicleAction {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_GunShoulder {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_GunShoulderOut {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Expression {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Expression_Blink {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Roll {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Jump {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_JumpFall {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Climb {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_ClimbOver {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Fall {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_FallCancel {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Land {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_LandImmediate {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Reload_Magazine {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Reload_BoltAction {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Reload_Chambering {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Reload_ChamberingFast {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Reload_Exit {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Reload_Clip {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Death {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Death_To_Water {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Swim {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Surrender {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Restrain {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Restrain_Self {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Restrain_Instant {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Restrained_Struggle {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Restrained_Fall {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Ladder_Enter {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Ladder_Exit {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Ladder_Exit_Left {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Ladder_Exit_Right {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_InternalAttack {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_ItemDrop {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Throwing {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_ItemRoll {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Modifier_Additive {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Vehicle_GetIn {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Vehicle_SwitchSeat {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Vehicle_GetOut {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Vehicle_ClimbOut {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Vehicle_CrawlOut {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Vehicle_JumpOut {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Weapon_Jam {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Weapon_Interrupt {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_WeaponFire {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Weapon_Obstruction {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Melee_Attack {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Melee_Attack2 {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Melee_Stealth {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Melee_Combo {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Melee_Exit {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Melee_Weapon {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Melee_Evade {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Damage {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_DamageHeavy {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Turn {
+    Synchronized 1
+   }
+AnimSrcGCTCmd dmAI_CMD_Turn {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_StopTurn {
+    Synchronized 1
+   }
+AnimSrcGCTCmd dmAI_CMD_StopTurn {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_SlidingPose {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Unconscious {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_Unconscious_Exit {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_PulledOut {
+    Synchronized 1
+   }
+   AnimSrcGCTCmd CMD_TRAILER_WALK_AWAY {
+    Synchronized 1
+   }
+  }
+  IkChains {
+   AnimSrcGCTIkChain "{CFAED3D502D92DA5}LHandIKTarget_0_1885426032_2060251945_4110665692_3747397525_2089750091" {
+    Joints {
+     "LeftArm" "LeftArmRoll" "LeftForeArm" "LeftForeArmRoll" "LeftHand"
+    }
+    MiddleJoint "LeftForeArm"
+    ChainAxis "+x"
+   }
+   AnimSrcGCTIkChain "{127992800E814DDA}RHandIKTarget_3_998610499_358443388_2408857135_2669029224_2889608574" {
+    Joints {
+     "RightArm" "RightArmRoll" "RightForeArm" "RightForeArmRoll" "RightHand"
+    }
+    MiddleJoint "RightForeArm"
+    ChainAxis "-x"
+   }
+   AnimSrcGCTIkChain "{9E73213D33EE253C}LFootIKTarget_258230253_925949990_1885437576_2865622081_2089693512" {
+    Joints {
+     "LeftUpLeg" "LeftUpLegRoll" "LeftLeg" "LeftLegRoll" "LeftFoot"
+    }
+    MiddleJoint "LeftLeg"
+   }
+   AnimSrcGCTIkChain "{B2823F26EA84385A}RFootIKTarget_883756416_3082303289_998622043_1163813524_2889551995" {
+    Joints {
+     "RightUpLeg" "RightUpLegRoll" "RightLeg" "RightLegRoll" "RightFoot"
+    }
+    MiddleJoint "RightLeg"
+   }
+   AnimSrcGCTIkChain "{1B64AA86EA139A8B}LFootIKTarget_0_258230253_925949990_1885437576_2865622081_2089693512" {
+    Joints {
+     "LeftUpLeg" "LeftUpLegRoll" "LeftLeg" "LeftLegRoll" "LeftFoot"
+    }
+    MiddleJoint "LeftLeg"
+    ChainAxis "+x"
+   }
+   AnimSrcGCTIkChain "{713C7FE1437964C1}RFootIKTarget_3_883756416_3082303289_998622043_1163813524_2889551995" {
+    Joints {
+     "RightUpLeg" "RightUpLegRoll" "RightLeg" "RightLegRoll" "RightFoot"
+    }
+    MiddleJoint "RightLeg"
+    ChainAxis "-x"
+   }
+   AnimSrcGCTIkChain "{F44D8E78C33E4DC4}RHandIKTarget_998610499_358443388_2408857135_2669029224_2889608574" {
+    Joints {
+     "RightArm" "RightArmRoll" "RightForeArm" "RightForeArmRoll" "RightHand"
+    }
+    MiddleJoint "RightForeArm"
+   }
+   AnimSrcGCTIkChain "{2C9C0170B819F6DC}LHandIKTarget_1885426032_2060251945_4110665692_3747397525_2089750091" {
+    Joints {
+     "LeftArm" "LeftArmRoll" "LeftForeArm" "LeftForeArmRoll" "LeftHand"
+    }
+    MiddleJoint "LeftForeArm"
+   }
+  }
+ }
+ Debug AnimSrcGD "{6930A8DE269B0B95}" {
+  DebugControlGroups {
+   AnimSrcDebugCtlGroup Ladder {
+    DebugControls {
+     AnimSrcDebugCtlCmd EnterGround {
+      Binding "CMD_Ladder_Enter"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd EnterRoof {
+      Binding "CMD_Ladder_Enter"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd ExitGround {
+      Binding "CMD_Ladder_Exit"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd ExitRoof {
+      Binding "CMD_Ladder_Exit"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd LadderExitLeft {
+      Binding "CMD_Ladder_Exit_Left"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd LadderExitRight {
+      Binding "CMD_Ladder_Exit_Right"
+      FloatVal 0
+      IntVal 0
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup Vehicles {
+    DebugControls {
+     AnimSrcDebugCtlCmd EnterDriver {
+      Binding "CMD_Vehicle_GetIn"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd EnterCodriver {
+      Binding "CMD_Vehicle_GetIn"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd EnterPassengerL {
+      Binding "CMD_Vehicle_GetIn"
+      FloatVal 0
+      IntVal 2
+     }
+     AnimSrcDebugCtlCmd EnterPassengerR {
+      Binding "CMD_Vehicle_GetIn"
+      FloatVal 0
+      IntVal 3
+     }
+     AnimSrcDebugCtlCmd Exit {
+      Binding "CMD_Vehicle_GetOut"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd ExitJumpOut {
+      Binding "CMD_Vehicle_GetOut"
+      FloatVal 1
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd ExitClimbOutL {
+      Binding "CMD_Vehicle_GetOut"
+      FloatVal 0
+      IntVal 90
+     }
+     AnimSrcDebugCtlCmd ExitClimbOutR {
+      Binding "CMD_Vehicle_GetOut"
+      FloatVal 0
+      IntVal -90
+     }
+     AnimSrcDebugCtlCmd ExitCrawlOut {
+      Binding "CMD_Vehicle_GetOut"
+      FloatVal 0
+      IntVal 180
+     }
+     AnimSrcDebugCtlCmd SwitchSeat {
+      Binding "CMD_Vehicle_SwitchSeat"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd OpenDoor {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 301
+     }
+     AnimSrcDebugCtlCmd CloseDoor {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 300
+     }
+     AnimSrcDebugCtlCmd "Start Engine" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 402
+     }
+     AnimSrcDebugCtlCmd "Stop Engine" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 302
+     }
+     AnimSrcDebugCtlCmd "Stop Actions" {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal 0
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup Falling {
+    DebugControls {
+     AnimSrcDebugCtlCmd LandImmediate {
+      Binding "CMD_LandImmediate"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd FallForward {
+      Binding "CMD_Fall"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd FallBackwards {
+      Binding "CMD_Fall"
+      FloatVal 0
+      IntVal 3
+     }
+     AnimSrcDebugCtlCmd LandLight {
+      Binding "CMD_Land"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd LandMedium {
+      Binding "CMD_Land"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd LandHard {
+      Binding "CMD_Land"
+      FloatVal 0
+      IntVal 2
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup "Full Body Gestures" {
+    DebugControls {
+     AnimSrcDebugCtlCmd Dance {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 1100
+     }
+     AnimSrcDebugCtlCmd MilitarySalute {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 1000
+     }
+     AnimSrcDebugCtlCmd Campfire {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 1001
+     }
+     AnimSrcDebugCtlCmd LyingDown {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 1002
+     }
+     AnimSrcDebugCtlCmd SOS {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 1003
+     }
+     AnimSrcDebugCtlCmd SitA {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 1004
+     }
+     AnimSrcDebugCtlCmd SitB {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 1005
+     }
+     AnimSrcDebugCtlCmd Dabbing {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 1006
+     }
+     AnimSrcDebugCtlCmd EndGesture {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd HardEndGesture {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal -2
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup "Gestures Once" {
+    DebugControls {
+     AnimSrcDebugCtlCmd CutThroat {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1100
+     }
+     AnimSrcDebugCtlCmd Clap {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1101
+     }
+     AnimSrcDebugCtlCmd Dabbing {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1102
+     }
+     AnimSrcDebugCtlCmd Move {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1103
+     }
+     AnimSrcDebugCtlCmd Down {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1104
+     }
+     AnimSrcDebugCtlCmd Come {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1105
+     }
+     AnimSrcDebugCtlCmd "Taunt Kiss" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1106
+     }
+     AnimSrcDebugCtlCmd "Taunt Elbow" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1107
+     }
+     AnimSrcDebugCtlCmd "Taunt Think" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1108
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup Gestures {
+    DebugControls {
+     AnimSrcDebugCtlCmd Greetings {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1000
+     }
+     AnimSrcDebugCtlCmd Point {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1001
+     }
+     AnimSrcDebugCtlCmd ThumbUp {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1002
+     }
+     AnimSrcDebugCtlCmd ThumbDown {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1003
+     }
+     AnimSrcDebugCtlCmd Silence {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1004
+     }
+     AnimSrcDebugCtlCmd "Taunt Finger" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1005
+     }
+     AnimSrcDebugCtlCmd TimeOut {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1006
+     }
+     AnimSrcDebugCtlCmd Heart {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1007
+     }
+     AnimSrcDebugCtlCmd Facepalm {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1008
+     }
+     AnimSrcDebugCtlCmd Watching {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1009
+     }
+     AnimSrcDebugCtlCmd Hold {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1010
+     }
+     AnimSrcDebugCtlCmd Listening {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1011
+     }
+     AnimSrcDebugCtlCmd "Point to Self" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1012
+     }
+     AnimSrcDebugCtlCmd "Look At Me" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1013
+     }
+     AnimSrcDebugCtlCmd GunOnShoulder {
+      Binding "CMD_GunShoulder"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd GunOffShoulder {
+      Binding "CMD_GunShoulderOut"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd SwitchGesture {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd EndGesture {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd HardEndGesture {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal -2
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup RockPaperScissors {
+    DebugControls {
+     AnimSrcDebugCtlCmd RPS_Start {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 10000
+     }
+     AnimSrcDebugCtlCmd RPS_Rock {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal 10
+     }
+     AnimSrcDebugCtlCmd RPS_Paper {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal 11
+     }
+     AnimSrcDebugCtlCmd RPS_Scissor {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal 12
+     }
+     AnimSrcDebugCtlCmd RPS_Cancel {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal 0
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup "Full Body Actions" {
+    DebugControls {
+     AnimSrcDebugCtlCmd DrinkPond {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd DrinkWell {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd FillBottleWell {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 2
+     }
+     AnimSrcDebugCtlCmd FireExtinguisher {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 3
+     }
+     AnimSrcDebugCtlCmd WringCloth {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 4
+     }
+     AnimSrcDebugCtlCmd GatherBerries {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 5
+     }
+     AnimSrcDebugCtlCmd ChopTree {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 6
+     }
+     AnimSrcDebugCtlCmd DigShovel {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 7
+     }
+     AnimSrcDebugCtlCmd DigHoe {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 8
+     }
+     AnimSrcDebugCtlCmd Fishing {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 9
+     }
+     AnimSrcDebugCtlCmd CPR {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 10
+     }
+     AnimSrcDebugCtlCmd Bandage {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 11
+     }
+     AnimSrcDebugCtlCmd Crafting {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 12
+     }
+     AnimSrcDebugCtlCmd "Interact Player" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 13
+     }
+     AnimSrcDebugCtlCmd "Drink Cannister" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 14
+     }
+     AnimSrcDebugCtlCmd "Force Feed" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 15
+     }
+     AnimSrcDebugCtlCmd "Bandage Target" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 16
+     }
+     AnimSrcDebugCtlCmd "Disinfect Target" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 17
+     }
+     AnimSrcDebugCtlCmd Deploy {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 18
+     }
+     AnimSrcDebugCtlCmd "Start Fire Match" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 19
+     }
+     AnimSrcDebugCtlCmd "Animal Skinning" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 20
+     }
+     AnimSrcDebugCtlCmd "Wash Hands Well" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 21
+     }
+     AnimSrcDebugCtlCmd "Wash Hands Pond" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 22
+     }
+     AnimSrcDebugCtlCmd "Saline/Blood Bag Target" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 23
+     }
+     AnimSrcDebugCtlCmd "Saline/Blood Bag" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 24
+     }
+     AnimSrcDebugCtlCmd "Stitch Self Up" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 25
+     }
+     AnimSrcDebugCtlCmd Vomiting {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 26
+     }
+     AnimSrcDebugCtlCmd CutTies {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 27
+     }
+     AnimSrcDebugCtlCmd "Tie up target" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 28
+     }
+     AnimSrcDebugCtlCmd "Light Fire w Torch" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 29
+     }
+     AnimSrcDebugCtlCmd "Check Pulse" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 30
+     }
+     AnimSrcDebugCtlCmd "Empty Seeds Pack" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 31
+     }
+     AnimSrcDebugCtlCmd "Clean Wounds Target" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 32
+     }
+     AnimSrcDebugCtlCmd "Light Fire w Handdrill" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 33
+     }
+     AnimSrcDebugCtlCmd "Light Fire w Lighter" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 34
+     }
+     AnimSrcDebugCtlCmd "Collect Blood Self" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 35
+     }
+     AnimSrcDebugCtlCmd EndAction {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd AltEndAction {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal -1
+     }
+     AnimSrcDebugCtlCmd HardEndAction {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal -2
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup "Full Body Actions Once" {
+    DebugControls {
+     AnimSrcDebugCtlCmd "Handcuff Taget" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 100
+     }
+     AnimSrcDebugCtlCmd "Morphine Self" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 101
+     }
+     AnimSrcDebugCtlCmd "Inject Self" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 102
+     }
+     AnimSrcDebugCtlCmd "Inject Target" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 103
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup Actions {
+    DebugControls {
+     AnimSrcDebugCtlCmd Drink {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Eat {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd "Empty Cannister" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 2
+     }
+     AnimSrcDebugCtlCmd "Catch Rain" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 3
+     }
+     AnimSrcDebugCtlCmd "Eat Pills" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 4
+     }
+     AnimSrcDebugCtlCmd "Eat Tablets" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 5
+     }
+     AnimSrcDebugCtlCmd "Empty Bottle" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 6
+     }
+     AnimSrcDebugCtlCmd Compass {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 7
+     }
+     AnimSrcDebugCtlCmd "Drink Can" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 8
+     }
+     AnimSrcDebugCtlCmd "Walkie Talkie Tune Down" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 9
+     }
+     AnimSrcDebugCtlCmd "Give Left Item" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 10
+     }
+     AnimSrcDebugCtlCmd "Give Right Item" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 11
+     }
+     AnimSrcDebugCtlCmd Shave {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 12
+     }
+     AnimSrcDebugCtlCmd "Fill Magazine" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 13
+     }
+     AnimSrcDebugCtlCmd "Empty Magazine" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 14
+     }
+     AnimSrcDebugCtlCmd "Drink Pot" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 15
+     }
+     AnimSrcDebugCtlCmd "Empty Pot" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 16
+     }
+     AnimSrcDebugCtlCmd EndAction {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd AltEndAction {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal -1
+     }
+     AnimSrcDebugCtlCmd HardEndAction {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal -2
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup "Actions Once" {
+    DebugControls {
+     AnimSrcDebugCtlCmd LickBattery {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 100
+     }
+     AnimSrcDebugCtlCmd PickupItem {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 101
+     }
+     AnimSrcDebugCtlCmd Flare {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 102
+     }
+     AnimSrcDebugCtlCmd Chemlight {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 103
+     }
+     AnimSrcDebugCtlCmd UnpinGrenade {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 104
+     }
+     AnimSrcDebugCtlCmd OpenDoorForward {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 105
+     }
+     AnimSrcDebugCtlCmd OpenDoorBackward {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 106
+     }
+     AnimSrcDebugCtlCmd CloseSwipeLDoor {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 107
+     }
+     AnimSrcDebugCtlCmd CloseSwipeRDoor {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 108
+     }
+     AnimSrcDebugCtlCmd OpenLid {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 109
+     }
+     AnimSrcDebugCtlCmd CloseLid {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 110
+     }
+     AnimSrcDebugCtlCmd "Walkie Talkie On" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 111
+     }
+     AnimSrcDebugCtlCmd "Walkie Talkie Off" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 112
+     }
+     AnimSrcDebugCtlCmd "Baton Extend" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 113
+     }
+     AnimSrcDebugCtlCmd "Baton Retract" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 114
+     }
+     AnimSrcDebugCtlCmd "Unlock Handcuff Target" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 115
+     }
+     AnimSrcDebugCtlCmd "Fishing Rod Extend" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 116
+     }
+     AnimSrcDebugCtlCmd "Fishing Rod Retract" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 117
+     }
+     AnimSrcDebugCtlCmd "Take Item" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 115
+     }
+     AnimSrcDebugCtlCmd "Hide Item" {
+      Binding "CMD_Action"
+      FloatVal 0
+      IntVal 113
+     }
+     AnimSrcDebugCtlCmd HardEndAction {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal -2
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup Weapons {
+    DebugControls {
+     AnimSrcDebugCtlCmd Fire {
+      Binding "CMD_WeaponFire"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd "Fire Last" {
+      Binding "CMD_WeaponFire"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd "Fire Empty Cocked" {
+      Binding "CMD_WeaponFire"
+      FloatVal 0
+      IntVal 2
+     }
+     AnimSrcDebugCtlCmd "Fire Empty Uncocked" {
+      Binding "CMD_WeaponFire"
+      FloatVal 0
+      IntVal 3
+     }
+     AnimSrcDebugCtlCmd "Fire Empty Automatic" {
+      Binding "CMD_WeaponFire"
+      FloatVal 0
+      IntVal 4
+     }
+     AnimSrcDebugCtlCmd "End Fire" {
+      Binding "CMD_WeaponFire"
+      FloatVal 0
+      IntVal -1
+     }
+     AnimSrcDebugCtlCmd Arm {
+      Binding "CMD_Arm"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Disarm {
+      Binding "CMD_Disarm"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Reload_BoltAction_OpenBolt {
+      Binding "CMD_Reload_BoltAction"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Reload_BoltAction_ClosedBolt {
+      Binding "CMD_Reload_BoltAction"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd Reload_BoltAction_Special {
+      Binding "CMD_Reload_BoltAction"
+      FloatVal 0
+      IntVal 2
+     }
+     AnimSrcDebugCtlCmd Reload_Magazine_Bullet {
+      Binding "CMD_Reload_Magazine"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Reload_NoMagazine_Bullet {
+      Binding "CMD_Reload_Magazine"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd Reload_Magazine_NoBullet {
+      Binding "CMD_Reload_Magazine"
+      FloatVal 0
+      IntVal 2
+     }
+     AnimSrcDebugCtlCmd Reload_NoMagazine_NoBullet {
+      Binding "Reload_NoMagazine_Bullet"
+      FloatVal 0
+      IntVal 3
+     }
+     AnimSrcDebugCtlCmd Reload_ChamberingFast {
+      Binding "CMD_Reload_ChamberingFast"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Reload_Chambering_OpenBolt {
+      Binding "CMD_Reload_Chambering"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Reload_Chambering_ClosedBolt {
+      Binding "CMD_Reload_Chambering"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd Reload_Chambering_Look {
+      Binding "CMD_Reload_Chambering"
+      FloatVal 0
+      IntVal 2
+     }
+     AnimSrcDebugCtlCmd Reload_Chambering_End {
+      Binding "Reload_Chambering_ClosedBolt"
+      FloatVal 0
+      IntVal 3
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup Suicide {
+    DebugControls {
+     AnimSrcDebugCtlCmd "1HD" {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 2000
+     }
+     AnimSrcDebugCtlCmd FireAxe {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 2001
+     }
+     AnimSrcDebugCtlCmd Pitchfork {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 2002
+     }
+     AnimSrcDebugCtlCmd Pistol {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 2003
+     }
+     AnimSrcDebugCtlCmd Rifle {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 2004
+     }
+     AnimSrcDebugCtlCmd Sword {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 2005
+     }
+     AnimSrcDebugCtlCmd Unarmed {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 2006
+     }
+     AnimSrcDebugCtlCmd WoodAxe {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 2007
+     }
+     AnimSrcDebugCtlCmd Spear {
+      Binding "CMD_FullBodyAction"
+      FloatVal 0
+      IntVal 2008
+     }
+     AnimSrcDebugCtlCmd Cancel {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Commit {
+      Binding "CMD_InternalAction"
+      FloatVal 0
+      IntVal -1
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup "Surrender Restrained" {
+    DebugControls {
+     AnimSrcDebugCtlCmd "Surrender In" {
+      Binding "CMD_Surrender"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd "Surrender Out" {
+      Binding "CMD_Surrender"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Restrain {
+      Binding "CMD_Restrain"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd "Restrain Out" {
+      Binding "CMD_Restrain"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd "Restrained Struggle" {
+      Binding "CMD_RestrainedStruggle"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd "Restrain Sneaky" {
+      Binding "CMD_RestrainSneaky"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd "Restrain Self Rope" {
+      Binding "CMD_RestrainSelf"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd "Restrain Self Rope Cancel" {
+      Binding "CMD_RestrainSelf"
+      FloatVal 0
+      IntVal -1
+     }
+     AnimSrcDebugCtlCmd "Restrain Self Handcuffs" {
+      Binding "CMD_RestrainSelf"
+      FloatVal 0
+      IntVal 1
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup Movement {
+    DebugControls {
+     AnimSrcDebugCtlCmd EvadeRollR {
+      Binding "CMD_Roll"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd EvadeRollL {
+      Binding "CMD_Roll"
+      FloatVal 0
+      IntVal 0
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup Combat {
+    DebugControls {
+     AnimSrcDebugCtlCmd ChargeAttack {
+      Binding "CMD_Attack"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Attack {
+      Binding "CMD_InternalAttack"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd Cancel {
+      Binding "CMD_InternalAttack"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Chamber {
+      Binding "CMD_Attack"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd Reload {
+      Binding "CMD_Attack"
+      FloatVal 0
+      IntVal 2
+     }
+     AnimSrcDebugCtlCmd CancelReload {
+      Binding "CMD_InternalAttack"
+      FloatVal 0
+      IntVal 2
+     }
+     AnimSrcDebugCtlCmd Bayonet {
+      Binding "CMD_Attack"
+      FloatVal 0
+      IntVal 1
+     }
+     AnimSrcDebugCtlCmd Buttstock {
+      Binding "CMD_Attack"
+      FloatVal 0
+      IntVal 2
+     }
+     AnimSrcDebugCtlCmd Shove {
+      Binding "CMD_Attack"
+      FloatVal 0
+      IntVal 3
+     }
+     AnimSrcDebugCtlCmd "Hit Light" {
+      Binding "CMD_Hit"
+      FloatVal 0
+      IntVal 0
+     }
+    }
+   }
+   AnimSrcDebugCtlGroup Unconscious {
+    DebugControls {
+     AnimSrcDebugCtlCmd Fast {
+      Binding "CMD_Unconscious"
+      FloatVal 0
+      IntVal 0
+     }
+     AnimSrcDebugCtlCmd Slow {
+      Binding "CMD_Unconscious"
+      FloatVal 0
+      IntVal 1
+     }
+    }
+   }
+  }
+ }
+ GraphFilesResourceNames {
+  "dm_core/Animations/Locomotion.agf" "{9C03FCB66E801A6C}DZ/anims/workspaces/player/player_main/Combat.agf" "{4DD0CCA87EF71102}DZ/anims/workspaces/player/player_main/Weapons.agf" "{F8705927E3100C08}DZ/anims/workspaces/player/player_main/Gestures.agf" "{1D19A50EFCDE75AD}DZ/anims/workspaces/player/player_main/Vehicles.agf" "dm_core/Animations/Actions.agf" "{3F5D37C345D55BBA}DZ/anims/workspaces/player/player_main/Master.agf" "dm_core/Animations/Tests.agf"
+ }
+ DefaultRunNode "MasterControl"
 }
