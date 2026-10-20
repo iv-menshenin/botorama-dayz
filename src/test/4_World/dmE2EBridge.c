@@ -128,15 +128,30 @@ class dmE2EResult
 	ref array<ref dmE2ESnapshot> Snapshot;
 }
 
-//! Singleton executor: scans e2e/in/*.json and runs one job at a time. A job is
+//! Singleton executor: picks up e2e/in/job.json (fixed name) and runs one job at
+//! a time. A job is
 //! advanced across ticks (deferred `wait` automaton); each tick either advances
-//! the current step or stays on it. Ticked from MissionServer.OnUpdate.
+//! the current step or stays on it. Ticked by its own self-rescheduling
+//! CallLater (Get() schedules the first one-shot; each tick re-schedules the
+//! next one explicitly, so the cadence does NOT depend on the repeating flag) —
+//! not by MissionServer.OnUpdate, which is unusable across modules in 1.30 (two
+//! modded MissionServer blocks both overriding OnUpdate silently drop one).
 class dmE2EBridge
 {
 	static ref dmE2EBridge s_Instance;
+	static bool s_TickLogged = false;
+	static int s_TickCount = 0;
 
 	//! Default army spawn scatter radius (meters) when step.Radius is 0.
 	static const float DM_E2E_ARMY_RADIUS = 50.0;
+
+	//! Self-scheduled tick cadence: interval (ms) and per-tick delta (s). The
+	//! bridge no longer rides MissionServer.OnUpdate (1.30 cross-module override
+	//! conflict), so Get() schedules the first one-shot CallLater and each tick
+	//! re-schedules the next one explicitly. dt == interval: one tick advances
+	//! simulated time by one second.
+	static const int DM_E2E_TICK_INTERVAL_MS = 1000;
+	static const float DM_E2E_TICK_DT = 1.0;
 
 	//! drivetest: fixed window (seconds) for the per-car rolling speed EMA.
 	//! step.StopWindow currently does NOT override this (Tick has no current step).
@@ -170,7 +185,10 @@ class dmE2EBridge
 	static dmE2EBridge Get()
 	{
 		if (!s_Instance)
+		{
 			s_Instance = new dmE2EBridge();
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(s_Instance.E2ETick, DM_E2E_TICK_INTERVAL_MS, false);
+		}
 		return s_Instance;
 	}
 
@@ -193,10 +211,42 @@ class dmE2EBridge
 		m_CarSpeedAvg = new map<string, float>();
 	}
 
+	//! Self-scheduled tick entry (CallLater target). Logs once on the first tick
+	//! and a heartbeat every 5th tick so a tester can tell "tick is firing"
+	//! apart from "no job.json is present"; then re-schedules the next tick
+	//! explicitly (one-shot) so repetition never depends on the repeating flag.
+	void E2ETick()
+	{
+		s_TickCount = s_TickCount + 1;
+
+		if (!s_TickLogged)
+		{
+			s_TickLogged = true;
+			#ifdef DM_BOT_DEBUG_E2E
+			dmBotLog.Debug("[E2E] bridge tick active (CallLater)");
+			#endif
+		}
+
+		#ifdef DM_BOT_DEBUG_E2E
+		if (s_TickCount % 5 == 0)
+			dmBotLog.Debug("[E2E] tick N=" + s_TickCount);
+		#endif
+
+		Tick(DM_E2E_TICK_DT);
+
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(s_Instance.E2ETick, DM_E2E_TICK_INTERVAL_MS, false);
+	}
+
 	void Tick(float dt)
 	{
 		if (!FileExist(DM_E2E_ENABLED_FILE))
+		{
+			#ifdef DM_BOT_DEBUG_E2E
+			if (s_TickCount % 5 == 0)
+				dmBotLog.Debug("[E2E] enabled missing");
+			#endif
 			return;
+		}
 
 		UpdateCarSpeedAvg(dt);
 
@@ -221,12 +271,9 @@ class dmE2EBridge
 		if (!FileExist(DM_E2E_IN_DIR))
 			return;
 
-		string fileName;
-		FileAttr fileAttr;
-		FindFileHandle handle = FindFile(DM_E2E_IN_DIR + "/*.json", fileName, fileAttr, FindFileFlags.DIRECTORIES);
-		if (fileName != "")
-			StartJob(DM_E2E_IN_DIR + "/" + fileName, fileName);
-		CloseFindFile(handle);
+		string jobPath = DM_E2E_IN_DIR + "/job.json";
+		if (FileExist(jobPath))
+			StartJob(jobPath, "job.json");
 	}
 
 	//! drivetest: advance the per-car rolling speed EMA (fixed window
@@ -759,6 +806,10 @@ class dmE2EBridge
 		else if (step.Op == "poidump")
 		{
 			RunPoiDump(step, r);
+		}
+		else if (step.Op == "worldnames")
+		{
+			RunWorldNames(step, r);
 		}
 		else if (step.Op == "buildingdump")
 		{
@@ -2314,6 +2365,49 @@ class dmE2EBridge
 			AppendDump(r, "at=" + loc.Id + ":" + loc.Name + ":" + loc.Type);
 		else
 			AppendDump(r, "at=none");
+
+		r.Ok = true;
+	}
+
+	//! "worldnames" — dump the raw CfgWorlds <world> Names config: world name,
+	//! child count, then one pipe-delimited line per named location
+	//! (index|key|name|type|x|z). Raw offline source for world_poi.json.
+	private void RunWorldNames(dmE2EStep step, dmE2EStepResult r)
+	{
+		string path = "CfgWorlds " + g_Game.GetWorldName() + " Names";
+		int count = g_Game.ConfigGetChildrenCount(path);
+		AppendDump(r, "world=" + g_Game.GetWorldName());
+		AppendDump(r, "count=" + count);
+
+		int i;
+		string childName;
+		string name;
+		string type;
+		string childPath;
+		array<float> pos;
+		string line;
+		for (i = 0; i < count; i++)
+		{
+			childName = "";
+			g_Game.ConfigGetChildName(path, i, childName);
+			childPath = path + " " + childName;
+
+			name = "";
+			type = "";
+			g_Game.ConfigGetText(childPath + " name", name);
+			g_Game.ConfigGetText(childPath + " type", type);
+
+			pos = new array<float>();
+			g_Game.ConfigGetFloatArray(childPath + " position", pos);
+
+			line = "" + i + "|" + childName;
+			line = line + "|" + name + "|" + type + "|";
+			if (pos && pos.Count() == 2)
+				line = line + pos[0] + "|" + pos[1];
+			else
+				line = line + "-1|-1";
+			AppendDump(r, line);
+		}
 
 		r.Ok = true;
 	}

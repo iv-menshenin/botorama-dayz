@@ -522,7 +522,7 @@ static const float DM_PERCEPTION_REFRESH_HIGH_THREAT = 0.2;
 
 //! Target evaluation: threat (0..1) — how dangerous a sighted entity is.
 //! The player is scored low so bots don't auto-attack them by default.
-static const float DM_TARGET_THREAT_PLAYER = 0.1;
+static const float DM_TARGET_THREAT_PLAYER = 0.6;
 static const float DM_TARGET_THREAT_ZOMBIE = 0.3; // обнаруженный зомби не враждебен; враждебность только через урон
 static const float DM_TARGET_THREAT_ANIMAL = 0.2;
 

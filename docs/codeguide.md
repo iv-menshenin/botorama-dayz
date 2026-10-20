@@ -176,6 +176,14 @@ class CfgSoundSets
   `baseCharacter_SoundShader`/`baseCharacter_SoundSet` с forward-декларацией и БЕЗ
   `DZ_Sounds_Effects` в `requiredAddons`.
 
+- **`CfgMods.defs.files[]` — только прямой слэш `/`, НЕ обратный `\`.** Пути скрипт-модулей
+  пиши как `files[] = {"ModName/3_Game"}`. Запись `"ModName\3_Game"` (с `\`) молча работала
+  до 1.29, а в **1.30 перестала резолвиться**: `CfgMods` (имя, `defines[]`, `inputs`) читался,
+  а `defs.files[]` — нет → скрипты мода не компилировались и не исполнялись (симптом «мод
+  грузится, но не работает»). Диагностика: счётчик `Module: <X>; loaded Nx files; Mx classes`
+  в `script_*.log` не растёт при подключении мода (у ColdZero/Devaliada после фикса `\`→`/`
+  Mission вырос с 828 до 834 файлов).
+
 ## Генерики
 
 - `class X<Class T>` — ограничений `<Class T : Base>` НЕТ; `T` ведёт себя как `Class`
