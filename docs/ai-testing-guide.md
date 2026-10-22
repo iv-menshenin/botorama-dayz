@@ -343,3 +343,23 @@ EOF
   Если игрок ещё не зашёл — `Reason="no player connected"`, повторить после подключения.
 - Первый прогон — проверить эмпирически: нужен ли запущенный Steam, `DayZ_x64.exe`
   напрямую или `DayZ_BE.exe`, формат `-connect` (`:2302` vs `:2302:2303`).
+
+### 6.1 Клиентские логи и маркер клиентского моста (важно — НЕ путать с сервером)
+
+У клиента **ДВА** разных каталога под Proton-префиксом compatdata 221100:
+
+| Что | Путь |
+|---|---|
+| `$profile:` (FileIO: маркер/джобы клиентского моста) | `…/pfx/drive_c/users/steamuser/Documents/DayZ/` (там `DayZ.cfg`, `*.DayZProfile`) |
+| RPT / `script_*.log` / `error_*.log` (логи) | `…/pfx/drive_c/users/steamuser/AppData/Local/DayZ/` |
+
+- **`[dmBot]`/`[E2EC]`-логи клиента пишутся в `AppData/Local/DayZ/script_*.log`**, а НЕ в
+  `.RPT`. Грепать `.RPT` на `[E2EC]` — ошибочно (вернёт 0). Клиентский мост тикает
+  (`[E2EC] bridge tick active`), даже когда «клиент не вошёл в игру» — это НЕ признак сбоя.
+- **Маркер клиентского моста** — `Documents/DayZ/dmBotorama/e2e-client/enabled` (создать
+  вручную). Джобы — `Documents/DayZ/dmBotorama/e2e-client/in/<job>.json`; результат —
+  `…/out/<job>.result.json`. Пока маркера нет, мост пишет `[E2EC] enabled missing` (это
+  штатно, не ошибка).
+- **«Дошёл ли клиент до игры»** — по строке `Player Simulation entity` в клиентском `.RPT`
+  (НЕ по `[E2EC]` tick). Загрузка мира/шейдеров может быть долгой (первый прогон — до 10–15 мин,
+  консоль показывает `Fossilize shadercache`); НЕ убивать клиент раньше ~15 мин.
