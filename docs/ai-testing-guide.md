@@ -87,6 +87,18 @@ bash tools/build.sh
 
 Собирает 7 модулей → `build/<модуль>.pbo` + `build/<модуль>.pbo.devalio.bisign`.
 
+**Инкрементальная сборка** — когда `dayz-dev` изменил не все модули, собираем только
+их (в отчёте dev указывает список изменённых модулей):
+
+```
+bash tools/build.sh --test --modules core,test
+```
+
+`--modules` берёт список модулей через запятую; остальные PBO в `build/` переиспользуются
+как есть (`build.sh` НЕ чистит каталог при частичной сборке, а `-clear` AddonBuilder'а
+prefix-scoped — чистит только свой модуль). Признак полной сборки — отсутствие `--modules`
+(тогда `build/` чистится целиком). Дефолт `--modules` = все 7.
+
 Перед сборкой `build.sh` очищает Temp wine-префикса
 (`compatdata/830640/pfx/drive_c/users/steamuser/AppData/Local/Temp`) — AddonBuilder
 чистит его сам, но медленно; ручная очистка ускоряет компиляцию и надёжнее.
@@ -110,12 +122,16 @@ bash tools/build.sh
 
 ## 2. Деплой
 
-Скопировать 7×`.pbo` + 7×`.bisign` в `@Botorama/Addons`:
+Скопировать `.pbo` + `.bisign` в `@Botorama/Addons`:
 
 ```
 AD=/mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons
 cp build/*.pbo build/*.bisign "$AD/"
 ```
+
+При инкрементальной сборке достаточно скопировать только пересобранные модули
+(`cp build/core.pbo build/core.pbo.devalio.bisign "$AD/"` и т.п.) — остальные уже лежат
+в `@Botorama/Addons` и не менялись. Копировать всё тоже корректно (идемпотентно).
 
 Старый одиночный `botorama.pbo` уже удалён (заменён на мульти-PBO). Ключ
 `devalio.bikey` лежит в `@Botorama/Keys/` и в `DayZServer/keys/` — сервер с
@@ -125,20 +141,20 @@ cp build/*.pbo build/*.bisign "$AD/"
 
 ## 3. Запуск сервера
 
-Скрипт пользователя: `~/dayz-cherno` (запускается из-под `nohup`, т.к. работает
+Скрипт пользователя: `~/dayz-nasdara.sh` (запускается из-под `nohup`, т.к. работает
 в foreground):
 
 ```
-nohup ~/dayz-cherno > /tmp/dayz_console.log 2>&1 &
+nohup ~/dayz-nasdara.sh > /tmp/dayz_console.log 2>&1 &
 ```
 
-> **Готча (запуск из ИИ-агента)**: `nohup ~/dayz-cherno > /tmp/dayz_console.log 2>&1 &`
-> **зависает** на таймауте bash-инструмента: `~/dayz-cherno` держит `./DayZServer` в
+> **Готча (запуск из ИИ-агента)**: `nohup ~/dayz-nasdara.sh > /tmp/dayz_console.log 2>&1 &`
+> **зависает** на таймауте bash-инструмента: `~/dayz-nasdara.sh` держит `./DayZServer` в
 > foreground, а дочерний процесс остаётся привязанным к stdout/stderr pipe — инструмент
 > ждёт завершения сервера. Правильная форма:
 >
 > ```
-> setsid nohup ~/dayz-cherno >/tmp/dayz_console.log 2>&1 </dev/null & disown
+> setsid nohup ~/dayz-nasdara.sh >/tmp/dayz_console.log 2>&1 </dev/null & disown
 > ```
 >
 > `setsid` + `</dev/null` + `disown` полностью отвязывают процесс от терминала/pipe.
@@ -147,18 +163,20 @@ nohup ~/dayz-cherno > /tmp/dayz_console.log 2>&1 &
 
 ```
 cd /mnt/deep-space/Steam/steamapps/common/DayZServer/
-rm -rf ./profiles-cherno/*.log *.ADM *.RPT *.mdmp
-./DayZServer -cpuCount="6" -config=./chernoDZ.cfg -profiles=./profiles-cherno \
-  -mod=@CF;@COT;@Botorama; -doLogs -adminlog -port=2302
+rm -rf ./profiles-nasdara/*.log *.ADM *.RPT *.mdmp
+./DayZServer -cpuCount="6" -config=./nasdaraDZ.cfg -profiles=./profiles-nasdara \
+  -mod=@Botorama; -doLogs -adminlog -port=2302
 ```
 
-- Конфиг: `chernoDZ.cfg` (карта Чернорусь), профиль `profiles-cherno`.
+- Конфиг: `nasdaraDZ.cfg` (миссия `nasdara`, карта Чернорусь), профиль `profiles-nasdara`.
+- **Моды: ТОЛЬКО `@Botorama`.** Никаких посторонних модов (без `@CF`, `@COT` и прочего) —
+  ни на сервере, ни на клиенте. Если тест требует COT-команды — это отдельное согласование.
 - **POI/здания (факты для тестов)**: (1) сервер пре-стримит ~5.5 тыс. статических
   зданий на старте — `buildingdump.registered` НЕ стартует с 0; проверяй привязку через
   `locId` ↔ `poidump.at` + `locCount > 0`, а рост — как тренд. (2) Id локации = порядок в
   `world_poi.json` (Черногорск=0, Новодмитровск=1); не зашивай Id по имени — сверяй
   `poidump.at` в рантайме.
-- Рестарт: `kill <pid>` → `~/dayz-cherno` (сервер перечитывает новые PBO только
+- Рестарт: `kill <pid>` → `~/dayz-nasdara.sh` (сервер перечитывает новые PBO только
   при рестарте — hot-reload отсутствует).
 - **Остановка (обязательно после прогона)**: `kill -9 <PID>` — PID бери через
   `pgrep -f '[.]/DayZServer '` (символьный класс `[.]`, НЕ `\.` и НЕ `DayZServer`), либо
@@ -176,7 +194,7 @@ rm -rf ./profiles-cherno/*.log *.ADM *.RPT *.mdmp
 
 ## 4. Чтение логов
 
-RPT-лог сервера — `DayZServer/profiles-cherno/DayZServer_<дата>.RPT` (последний —
+RPT-лог сервера — `DayZServer/profiles-nasdara/DayZServer_<дата>.RPT` (последний —
 по `ls -t`). Ключевые маркеры:
 
 | Что ищем | Пример | Значение |

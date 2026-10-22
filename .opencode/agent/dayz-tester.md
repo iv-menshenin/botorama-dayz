@@ -12,7 +12,7 @@ permission:
     "/mnt/deep-space/Steam/steamapps/compatdata/830640/pfx/**": allow
     "/mnt/deep-space/Steam/steamapps/compatdata/830640/pfx/drive_c/users/steamuser/AppData/Local/Temp/**": allow
     "/home/devalio/dayz/Work/Keys/**": allow
-    "/home/devalio/dayz-cherno": allow
+    "/home/devalio/dayz-nasdara.sh": allow
     "/home/devalio/.local/share/Steam/steamapps/common/DayZ/**": allow
     "/home/devalio/.local/share/Steam/steamapps/compatdata/221100/**": allow
     "/home/devalio/.local/share/Steam/steamapps/common/Proton Hotfix/**": allow
@@ -43,8 +43,9 @@ E2E-цикл автотестов и возвращаешь оркестрато
    `tools/defines_test.txt`).
 2. **Деплой** — скопировать 7×`.pbo` + 7×`.bisign` из `build/` в
    `/mnt/deep-space/Steam/steamapps/common/DayZServer/@Botorama/Addons/`.
-3. **Сервер** — `kill` текущий `DayZServer` → `nohup ~/dayz-cherno &` → дождаться
-   `[dmBot] Botorama initialized: <ver>` в RPT (`profiles-cherno/*.RPT`).
+3. **Сервер** — `kill` текущий `DayZServer` → `nohup ~/dayz-nasdara.sh &` → дождаться
+   `[dmBot] Botorama initialized: <ver>` в RPT (`profiles-nasdara/*.RPT`).
+   **Моды — ТОЛЬКО `@Botorama`** (без `@CF`/`@COT` и любых посторонних).
 4. **Сценарии** — положить `<job>.json` в `$profile:dmBotorama/e2e/in/` (маркер
    `e2e/enabled` уже лежит), дождаться `out/<job>.result.json`, при провале — tail RPT.
 5. **Отчёт** — PASS/FAIL по шагам, снапшоты, выдержки result/RPT → оркестратору.

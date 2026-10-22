@@ -62,11 +62,14 @@ tail_rpt() {
 rm -f "$RESULT"
 
 # Атомарный деплой сценария: .tmp → rename.
+# NB: мост читает ТОЛЬКО фиксированное имя e2e/in/job.json (см. dmE2EBridge.Tick,
+# коммит 6502f19); имя результата берётся из поля "Name" сценария (= $JOB_NAME),
+# поэтому поллим out/$JOB_NAME.result.json, а не out/job.result.json.
 mkdir -p "$E2E_DIR/in"
-cp "$SCEN_PATH" "$E2E_DIR/in/$JOB_NAME.json.tmp"
-mv "$E2E_DIR/in/$JOB_NAME.json.tmp" "$E2E_DIR/in/$JOB_NAME.json"
+cp "$SCEN_PATH" "$E2E_DIR/in/job.json.tmp"
+mv "$E2E_DIR/in/job.json.tmp" "$E2E_DIR/in/job.json"
 
-echo "=== dropped $JOB_NAME.json, polling $RESULT (timeout ${TIMEOUT}s) ==="
+echo "=== dropped job.json (Name=$JOB_NAME), polling $RESULT (timeout ${TIMEOUT}s) ==="
 
 ELAPSED=0
 while [ ! -f "$RESULT" ]; do

@@ -52,24 +52,24 @@ MODULES="cons reg core map loadout roads test"
 #   (без флага)        -> функциональный: defines[] как закоммитил dayz-dev
 MODE="func"
 CUSTOM_DEFINES=""
-case "${1:-}" in
-    --prod) MODE="prod" ;;
-    --test) MODE="test" ;;
-    --define) MODE="define"; CUSTOM_DEFINES="${2:-}" ;;
-    ""|--) MODE="func" ;;
-    *) echo "usage: build.sh [--prod|--test|--define DOM1,DOM2]  (default: functional, keeps committed defines)" >&2; exit 2 ;;
-esac
+MODULES_ARG=""   # пусто = все модули; иначе список через запятую (инкрементальная сборка)
 
-# Отклонить молча игнорируемые лишние аргументы. Footgun: `--prod --define DM_BOT_DEBUG_CAR`
-# берёт $1=--prod и ТИХО отбрасывает `--define DM_BOT_DEBUG_CAR` (собирается только
-# DM_BOT_PROFILE, нужный DEBUG-домен пропадает). Только `--define` легитимно берёт
-# второй токен (список доменов через запятую); всё остальное — ошибка.
-if [ $# -gt 0 ]; then shift; fi
-if [ "$MODE" = "define" ] && [ $# -gt 0 ]; then shift; fi
-if [ $# -gt 0 ]; then
-    echo "build.sh: unexpected argument(s): $*" >&2
-    echo "usage: build.sh [--prod|--test|--define DOM1,DOM2]" >&2
-    exit 2
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --prod) MODE="prod" ;;
+        --test) MODE="test" ;;
+        --define) MODE="define"; CUSTOM_DEFINES="${2:-}"; shift ;;
+        --modules) MODULES_ARG="${2:-}"; shift ;;
+        *) echo "usage: build.sh [--prod|--test|--define DOM1,DOM2] [--modules cons,core,...]  (default: functional, all modules)" >&2; exit 2 ;;
+    esac
+    shift
+done
+
+# Инкрементальная сборка: --modules cons,core → собираются ТОЛЬКО указанные модули,
+# остальные PBO в build/ переиспользуются как есть (без rm -rf и без пересборки).
+MODULES="cons reg core map loadout roads test"
+if [ -n "$MODULES_ARG" ]; then
+    MODULES=$(echo "$MODULES_ARG" | tr ',' ' ')
 fi
 
 # Модули, у которых есть defines[] (gated call sites; reg — без defines).
@@ -124,7 +124,10 @@ if [ "$MODE" != "func" ]; then
     trap restore_defines EXIT
 fi
 
-rm -rf "$OUT"
+# Полный билд — чистый каталог; частичный (--modules) — НЕ чистим: чужие PBO переиспользуем.
+if [ -z "$MODULES_ARG" ]; then
+    rm -rf "$OUT"
+fi
 mkdir -p "$OUT"
 
 for m in $MODULES; do
