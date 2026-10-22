@@ -12,9 +12,9 @@
 # Предполагает: сервер запущен, мост включён (файл e2e/enabled существует).
 set -euo pipefail
 
-E2E_DIR="/mnt/deep-space/Steam/steamapps/common/DayZServer/profiles-cherno/dmBotorama/e2e"
+E2E_DIR="/mnt/deep-space/Steam/steamapps/common/DayZServer/profiles-nasdara/dmBotorama/e2e"
 SCENARIOS="/home/devalio/dayz/Work/botorama/tools/e2e"
-RPT_DIR="/mnt/deep-space/Steam/steamapps/common/DayZServer/profiles-cherno"
+RPT_DIR="/mnt/deep-space/Steam/steamapps/common/DayZServer/profiles-nasdara"
 
 TIMEOUT=120
 POLL=1
