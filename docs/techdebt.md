@@ -248,12 +248,14 @@
    состояние). **Осталось**: натуральная смерть (голод/холод/скрипт) идёт через `SetHealth`-стат →
    `IsAlive()=false`, но `EEKilled` не приходит → нужен отдельный хук (диагностика `/bot deadmans`).
 
-10. `[~]` **Нокаут «не настоящий»**: лежит, но нельзя взять оружие/«привести в чувство»,
-    поза неправильная. *Подтверждено (research/body.md)*: «настоящий» нокаут = `StartCommand_Unconscious(0)`
-    **+** `m_IsUnconscious=true` (net-var) **+** `OnUnconsciousStart()` (выброс оружия, `SetSynchDirty`,
-    `EnableVoN(false)`). Модный `UpdateUnconsciousBridge` зовёт `StartCommand_Unconscious(0)` голо —
-    без `m_IsUnconscious` и `OnUnconsciousStart()`. Фикс: добавить оба (референс — Expansion `eAIBase`
-    даёт ИИ action-manager + переопределяет `OnUnconsciousStart`).
+10. `[x]` **Нокаут «не настоящий»**: лежит, но нельзя взять оружие/«привести в чувство»,
+    поза неправильная. *Сделано (E2E v3.297–3.298)*: серверная часть нокаута НАСТОЯЩАЯ —
+    `UpdateUnconsciousBridge` ставит `m_IsUnconscious=true` + `SetSynchDirty` + дроп оружия +
+    `SetBlock(false)` + `SetMasterAttenuation`; нативная команда реально переходит в unconscious
+    (нативный id 30, см. research/body.md), `CanAct()=false`, `speed=0`; дроп `result=true`,
+    пробуждение + `RetrieveWeapon` работают. **Осталось (клиент, не подтверждено)**: CPR-экшен
+    «привести в чувство» и поза у других игроков — зависят от net-sync `m_IsUnconscious` (выставлен),
+    но визуально не проверены.
 
 11. `[~]` **Не подбирает оружие/мили/патроны** (SHOULDER/MELEE или не-одежда). *Гипотеза*:
     лутание (`dmLoot`/`dmWishlist`/`TakeToAttachmentSlot`) умеет только одежду/предметы,
@@ -283,8 +285,16 @@
     движение в машине, разрешить голову на 120°.
 
 17. `[~]` **Флаги `m_MeleeAttackRequest`/`m_FireRequest` остаются после нокаута → удар по
-    мёртвой цели после вставания.** *Гипотеза*: `ResetActuation` уже сбрасывает `m_FireRequest`
-    (v3.36), но `m_MeleeAttackRequest` не сбрасывается; плюс атака не проверяет жива ли цель.
+    мёртвой цели после вставания.** *Частично подтверждено (E2E v3.297)*: `ResetActuation`
+    сбрасывает ОБА флага каждый кадр пока `!CanAct()` (в дампе `incapacitated` `meleeReq=false`,
+    `meleeTgt=null`). **Осталось**: «после вставания бьёт по мёртвой цели» — это НЕ про флаги, а
+    про отсутствие проверки `IsAlive()` у цели в `Fighting` (связано с #3 «атакует неживую EntityAI»).
+
+18. `[x]` **Дроп предмета из рук при СМЕРТИ** (в багрепорте «падает в отключку и умирает, не роняя
+    предметов»). *Сделано (v3.298)*: дроп был только в нокаут-пути; `EEKilled` его не делал → предмет
+    оставался в руках трупа. Добавлен дроп в `EEKilled` перед `super` (тот же паттерн `DropItem`,
+    без `SetDroppedWeapon` — после смерти мозг снимается). E2E `body-knockout-{fists,weapon,shock}`:
+    `EEKilled: drop item=… result=true`, труп регистрируется, нокаут-путь не регрессировал.
 
 ## J. Вождение (автомобиль, `dmBotIntent_Drive`)
 

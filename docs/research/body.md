@@ -276,6 +276,24 @@ override void EEKilled(Object killer) {
   `OnUnconsciousStart()`; при `WakeUp` — `m_IsUnconscious = false` + `OnUnconsciousStop()`.
   Либо, как Expansion, дать боту action-manager, чтобы ванильный блок отработал сам.
 
+### Нативные id команд движения ≠ порядок enum (подтверждено E2E, v3.297)
+
+`m_MovementState.m_CommandTypeId` у живого ИИ-бота (после `GetMovementState(m_MovementState)`)
+принимает НАТИВНЫЕ id, которые **не совпадают** с порядковым enum `0..13` в `dayzplayer.c`
+(там они помечены «overridden from C++»). Эмпирически наблюдаемая (не полная) таблица по логам
+кулачного боя двух ботов + фонового settlement-бота:
+
+| id | команда |
+|---|---|
+| 25 | death |
+| 26 | move / idle |
+| 28 | melee2 (удар) |
+| 30 | **unconscious** |
+
+Т.е. `COMMANDID_UNCONSCIOUS` **не** «id 12» — нативная последовательность перехода
+«melee(28) → unconscious(30) → death(25)» монотонна. При диагностике отключки сверяться с
+`IsUnconscious()`/`IsUnconsciousStateOnly()`, а не хардкодить id.
+
 ## 4. Нокаут и связывание (restrain/unrestrain)
 
 Цель фикса: (а) настоящий нокаут, (б) бот «развязывается» после связывания, (в) программно
