@@ -1,0 +1,16 @@
+{
+  "Name": "body-knockout-shock",
+  "Timeout": 60,
+  "Steps": [
+    { "Op": "spawn", "Who": "K", "Pos": [4117, 0, 10827], "Yaw": 0, "Preset": "combat" },
+    { "Op": "give", "Who": "K", "Value": "Machete" },
+    { "Op": "botdump", "Who": "K" },
+    { "Op": "shock", "Who": "K", "Value": "0.0" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "K" },
+    { "Op": "shock", "Who": "K", "Value": "100.0" },
+    { "Op": "sleep", "Timeout": 12 },
+    { "Op": "botdump", "Who": "K" },
+    { "Op": "clearall" }
+  ]
+}

@@ -1312,6 +1312,22 @@ class dmAISurvivorBase : PlayerBase
 		DebugBodyState("death-before");
 		#endif
 
+		//! Дроп предмета из рук ПЕРЕД super.EEKilled: предмет должен лежать на земле к
+		//! моменту регистрации трупа (InsertCorpse внутри super). DropItem работает с
+		//! самим предметом (RemoteObjectTreeDelete → LocalDropEntity →
+		//! RemoteObjectTreeCreate), состояние смерти сущности не трогает.
+		EntityAI inHands = GetItemInHands();
+		if (inHands)
+		{
+			#ifdef DM_BOT_DEBUG_BODY
+			dmBotLog.Debug("EEKilled: drop item=" + inHands.GetType());
+			#endif
+			bool dropped = DropItem(ItemBase.Cast(inHands));
+			#ifdef DM_BOT_DEBUG_BODY
+			dmBotLog.Debug("EEKilled: DropItem result=" + dropped);
+			#endif
+		}
+
 		super.EEKilled(killer);
 
 		#ifdef DM_BOT_DEBUG_BODY

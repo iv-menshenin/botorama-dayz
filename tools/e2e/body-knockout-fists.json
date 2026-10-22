@@ -1,0 +1,13 @@
+{
+  "Name": "body-knockout-fists",
+  "Timeout": 180,
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [4117, 0, 10827], "Yaw": 0, "Preset": "combat" },
+    { "Op": "spawn", "Who": "B", "Pos": [4121, 0, 10827], "Yaw": 180, "Preset": "combat" },
+    { "Op": "hostile", "Who": "A", "Target": "B", "Threat": 0.9 },
+    { "Op": "hostile", "Who": "B", "Target": "A", "Threat": 0.9 },
+    { "Op": "sleep", "Timeout": 90 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

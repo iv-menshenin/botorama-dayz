@@ -1,0 +1,15 @@
+{
+  "Name": "body-knockout-weapon",
+  "Timeout": 200,
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [4117, 0, 10827], "Yaw": 0, "Preset": "combat" },
+    { "Op": "spawn", "Who": "B", "Pos": [4121, 0, 10827], "Yaw": 180, "Preset": "combat" },
+    { "Op": "give", "Who": "A", "Value": "Machete" },
+    { "Op": "give", "Who": "B", "Value": "Machete" },
+    { "Op": "hostile", "Who": "A", "Target": "B", "Threat": 0.9 },
+    { "Op": "hostile", "Who": "B", "Target": "A", "Threat": 0.9 },
+    { "Op": "sleep", "Timeout": 120 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}
