@@ -56,6 +56,7 @@ class dmE2EStep
 	float Radius;     // spawn scatter radius around the center (army, default 50)
 	string Preset;    // FSM preset: "nomad"|"survivor"|"combat"|"escort"|"hunter" (spawn); "shooting" (default) | "combat" (army); "nomad" (meleefight)
 	float Spread;     // hostile threat blur (army, default DM_INVASION_SPREAD)
+	float Threat;     // threat value for the "hostile" op (default 1.0 when <= 0)
 	int Zombies;      // number of zombies to spawn (meleefight, default 2)
 	float ZombieDist; // zombie spawn distance from the bot (meleefight, default 2.5)
 	vector TargetPos; // griddump end point (world); `string Target` is a bot name, so the end position uses a vector field
@@ -763,6 +764,10 @@ class dmE2EBridge
 		{
 			RunMeleeFight(step, r);
 		}
+		else if (step.Op == "hostile")
+		{
+			RunHostile(step, r);
+		}
 		else if (step.Op == "spawnobj")
 		{
 			RunSpawnObj(step, r);
@@ -945,6 +950,39 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "follow issued";
+	}
+
+	//! "hostile" — register Who as hostile toward Target (threat, blur spread).
+	private void RunHostile(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivor target;
+		if (!m_Named.Find(step.Target, target))
+		{
+			r.Ok = false;
+			r.Reason = "no such target";
+			return;
+		}
+
+		float threat = step.Threat;
+		if (threat <= 0.0)
+			threat = 1.0;
+
+		float spread = step.Spread;
+		if (spread <= 0.0)
+			spread = DM_INVASION_SPREAD;
+
+		bot.RegisterHostile(target.GetPawn(), threat, spread);
+
+		r.Ok = true;
+		r.Reason = "hostile " + step.Who + " -> " + step.Target + " threat=" + threat;
 	}
 
 	//! "patrol" — replace the bot's patrol points with the step's Points.

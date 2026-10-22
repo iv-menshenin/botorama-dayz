@@ -45,7 +45,7 @@ class dmBotIntent_HitTo : dmBotIntent
 		float mCd = bot.GetMeleeCooldown();
 		if ( mCd > 0.0 || !m_TargetEntity)
 		{
-			#ifdef DM_BOT_DEBUG_FSM
+			#ifdef DM_BOT_DEBUG_FIGHT
 			if ( m_TargetEntity )
 			{
 				m_LastFail = dmHitToFail.COOLDOWN;
@@ -67,7 +67,7 @@ class dmBotIntent_HitTo : dmBotIntent
 		if (dist > m_ReachDistance || yDiff > 1.0)
 		{
 			m_LastFail = dmHitToFail.TOOFAR;
-			#ifdef DM_BOT_DEBUG_FSM
+			#ifdef DM_BOT_DEBUG_FIGHT
 			dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА дистанция: " + dist + " > " + m_ReachDistance);
 			#endif
 			return;
@@ -76,11 +76,15 @@ class dmBotIntent_HitTo : dmBotIntent
 		float yawTo = d.VectorToAngles()[0];
 		float bodyYaw = bot.GetOrientation()[0];
 		float ang = dmAISurvivor.AngleDiff(yawTo, bodyYaw);
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (Math.AbsFloat(ang) > DM_MELEE_FACE_ANGLE)
 		{
 			m_LastFail = dmHitToFail.ANGLE;
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА угол: " + Math.AbsFloat(ang) + " > " + DM_MELEE_FACE_ANGLE);
+			//! Ни в коем случае не делать слайд-доворот, это сломает бой
+			//! Лучшее решение - это дать пешке завершить поворот в сторону противника, поставив удар на кулдаун
+			bot.SetMeleeCooldown(0.5);
+			#ifdef DM_BOT_DEBUG_FIGHT
+			dmBotLog.Debug("[FSM] Fighting: угол " + Math.AbsFloat(ang) + " > " + DM_MELEE_FACE_ANGLE + " неудача!");
 			#endif
 			return;
 		}
@@ -89,7 +93,7 @@ class dmBotIntent_HitTo : dmBotIntent
 		if (!t || !t.m_HasLOS)
 		{
 			m_LastFail = dmHitToFail.HASNTLOS;
-			#ifdef DM_BOT_DEBUG_FSM
+			#ifdef DM_BOT_DEBUG_FIGHT
 			if ( t )
 			{
 				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА видимость: " + t.m_HasLOS);
@@ -101,13 +105,12 @@ class dmBotIntent_HitTo : dmBotIntent
 			// return;
 		}
 
-		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (pawn)
 		{
 			pawn.RequestMeleeAttack(m_TargetEntity);
 			bot.SetMeleeCooldown(DM_MELEE_COOLDOWN);
 
-			#ifdef DM_BOT_DEBUG_FSM
+			#ifdef DM_BOT_DEBUG_FIGHT
 			dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType());
 			#endif
 		}

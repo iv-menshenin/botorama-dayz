@@ -27,6 +27,7 @@
 //!   DM_BOT_DEBUG_PAWN    — pawn/animation (variable binding, look sync).
 //!   DM_BOT_DEBUG_BODY    — body mechanics (CE profile, corpse registration, blood/
 //!                          shock/unconscious bridge, periodic body stats).
+//!   DM_BOT_DEBUG_FIGHT   — мили-бой (Fighting-состояние, HitTo, RequestMeleeAttack/EvaluateHit).
 //!   DM_BOT_DEBUG_LOADOUT — loadout application (dmLoadoutApplier).
 //!   DM_BOT_DEBUG_VISION  — perception scan (candidates, FOV/LOS results).
 //!   DM_BOT_DEBUG_EVADE   — уворот от прицела (EvadeAim): триггер, свип укрытия, додж, конец.

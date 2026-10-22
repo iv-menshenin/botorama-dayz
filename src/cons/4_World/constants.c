@@ -522,7 +522,7 @@ static const float DM_PERCEPTION_REFRESH_HIGH_THREAT = 0.2;
 
 //! Target evaluation: threat (0..1) — how dangerous a sighted entity is.
 //! The player is scored low so bots don't auto-attack them by default.
-static const float DM_TARGET_THREAT_PLAYER = 0.6;
+static const float DM_TARGET_THREAT_PLAYER = 0.1;
 static const float DM_TARGET_THREAT_ZOMBIE = 0.3; // обнаруженный зомби не враждебен; враждебность только через урон
 static const float DM_TARGET_THREAT_ANIMAL = 0.2;
 
@@ -601,7 +601,8 @@ static const float DM_EVADE_AIM_STRAFE_SWITCH   = 0.5;    // смена стор
 static const float DM_MELEE_COOLDOWN = 0.6;
 
 //! Melee: allowed body-facing error (degrees) before a strike is thrown.
-static const float DM_MELEE_FACE_ANGLE = 90.0;
+//! research combat.md recommends ±15° for a clean hit; we allow 20° with margin.
+static const float DM_MELEE_FACE_ANGLE = 20.0;
 
 //! Melee: damage multiplier applied per strike against zombies.
 static const int DM_MELEE_DAMAGE_MULT_ZOMBIE = 2;

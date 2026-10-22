@@ -49,7 +49,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 		if (!m_Bot || !m_Bot.HasMeleeAttackRequest())
 			return false;
 
-		#ifdef DM_BOT_DEBUG_FSM
+		#ifdef DM_BOT_DEBUG_FIGHT
 		dmBotLog.Debug("dmBotMeleeFightLogic: melee request");
 		#endif
 
@@ -77,7 +77,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 		else
 			m_Player.DepleteStamina(EStaminaModifiers.MELEE_LIGHT);
 
-		#ifdef DM_BOT_DEBUG_FSM
+		#ifdef DM_BOT_DEBUG_FIGHT
 		dmBotLog.Debug("dmBotMeleeFightLogic: start melee2 target=" + target);
 		#endif
 
@@ -103,6 +103,11 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 		int mult = 1;
 		if (ZombieBase.Cast(target))
 			mult = DM_MELEE_DAMAGE_MULT_ZOMBIE;
+
+		#ifdef DM_BOT_DEBUG_FIGHT
+		dmBotLog.Debug("dmBotMeleeFightLogic: EvaluateHit hitPos=" + hitPos + " mult=" + mult);
+		#endif
+
 		int i;
 		for (i = 0; i < mult; i++)
 			m_Player.ProcessMeleeHitName(weapon, weaponMode, target, compName, hitPos);

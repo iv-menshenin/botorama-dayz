@@ -45,6 +45,7 @@ class dmTestSuite_TestCase
 	{
 		m_Bot = bot;
 		m_Player = player;
+		m_Bot.RegisterHostile(player, 0.1); // Чтобы бот не считал тестировщика угрозой
 	}
 
 	//! One-line summary sent to chat on start (what is done + expected result).

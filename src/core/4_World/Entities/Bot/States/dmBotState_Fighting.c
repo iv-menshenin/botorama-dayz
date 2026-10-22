@@ -46,7 +46,7 @@ class dmBotState_Fighting : dmBotState
 
 		ResolveTarget();
 
-		#ifdef DM_BOT_DEBUG_FSM
+		#ifdef DM_BOT_DEBUG_FIGHT
 		dmBotLog.Debug("[FSM] Fighting.entry");
 		#endif
 	}
@@ -105,7 +105,7 @@ class dmBotState_Fighting : dmBotState
 
 	override void OnExit(dmBotState to)
 	{
-		#ifdef DM_BOT_DEBUG_FSM
+		#ifdef DM_BOT_DEBUG_FIGHT
 		dmBotLog.Debug("[FSM] Fighting.exit");
 		#endif
 
@@ -135,7 +135,7 @@ class dmBotState_Fighting : dmBotState
 			if (m_HitTo) { m_HitTo.Finish(); m_HitTo = null; }
 			if (m_Look) { m_Look.Finish(); m_Look = null; }
 
-			#ifdef DM_BOT_DEBUG_FSM
+			#ifdef DM_BOT_DEBUG_FIGHT
 			dmBotLog.Debug("[FSM] Fighting: цель сменилась, интенты сброшены");
 			#endif
 		}
@@ -258,7 +258,7 @@ class dmBotState_Fighting : dmBotState
 		pawn.GetInventoryFrames().Enqueue(root);
 		m_EquipRoot = root;
 
-		#ifdef DM_BOT_DEBUG_FSM
+		#ifdef DM_BOT_DEBUG_FIGHT
 		dmBotLog.Debug("[FSM] Fighting: мили " + melee.GetType());
 		#endif
 	}
@@ -274,7 +274,7 @@ class dmBotState_Fighting : dmBotState
 				return mc.GetWeaponReach(InventoryItem.Cast(pawn.GetItemInHands()));
 		}
 
-		#ifdef DM_BOT_DEBUG_FSM
+		#ifdef DM_BOT_DEBUG_FIGHT
 		dmBotLog.Debug("[FSM] Fighting: нет dmBotMeleeCombat - fallback");
 		#endif
 		return DM_MELEE_REACH;
