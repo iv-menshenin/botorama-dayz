@@ -1314,8 +1314,8 @@ class dmAISurvivorBase : PlayerBase
 
 		//! Дроп предмета из рук ПЕРЕД super.EEKilled: предмет должен лежать на земле к
 		//! моменту регистрации трупа (InsertCorpse внутри super). DropItem работает с
-		//! самим предметом (RemoteObjectTreeDelete → LocalDropEntity →
-		//! RemoteObjectTreeCreate), состояние смерти сущности не трогает.
+		//! самим предметом (LocalDropEntity + отложенный ре-синк, см. DropItem),
+		//! состояние смерти сущности не трогает.
 		EntityAI inHands = GetItemInHands();
 		if (inHands)
 		{
@@ -2150,14 +2150,21 @@ class dmAISurvivorBase : PlayerBase
 	//! PredictiveDropEntity и валит сервер, см. docs/research/loot.md). Возвращает
 	//! true при успехе. Вызывающий сам выбирает предмет (GetDiscardOrder) и помечает
 	//! его Ignore, чтобы не подобрать заново.
+	//!
+	//! Ре-синк (RemoteObjectTreeDelete/Create) вынесен в отложенный
+	//! ResyncDroppedItem: LocalDropEntity для предмета В РУКАХ уходит в deferred
+	//! HandEventDrop (DayZPlayerInventory.HandEvent ставит DeferredHandEvent), и
+	//! фактическое перемещение на землю происходит СЛЕДУЮЩИМ тиком. Если ре-синкать
+	//! сразу, RemoteObjectTreeCreate пере-создаст предмет на клиенте, пока он ещё
+	//! в руке — клиент продолжает видеть оружие в руке (см. docs/research/body-drop.md).
 	override bool DropItem(ItemBase item)
 	{
 		if (!item)
 			return false;
 
-		GetGame().RemoteObjectTreeDelete(item);
 		bool ok = LocalDropEntity(item);
-		GetGame().RemoteObjectTreeCreate(item);
+		if (ok)
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ResyncDroppedItem, DM_BOT_DROP_RESYNC_DELAY_MS, false, item);
 
 		if (ok)
 		{
@@ -2167,6 +2174,30 @@ class dmAISurvivorBase : PlayerBase
 			return true;
 		}
 		return false;
+	}
+
+	//! Задержка отложенного ре-синка (см. ResyncDroppedItem): ~34 мс ≈ 2 тика
+	//! (эталон Expansion CallLater(eAI_Recreate, 34, false)) — буфер на обработку
+	//! deferred HandEventDrop, чтобы RemoteObjectTreeCreate пере-создал предмет уже
+	//! НА ЗЕМЛЕ, а не в руке.
+	static const int DM_BOT_DROP_RESYNC_DELAY_MS = 34;
+
+	//! Отложенный ре-синк выпавшего предмета (см. DropItem). Guard: предмет ещё
+	//! валиден и уже не в чьей-то иерархии (GetHierarchyRootPlayer() == null, т.е.
+	//! на земле) — иначе ре-синк сломал бы retrieve-флоу (бот подобрал оружие обратно).
+	private void ResyncDroppedItem(ItemBase item)
+	{
+		if (!item || item.IsSetForDeletion())
+			return;
+		if (item.GetHierarchyRootPlayer())
+			return;
+
+		#ifdef DM_BOT_DEBUG_BODY
+		dmBotLog.Debug("[Body] ResyncDroppedItem: re-sync " + item.GetType());
+		#endif
+
+		GetGame().RemoteObjectTreeDelete(item);
+		GetGame().RemoteObjectTreeCreate(item);
 	}
 
 	//! Find a non-empty magazine in the inventory that fits the weapon (prefer an
