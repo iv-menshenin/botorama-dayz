@@ -15,6 +15,17 @@ permission:
     "head *": allow
     "tail *": allow
     "strings *": allow
+    "sed *": allow
+    "awk *": allow
+    "cut *": allow
+    "sort *": allow
+    "uniq *": allow
+    "wc *": allow
+    "diff *": allow
+    "echo *": allow
+    "printf *": allow
+    "tr *": allow
+    "xargs *": allow
   external_directory:
     "*": deny
 ---

@@ -14,6 +14,21 @@ permission:
     "rg *": allow
     "find *": allow
     "ls *": allow
+    "cat *": allow
+    "head *": allow
+    "tail *": allow
+    "sed *": allow
+    "awk *": allow
+    "cut *": allow
+    "sort *": allow
+    "uniq *": allow
+    "wc *": allow
+    "diff *": allow
+    "echo *": allow
+    "printf *": allow
+    "strings *": allow
+    "tr *": allow
+    "xargs *": allow
   external_directory:
     "*": deny
 ---

@@ -14,6 +14,18 @@ permission:
     "head *": allow
     "tail *": allow
     "strings *": allow
+    "git *": allow
+    "sed *": allow
+    "awk *": allow
+    "cut *": allow
+    "sort *": allow
+    "uniq *": allow
+    "wc *": allow
+    "diff *": allow
+    "echo *": allow
+    "printf *": allow
+    "tr *": allow
+    "xargs *": allow
   external_directory:
     "/home/devalio/dayz/Work/**": allow
     "/mnt/deep-space/Steam/steamapps/common/DayZServer/**": allow
