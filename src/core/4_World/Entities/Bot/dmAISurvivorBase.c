@@ -140,6 +140,9 @@ class dmAISurvivorBase : PlayerBase
 	//! Accumulator for the periodic body-stats debug log (DM_BOT_DEBUG_BODY).
 	private float m_BodyDebugAccum = 0.0;
 
+	//! Accumulator for the throttled incapacitated body-state dump (DM_BOT_DEBUG_BODY).
+	private float m_IncapacitatedDebugAccum = 0.0;
+
 	//! Accumulator for the periodic movement-apply debug log (DM_BOT_DEBUG_BODY).
 	private float m_MoveDebugAccum = 0.0;
 
@@ -1039,6 +1042,16 @@ class dmAISurvivorBase : PlayerBase
 		if (!canAct)
 		{
 			ResetActuation();
+
+			#ifdef DM_BOT_DEBUG_BODY
+			m_IncapacitatedDebugAccum += pDt;
+			if (m_IncapacitatedDebugAccum >= 2.0)
+			{
+				m_IncapacitatedDebugAccum = 0.0;
+				DebugBodyState("incapacitated");
+			}
+			#endif
+
 			return;
 		}
 
@@ -1174,6 +1187,11 @@ class dmAISurvivorBase : PlayerBase
 			if (!m_ShouldBeUnconscious)
 			{
 				m_ShouldBeUnconscious = true;
+
+				#ifdef DM_BOT_DEBUG_BODY
+				DebugBodyState("uncon-enter-before");
+				#endif
+
 				StartCommand_Unconscious(0);
 
 				//! Серверная часть OnUnconsciousStart (ваниль гейтит INSTANCETYPE_SERVER/CLIENT — для AI_SERVER руками):
@@ -1192,12 +1210,25 @@ class dmAISurvivorBase : PlayerBase
 				EntityAI inHands = GetItemInHands();
 				if (inHands)
 				{
+					#ifdef DM_BOT_DEBUG_BODY
+					dmBotLog.Debug("UnconsciousBridge: drop item=" + inHands.GetType());
+					#endif
 					if (brain)
 						brain.SetDroppedWeapon(inHands);   //! запомнить для «вернуть оружие»
-					DropItem(ItemBase.Cast(inHands));
+					bool dropped = DropItem(ItemBase.Cast(inHands));
+					#ifdef DM_BOT_DEBUG_BODY
+					dmBotLog.Debug("UnconsciousBridge: DropItem result=" + dropped);
+					#endif
+				}
+				else
+				{
+					#ifdef DM_BOT_DEBUG_BODY
+					dmBotLog.Debug("UnconsciousBridge: GetItemInHands() == null (no item to drop)");
+					#endif
 				}
 
 				#ifdef DM_BOT_DEBUG_BODY
+				DebugBodyState("uncon-enter-after");
 				dmBotLog.Debug("UnconsciousBridge: shock=" + shock + " -> StartCommand_Unconscious(0)");
 				#endif
 			}
@@ -1216,6 +1247,7 @@ class dmAISurvivorBase : PlayerBase
 				SetMasterAttenuation("");
 
 				#ifdef DM_BOT_DEBUG_BODY
+				DebugBodyState("uncon-wake");
 				dmBotLog.Debug("UnconsciousBridge: shock=" + shock + " -> WakeUp");
 				#endif
 			}
@@ -1276,9 +1308,14 @@ class dmAISurvivorBase : PlayerBase
 	//! does the death cleanup + corpse registration + SendDeathJuncture.
 	override void EEKilled(Object killer)
 	{
+		#ifdef DM_BOT_DEBUG_BODY
+		DebugBodyState("death-before");
+		#endif
+
 		super.EEKilled(killer);
 
 		#ifdef DM_BOT_DEBUG_BODY
+		DebugBodyState("death-after");
 		dmBotLog.Debug("EEKilled: hasCEProfile=" + (GetEconomyProfile() != null) + " corpseProcessing=" + m_CorpseProcessing + " corpseState=" + m_CorpseState + " lifetime=" + GetLifetime());
 		#endif
 	}
@@ -1290,6 +1327,45 @@ class dmAISurvivorBase : PlayerBase
 	//! s_Expansion_DangerousAreas + FindClosestPointOutsideCluster).
 	override void OnContaminatedAreaEnterServer()
 	{
+	}
+
+	//! Исчерпывающий дамп состояния тела для диагностики «сломанного» нокаута/смерти.
+	//! Пишет все флаги тела + мозговые флаги пакетом (3 строки лога с общим ctx —
+	//! разбивка по codeguide: одна цепочка > ~8 слагаемых даёт "Formula too complex").
+	//! Вызывается только под #ifdef DM_BOT_DEBUG_BODY на месте вызова.
+	private void DebugBodyState(string ctx)
+	{
+		#ifdef DM_BOT_DEBUG_BODY
+		EntityAI inHands = GetItemInHands();
+		string handsType = "null";
+		if (inHands)
+			handsType = inHands.GetType();
+
+		EntityAI meleeTarget = m_MeleeTarget;
+		string meleeType = "null";
+		if (meleeTarget)
+			meleeType = meleeTarget.GetType();
+
+		GetMovementState(m_MovementState);
+
+		dmAISurvivor brain = dmAISurvivor.Find(this);
+		bool inCombat = false;
+		bool wasCombatKnockout = false;
+		string droppedType = "null";
+		EntityAI dropped = null;
+		if (brain)
+		{
+			inCombat = brain.IsInCombat();
+			wasCombatKnockout = brain.WasInCombatAtKnockout();
+			dropped = brain.GetDroppedWeapon();
+		}
+		if (dropped)
+			droppedType = dropped.GetType();
+
+		dmBotLog.Debug("[Body:" + ctx + "] alive=" + IsAlive() + " unconscious=" + IsUnconscious() + " stateOnly=" + IsUnconsciousStateOnly() + " mIsUnc=" + m_IsUnconscious + " shouldUnc=" + m_ShouldBeUnconscious + " restrained=" + IsRestrained() + " canAct=" + CanAct());
+		dmBotLog.Debug("[Body:" + ctx + "] shock=" + GetHealth("", "Shock") + " health=" + GetHealth("", "Health") + " hands=" + handsType + " meleeReq=" + m_MeleeAttackRequest + " fireReq=" + m_FireRequest + " meleeTgt=" + meleeType);
+		dmBotLog.Debug("[Body:" + ctx + "] cmd=" + m_MovementState.m_CommandTypeId + " speed=" + m_ActualSpeed + " dropped=" + droppedType + " inCombat=" + inCombat + " wasCombatKnockout=" + wasCombatKnockout);
+		#endif
 	}
 
 	//! Whether the body may actuate (move/turn/stance/look). False while dead,
