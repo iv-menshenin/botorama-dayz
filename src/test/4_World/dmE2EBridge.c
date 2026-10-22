@@ -6,7 +6,7 @@
 //! exists, so there is zero overhead when no agent is driving.
 //!
 //! Ops: ping | spawn | moveto | follow | patrol | speed | loadout | look | say |
-//! shock | restrain | give | wait | assert | snapshot | clearall (named bots)
+//! shock | healplayer | restrain | give | wait | assert | snapshot | clearall (named bots)
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
 //! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
@@ -732,6 +732,10 @@ class dmE2EBridge
 		{
 			RunShock(step, r);
 		}
+		else if (step.Op == "healplayer")
+		{
+			RunHealPlayer(step, r);
+		}
 		else if (step.Op == "restrain")
 		{
 			RunRestrain(step, r);
@@ -1146,6 +1150,62 @@ class dmE2EBridge
 		pawn.SetHealth("", "Shock", step.Value.ToFloat());
 		r.Ok = true;
 		r.Reason = "shock set";
+	}
+
+	//! "healplayer" — refill the HUMAN observer's vitals (health/shock/water/
+	//! energy) so a long test doesn't kill it — a dead player cannot be revived
+	//! programmatically. AI survivors (dmAISurvivorBase) pollute the player
+	//! registry, so they must be skipped (same filter as observe).
+	private void RunHealPlayer(dmE2EStep step, dmE2EStepResult r)
+	{
+		array<PlayerBase> players = dmEntityRegistry.GetPlayers();
+		int i;
+		for (i = 0; i < players.Count(); i++)
+		{
+			PlayerBase p = players[i];
+			if (!p || dmAISurvivorBase.Cast(p))
+				continue;
+
+			p.SetHealth("", "Health", 100.0);
+			p.SetHealth("", "Shock", 100.0);
+
+			PlayerStat<float> water = p.GetStatWater();
+			PlayerStat<float> energy = p.GetStatEnergy();
+			float waterMax = 5000.0;
+			float energyMax = 5000.0;
+			if (water)
+				waterMax = water.GetMax();
+			if (energy)
+				energyMax = energy.GetMax();
+
+			float waterVal = 0.0;
+			float energyVal = 0.0;
+			if (water)
+			{
+				water.Set(waterMax);
+				waterVal = water.Get();
+			}
+			if (energy)
+			{
+				energy.Set(energyMax);
+				energyVal = energy.Get();
+			}
+
+			string name = "unknown";
+			if (p.GetIdentity())
+				name = p.GetIdentity().GetName();
+			r.Ok = true;
+			r.Reason = "healed " + name + " at " + p.GetPosition();
+
+			string line = "healplayer health=" + p.GetHealth("", "Health") + " shock=" + p.GetHealth("", "Shock");
+			AppendDump(r, line);
+			line = "healplayer water=" + waterVal + " energy=" + energyVal;
+			AppendDump(r, line);
+			return;
+		}
+
+		r.Ok = false;
+		r.Reason = "no player connected";
 	}
 
 	//! "restrain" — restrain the bot (flag + locked restraint item in hands).
