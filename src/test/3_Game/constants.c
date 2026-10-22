@@ -281,3 +281,21 @@ static const float DM_E2E_MOVE_DEADLINE = 300.0;
 
 //! E2E: velocity threshold (m/s) above which a bot counts as "moving".
 static const float DM_E2E_MOVING_THRESHOLD = 0.5;
+
+//! E2E client bridge: the observer client writes its own (client-side) view into
+//! $profile:dmBotorama/e2e-client/ (in/out/done). The bridge only runs while the
+//! e2e-client/enabled marker file exists.
+static const string DM_E2E_CLIENT_DIR = "$profile:dmBotorama/e2e-client";
+static const string DM_E2E_CLIENT_IN_DIR = "$profile:dmBotorama/e2e-client/in";
+static const string DM_E2E_CLIENT_OUT_DIR = "$profile:dmBotorama/e2e-client/out";
+static const string DM_E2E_CLIENT_DONE_DIR = "$profile:dmBotorama/e2e-client/done";
+static const string DM_E2E_CLIENT_ENABLED_FILE = "$profile:dmBotorama/e2e-client/enabled";
+
+//! Scan cadence (seconds) of the e2e-client/in/ directory for new jobs.
+static const float DM_E2E_CLIENT_SCAN_INTERVAL = 0.5;
+
+//! Client op names (must match the job Op strings, one per op).
+static const string DM_E2E_CLIENT_OP_PING = "ping";
+static const string DM_E2E_CLIENT_OP_BOTDUMP = "botdump";
+static const string DM_E2E_CLIENT_OP_SCANOBJ = "scanobj";
+static const string DM_E2E_CLIENT_OP_RAYCAST = "raycast";
