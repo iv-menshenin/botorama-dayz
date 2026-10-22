@@ -36,7 +36,9 @@ GAME="/home/devalio/.local/share/Steam/steamapps/common/DayZ"
 MOD='Z:\mnt\deep-space\Steam\steamapps\common\DayZServer\@Botorama'
 
 echo "=== launching DayZ observer client (connect 127.0.0.1:2302) ==="
-timeout 600 "$RT" --verb=waitforexitandrun -- \
+# 1500s (25 min): клиент может грузиться до 15 мин (Fossilize/стриминг мира);
+# прежний timeout 600 убивал клиента раньше входа в игру.
+timeout 1500 "$RT" --verb=waitforexitandrun -- \
     "$PROTON" waitforexitandrun \
     "$GAME/DayZ_x64.exe" \
     "-connect=127.0.0.1:2302" \
