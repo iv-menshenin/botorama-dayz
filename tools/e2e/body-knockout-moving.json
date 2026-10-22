@@ -1,0 +1,23 @@
+{
+  "Name": "body-knockout-moving",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [4117, 0, 10827], "Yaw": 0, "Preset": "combat" },
+    { "Op": "moveto", "Who": "A", "Pos": [4517, 0, 10827] },
+    { "Op": "sleep", "Timeout": 8 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "shock", "Who": "A", "Value": "0.0" },
+    { "Op": "sleep", "Timeout": 1 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 2 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 3 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 3 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 3 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

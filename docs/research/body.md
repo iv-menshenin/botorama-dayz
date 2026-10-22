@@ -285,14 +285,18 @@ override void EEKilled(Object killer) {
 
 | id | команда |
 |---|---|
+| 20 | MOVE (ходьба/бег) |
 | 25 | death |
-| 26 | move / idle |
+| 26 | idle (наблюдался у settlement-бота на месте) |
 | 28 | melee2 (удар) |
 | 30 | **unconscious** |
 
 Т.е. `COMMANDID_UNCONSCIOUS` **не** «id 12» — нативная последовательность перехода
-«melee(28) → unconscious(30) → death(25)» монотонна. При диагностике отключки сверяться с
-`IsUnconscious()`/`IsUnconsciousStateOnly()`, а не хардкодить id.
+«melee(28) → unconscious(30) → death(25)» и «MOVE(20) → unconscious(30)» монотонна.
+Подтверждено и что при нокауте НА ХОДУ нативная `HumanCommandMove` корректно заменяется
+на unconscious (дрейфа «бесконечное движение в отключке» нет — позиция фиксируется, speed=0).
+При диагностике отключки сверяться с `IsUnconscious()`/`IsUnconsciousStateOnly()`, а не
+хардкодить id.
 
 ## 4. Нокаут и связывание (restrain/unrestrain)
 
