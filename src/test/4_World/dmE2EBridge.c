@@ -30,6 +30,7 @@ class dmE2EStep
 	string Op;        // "ping" | "spawn" | "moveto" | "follow" | "patrol" | ... | "drivetest"
 	string Who;       // bot name (spawn, moveto, ...) / object name (spawnobj)
 	string Target;    // target bot name (follow, distance, look)
+	string Turn;      // look turn mode: "auto" (default, head-first) | "full" | "none"
 	vector Pos;       // [x,y,z] world position (spawn, moveto, reached, look, ...)
 	float Yaw;        // orientation in degrees (spawn, spawnobj, setpos)
 	autoptr array<vector> Points;  // patrol points [[x,z],...]
@@ -1092,7 +1093,11 @@ class dmE2EBridge
 		}
 
 		dmBotIntent_HoldLook look = new dmBotIntent_HoldLook();
-		look.m_Turn = dmBotLookTurn.FULL;
+		look.m_Turn = dmBotLookTurn.AUTO;
+		if (step.Turn == "full")
+			look.m_Turn = dmBotLookTurn.FULL;
+		else if (step.Turn == "none")
+			look.m_Turn = dmBotLookTurn.NONE;
 		look.m_Priority = dmBotIntentPriority.CRITICAL;
 		look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		look.m_Deadline = DM_E2E_MOVE_DEADLINE;
