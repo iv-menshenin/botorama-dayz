@@ -442,3 +442,172 @@ root-motion) откатывается к исходному яу.
   (`CMD_eAI_Turn`/`eAI_TurnAmount`); `AI/.../eAIBase.c:10093-10102` (HeadingModel MELEE2 →
   `SetOrientation(heading)`), `:10135` (fallback `NoHeading`); `AI/.../eAIMeleeCombat.c:217`
   (`SetOrientation(GetOrientation())`).
+
+---
+
+# Foot-step turn НЕ играет после ре-экспорта `.agr` → `.agf` (2f1bafb)
+
+Цель: найти точную причину, почему `ApplyBodyTurn`-foot-step (перебирание ног) визуально
+не играет, хотя команда/переменная уходят и биндятся (лог `Turn: state=1`, `CmdTurn=62`,
+`TurnAmount=4`). Все ссылки — на **текущие** сериализованные файлы (`src/core/Animations/*.agf`),
+поскольку `2f1bafb` удалил текстовые `.agr` (Locomotion/Actions/Tests) и заменил их на `.agf`
+(`AnimSrcGraphFile { Sheets { AnimSrcGraphSheet Movements { Nodes {...} } } }`).
+
+## 0. Что сделал 2f1bafb (факт, file:line)
+
+`git show --stat 2f1bafb`: `Locomotion.agf +13473` / `Locomotion.agr -9044`,
+`Actions.agf +10913` / `Actions.agr -7648`, `Tests.agf +236` / `Tests.agr -243`,
+`player_main.agr +2192/−2192` (переписан), `config.cpp +125`. То есть граф пере-экспортирован
+из редакторного `.agr` в сериализованный `.agf`. Формат отличается:
+- `.agr`: `$State { "TurnMaster" "TagTurn" "TurnVar" "false" "normtime" 0 }`,
+  `$Node AnimNodeVarUpdate { "TurnVar" "" "TurnStanceSTM" 1 "TurnAmount" 7 }`.
+- `.agf`: `AnimSrcNodeState TurnMaster { Tags {"TagTurn"} Child "TurnVar" StartCondition "false" }`,
+  `AnimSrcNodeVarUpdate TurnVar { Child "TurnStanceSTM" Varupdate { AnimSrcNodeVarUpdateItem {..} { VariableName "dmAI_TurnAmount" ... } } }`.
+
+## 1. State-машина поворота — существует и связана, но переименована
+
+`IdleStateMachine` (`Locomotion.agf:12090`) **есть**, состояния и переходы **на месте**, НЕ потеряны:
+
+- `AnimSrcNodeState Idles` (`:12093`): `Child "IdleLookLowBlendT"`, `StartCondition "True"`.
+- `AnimSrcNodeState TurnMaster` (`:12100`): `Tags {"TagTurn"}`, `Child "TurnVar"`,
+  `StartCondition "false"`, `TimeStorage "Normalized Time"` (= `normtime`). Состояния
+  `TurnMasterIdle` НЕ существует (ни в `.agf`, ни в старом `.agr`).
+- Переходы (`:12111-12139`):
+  - `Idles → TurnMaster` `Condition "IsCommand(CMD_Turn)"` (`:12117`);
+  - `TurnMaster → Idles` `Condition "GetLowerTime() > 0.85 || IsCommand(CMD_StopTurn)"` (`:12126`);
+  - `"" → TurnMaster` `Condition "IsCommand(CMD_Turn)"` (`:12135`).
+
+**Изменение №1 (команды):** переходы слушают **ванильные** `CMD_Turn`/`CMD_StopTurn`.
+В старом `.agr` было `IsCommand(dmAI_Turn)`/`IsCommand(dmAI_StopTurn)` (custom). Команды в
+`player_main.agr` при этом переименованы: `dmAI_Turn` → `dmAI_CMD_Turn` (`:437`),
+`dmAI_StopTurn` → `dmAI_CMD_StopTurn` (`:443`), а `CMD_Turn`/`CMD_StopTurn` остались (`:434,440`).
+Итог: `dmAI_CMD_Turn`/`dmAI_CMD_StopTurn` — **мёртвые** (grep по `Locomotion.agf` = 0 вхождений;
+все 9 `IsCommand(...Turn/StopTurn)` слушают `CMD_Turn`/`CMD_StopTurn`). Скрипт адаптирован в
+`2acff8d` на ванильные `CMD_Turn`/`CMD_StopTurn` (`dmAISurvivorBase.c:383-384`), поэтому сторона
+команд сейчас **согласована** — это не причина визуального разрыва, а мусор от ре-экспорта.
+
+## 2. Бленд + turn-анимации — целы, читают `dmAI_TurnAmount`
+
+Бленды выбора позы (`AnimSrcNodeBlendN`, `BlendWeight "dmAI_TurnAmount"`, `Thresholds -2 -1 0 1 2`,
+`Children L180 L90 Idle R90 R180`):
+`ErcTurnNBlend` (`:11819`, weight `:11821`), `ErcTurnInjNBlend` (`:11732`),
+`CroTurnNBlend` (`:11591`), `CroTurnInjNBlend` (`:11504`), `PneTurnNBlend` (`:12314`),
+`PneTurnInjNBlend` (`:12229`), `ThrowTurnErcN` (`:9054`), `ThrowTurnCroN` (`:9042`).
+Все читают **кастомный `dmAI_TurnAmount`** (совпадает со скриптом `BindVariableFloat("dmAI_TurnAmount")`,
+`dmAISurvivorBase.c:382`).
+
+Turn-анимации на месте, с root-motion `PredictionTurn` на `EntityPosition` (`Rotation 1`,
+`MainPath 1`, `Looptype "No Loop"`, `SyncLine "Turn"`):
+`ErcTurnIdleAnimSync` (`:11660`), `ErcTurnL180SyncAnim` (`:11776`), `ErcTurnL90SyncAnim` (`:11792`),
+`ErcTurnR180SyncAnim` (`:11831`), `ErcTurnR90SyncAnim` (`:11847`). Цепочка
+`TurnMaster → TurnVar → TurnStanceSTM → Erc → ErcTurnLookBlendT → ErcTurnHeadLookT → ErcTurnIKTarget
+→ ErcTurnInjBlend → ErcTurnNBlend → ErcTurn*SyncAnim` **связна** (проверено по `Child`/`Child0/1`).
+
+## 3. `TurnVar` пишет в `dmAI_TurnAmount` — ВОТ разрыв (главная причина)
+
+Три ноды `AnimSrcNodeVarUpdate` (извлекают угол поворота из root-motion `PredictionTurn` и пишут
+его в переменную) в текущем `.agf` пишут в **кастомный `dmAI_TurnAmount`**, а НЕ в ванильный
+`TurnAmount`:
+
+| Нода | строка | `VariableName` | флаги (UpdateOnInit/MainPath/BlendOut) |
+|------|--------|----------------|--------------------------------------|
+| `TurnVar` | `:12838`, var `:12843` | `dmAI_TurnAmount` ❌ | 1/1/1 (= mode 7) |
+| `PneTurnVar` | `:4973`, var `:4978` | `dmAI_TurnAmount` ❌ | 1/1/0 (= mode 3) |
+| `WaterTurnVar` | `:9672`, var `:9677` | `dmAI_TurnAmount` ❌ | 1/1/0 (= mode 3) |
+
+В старом `.agr` (до `2f1bafb`) все три писали в **ванильный `TurnAmount`** (mode 7/3):
+`"TurnVar" "" "TurnStanceSTM" 1 "TurnAmount" 7` (старый `Locomotion.agr:8538`), `"PneTurnVar"
+... "TurnAmount" 3` (`:3504`), `"WaterTurnVar" ... "TurnAmount" 3` (`:6471`). Это совпадало с
+ванилью (`DZ/.../locomotion.agr:8538/3504/6471` — `TurnAmount`, mode 7/3).
+
+**Почему это ломает визуал.** В проекте `TurnAmount` играет ДВЕ разные роли:
+- `dmAI_TurnAmount` — **вход** (скрипт `AnimSetFloat` ставит `Clamp(dBody/90, -2, 2)`), его читают
+  бленды, чтобы выбрать turn-анимацию;
+- `TurnAmount` (ваниль) — **выход** (туда `TurnVar` пишет извлечённое из `PredictionTurn` вращение,
+  его читает нативный код и крутит корпус).
+
+После ре-экспорта обе роли слили в одну переменную `dmAI_TurnAmount`: `TurnVar` (с
+`UpdateOnInit 1` + `UpdateOnMainPath 1`) в момент входа в `TurnMaster` перезаписывает значение
+скрипта значением вращения из root-motion (на старте ≈ 0) → бленд читает `dmAI_TurnAmount ≈ 0` →
+выбирает нейтраль `ErcTurnIdleAnimSync` (`Locomotion.Turn0`) → ноги НЕ перебирают. Ванильный
+`TurnAmount` при этом остался объявлен (`player_main.agr:21`), но **ни разу не упоминается** в
+`Locomotion.agf` (`grep -c '"TurnAmount"'` = 0) — переменная-выход осиротела. Это и есть разрыв
+«пишем в кастом, а натив/бленд ждут ванильный» (с точностью до направления: бленд читает тот же
+кастом, что мы пишем, — но это и есть перегрузка входной переменной обратной связью `TurnVar`).
+
+## 4. Рецепт фикса (ранжировано)
+
+1. **[primary] Вернуть `TurnVar`/`PneTurnVar`/`WaterTurnVar` запись в ванильный `TurnAmount`.**
+   В `src/core/Animations/Locomotion.agf` поменять `VariableName` в трёх `AnimSrcNodeVarUpdate`:
+   - `TurnVar` `:12843` → `VariableName "TurnAmount"`;
+   - `PneTurnVar` `:4978` → `VariableName "TurnAmount"`;
+   - `WaterTurnVar` `:9677` → `VariableName "TurnAmount"`.
+   Флаги не трогать (mode 7/3 уже верные). Восстанавливается разделение: бленд читает
+   `dmAI_TurnAmount` (вход скрипта), `TurnVar` пишет `TurnAmount` (выход нативу) — как в старом
+   `.agr` и как в ванили.
+2. **[опционально, чистка] Убрать мёртвые `dmAI_CMD_Turn`/`dmAI_CMD_StopTurn`** из
+   `player_main.agr:437,443` (или переименовать обратно в `dmAI_Turn`/`dmAI_StopTurn` и вернуть
+   переходы на `IsCommand(dmAI_Turn)` — паттерн Expansion). Сейчас сторона команд согласована
+   (скрипт биндит ванильные `CMD_Turn`/`CMD_StopTurn`, граф их слушает), так что это не фикс, а
+   уборка осиротевших команд.
+3. **[не в графе] Проверить «дожимание»:** `ApplyBodyTurn` ставит `dmAI_TurnAmount` ОДИН раз при
+   входе в turn (`m_TurnState==0 → 1`, `dmAISurvivorBase.c:1525-1528`) и не пере-ставит до стопа.
+   Даже после п.1 при `dBody ≈ 45°` играется один `noloop`-шаг (`ErcTurnR90`), потом
+   `TurnMaster→Idles` по `GetLowerTime() > 0.85` (`:12126`) — за 2 с один шаг, не «дожимается».
+   Для постоянного переступания нужно перезапускать `CMD_Turn`/не сбрасывать `dmAI_TurnAmount`
+   в 0 до `|dBody| < 1°` (сейчас сброс в 0 — на стопе `:1540-1541`).
+
+## 5. Эталон ваниль/Expansion (сравнение)
+
+- **Ваниль** (`DZ/anims/workspaces/player/player_main/locomotion.agr`): `ErcTurnNBlend` читает
+  `TurnAmount` (`:7788`); `TurnVar`/`PneTurnVar`/`WaterTurnVar` пишут `TurnAmount` mode 7/3
+  (`:8538/3504/6471`); переходы `IsCommand(CMD_Turn)`/`IsCommand(CMD_StopTurn)` (`:8047/8050/8053`).
+  Т.е. ваниль держит ОДНУ переменную `TurnAmount` на обе роли (вход от нативного инпута и выход
+  от `TurnVar`), и это работает потому, что нативный инпут непрерывно пере-ставит `TurnAmount`
+  пока зажат A/D. Наш botorama разнёс роли на две переменные (`dmAI_TurnAmount` вход / `TurnAmount`
+  выход) — и ре-экспорт этот сплит сломал.
+- **Expansion** (`ExpansionHumanST.c`): `m_CMD_Turn = BindCommand("CMD_eAI_Turn")` (`:88`),
+  `m_CMD_StopTurn = BindCommand("CMD_eAI_StopTurn")` (`:89`), `m_VAR_TurnAmount =
+  BindVariableFloat("eAI_TurnAmount")` (`:111`); `CallTurn` → `AnimCallCommand` (`:212`),
+  `SetTurnAmount` → `AnimSetFloat` (`:335`); в `eAICommandMove.c:1966-1967`
+  `CallTurn(m_Unit); SetTurnAmount(m_Unit, m_TurnDifference / 90.0);`. Т.е. Expansion использует
+  **свои** имена команды И переменной (`CMD_eAI_Turn`/`eAI_TurnAmount`) — botorama до `2f1bafb`
+  делал то же (`dmAI_Turn`/`dmAI_TurnAmount`). После ре-экспорта имена команд переименованы
+  (`dmAI_CMD_*`), а скрипт переведён на ванильные `CMD_Turn`/`CMD_StopTurn`.
+
+## Гипотезы для эмпирической проверки (probe-ручки)
+
+- **[нужно проверить] Срабатывает ли переход `IsCommand(CMD_Turn)` на server-AI вообще.**
+  Вопрос: входит ли граф в состояние `TurnMaster` после `AnimCallCommand(CMD_Turn)`, или команда
+  поглощается нативной обработкой ванильного `CMD_Turn` и до перехода не доходит. Проба: залогировать
+  активное состояние графа (или временный `AnimSetFloat`-маяк в ветке `TurnMaster`) при idle-довороте;
+  если `TurnMaster` не входит — разрыв в командной стороне, а не только в `TurnVar`.
+- **[нужно подтвердить] Что `TurnVar` с `UpdateOnInit 1` при входе в `TurnMaster` обнуляет
+  `dmAI_TurnAmount`** (перезаписывает `Clamp(dBody/90)` нулём вращения) и бленд схлопывается в
+  `Turn0`. Проба: после п.1 фикса залогировать `dmAI_TurnAmount` ПОКАДРОВО сразу после
+  `AnimCallCommand(CMD_Turn)` — если до фикса падает в 0, а после — держит скриптовое значение, гипотеза верна.
+- **[нужно проверить] Не даст ли возврат `TurnVar → TurnAmount` двойного вращения** (root motion
+  натива + наш slide-turn `SetOrientation`). По прежней research-гипотезе (a) root motion для
+  `INSTANCETYPE_AI_SERVER` НЕ коммитится в `GetOrientation()`, поэтому двойного вращения быть не
+  должно — но это не подтверждено эмпирически. Если двойное вращение появится — глушить slide-turn
+  на время активного `TurnMaster` (или на время `m_TurnState != 0`).
+
+## Источники (file:line, текущие)
+
+- Мод `src/core/Animations/Locomotion.agf:12090-12140` (IdleStateMachine: Idles/TurnMaster +
+  3 перехода `IsCommand(CMD_Turn|StopTurn)`), `:12838-12849` (`TurnVar`→`dmAI_TurnAmount`),
+  `:4973-4984` (`PneTurnVar`→`dmAI_TurnAmount`), `:9672-9683` (`WaterTurnVar`→`dmAI_TurnAmount`),
+  `:11819-11830` (`ErcTurnNBlend`→`dmAI_TurnAmount`), `:11660/11776/11792/11831/11847`
+  (ErcTurn*SyncAnim + `PredictionTurn`/`EntityPosition`), `:11591/11504/12314/12229/9054/9042`
+  (остальные `*TurnNBlend`→`dmAI_TurnAmount`).
+- Мод `src/core/Animations/player_main.agr:21,26` (`TurnAmount`/`dmAI_TurnAmount`), `:434,437,440,443`
+  (`CMD_Turn`/`dmAI_CMD_Turn`/`CMD_StopTurn`/`dmAI_CMD_StopTurn`).
+- Мод `src/core/4_World/Entities/Bot/dmAISurvivorBase.c:382-384` (бинды `dmAI_TurnAmount` +
+  ванильные `CMD_Turn`/`CMD_StopTurn`), `:1497-1564` (`ApplyBodyTurn`: foot-step `:1519-1545`,
+  slide `:1547-1554`).
+- Ваниль `DZ/anims/workspaces/player/player_main/locomotion.agr:7788` (ErcTurnNBlend→`TurnAmount`),
+  `:8538/3504/6471` (`TurnVar`/`PneTurnVar`/`WaterTurnVar`→`TurnAmount` mode 7/3),
+  `:8047/8050/8053` (`IsCommand(CMD_Turn)`/`IsCommand(CMD_StopTurn)`).
+- Expansion `.../Classes/Commands/ExpansionHumanST.c:88-89,111,212,222,335` (`CMD_eAI_Turn`/
+  `CMD_eAI_StopTurn`/`eAI_TurnAmount` + `CallTurn`/`CallStopTurn`/`SetTurnAmount`);
+  `.../Classes/Commands/eAICommandMove.c:1966-1967` (`CallTurn`+`SetTurnAmount(diff/90)`).
