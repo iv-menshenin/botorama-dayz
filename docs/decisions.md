@@ -336,3 +336,15 @@ Fail/removed»), мотор глохнет → «engine off», скорость 
 Expansion `eAIBase.c:10094-10102`). E2E: `Melee spin`=0, 3/3 зомби убиты, `SCRIPT(E)`=0.
 Действует пока: используется нативный `StartCommand_Melee2`; урон наносится нашим
 `EvaluateHit`/`ProcessMeleeHitName` (цель держит `dmBotMeleeCombat`, не поглощённый `m_MeleeTarget`).
+
+### body: дроп из рук — clone+delete, а не RemoteObjectTree-re-sync (v3.302)
+Решение: дроп предмета из рук ИИ-бота делает clone+delete — `SetGroundPosByOwner` →
+`CreateObjectEx(ECE_OBJECT_SWAP)` на землю → `TransferItemProperties`+`TransferInventory` →
+`ObjectDelete` оригинала. НЕ `LocalDropEntity` + `RemoteObjectTreeDelete/Create`.
+Почему: `LocalDropEntity` (LOCAL-режим) уходит в deferred `HandEventDrop`, а re-sync через
+`RemoteObjectTreeDelete/Create` синкает позицию ПРЕДМЕТА, но не очищает слот РУКИ на клиенте
+(клиент видел `inHands=Machete`, сервер — `inHands=none`). Полный `ObjectDelete` оригинала чистит
+руку и на клиенте, и на сервере (эталон Expansion `Expansion_CloneItemToLocation`, eAIBase.c:6000).
+Действует пока: дроп из HANDS у `AI_SERVER`-бота; для CARGO/ATTACHMENT→GROUND остаётся синхронный
+`LocalTakeToDst` + re-sync (не руки). Следствие: лут-флоу `Ignore(item)` ключится по ссылке →
+после clone+delete клон не игнорится (см. techdebt).

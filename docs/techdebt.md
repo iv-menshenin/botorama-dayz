@@ -296,6 +296,16 @@
     без `SetDroppedWeapon` — после смерти мозг снимается). E2E `body-knockout-{fists,weapon,shock}`:
     `EEKilled: drop item=… result=true`, труп регистрируется, нокаут-путь не регрессировал.
 
+19. `[x]` **Дроп из рук не реплицировался на клиент** (клиент видел `inHands=Machete`, сервер —
+    `inHands=none`). *Сделано (v3.302)*: `DropItem` переписан на clone+delete (`DropItemToGround`:
+    `SetGroundPosByOwner` → `CreateObjectEx(ECE_OBJECT_SWAP)` → `TransferItemProperties`+`TransferInventory`
+    → `ObjectDelete` оригинала). Клиент видит пустую руку + предмет на земле (подтверждено клиентским
+    E2E-мостом `c-botdump inHands=null` + `c-scanobj Machete onGround=true`); retrieve после пробуждения
+    подбирает клон. **Осталось (follow-up)**: лут-флоу `GetWishlist().Ignore(item)` ключится по ССЫЛКЕ
+    на сущность — после clone+delete оригинал удалён, клон не в игноре → бот может в окне
+    `DM_LOOT_IGNORE_TIMEOUT` повторно подобрать выброшенное. Нужно игнорить клон (передать ссылку клона
+    вызывающему/`DropItem` или перенести Ignore внутрь дропа).
+
 ## J. Вождение (автомобиль, `dmBotIntent_Drive`)
 
 Фича «бот водит автомобиль» (v3.192–v3.198). Сборка/деплой/посадка — PASS; сама езда и
