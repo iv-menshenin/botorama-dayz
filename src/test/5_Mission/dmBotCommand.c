@@ -207,7 +207,7 @@ class dmBotCommand : dmCommandModule
 
 		dmBotIntent_HoldLook look = new dmBotIntent_HoldLook();
 		look.m_Point = point;
-		look.m_Turn = dmBotLookTurn.FULL;
+		look.m_Turn = dmBotLookTurn.AUTO;
 		look.m_Priority = dmBotIntentPriority.CRITICAL;
 		look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		look.m_Deadline = DM_TEST_LOOK_DEADLINE;
@@ -229,7 +229,7 @@ class dmBotCommand : dmCommandModule
 
 		dmBotIntent_HoldLook look = new dmBotIntent_HoldLook();
 		look.m_Entity = player;
-		look.m_Turn = dmBotLookTurn.FULL;
+		look.m_Turn = dmBotLookTurn.AUTO;
 		look.m_Priority = dmBotIntentPriority.CRITICAL;
 		look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 		look.m_Deadline = DM_TEST_LOOK_DEADLINE;

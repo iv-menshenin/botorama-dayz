@@ -15,6 +15,16 @@ static const float DM_LOOK_MAX_YAW = 90.0;
 //! Maximum head look pitch offset (degrees).
 static const float DM_LOOK_MAX_PITCH = 85.0;
 
+//! Время (с) удержания повёрнутой головы, после которого стоящий бот в AUTO-режиме
+//! «оседает» корпусом к цели взгляда (доворачивает тело вместо вечного «через плечо»).
+static const float DM_LOOK_BODY_SETTLE_TIME = 10.0;
+
+//! Порог «голова реально повёрнута» (градусы): ниже него таймер settle сбрасывается.
+static const float DM_LOOK_HOLD_MIN_YAW = 15.0;
+
+//! Значительная смена цели взгляда (градусы), сбрасывающая таймер settle.
+static const float DM_LOOK_RETARGET_RESET_YAW = 20.0;
+
 //! Distance (meters) at which a patrol point counts as reached.
 static const float DM_PATROL_REACH_DISTANCE = 1.0;
 
@@ -475,8 +485,8 @@ static const float DM_DANGER_CHECK_INTERVAL  = 0.5;
 static const float DM_MOVE_REPATH_INTERVAL   = 5.0;
 
 //! Scan: random interval (seconds) between idle direction changes.
-static const float DM_SCAN_INTERVAL_MIN = 10.0;
-static const float DM_SCAN_INTERVAL_MAX = 30.0;
+static const float DM_SCAN_INTERVAL_MIN = 4.0;
+static const float DM_SCAN_INTERVAL_MAX = 8.0;
 
 //! Scan: head turn angle range (±degrees from the body).
 static const float DM_SCAN_ANGLE_MIN = 15.0;

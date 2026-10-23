@@ -66,6 +66,14 @@ class dmAISurvivor
 	//! Look turn mode for UpdateLook (set by the last LookAt* call).
 	private dmBotLookTurn m_LookTurnMode = dmBotLookTurn.AUTO;
 
+	//! Таймер «голова удержана повёрнутой» (с): растёт, пока бот стоит и держит
+	//! голову повёрнутой (|headTarget| > DM_LOOK_HOLD_MIN_YAW). По превышении
+	//! DM_LOOK_BODY_SETTLE_TIME ComputeBodyYaw «оседает» корпус к цели взгляда.
+	private float m_HeadHoldTime = 0.0;
+
+	//! Предыдущий абсолютный яу цели взгляда (детект значительной смены цели).
+	private float m_PrevLookYawAbs = 0.0;
+
 	//! True while walking (movement controls body facing).
 	private bool m_IsMoving = false;
 
@@ -1789,6 +1797,31 @@ class dmAISurvivor
 
 		//! Head tracks the target, clamped to the head range.
 		float headTarget = Math.Clamp(relTarget, -DM_LOOK_MAX_YAW, DM_LOOK_MAX_YAW);
+
+		//! Таймер «голова удержана»: накопление только стоя и с реально повёрнутой
+		//! головой; сброс при движении, значительной смене цели взгляда или когда
+		//! голова вернулась вперёд.
+		float prevHold = m_HeadHoldTime;
+		float targetDelta = AngleDiff(m_TargetLookYawAbs, m_PrevLookYawAbs);
+		m_PrevLookYawAbs = m_TargetLookYawAbs;
+		if (m_IsMoving || Math.AbsFloat(targetDelta) > DM_LOOK_RETARGET_RESET_YAW)
+		{
+			m_HeadHoldTime = 0.0;
+		}
+		else if (Math.AbsFloat(headTarget) > DM_LOOK_HOLD_MIN_YAW)
+		{
+			m_HeadHoldTime += pDt;
+		}
+		else
+		{
+			m_HeadHoldTime = 0.0;
+		}
+
+		#ifdef DM_BOT_DEBUG_BODY
+		if (prevHold <= DM_LOOK_BODY_SETTLE_TIME && m_HeadHoldTime > DM_LOOK_BODY_SETTLE_TIME)
+			dmBotLog.Debug("[Body] Look settle: head held " + m_HeadHoldTime + "s → body turns to " + m_TargetLookYawAbs);
+		#endif
+
 		float dYaw = AngleDiff(headTarget, m_CurLookYaw);
 		float applyYaw = dYaw * t;
 		m_CurLookYaw += applyYaw;
@@ -1810,12 +1843,17 @@ class dmAISurvivor
 	//! Body-orientation policy ("comfort"): choose the body yaw from the look
 	//! target and the movement direction.
 	//!   - FULL (priority look holds the body) -> face the look target (strafe/backpedal);
+	//!   - idle + AUTO, head held > DM_LOOK_BODY_SETTLE_TIME -> settle to the target;
 	//!   - idle + AUTO -> turn over-shoulder to center the head;
 	//!   - moving -> face the movement direction (walk where you go);
 	//!   - idle + NONE -> keep the body.
 	float ComputeBodyYaw(float headTarget)
 	{
 		if (m_LookTurnMode == dmBotLookTurn.FULL)
+			return m_TargetLookYawAbs;
+		//! Settle: стоящий бот в AUTO-режиме, долго державший голову повёрнутой,
+		//! «оседает» корпусом к цели взгляда (вместо вечного «через плечо»).
+		if (!m_IsMoving && m_LookTurnMode == dmBotLookTurn.AUTO && m_HeadHoldTime > DM_LOOK_BODY_SETTLE_TIME)
 			return m_TargetLookYawAbs;
 		if (!m_IsMoving && m_LookTurnMode == dmBotLookTurn.AUTO)
 			return m_TargetLookYawAbs - headTarget;
