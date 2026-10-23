@@ -364,15 +364,21 @@ class dmLoadoutApplier
 		Weapon_Base wep;
 		if (parent.IsWeapon() && g_Game.ConfigIsExisting(CFG_MAGAZINESPATH + " " + cls))
 		{
-			if (Class.CastTo(wep, parent) && wep.SpawnAmmo(cls) && !wep.HasInternalMagazine(-1))
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[LOOT] CreateChild cls=" + cls + " parent=" + parent.GetType());
+			#endif
+			if ( Class.CastTo(wep, parent) )
 			{
-				Magazine mag;
-				int i;
-				int muzzleCount = wep.GetMuzzleCount();
-				for (i = 0; i < muzzleCount; i++)
+				if (wep.SpawnAmmo(cls) && !wep.HasInternalMagazine(-1))
 				{
-					if (Class.CastTo(mag, wep.GetMagazine(i)) && mag.GetType() == cls)
-						return mag;
+					Magazine mag;
+					int i;
+					int muzzleCount = wep.GetMuzzleCount();
+					for (i = 0; i < muzzleCount; i++)
+					{
+						if (Class.CastTo(mag, wep.GetMagazine(i)) && mag.GetType() == cls)
+							return mag;
+					}
 				}
 			}
 			return null;
