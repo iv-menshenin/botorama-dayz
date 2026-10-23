@@ -1206,19 +1206,16 @@ class dmAISurvivorBase : PlayerBase
 				if (brain)
 					brain.SetWasInCombatAtKnockout(brain.IsInCombat());
 
-				//! Дроп предмета из рук + запоминание (ваниль дропает только на CLIENT-ветке).
+				//! Дроп предмета из рук отложенно (ваниль дропает только на CLIENT-ветке).
+				//! Clone+delete выполняется в DropItemInHandsDeferred (CallLater 34 мс),
+				//! чтобы не трогать предмет в том же кадре, что и StartCommand_Unconscious.
 				EntityAI inHands = GetItemInHands();
 				if (inHands)
 				{
 					#ifdef DM_BOT_DEBUG_BODY
 					dmBotLog.Debug("UnconsciousBridge: drop item=" + inHands.GetType());
 					#endif
-					if (brain)
-						brain.SetDroppedWeapon(inHands);   //! запомнить для «вернуть оружие»
-					bool dropped = DropItem(ItemBase.Cast(inHands));
-					#ifdef DM_BOT_DEBUG_BODY
-					dmBotLog.Debug("UnconsciousBridge: DropItem result=" + dropped);
-					#endif
+					GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(DropItemInHandsDeferred, DM_BOT_KNOCKOUT_DROP_DELAY_MS, false, ItemBase.Cast(inHands));
 				}
 				else
 				{
@@ -1313,9 +1310,9 @@ class dmAISurvivorBase : PlayerBase
 		#endif
 
 		//! Дроп предмета из рук ПЕРЕД super.EEKilled: предмет должен лежать на земле к
-		//! моменту регистрации трупа (InsertCorpse внутри super). DropItem работает с
-		//! самим предметом (LocalDropEntity + отложенный ре-синк, см. DropItem),
-		//! состояние смерти сущности не трогает.
+		//! моменту регистрации трупа (InsertCorpse внутри super). DropItem делает
+		//! clone+delete (клон на земле + ObjectDelete оригинала), состояние смерти
+		//! сущности не трогает. Напрямую (без defer) — смерть не StartCommand_Unconscious.
 		EntityAI inHands = GetItemInHands();
 		if (inHands)
 		{
@@ -2145,59 +2142,89 @@ class dmAISurvivorBase : PlayerBase
 		return false;
 	}
 
-	//! Сбросить item на землю (server-side). Это ОВЕРРАЙД ванильного
-	//! PlayerBase.DropItem(ItemBase) — ванильный вызывать нельзя (он делает
-	//! PredictiveDropEntity и валит сервер, см. docs/research/loot.md). Возвращает
-	//! true при успехе. Вызывающий сам выбирает предмет (GetDiscardOrder) и помечает
-	//! его Ignore, чтобы не подобрать заново.
+	//! Сбросить item на землю так, чтобы КЛИЕНТ увидел пустую руку + предмет на
+	//! земле. Это ОВЕРРАЙД ванильного PlayerBase.DropItem(ItemBase) — ванильный
+	//! вызывать нельзя (PredictiveDropEntity валит сервер, см. docs/research/loot.md).
+	//! Возвращает true при успехе. Вызывающий сам выбирает предмет (GetDiscardOrder)
+	//! и помечает его Ignore, чтобы не подобрать заново.
 	//!
-	//! Ре-синк (RemoteObjectTreeDelete/Create) вынесен в отложенный
-	//! ResyncDroppedItem: LocalDropEntity для предмета В РУКАХ уходит в deferred
-	//! HandEventDrop (DayZPlayerInventory.HandEvent ставит DeferredHandEvent), и
-	//! фактическое перемещение на землю происходит СЛЕДУЮЩИМ тиком. Если ре-синкать
-	//! сразу, RemoteObjectTreeCreate пере-создаст предмет на клиенте, пока он ещё
-	//! в руке — клиент продолжает видеть оружие в руке (см. docs/research/body-drop.md).
+	//! Реализация — clone+delete (эталон Expansion eAIBase.Expansion_CloneItemToLocation,
+	//! eAIBase.c:6000-6075): сетевой клон на земле (CreateObjectEx ECE_OBJECT_SWAP) +
+	//! полный ObjectDelete оригинала — рука пустеет и на клиенте, и на сервере, без
+	//! deferred HandEventDrop-тайминга (см. docs/research/body-drop.md, Вариант B).
 	override bool DropItem(ItemBase item)
 	{
-		if (!item)
-			return false;
-
-		bool ok = LocalDropEntity(item);
-		if (ok)
-			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ResyncDroppedItem, DM_BOT_DROP_RESYNC_DELAY_MS, false, item);
-
-		if (ok)
-		{
-			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] DropItem: сбросил " + item.GetType());
-			#endif
-			return true;
-		}
-		return false;
+		EntityAI clone = DropItemToGround(item);
+		return clone != null;
 	}
 
-	//! Задержка отложенного ре-синка (см. ResyncDroppedItem): ~34 мс ≈ 2 тика
-	//! (эталон Expansion CallLater(eAI_Recreate, 34, false)) — буфер на обработку
-	//! deferred HandEventDrop, чтобы RemoteObjectTreeCreate пере-создал предмет уже
-	//! НА ЗЕМЛЕ, а не в руке.
-	static const int DM_BOT_DROP_RESYNC_DELAY_MS = 34;
-
-	//! Отложенный ре-синк выпавшего предмета (см. DropItem). Guard: предмет ещё
-	//! валиден и уже не в чьей-то иерархии (GetHierarchyRootPlayer() == null, т.е.
-	//! на земле) — иначе ре-синк сломал бы retrieve-флоу (бот подобрал оружие обратно).
-	private void ResyncDroppedItem(ItemBase item)
+	//! Клон+delete дроп предмета на землю. Возвращает клон на земле (null при
+	//! неудаче) — вызывающий использует его как «выпавшее оружие» (m_DroppedWeapon),
+	//! т.к. оригинал удалён полным сетевым ObjectDelete.
+	EntityAI DropItemToGround(ItemBase item)
 	{
-		if (!item || item.IsSetForDeletion())
-			return;
-		if (item.GetHierarchyRootPlayer())
-			return;
+		if (!item)
+			return null;
+
+		//! 1. Точка на земле рядом с ботом.
+		InventoryLocation il_dst = new InventoryLocation();
+		GameInventory.SetGroundPosByOwner(this, item, il_dst);
+
+		//! 2. Стоп WM, чтобы не остаться в running (эталон eAIBase.c:6011-6012).
+		WeaponManager wm = GetWeaponManager();
+		if (wm && wm.IsRunning())
+			wm.OnWeaponActionEnd();
+
+		//! 3. Новая сущность на земле (сетевой spawn → клиент видит).
+		EntityAI clone = EntityAI.Cast(g_Game.CreateObjectEx(item.GetType(), il_dst.GetPos(), ECE_OBJECT_SWAP));
+		if (!clone)
+		{
+			#ifdef DM_BOT_DEBUG_BODY
+			dmBotLog.Debug("[Body] DropItemToGround: клон не создан для " + item.GetType());
+			#endif
+			return null;
+		}
+
+		//! 4. Скопировать состояние (health+variables+agents; внутри для оружия —
+		//! CopyWeaponStateFrom, для магазина — ServerSetAmmoCount) + перенести children
+		//! (магазин/attachments/cargo).
+		MiscGameplayFunctions.TransferItemProperties(item, clone);
+		MiscGameplayFunctions.TransferInventory(item, clone, this);
+
+		//! 5. Удалить оригинал — снимает предмет с клиента И из руки на сервере.
+		g_Game.ObjectDelete(item);
 
 		#ifdef DM_BOT_DEBUG_BODY
-		dmBotLog.Debug("[Body] ResyncDroppedItem: re-sync " + item.GetType());
+		dmBotLog.Debug("[Body] DropItemToGround: клон " + clone.GetType() + " на земле");
 		#endif
 
-		GetGame().RemoteObjectTreeDelete(item);
-		GetGame().RemoteObjectTreeCreate(item);
+		return clone;
+	}
+
+	//! Задержка отложенного дропа при нокауте (эталон Expansion
+	//! CallLater(eAI_Recreate, 34, false)): ~34 мс ≈ 2 тика — буфер, чтобы clone+delete
+	//! не выполнялся в том же кадре, что и StartCommand_Unconscious (см. body-drop.md §3).
+	static const int DM_BOT_KNOCKOUT_DROP_DELAY_MS = 34;
+
+	//! Отложенный дроп предмета из рук при нокауте: clone+delete (DropItemToGround) +
+	//! запоминание клона как «выпавшее оружие» (SetDroppedWeapon) для возврата при
+	//! пробуждении. Вызывается CallLater-ом из UpdateUnconsciousBridge.
+	private void DropItemInHandsDeferred(ItemBase item)
+	{
+		if (!item)
+			return;
+
+		EntityAI clone = DropItemToGround(item);
+		if (!clone)
+			return;
+
+		dmAISurvivor brain = dmAISurvivor.Find(this);
+		if (brain)
+			brain.SetDroppedWeapon(clone);
+
+		#ifdef DM_BOT_DEBUG_BODY
+		dmBotLog.Debug("[Body] DropItemInHandsDeferred: клон " + clone.GetType() + " на земле");
+		#endif
 	}
 
 	//! Find a non-empty magazine in the inventory that fits the weapon (prefer an
