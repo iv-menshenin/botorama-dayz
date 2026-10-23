@@ -67,15 +67,28 @@ description: Живой справочник по ИИ-ботам для DayZ (�
 
 ## Поворот тела (переступание)
 
-- `SetOrientation()` — мгновенный поворот, «скользит» (это `HeadingModel::RotateOrient`).
-- Правильное переступание = состояние "Turn" в графе по КАСТОМНОЙ команде
-  (`IsCommand(dmAI_Turn)`/`IsCommand(dmAI_StopTurn)`) + переменная `dmAI_TurnAmount`.
-- `TurnAmount` играет ДВЕ роли: `TurnVar`-нода ПИШЕТ в ванильный `TurnAmount`
-  (нативный код читает и крутит тело), бленд-ноды `*TurnNBlend` ЧИТАЮТ `dmAI_TurnAmount`.
+- `SetOrientation()` — мгновенный поворот, «скользит». **НЕ использовать для доворота**:
+  `ApplyBodyTurn` вызывается ПОСЛЕ `super.CommandHandler()` → слайд перетирает root motion
+  анимации поворота (деревянная механика). Доворот — ТОЛЬКО нативный foot-step.
+- Нативный foot-step = состояние "Turn" в графе по **ВАНИЛЬНОЙ** команде
+  (`IsCommand(CMD_Turn)`/`IsCommand(CMD_StopTurn)`) + переменная `dmAI_TurnAmount`.
+- `TurnAmount` играет ДВЕ роли (split вход/выход): `TurnVar`-нода ПИШЕТ в ванильный
+  `TurnAmount` (нативный код читает и крутит тело), бленд-ноды `*TurnNBlend` ЧИТАЮТ
+  `dmAI_TurnAmount` (вход, скрипт ставит). Сливать их НЕЛЬЗЯ: иначе `TurnVar` (UpdateOnInit)
+  обнулит вход при входе в `TurnMaster` и бленд схлопнется в нейтраль (ноги не перебирают).
 - `ApplyBodyTurn` (после `super.CommandHandler()`): при идле и `|dBody| > 1°` —
-  `AnimSetFloat(dmAI_TurnAmount, dBody/90)` + `AnimCallCommand(dmAI_Turn)`; при
-  завершении (`|dBody| < 1°` или 2с) — `AnimCallCommand(dmAI_StopTurn)`. При движении —
-  слайд-поворот `SetOrientation` (скорость `DM_MOVE_TURN_RATE`). Эталон — Expansion `eAICommandMove`.
+  `AnimSetFloat(dmAI_TurnAmount, dBody/90)` + `AnimCallCommand(CMD_Turn)`; при завершении
+  (`|dBody| < 1°` или 2с) — `AnimCallCommand(CMD_StopTurn)`. При движении — нативный
+  `HeadingModel::RotateOrient` доворачивает корпус (НЕ слайд `SetOrientation`).
+  Эталон — Expansion `eAICommandMove`.
+
+> **Рефлексия (почему ломалось, v3.289→3.306).** Когда-то foot-step перевели с ванильного
+> `CMD_Turn` на кастомный `dmAI_Turn` — он триггерит граф-переход, но НЕ нативный turn-режим →
+> root motion перестал коммититься → осцилляция ~25°. Это «починили» скриптовым слайдом
+> `SetOrientation` (коммит `2df4589`), который затирает root motion — деревянная механика.
+> **Урок:** если нативная анимация доворота осциллирует/отскакивает — чини ЦЕПОЧКУ
+> команд/переменных (верни ванильную команду + split вход/выход), а НЕ заменяй нативный
+> механизм скриптовым хаком. Слайд-доворот `SetOrientation` — анти-паттерн.
 
 ## Движение
 
@@ -100,8 +113,10 @@ description: Живой справочник по ИИ-ботам для DayZ (�
 - **Якорь эскорта (Follow)**: для `PlayerBase` (игрок/бот) — плечо `±DM_FOLLOW_SIDE_DISTANCE`
   (1м) вбок от направления взгляда цели (знак — `m_SideSign`, рандом в `OnEntry`); для
   предмета — точка в `DM_FOLLOW_SIDE_DISTANCE` не доходя по линии бот→предмет.
-- `override HeadingModel` для `COMMANDID_MOVE`: ставим `m_fHeadingAngle = m_fOrientationAngle`
-  и `return true` — иначе ваниль сама крутит корпус и перетирает наш `SetOrientation`.
+- `override HeadingModel` — ТОЛЬКО для `COMMANDID_MELEE2` (заморозка `m_MeleeStrikeYaw`,
+  фикс мили-спина). Для `COMMANDID_MOVE` НЕ заглушать (`return true` выключает ванильный
+  `RotateOrient` → корпус перестаёт доворачиваться на ходу): MOVE должен идти в
+  `super.HeadingModel`.
 - «Движется ли бот» — **свой флаг** (`m_IsMoving` из `SetMove`), НЕ
   `GetCurrentMovementSpeed()` (он ненулевой во время переступания → отмена поворота).
 
