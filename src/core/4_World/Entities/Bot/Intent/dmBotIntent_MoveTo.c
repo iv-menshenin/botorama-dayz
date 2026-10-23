@@ -148,6 +148,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 		return true;
 	}
 
+	//! Доворачивать ли корпус (слайдом) к текущему sub-goal во время движения.
+	//! FollowTo может переопределить.
+	bool KeepBodyTurnAtGoal()
+	{
+		return true;
+	}
+
 	//! Movement speed (0..3) toward m_Goal. FollowTo overrides it to match the
 	//! target speed and the distance to the escort anchor.
 	float GetMoveSpeed(dmAISurvivor bot)
@@ -636,8 +643,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 		//! waypoint. If a higher-priority look intent holds the body (FULL), moveAngle
 		//! becomes the strafe/backpedal direction instead.
 		bot.SetMoveYaw(subYaw);
+		if (KeepBodyTurnAtGoal())
+			bot.TurnBodyToward(subYaw, DM_MOVE_BODY_TURN_RATE, pDt);
 		if (KeepLookAtGoal())
-			bot.LookAtPoint(subGoal + Vector(0, DM_EYE_HEIGHT, 0), dmBotLookTurn.NONE);
+			bot.LookAtPoint(subGoal + Vector(0, DM_EYE_HEIGHT, 0), dmBotLookTurn.FULL);
 		float speed = GetMoveSpeed(bot);
 		bot.SetMove(moveAngle, speed);
 

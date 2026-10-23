@@ -52,7 +52,7 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 
 	override bool KeepLookAtGoal()
 	{
-		return false;
+		return true;
 	}
 
 	override void OnStart(dmAISurvivor bot)

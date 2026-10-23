@@ -82,6 +82,29 @@ class dmBotState_Fighting : dmBotState
 		EnsureEvasion(bot);
 		EnsureHitTo(bot);
 
+		#ifdef DM_BOT_DEBUG_FIGHT
+		dmBotLog.Debug("[FSM] Fighting dist=" + dist + " reach=" + reach + " Cooldown=" + bot.GetMeleeCooldown());
+		#endif
+
+		if ( dist <= reach )
+		{
+			//! Корпус доворачивается к цели слайдом (как MoveTo): на ходу (Approach/Evasion)
+			//! foot-step не гоняется, а нативный RotateOrient доворачивает только >~171°.
+			float yawToTarget = d.VectorToAngles()[0];
+			if ( Math.AbsFloat(yawToTarget) > DM_MELEE_FACE_ANGLE )
+			{
+				bot.TurnBodyToward(yawToTarget, DM_FIGHT_BODY_TURN_RATE, pDt);
+				m_HitTo.m_Active = false;
+			} else {
+				m_HitTo.m_Active = bot.GetMeleeCooldown() == 0.0;
+			}
+			m_Approach.m_Active = (m_HitTo.m_LastFail == dmHitToFail.TOOFAR) || (bot.GetMeleeCooldown() == 0.0 && dist > (reach * 0.75)); // a small gap
+		} else {
+			m_HitTo.m_Active = false;
+			m_Approach.m_Active = true; // a small gap
+		}
+		m_Evasion.m_Active = (bot.GetMeleeCooldown() > 0.0) && !m_Approach.m_Active;
+
 		m_HitTo.m_Active = (dist <= reach && bot.GetMeleeCooldown() == 0.0);
 		m_Approach.m_Active = (m_HitTo.m_LastFail == dmHitToFail.TOOFAR) || (dist > reach) || (bot.GetMeleeCooldown() == 0.0 && dist > (reach * 0.9)); // a small gap
 		m_Evasion.m_Active = (bot.GetMeleeCooldown() > 0.0) && !m_Approach.m_Active;

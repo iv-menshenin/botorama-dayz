@@ -867,6 +867,23 @@ class dmAISurvivor
 		m_MoveYaw = worldYaw;
 	}
 
+	//! Плавный (rate-limited) доворот корпуса к worldYaw. Слайд SetOrientation
+	//! со скоростью rateDegPerSec (градусов/сек). Используется на ходу (MoveTo),
+	//! где foot-step неприменим (ноги заняты движением).
+	void TurnBodyToward(float worldYaw, float rateDegPerSec, float pDt)
+	{
+		if (!m_Pawn)
+			return;
+
+		float bodyYaw = m_Pawn.GetOrientation()[0];
+		float dBody = AngleDiff(worldYaw, bodyYaw);
+		float maxStep = rateDegPerSec * pDt;
+		float step = Math.Clamp(dBody, -maxStep, maxStep);
+
+		if (Math.AbsFloat(dBody) > 0.1)
+			m_Pawn.SetOrientation(Vector(bodyYaw + step, 0.0, 0.0));
+	}
+
 	//! Enable/disable forward walking (convenience wrapper over SetMove).
 	void SetWalk(bool walk)
 	{

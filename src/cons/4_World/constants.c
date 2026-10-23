@@ -353,6 +353,9 @@ static const float DM_MOVE_TURN_SLOW_SPEED = 1.0;
 //! is zeroed to kill the ±1-2° strafe jitter (micro-tremor) at sprint.
 static const float DM_MOVE_ANGLE_DEADZONE = 3.0;
 
+//! Скорость слайд-доворота корпуса к цели на ходу (градусов/сек).
+static const float DM_MOVE_BODY_TURN_RATE = 120.0;
+
 //! Max age (seconds) of an intent without a deadline before the arbitration
 //! removes it (safety net — no intent lives forever).
 static const float DM_INTENT_MAX_AGE = 300.0;
@@ -532,7 +535,7 @@ static const float DM_PERCEPTION_REFRESH_HIGH_THREAT = 0.2;
 
 //! Target evaluation: threat (0..1) — how dangerous a sighted entity is.
 //! The player is scored low so bots don't auto-attack them by default.
-static const float DM_TARGET_THREAT_PLAYER = 0.1;
+static const float DM_TARGET_THREAT_PLAYER = 0.6;
 static const float DM_TARGET_THREAT_ZOMBIE = 0.3; // обнаруженный зомби не враждебен; враждебность только через урон
 static const float DM_TARGET_THREAT_ANIMAL = 0.2;
 
@@ -649,6 +652,9 @@ static const float DM_RETRIEVE_RAY_LIFT = 0.3;
 
 //! Fighting: seconds between target re-resolution (re-pick the nearest hostile).
 static const float DM_FIGHT_RETARGET_INTERVAL = 2.0;
+
+//! Скорость слайд-доворота корпуса к цели в мили-бою (градусов/сек).
+static const float DM_FIGHT_BODY_TURN_RATE = 200.0;
 
 //! Melee approach: distance (meters) below which the bot steers straight at the
 //! target (SetMoveYaw + SetMove) instead of running a navmesh MoveTo.
