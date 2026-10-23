@@ -4975,7 +4975,7 @@ AnimSrcGraphFile {
      Child "PneTurnNBlend"
      Varupdate {
       AnimSrcNodeVarUpdateItem "{6930A8DE26987C41}" {
-       VariableName "dmAI_TurnAmount"
+       VariableName "TurnAmount"
        UpdateOnInit 1
        UpdateOnMainPath 1
        UpdateOnBlendOut 0
@@ -9674,7 +9674,7 @@ AnimSrcGraphFile {
      Child "WaterTurnIKT"
      Varupdate {
       AnimSrcNodeVarUpdateItem "{6930A8DE26986DDA}" {
-       VariableName "dmAI_TurnAmount"
+       VariableName "TurnAmount"
        UpdateOnInit 1
        UpdateOnMainPath 1
        UpdateOnBlendOut 0
@@ -12840,7 +12840,7 @@ AnimSrcGraphFile {
      Child "TurnStanceSTM"
      Varupdate {
       AnimSrcNodeVarUpdateItem "{6930A8DE269861D2}" {
-       VariableName "dmAI_TurnAmount"
+       VariableName "TurnAmount"
        UpdateOnInit 1
        UpdateOnMainPath 1
        UpdateOnBlendOut 1
