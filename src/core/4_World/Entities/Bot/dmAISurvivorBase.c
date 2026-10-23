@@ -30,8 +30,8 @@ class dmAISurvivorBase : PlayerBase
 	private int m_VarLookDirY = -1;
 	private bool m_VarsBound = false;
 
-	//! Body turn (foot-stepping) animation variable and commands — the visual
-	//! leg-shuffle layered on top of the slide-turn (SetOrientation) while idle.
+	//! Body turn (foot-stepping) animation variable and commands — the native
+	//! root-motion leg-shuffle (CMD_Turn + dmAI_TurnAmount) while idle.
 	private int m_VarTurnAmount = -1;
 	private int m_CmdTurn = -1;
 	private int m_CmdStopTurn = -1;
@@ -121,8 +121,8 @@ class dmAISurvivorBase : PlayerBase
 	private float m_TurnTime = 0.0;
 
 	//! Whether the brain intends the bot to move (set by SetMove). Used to gate
-	//! the sharp-turn slowdown (m_TurnSharp) and to pick slide-turn (moving) vs
-	//! foot-step visual (idle) in ApplyBodyTurn — NOT GetCurrentMovementSpeed(),
+	//! the sharp-turn slowdown (m_TurnSharp) and to decide whether the foot-step
+	//! turn (idle only) may run in ApplyBodyTurn — NOT GetCurrentMovementSpeed(),
 	//! which flips non-zero while the body itself is turning.
 	private bool m_IsMoving = false;
 
@@ -1447,9 +1447,9 @@ class dmAISurvivorBase : PlayerBase
 		m_FireRequest = false;
 	}
 
-	//! Disable the vanilla body-turn (HeadingModel::RotateOrient) for the MOVE
-	//! command: it rotates the body toward the movement direction and overrides our
-	//! SetOrientation. We control the body orientation manually in ApplyBodyTurn.
+	//! Заморозить яу тела только на время MELEE2 (замах): нативный доворот к цели
+	//! раскручивает модель (натив↔скрипт осцилляция). Для MOVE и прочего — нативный
+	//! HeadingModel (RotateOrient) доворачивает корпус к направлению движения.
 	//! Mirrors Expansion eAIBase.HeadingModel.
 	override bool HeadingModel(float pDt, SDayZPlayerHeadingModel pModel)
 	{
@@ -1466,14 +1466,6 @@ class dmAISurvivorBase : PlayerBase
 			SetOrientation(Vector(m_MeleeStrikeYaw, 0.0, 0.0));
 			return true;
 		}
-		if (m_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_MOVE)
-		{
-			m_fLastHeadingDiff = 0;
-			angle = GetOrientation()[0] * Math.DEG2RAD;
-			pModel.m_fHeadingAngle = angle;
-			pModel.m_fOrientationAngle = angle;
-			return true;
-		}
 		return super.HeadingModel(pDt, pModel);
 	}
 
@@ -1486,13 +1478,11 @@ class dmAISurvivorBase : PlayerBase
 		return d;
 	}
 
-	//! Поворот корпуса к m_TargetBodyYaw. Два слоя, как у Expansion AI:
-	//!   - slide-turn (SetOrientation, с ограничением скорости) — авторитетный
-	//!     доворот ориентации, ВСЕГДА (и «иду», и «стою»);
-	//!   - foot-step (dmAI_TurnAmount + CMD_Turn) — чисто ВИЗУАЛЬНОЕ перебирание
-	//!     ног, только пока бот СТОИТ. Его root motion для server-AI не
-	//!     коммитится в GetOrientation() (см. docs/research/animation.md
-	//!     §foot-step), поэтому ориентацию всегда доворачиваем slide-ом.
+	//! Поворот корпуса к m_TargetBodyYaw. Единственный доворот СТОЯ — нативный
+	//! foot-step (dmAI_TurnAmount + CMD_Turn): граф играет root-motion turn
+	//! (PredictionTurn → TurnVar → TurnAmount), нативный код крутит тело. На ходу
+	//! (moving) foot-step не гоняем — нативный HeadingModel::RotateOrient
+	//! доворачивает корпус к направлению движения.
 	//! m_TurnSharp тормозит движение только при резком довороте ВО ВРЕМЯ ходьбы.
 	void ApplyBodyTurn(float pDt)
 	{
@@ -1503,7 +1493,7 @@ class dmAISurvivorBase : PlayerBase
 
 		m_TurnSharp = moving && (Math.AbsFloat(dBody) > DM_MOVE_TURN_SLOW_THRESHOLD);
 
-		//! Foot-step-визуал: только idle, параллельно slide-довороту.
+		//! Foot-step: только idle.
 		if (moving)
 		{
 			//! Движемся — foot-step не гоняем; если он шёл — стоп.
@@ -1542,15 +1532,6 @@ class dmAISurvivorBase : PlayerBase
 					m_TurnState = 0;
 				}
 			}
-		}
-
-		//! Slide-turn (авторитетный доворот) — всегда, и idle, и moving.
-		if (Math.AbsFloat(dBody) > 1.0)
-		{
-			float maxStep = DM_MOVE_TURN_RATE * pDt * DM_MOVE_TURN_SPEED;
-			float step = dBody * DM_MOVE_TURN_RESPONSE;
-			step = Math.Clamp(step, -maxStep, maxStep);
-			SetOrientation(Vector(bodyYaw + step, 0.0, 0.0));
 		}
 
 		#ifdef DM_BOT_DEBUG_BODY
