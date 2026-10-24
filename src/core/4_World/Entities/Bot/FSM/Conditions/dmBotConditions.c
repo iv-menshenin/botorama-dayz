@@ -45,6 +45,11 @@ class dmBotConditions
 		return new dmBotCondition_MedicalCare();
 	}
 
+	static dmBotCondition ImminentThreat()
+	{
+		return new dmBotCondition_ImminentThreat();
+	}
+
 	static dmBotCondition LastPositionSpreadLessOrEqual(float spread)
 	{
 		return new dmBotCondition_LastPositionSpread(spread, true);

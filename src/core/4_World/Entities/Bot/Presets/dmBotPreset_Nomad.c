@@ -35,6 +35,7 @@ class dmBotPreset_Nomad
 		travel.AddTransition(explore, 1.0);
 		travel.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		travel.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
+		travel.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 
 		shoot.AddTransition(idle, 0.1);
 		fight.AddTransition(idle, 0.1);
@@ -42,8 +43,10 @@ class dmBotPreset_Nomad
 		fight.AddTransition(explore, 1.0);
 		shoot.AddTransition(travel, 1.0);
 		fight.AddTransition(travel, 1.0);
-		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
-		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
+		shoot.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+		fight.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShoot()));
+		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShoot().Not()));
 		medical.AddTransition(explore, 1.0);
 		medical.AddTransition(travel, 1.0);
 

@@ -633,6 +633,17 @@ static const float DM_MELEE_COOLDOWN = 0.6;
 //! Механика боя→лечение: окно «недавно били мили» (блокер вытеснения).
 static const float DM_MELEE_ENGAGED_WINDOW = 2.5;
 
+//! Механика боя→лечение: danger-дистанция и пороги.
+static const float DM_ZOMBIE_DANGER_DIST = 50.0;       // зомби опасен в радиусе 50 м
+static const float DM_IMMINENT_CONTACT_WINDOW = 30.0;  // «недавний» контакт (видел/слышал), с
+static const float DM_DANGER_D_CRITICAL = 0.2;         // D <= -> 10 м
+static const float DM_DANGER_D_LOW = 0.5;              // D <= -> 50 м
+static const float DM_DANGER_D_MED = 0.75;             // D <= -> 100 м
+static const float DM_DANGER_DIST_CRITICAL = 10.0;
+static const float DM_DANGER_DIST_LOW = 50.0;
+static const float DM_DANGER_DIST_MED = 100.0;
+static const float DM_DANGER_DIST_HIGH = 350.0;
+
 //! Melee: allowed body-facing error (degrees) before a strike is thrown.
 //! research combat.md recommends ±15° for a clean hit; we allow 20° with margin.
 static const float DM_MELEE_FACE_ANGLE = 20.0;

@@ -27,8 +27,10 @@ class dmBotPreset_Survivor
 
 		shoot.AddTransition(idle, 0.1);
 		shoot.AddTransition(explore, 1.0);
+		shoot.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		fight.AddTransition(idle, 1.0);
 		fight.AddTransition(explore, 1.0);
+		fight.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 
 		explore.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		explore.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
@@ -36,8 +38,8 @@ class dmBotPreset_Survivor
 
 		stealth.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		
-		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
-		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
+		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShoot()));
+		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShoot().Not()));
 
 		fsm.SetDefaultState("Exploration");
 		fsm.Start();

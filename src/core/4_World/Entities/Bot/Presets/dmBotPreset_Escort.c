@@ -24,13 +24,15 @@ class dmBotPreset_Escort
 		idle.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		idle.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		shoot.AddTransition(idle, 1.0);
+		shoot.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		fight.AddTransition(idle, 1.0);
+		fight.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		follow.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
 		follow.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		follow.AddTransition(idle, 1.0).BlockWhen(dmBotConditions.HasHostile());
 		follow.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
-		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
-		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
+		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShoot()));
+		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShoot().Not()));
 
 		fsm.SetDefaultState("Follow");
 		fsm.Start();

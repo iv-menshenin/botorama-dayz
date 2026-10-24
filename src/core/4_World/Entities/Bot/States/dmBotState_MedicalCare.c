@@ -3,7 +3,7 @@
 //!
 //! Каждый шаг — отдельный dmBotIntent_MedicalAction; условие шага пере-проверяется
 //! перед исполнением (здоровье могло измениться). Очередь пуста -> EXIT.
-//! INTERRUPTIBLE: бой вытесняет.
+//! PREEMPTIVE: лечение вытесняет мирные INTERRUPTIBLE-состояния (ранение прямо из боя).
 
 //! Шаг очереди лечения (int-константа).
 enum dmMedicalStep
@@ -29,7 +29,7 @@ class dmBotState_MedicalCare : dmBotState
 
 	override dmBotStateKind GetKind()
 	{
-		return dmBotStateKind.INTERRUPTIBLE;
+		return dmBotStateKind.PREEMPTIVE;
 	}
 
 	override void OnEntry(dmBotState from)

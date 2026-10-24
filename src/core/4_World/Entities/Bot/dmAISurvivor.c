@@ -1123,6 +1123,53 @@ class dmAISurvivor
 		m_LastCloseCombatDamageTime = 0.0;
 	}
 
+	//! Danger-дистанция для НЕ-зомби по здоровью (пороги D — `<=`). Чем ниже
+	//! здоровье (Health или Blood), тем ближе бот должен быть к цели, чтобы
+	//! считать её угрозой и не выходить из боя/не идти лечиться.
+	float GetDangerDistance()
+	{
+		if (!m_Pawn) return DM_DANGER_DIST_HIGH;
+		float d = m_Pawn.GetHealth01();              // Health 0..1
+		float blood = m_Pawn.GetHealth("", "Blood"); // 0..1, порог смерти 0.5
+		float bloodInv = (blood - 0.5) / 0.5;        // InvertLerp(0.5, 1.0, blood)
+		if (bloodInv < 0.0) bloodInv = 0.0;
+		if (bloodInv > 1.0) bloodInv = 1.0;
+		if (bloodInv < d) d = bloodInv;
+		if (d <= DM_DANGER_D_CRITICAL) return DM_DANGER_DIST_CRITICAL; // 10 м
+		if (d <= DM_DANGER_D_LOW)      return DM_DANGER_DIST_LOW;      // 50 м
+		if (d <= DM_DANGER_D_MED)      return DM_DANGER_DIST_MED;      // 100 м
+		return DM_DANGER_DIST_HIGH;                                    // 350 м
+	}
+
+	//! «Известная» опасная цель ближе danger-дистанции. «Известная» = видимая ИЛИ
+	//! недавно услышанная (НЕ фильтровать по m_HasLOS). Итерируем ВСЕ цели — из-за
+	//! type-aware порога ближайшая может быть неопасной, а дальняя — опасной.
+	bool HasImminentThreat()
+	{
+		float now = GetGame().GetTickTime();
+		vector myPos = GetPosition();
+		int i;
+		for (i = 0; i < m_Targets.Count(); i++)
+		{
+			dmTarget t = m_Targets[i];
+			if (t.m_Friendly) continue;
+			EntityAI e = t.m_Entity;
+			if (!e || !e.IsAlive()) continue;
+			// известная: видимая ИЛИ недавний контакт (услышана/повреждена)
+			if (!t.m_HasLOS && now - t.m_LastContact > DM_IMMINENT_CONTACT_WINDOW) continue;
+			vector tPos = t.m_LastPosition;
+			vector d = tPos - myPos;
+			d[1] = 0.0;
+			float dist = d.Length();
+			float danger = DM_ZOMBIE_DANGER_DIST;
+			if (!e.IsInherited(ZombieBase))
+				danger = GetDangerDistance();
+			if (dist < danger)
+				return true;
+		}
+		return false;
+	}
+
 	//------------------------------------------------------------------
 	// Dropped weapon (knockout)
 	//------------------------------------------------------------------
@@ -1593,6 +1640,7 @@ class dmAISurvivor
 		dmTarget t = FindTarget(entity);
 		if (t)
 		{
+			t.m_LastContact = GetGame().GetTickTime();
 			if (!t.m_HasLOS)
 			{
 				if (!t.m_Friendly && attractiveness > t.m_Attractiveness)

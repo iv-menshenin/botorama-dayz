@@ -40,10 +40,11 @@ class dmBotPreset_Hunter
 		hunting.AddTransition(idle, 0.4);
 		hunting.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		fighting.AddTransition(idle, 1.0);
+		fighting.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		stealth.AddTransition(idle, 1.0);
 		stealth.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		surrender.AddTransition(idle, 1.0);
-		medical.AddTransition(fighting, 2.0).Require(dmBotConditions.HasHostile());
+		medical.AddTransition(fighting, 2.0).Require(dmBotConditions.HasImminentThreat());
 
 		fsm.SetDefaultState("Idle");
 		fsm.Start();
