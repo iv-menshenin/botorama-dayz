@@ -138,6 +138,9 @@ class dmAISurvivor
 	//! state to log when the bot stays in reach without striking.
 	private float m_LastMeleeStrikeTime = 0.0;
 
+	//! GetTickTime() последнего CLOSE_COMBAT урона (ставится из EEHitBy).
+	private float m_LastCloseCombatDamageTime = 0.0;
+
 	//! Оружие, выпавшее из рук при нокауте. Хранится, чтобы будущий интент
 	//! dmBotIntent_RetrieveWeapon мог подобрать его обратно. null — ничего не выпадало.
 	private EntityAI m_DroppedWeapon;
@@ -1091,6 +1094,33 @@ class dmAISurvivor
 	void SetLastMeleeStrikeTime(float time)
 	{
 		m_LastMeleeStrikeTime = time;
+	}
+
+	//------------------------------------------------------------------
+	// Melee engagement (combat -> medical transition blocker)
+	//------------------------------------------------------------------
+
+	//! Ставится из EEHitBy при damageType == DamageType.CLOSE_COMBAT.
+	void RegisterCloseCombatHit()
+	{
+		m_LastCloseCombatDamageTime = GetGame().GetTickTime();
+	}
+
+	//! Активная фаза мили: бот бьёт (IsMeleeStriking) ИЛИ недавно били мили.
+	bool IsMeleeEngaged()
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Pawn);
+		if (pawn && pawn.IsMeleeStriking())
+			return true;
+		if (GetGame().GetTickTime() - m_LastCloseCombatDamageTime < DM_MELEE_ENGAGED_WINDOW)
+			return true;
+		return false;
+	}
+
+	//! Сброс мили-флагов опасности (когда враги мертвы). IsBulletDanger НЕ трогать.
+	void ClearMeleeDanger()
+	{
+		m_LastCloseCombatDamageTime = 0.0;
 	}
 
 	//------------------------------------------------------------------

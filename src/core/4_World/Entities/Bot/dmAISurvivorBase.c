@@ -1298,6 +1298,10 @@ class dmAISurvivorBase : PlayerBase
 		if (bot && damageType == DamageType.FIRE_ARM)
 			bot.RegisterBulletHit();
 
+		//! Мили-урон: регистрация активной фазы мили (блокер вытеснения бой→лечение).
+		if (bot && damageType == DamageType.CLOSE_COMBAT)
+			bot.RegisterCloseCombatHit();
+
 		//! Fire damage from a fireplace/barrel — remember the hazard and escape it.
 		//! (FireplaceBase.Cast, а не ammo=="FireDamage": не реагируем на покрышки и
 		//! стационарные бочки, которые не являются FireplaceBase.)
@@ -1761,7 +1765,7 @@ class dmAISurvivorBase : PlayerBase
 
 	//! True while a melee strike is in progress: the MELEE2 command has replaced
 	//! MOVE (GetCommand_Move()==null) and the body isn't otherwise busy.
-	private bool IsMeleeStriking()
+	bool IsMeleeStriking()
 	{
 		return (GetCommand_Move() == null) && !IsUnconscious() && !IsClimbing() && !IsClimbingLadder() && !IsFalling() && !IsSwimming() && !IsInVehicle();
 	}

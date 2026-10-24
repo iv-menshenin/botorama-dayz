@@ -630,6 +630,9 @@ static const float DM_BULLET_DANGER_FORGET = 300.0; // 5 минут
 //! Melee: cooldown (seconds) between the bot's strikes.
 static const float DM_MELEE_COOLDOWN = 0.6;
 
+//! Механика боя→лечение: окно «недавно били мили» (блокер вытеснения).
+static const float DM_MELEE_ENGAGED_WINDOW = 2.5;
+
 //! Melee: allowed body-facing error (degrees) before a strike is thrown.
 //! research combat.md recommends ±15° for a clean hit; we allow 20° with margin.
 static const float DM_MELEE_FACE_ANGLE = 20.0;

@@ -107,7 +107,7 @@ class dmBotFSM
 			return;
 		}
 
-		if (m_CurrentState.GetKind() == dmBotStateKind.INTERRUPTIBLE && m_CurrentState.CanExit())
+		if (m_CurrentState.GetKind() != dmBotStateKind.NORMAL && m_CurrentState.CanExit())
 		{
 			m_PreemptTimer += pDt;
 			if (m_PreemptTimer >= s_PreemptInterval)
