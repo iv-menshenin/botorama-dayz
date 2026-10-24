@@ -680,3 +680,19 @@
   для `dmCarRepair.Repair` пустые. Ядро ремонта зон/attachments E2E-проверено; флюидная часть —
   только код-ревью (в `Repair` нет FUEL/COOLANT) + ручная проверка в живом клиенте. Для
   headless-верификации нужен способ менять фракцию флюида (натив/хендл) или живой наблюдатель.
+
+## Q. Укрытие / пулевая угроза (v3.308)
+
+Косметика `dayz-reviewer` (фундамент dmCoverFinder/dmBrownZone/IsBulletDanger), не rework:
+
+- **низкий** — `dmCoverFinder.GetHeadPosition`/`GetBotNeckHeight` дублируют логику
+  `dmBotIntent_Flank` (голова цели / высота шеи). «Полу-дедупликация»: из EvadeAim вынесли, из
+  Flank — нет. Перевести Flank на общие хелперы при следующем касании.
+- **низкий** — `dmCoverFinder.IsSafeFromTargets`: `if (e && ZombieBase.Cast(e))` — `e &&` избыточен
+  (после `if (!e || !e.IsAlive()) continue;` `e` гарантированно не-null). Почистить.
+- **низкий** — `dmCoverFinder.ValidateCandidate`/`HasCoverFromThreat` вычисляют `SurfaceY`
+  дважды на одного кандидата (проверка поверхности + луч). Передать `groundY` параметром.
+- **низкий** — `DM_COVER_*` (свип/поверхность) дублируют значения `DM_EVADE_AIM_*` (осознанно,
+  см. decisions.md «cover»); при правке одной группы помнить о второй.
+- **низкий** — `dmBrownZone.Prune` зовётся только из `IsPointInside`; при долгом отсутствии
+  поиска укрытия зоны накапливаются. Чистить также в `Add` или ограничить размер.
