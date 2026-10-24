@@ -22,6 +22,8 @@ class dmBotState_Fighting : dmBotState
 	float m_StallLogCooldown;
 	ref dmInventoryFrame m_EquipRoot;
 
+	bool m_Turning = false;
+
 	override dmBotStateKind GetKind()
 	{
 		return dmBotStateKind.PREEMPTIVE;
@@ -76,6 +78,9 @@ class dmBotState_Fighting : dmBotState
 		d[1] = 0.0;
 		float dist = d.Length() - 0.5;
 		float reach = GetMeleeReach(bot);
+		float yawToTarget = d.VectorToAngles()[0];
+		float bodyYaw = bot.GetOrientation()[0];
+		float yawDiff = dmAISurvivor.AngleDiff(yawToTarget, bodyYaw);
 
 		EnsureLook();
 		EnsureApproach(bot);
@@ -83,31 +88,28 @@ class dmBotState_Fighting : dmBotState
 		EnsureHitTo(bot);
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[FSM] Fighting dist=" + dist + " reach=" + reach + " Cooldown=" + bot.GetMeleeCooldown());
+		dmBotLog.Debug("[FSM] Fighting dist=" + dist + " reach=" + reach + " yawDiff=" + yawDiff + " Cooldown=" + bot.GetMeleeCooldown());
 		#endif
 
+		m_Turning = false;
 		if ( dist <= reach )
 		{
 			//! Корпус доворачивается к цели слайдом (как MoveTo): на ходу (Approach/Evasion)
 			//! foot-step не гоняется, а нативный RotateOrient доворачивает только >~171°.
-			float yawToTarget = d.VectorToAngles()[0];
-			if ( Math.AbsFloat(yawToTarget) > DM_MELEE_FACE_ANGLE )
+			if ( bot.GetMeleeCooldown() == 0.0 && Math.AbsFloat(yawDiff) > DM_MELEE_FACE_ANGLE )
 			{
+				m_Turning = true;
 				bot.TurnBodyToward(yawToTarget, DM_FIGHT_BODY_TURN_RATE, pDt);
 				m_HitTo.m_Active = false;
 			} else {
-				m_HitTo.m_Active = bot.GetMeleeCooldown() == 0.0;
+				m_HitTo.m_Active = !(bot.GetMeleeCooldown() > 0.0);
 			}
 			m_Approach.m_Active = (m_HitTo.m_LastFail == dmHitToFail.TOOFAR) || (bot.GetMeleeCooldown() == 0.0 && dist > (reach * 0.75)); // a small gap
 		} else {
 			m_HitTo.m_Active = false;
 			m_Approach.m_Active = true; // a small gap
 		}
-		m_Evasion.m_Active = (bot.GetMeleeCooldown() > 0.0) && !m_Approach.m_Active;
-
-		m_HitTo.m_Active = (dist <= reach && bot.GetMeleeCooldown() == 0.0);
-		m_Approach.m_Active = (m_HitTo.m_LastFail == dmHitToFail.TOOFAR) || (dist > reach) || (bot.GetMeleeCooldown() == 0.0 && dist > (reach * 0.9)); // a small gap
-		m_Evasion.m_Active = (bot.GetMeleeCooldown() > 0.0) && !m_Approach.m_Active;
+		m_Evasion.m_Active = !m_Turning && (bot.GetMeleeCooldown() > 0.0) && !m_Approach.m_Active;
 
 		//! Melee stall oracle (diagnostic): in reach, cooldown ready, but no strike
 		//! requested for DM_MELEE_STALL_THRESHOLD seconds — the "dummy" bug where the
