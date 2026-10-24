@@ -618,6 +618,9 @@ static const float DM_COVER_DIST_STEP   = 10.0;
 static const float DM_COVER_MAX_SURFACE_DELTA = 1.5;
 static const float DM_COVER_SAFE_THREAT = 0.4;   // threat выше — «опасная» цель
 static const float DM_COVER_SAFE_RADIUS = 75.0;  // радиус «нет угроз рядом» (медицина)
+//! MedicalCare: поиск укрытия перед лечением (dmCoverFinder.FindSafeCover).
+static const float DM_MEDICAL_COVER_MIN_DIST = 10.0;   // мин. радиус свипа от угрозы
+static const float DM_MEDICAL_COVER_MAX_DIST = 100.0;  // макс. радиус (>= DM_COVER_SAFE_RADIUS, чтобы выйти за 75 м от угроз)
 //! Коричневые зоны (точки пулевых ранений)
 static const float DM_BROWN_BULLET_RADIUS = 5.0;
 static const float DM_BROWN_BULLET_TIMEOUT = 30.0;

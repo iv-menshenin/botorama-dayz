@@ -25,6 +25,9 @@
 //!   /test bot charcoal — уголь при отравлении (MDF_CHARCOAL).
 //!   /test bot tetracycline — антибиотик при гриппе (MDF_ANTIBIOTICS).
 //!   /test bot vitamins — витамины при холоде (MDF_IMMUNITYBOOST).
+//!   /test bot takecover — укрытие перед лечением: бот ранен из огнестрела →
+//!                                уходит в укрытие (IsBulletDanger true→false) и
+//!                                сам перевязывается (см. dmBotMedicalTest.c).
 //!   /test bot death    — Health=0: бот умирает и удаляется из мира.
 //!   /test bot target   — реактивная угроза: зомби → RegisterDamageThreat → hostile → null.
 //!   /test bot shoot {N} — стрельба: заряженный АКМ + угроза → Shooting → патроны
@@ -80,10 +83,10 @@ class dmTestCommand : dmCommandModule
 		if (parts.Count() >= 2 && parts[1] == DM_CHAT_TEST_CANCEL)
 			return HandleCancel(player, parts);
 
-		//! /test bot patrol | overload | shock | stamina | brokenleg | bandaging | splinting | painkiller | painkillerbandage | charcoal | tetracycline | vitamins | death | target | shoot | aim | enemy | emote | fight | eat | drink | eatcan | weapon load | weapon selection | suppressor | trajectory {N} | leadshoot {N} | flytime {N} | voice
+		//! /test bot patrol | overload | shock | stamina | brokenleg | bandaging | splinting | painkiller | painkillerbandage | charcoal | tetracycline | vitamins | takecover | death | target | shoot | aim | enemy | emote | fight | eat | drink | eatcan | weapon load | weapon selection | suppressor | trajectory {N} | leadshoot {N} | flytime {N} | voice
 		if (parts.Count() < 3)
 		{
-			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | bandaging | splinting | painkiller | painkillerbandage | charcoal | tetracycline | vitamins | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | eat | drink | eatcan | weapon load | weapon selection | suppressor | trajectory {N} | leadshoot {N} | flytime {N} | voice");
+			dmCommandManager.ChatToPlayer(player, "Укажи сценарий: /test bot patrol | overload | shock | stamina | brokenleg | bandaging | splinting | painkiller | painkillerbandage | charcoal | tetracycline | vitamins | takecover | death | target | shoot {N} | aim {N} | enemy {N} | emote {id} | fight | eat | drink | eatcan | weapon load | weapon selection | suppressor | trajectory {N} | leadshoot {N} | flytime {N} | voice");
 			return false;
 		}
 
@@ -116,6 +119,8 @@ class dmTestCommand : dmCommandModule
 			return HandleTestCase(player, new dmBotTest_Tetracycline());
 		if (parts[2] == DM_CHAT_TEST_VITAMINS)
 			return HandleTestCase(player, new dmBotTest_Vitamins());
+		if (parts[2] == DM_CHAT_TEST_TAKECOVER)
+			return HandleTestCase(player, new dmBotTest_TakeCover());
 		if (parts[2] == DM_CHAT_TEST_DEATH)
 			return HandleTestCase(player, new dmBotTest_Death());
 		if (parts[2] == DM_CHAT_TEST_TARGET)

@@ -161,6 +161,7 @@ static const string DM_CHAT_TEST_PAINKILLER_BANDAGE = "painkillerbandage";
 static const string DM_CHAT_TEST_CHARCOAL = "charcoal";
 static const string DM_CHAT_TEST_TETRACYCLINE = "tetracycline";
 static const string DM_CHAT_TEST_VITAMINS = "vitamins";
+static const string DM_CHAT_TEST_TAKECOVER = "takecover";
 static const string DM_CHAT_TEST_DEATH = "death";
 static const string DM_CHAT_TEST_TARGET = "target";
 static const string DM_CHAT_TEST_SHOOT = "shoot";

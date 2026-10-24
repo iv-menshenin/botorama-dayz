@@ -22,6 +22,11 @@ class dmBotState_MedicalCare : dmBotState
 	ref array<int> m_Queue;
 	int m_QueueIdx;
 
+	//! Фаза «укрытие» перед лечением: активна только при входе с флагом
+	//! IsBulletDanger — бот сначала находит укрытие и доходит до него, потом лечится.
+	bool m_SeekingCover = false;
+	ref dmBotIntent_MoveTo m_CoverMove;
+
 	override dmBotStateKind GetKind()
 	{
 		return dmBotStateKind.INTERRUPTIBLE;
@@ -32,7 +37,17 @@ class dmBotState_MedicalCare : dmBotState
 		m_Intent = null;
 		m_Queue = new array<int>();
 		m_QueueIdx = 0;
+		m_SeekingCover = false;
+		m_CoverMove = null;
 		BuildQueue();
+
+		//! Триггер фазы укрытия: явный, только при входе с флагом пулевой опасности.
+		dmAISurvivor bot = GetOwner();
+		if (bot.IsBulletDanger())
+		{
+			m_SeekingCover = true;
+			StartCoverSearch();
+		}
 
 		#ifdef DM_BOT_DEBUG_MEDICAL
 		dmBotLog.Debug("[Medical] entry: steps=" + m_Queue.Count());
@@ -41,6 +56,13 @@ class dmBotState_MedicalCare : dmBotState
 
 	override void OnExit(dmBotState to)
 	{
+		if (m_CoverMove)
+		{
+			m_CoverMove.Finish();
+			m_CoverMove = null;
+		}
+		m_SeekingCover = false;
+
 		dmAISurvivor bot = GetOwner();
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn)
@@ -59,6 +81,24 @@ class dmBotState_MedicalCare : dmBotState
 
 	override int OnUpdate(float pDt)
 	{
+		//! Фаза укрытия: ждём завершения MoveTo (дошёл/провал/истечение). По любому
+		//! исходу снимаем флаг опасности и переходим к обычной очереди лечения.
+		if (m_SeekingCover)
+		{
+			if (m_CoverMove && !m_CoverMove.IsFinished() && !m_CoverMove.IsExpired())
+				return CONTINUE;
+
+			dmAISurvivor bot = GetOwner();
+			bot.SetBulletDanger(false);
+
+			#ifdef DM_BOT_DEBUG_COVER
+			dmBotLog.Debug("[Medical] cover done -> heal");
+			#endif
+
+			m_SeekingCover = false;
+			m_CoverMove = null;
+		}
+
 		//! Активный шаг ещё выполняется — ждём завершения.
 		if (m_Intent && !m_Intent.IsFinished() && !m_Intent.IsExpired())
 			return CONTINUE;
@@ -90,6 +130,51 @@ class dmBotState_MedicalCare : dmBotState
 
 		CreateIntent(step);
 		return CONTINUE;
+	}
+
+	//! Запустить поиск укрытия: threatPoint — позиция ближайшей враждебной цели
+	//! (живая -> m_Entity.GetPosition(); иначе m_LastPosition; нет цели -> позиция бота).
+	//! Нашёл — CRITICAL+PARALLEL MoveTo; не нашёл — сброс флага (лечимся на месте).
+	void StartCoverSearch()
+	{
+		dmAISurvivor bot = GetOwner();
+
+		#ifdef DM_BOT_DEBUG_COVER
+		dmBotLog.Debug("[Medical] cover phase: enter (bullet danger)");
+		#endif
+
+		vector threatPoint = bot.GetPosition();
+		dmTarget hostile = bot.GetHostileTarget();
+		if (hostile)
+		{
+			if (hostile.m_Entity)
+				threatPoint = hostile.m_Entity.GetPosition();
+			else
+				threatPoint = hostile.m_LastPosition;
+		}
+
+		vector dest;
+		if (dmCoverFinder.FindSafeCover(bot, threatPoint, DM_MEDICAL_COVER_MIN_DIST, DM_MEDICAL_COVER_MAX_DIST, DM_COVER_SAFE_RADIUS, dest))
+		{
+			#ifdef DM_BOT_DEBUG_COVER
+			dmBotLog.Debug("[Medical] cover found: dest=" + dest);
+			#endif
+
+			m_CoverMove = new dmBotIntent_MoveTo();
+			m_CoverMove.m_Goal = dest;
+			m_CoverMove.m_ReachDistance = DM_PATROL_REACH_DISTANCE;
+			m_CoverMove.m_Priority = dmBotIntentPriority.CRITICAL;
+			m_CoverMove.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+			bot.AddFSMIntent(m_CoverMove);
+		}
+		else
+		{
+			#ifdef DM_BOT_DEBUG_COVER
+			dmBotLog.Debug("[Medical] cover not found: heal in place");
+			#endif
+			m_SeekingCover = false;
+			bot.SetBulletDanger(false);
+		}
 	}
 
 	//! Собрать очередь шагов (порядок: бинт -> обезбол -> шина -> обезбол -> уголь ->

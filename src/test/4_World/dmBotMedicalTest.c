@@ -251,3 +251,54 @@ class dmBotTest_Vitamins : dmTestSuite_TestCase
 		return "";
 	}
 }
+
+//! Укрытие перед лечением: бота ранят из огнестрела (стрелок) — выстрел наносит
+//! кровотечение. Бот входит в MedicalCare (с флагом IsBulletDanger сначала ищет
+//! укрытие — best-effort, верифицируется логами DM_BOT_DEBUG_COVER), затем перевязывается.
+//! PASS — по устойчивому признаку кровотечения (увидели -> перевязал), а не по
+//! транзиентному флагу опасности. Кровотечение НЕ накладывается программно — его наносит выстрел.
+class dmBotTest_TakeCover : dmTestSuite_TestCase
+{
+	bool m_SawBleeding = false;
+
+	override void Setup(dmAISurvivor bot, PlayerBase player)
+	{
+		super.Setup(bot, player);
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return;
+
+		//! Штаны с ДВУМЯ бинтами в карго (лечение — только перевязка).
+		EntityAI pants = pawn.GetInventory().CreateInInventory("CargoPants_Beige");
+		if (pants)
+		{
+			GameInventory pantsInv = pants.GetInventory();
+			pantsInv.CreateInInventory("BandageDressing");
+			pantsInv.CreateInInventory("BandageDressing");
+		}
+
+		bot.SetFSM(dmBotTestPreset_Medical.Create(bot));
+	}
+
+	override string GetSummary()
+	{
+		return "Стреляй в бота из огнестрела. Ожидается: выстрел вызывает кровотечение, бот перевязывается (с укрытием или без) — IsBleeding() true->false.";
+	}
+
+	override float GetDuration() { return 180.0; }
+
+	override string OnCheck(float elapsed)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return "FAIL: бот исчез из мира";
+
+		PlayerBase pawn = m_Bot.GetPawn();
+		if (pawn.IsBleeding())
+			m_SawBleeding = true;
+
+		if (m_SawBleeding && !pawn.IsBleeding())
+			return "PASS: бот перевязался после ранения (t=" + elapsed + " c)";
+		return "";
+	}
+}
