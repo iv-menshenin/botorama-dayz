@@ -37,6 +37,12 @@ class dmBrownZone
 		#endif
 	}
 
+	//! Количество зон в реестре (для диагностики/тестов; без Prune — сырой счётчик).
+	int Count()
+	{
+		return m_Zones.Count();
+	}
+
 	//! Точка (горизонтально, 2D) внутри любой зоны.
 	bool IsPointInside(vector pos)
 	{

@@ -773,6 +773,10 @@ class dmE2EBridge
 		{
 			RunHostile(step, r);
 		}
+		else if (step.Op == "bullet")
+		{
+			RunBullet(step, r);
+		}
 		else if (step.Op == "spawnobj")
 		{
 			RunSpawnObj(step, r);
@@ -910,6 +914,8 @@ class dmE2EBridge
 				bot.SetFSM(dmBotPreset_Escort.Create(bot));
 			else if (step.Preset == "hunter")
 				bot.SetFSM(dmBotPreset_Hunter.Create(bot));
+			else if (step.Preset == "medical")
+				bot.SetFSM(dmBotTestPreset_Medical.Create(bot));
 			r.Ok = true;
 			r.Reason = "spawned";
 		}
@@ -1000,6 +1006,58 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "hostile " + step.Who + " -> " + step.Target + " threat=" + threat;
+	}
+
+	//! "bullet" — детерминированное огнестрельное ранение. Штатный путь: урон через
+	//! ProcessDirectDamage(FIRE_ARM) → EEHitBy → RegisterBulletHit (флаг + brown zone)
+	//! и ванильное кровотечение. Но эмпирически НЕ подтверждено, что ProcessDirectDamage
+	//! прогонит EEHitBy и поставит флаг/кровотечение, поэтому итог гарантирован: после op
+	//! бот обязан иметь IsBulletDanger()==true, IsBleeding()==true и >=1 зону. Если штатный
+	//! путь не дал — RegisterBulletHit() + AttemptAddBleedingSourceBySelection("Pelvis")
+	//! напрямую (допустимо для детерминизма теста; «честный стрелок» — отдельная задача).
+	//! Опциональный Pos = позиция источника угрозы: там спавнится «безмозглый» зомби
+	//! (init_ai=false, не ходит/не атакует) и регистрируется враждебным, чтобы dmCoverFinder
+	//! имел осмысленный threatPoint. Без Pos — фолбэк (угроза не регистрируется).
+	private void RunBullet(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		EntityAI source = null;
+		if (step.Pos != vector.Zero)
+		{
+			ZombieBase z = ZombieBase.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", SnapToGroundExactly(step.Pos), false, false));
+			if (z)
+			{
+				SetProbeLifetime(z);
+				bot.RegisterHostile(z, 1.0, DM_INVASION_SPREAD);
+				source = z;
+			}
+		}
+
+		pawn.ProcessDirectDamage(DamageType.FIRE_ARM, source, "", "Bullet_762x39", pawn.GetPosition(), 0.3);
+
+		if (!bot.IsBulletDanger())
+			bot.RegisterBulletHit();
+
+		if (!pawn.IsBleeding())
+			pawn.GetBleedingManagerServer().AttemptAddBleedingSourceBySelection("Pelvis");
+
+		r.Ok = true;
+		r.Reason = "bullet applied";
 	}
 
 	//! "patrol" — replace the bot's patrol points with the step's Points.
@@ -2415,6 +2473,12 @@ class dmE2EBridge
 		AppendDump(r, line);
 
 		line = "health=" + pawn.GetHealth01() + " blood=" + pawn.GetHealth("", "Blood") + " shock=" + pawn.GetHealth("", "Shock");
+		AppendDump(r, line);
+
+		line = "bulletDanger=" + bot.IsBulletDanger();
+		AppendDump(r, line);
+
+		line = "brownZones=" + bot.GetBrownZone().Count();
 		AppendDump(r, line);
 
 		float stamina = -1.0;
