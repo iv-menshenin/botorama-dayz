@@ -648,8 +648,8 @@ static const float DM_DANGER_DIST_HIGH = 350.0;
 //! research combat.md recommends ±15° for a clean hit; we allow 20° with margin.
 static const float DM_MELEE_FACE_ANGLE = 20.0;
 
-//! Melee: damage multiplier applied per strike against zombies.
-static const int DM_MELEE_DAMAGE_MULT_ZOMBIE = 2;
+//! Melee: damage multiplier (coefficient) applied per strike against zombies.
+static const float DM_MELEE_DAMAGE_MULT_ZOMBIE = 3.0;
 
 //! Melee: fallback strike reach (meters) when the weapon reach can't be read.
 static const float DM_MELEE_REACH = 1.5;

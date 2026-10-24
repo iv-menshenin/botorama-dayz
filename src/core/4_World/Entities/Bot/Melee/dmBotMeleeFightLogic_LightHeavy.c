@@ -87,7 +87,10 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 
 	//! Apply melee damage by component NAME (no component index), since the magic
 	//! target selection sets hitZoneIdx = -1. GetDefaultHitComponent() returns the
-	//! damage-zone name (e.g. "Torso"), which ProcessMeleeHitName expects.
+	//! damage-zone name (e.g. "Torso"), which ProcessDirectDamage expects as
+	//! componentName (a damage-zone, not a component). The damage is applied ONCE
+	//! per Hit event; the zombie multiplier is a damage coefficient, NOT a repeat
+	//! count (ProcessMeleeHitName ignores repeat calls within a frame).
 	override protected void EvaluateHit(InventoryItem weapon)
 	{
 		EntityAI target = m_MeleeCombat.GetTargetEntity();
@@ -96,20 +99,21 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 
 		string compName = target.GetDefaultHitComponent();
 		int weaponMode = m_MeleeCombat.GetWeaponMode();
-		vector hitPos = m_MeleeCombat.GetHitPos();
 
-		//! Zombies take DM_MELEE_DAMAGE_MULT_ZOMBIE hits per strike — the magic
-		//! melee has no raycast, so the damage is applied directly by name.
-		int mult = 1;
+		string ammoName;
+		if (weapon)
+			ammoName = weapon.GetMeleeCombatData().GetAmmoTypeName(weaponMode);
+		else
+			ammoName = m_Player.GetMeleeCombatData().GetAmmoTypeName(weaponMode);
+
+		float coef = 1.0;
 		if (ZombieBase.Cast(target))
-			mult = DM_MELEE_DAMAGE_MULT_ZOMBIE;
+			coef = DM_MELEE_DAMAGE_MULT_ZOMBIE;
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("dmBotMeleeFightLogic: EvaluateHit hitPos=" + hitPos + " mult=" + mult);
+		dmBotLog.Debug("dmBotMeleeFightLogic: EvaluateHit comp=" + compName + " ammo=" + ammoName + " coef=" + coef);
 		#endif
 
-		int i;
-		for (i = 0; i < mult; i++)
-			m_Player.ProcessMeleeHitName(weapon, weaponMode, target, compName, hitPos);
+		target.ProcessDirectDamage(DamageType.CLOSE_COMBAT, m_Player, compName, ammoName, target.GetDefaultHitPosition(), coef);
 	}
 }

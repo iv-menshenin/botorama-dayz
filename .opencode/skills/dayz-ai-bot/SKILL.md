@@ -284,9 +284,10 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   `GetCommand_Move()` без null-проверки, а `CanFight()` у AI-бота всегда `true` → VM
   Exception вне MOVE-команды) и сам ведёт один light/heavy удар по запросу мозга
   (`RequestMeleeAttack`/`HasMeleeAttackRequest`/`ConsumeMeleeAttackRequest`) через
-  `StartCommand_Melee2` из ERECT (без raised). Урон — `ProcessMeleeHitName` по имени
-  компонента (`GetDefaultHitComponent()`); по зомби — ×2 (`DM_MELEE_DAMAGE_MULT_ZOMBIE`)
-  циклом в `EvaluateHit`.
+  `StartCommand_Melee2` из ERECT (без raised). Урон — один `ProcessDirectDamage(DamageType.CLOSE_COMBAT,
+  m_Player, GetDefaultHitComponent(), ammo, GetDefaultHitPosition(), coef)` в `EvaluateHit`, где
+  `ammo = weapon.GetMeleeCombatData().GetAmmoTypeName(weaponMode)` (голые руки — `m_Player.GetMeleeCombatData()`),
+  а `coef` — множитель урона: по зомби `DM_MELEE_DAMAGE_MULT_ZOMBIE` (float-коэффициент), иначе `1.0`.
 - **Магия-цель** `dmBotMeleeCombat : DayZPlayerImplementMeleeCombat` — override `Update()`
   (на сервере всегда `Reset` → `TargetSelection` → `SetFinisherType(-1)`) и
   `TargetSelection()` без райкаста: цель берётся из **явного** `pawn.GetMeleeAttackTarget()`
