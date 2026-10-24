@@ -1,16 +1,17 @@
-//! dmBotMeleeCombat — "magic" melee target selection without raycasts.
+//! dmBotMeleeCombat — server-side melee target selection for AI bots.
 //!
 //! The vanilla DayZPlayerImplementMeleeCombat.Update() only runs TargetSelection
 //! on the client (#ifndef SERVER); on the server it just Resets the cached weapon/
 //! mode/range. For an AI bot the whole simulation runs on the server, so we
-//! override Update() to always select a target — taken straight from the brain's
-//! hostile target instead of a raycast (the vanilla three-pass raycast/cone is
-//! expensive and pointless when the bot already knows whom to hit).
+//! override Update() to always select a target — taken from the brain's hostile
+//! target, with a single head->torso raycast to resolve a valid hitZone (component
+//! index) so the vanilla EvaluateHit_Common path (damage + blood/sound effects +
+//! block check) works. Finishers are disabled.
 
 class dmBotMeleeCombat : DayZPlayerImplementMeleeCombat
 {
-	//! Server-side "magic": always Reset, then pick the target directly from the
-	//! brain (no raycast). Finishers are disabled (-1).
+	//! Server-side: always Reset, then pick the target from the brain and resolve its
+	//! hitZone via a head->torso raycast. Finishers are disabled (-1).
 	override void Update(InventoryItem weapon, EMeleeHitType hitMask, bool wasHitEvent = false)
 	{
 		super.Update(weapon, hitMask, wasHitEvent);
@@ -19,7 +20,11 @@ class dmBotMeleeCombat : DayZPlayerImplementMeleeCombat
 	}
 
 	//! Pick the target explicitly chosen by the brain's RequestMeleeAttack (set by
-	//! dmBotIntent_HitTo), without any raycast.
+	//! dmBotIntent_HitTo). A single ray from the bot's head/eyes to the target's
+	//! default hit position (torso / center of mass) resolves a valid hitZone
+	//! (component index) — NOT along the look direction, the bot already knows whom
+	//! to hit. With hitZone >= 0 the vanilla EvaluateHit_Common path runs (damage +
+	//! blood/sound effects + block check) instead of the old direct-damage fallback.
 	override protected void TargetSelection()
 	{
 		InternalResetTarget();
@@ -34,14 +39,36 @@ class dmBotMeleeCombat : DayZPlayerImplementMeleeCombat
 
 		SetTargetObject(target);
 
-		//! Hit position = the target's default hit point (chest/torso) in world space,
-		//! like the vanilla EvaluateHit_Common. Do NOT look up a "Spine3" bone — zombies
-		//! (ZombieBase is DayZCreature, not Human) have no Spine3, so it fell back to
-		//! GetPosition() (feet/ground) and the hit effect became a surface impact
-		//! (leaves/sparks/snow) instead of blood on the body.
-		SetHitPos(target.ModelToWorld(target.GetDefaultHitPosition()));
+		vector botPos = m_DZPlayer.GetPosition();
+		vector rayStart = botPos + Vector(0, DM_EYE_HEIGHT, 0);
+		int headBone = m_DZPlayer.GetBoneIndexByName("Head");
+		if (headBone >= 0)
+			rayStart = m_DZPlayer.GetBonePositionWS(headBone);
 
-		SetHitZoneIdx(-1);
+		vector rayEnd = target.ModelToWorld(target.GetDefaultHitPosition());
+
+		vector hitPos = rayEnd;
+		vector hitNormal;
+		int hitZone = -1;
+		set<Object> hitObjects = new set<Object>;
+
+		if (DayZPhysics.RaycastRV(rayStart, rayEnd, hitPos, hitNormal, hitZone, hitObjects, null, m_DZPlayer, false, false, ObjIntersectIFire, 0.0, CollisionFlags.ALLOBJECTS) && hitZone >= 0)
+		{
+			SetHitZoneIdx(hitZone);
+			SetHitPos(hitPos);
+		}
+		else
+		{
+			//! Should not happen while the target is in reach; keep a sane hit pos
+			//! so the native hit detect has a valid point even without a component.
+			SetHitZoneIdx(-1);
+			SetHitPos(rayEnd);
+		}
+
+		#ifdef DM_BOT_DEBUG_FIGHT
+		dmBotLog.Debug("dmBotMeleeCombat: TargetSelection target=" + target + " hitZone=" + hitZone);
+		#endif
+
 		SetFinisherType(-1);
 	}
 

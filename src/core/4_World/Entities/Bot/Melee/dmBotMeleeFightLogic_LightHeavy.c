@@ -4,7 +4,7 @@
 //! hcm (HumanCommandMove) outside the MOVE command, and CanFight() is always true
 //! for an AI bot (no ActionManager), so the vanilla code throws a VM exception.
 //! This subclass drives a single light/heavy attack per request from the brain,
-//! targeting the entity chosen by dmBotMeleeCombat (no raycast, no raised stance).
+//! targeting the entity chosen by dmBotMeleeCombat (head->torso raycast, no raised stance).
 
 class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 {
@@ -85,35 +85,42 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 		return true;
 	}
 
-	//! Apply melee damage by component NAME (no component index), since the magic
-	//! target selection sets hitZoneIdx = -1. GetDefaultHitComponent() returns the
-	//! damage-zone name (e.g. "Torso"), which ProcessDirectDamage expects as
-	//! componentName (a damage-zone, not a component). The damage is applied ONCE
-	//! per Hit event; the zombie multiplier is a damage coefficient, NOT a repeat
-	//! count (ProcessMeleeHitName ignores repeat calls within a frame).
+	//! Vanilla hit path: super.EvaluateHit applies one full hit (damage + blood/sound
+	//! effects + block check via EvaluateHit_Player/EvaluateHit_Infected ->
+	//! EvaluateHit_Common) using the valid hitZone from dmBotMeleeCombat.TargetSelection.
+	//! For zombies we then apply the remaining (N-1)x multiplier deferred to the next
+	//! frame (CallLater), so it does not collide with the per-frame damage dedup that
+	//! made the old direct-damage loop ineffective.
 	override protected void EvaluateHit(InventoryItem weapon)
 	{
+		super.EvaluateHit(weapon);
+
 		EntityAI target = m_MeleeCombat.GetTargetEntity();
-		if (!target)
+		if (target && ZombieBase.Cast(target))
+		{
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ApplyZombieExtraDamage, 0, false, target);
+		}
+	}
+
+	//! Apply the remaining zombie damage multiplier (N-1)x, deferred by one frame.
+	private void ApplyZombieExtraDamage(EntityAI target)
+	{
+		if (!target || !target.IsAlive())
 			return;
 
-		string compName = target.GetDefaultHitComponent();
 		int weaponMode = m_MeleeCombat.GetWeaponMode();
 
 		string ammoName;
+		InventoryItem weapon = InventoryItem.Cast(m_Player.GetHumanInventory().GetEntityInHands());
 		if (weapon)
 			ammoName = weapon.GetMeleeCombatData().GetAmmoTypeName(weaponMode);
 		else
 			ammoName = m_Player.GetMeleeCombatData().GetAmmoTypeName(weaponMode);
 
-		float coef = 1.0;
-		if (ZombieBase.Cast(target))
-			coef = DM_MELEE_DAMAGE_MULT_ZOMBIE;
-
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("dmBotMeleeFightLogic: EvaluateHit comp=" + compName + " ammo=" + ammoName + " coef=" + coef);
+		dmBotLog.Debug("dmBotMeleeFightLogic: ApplyZombieExtraDamage ammo=" + ammoName + " target=" + target);
 		#endif
 
-		target.ProcessDirectDamage(DamageType.CLOSE_COMBAT, m_Player, compName, ammoName, target.GetDefaultHitPosition(), coef);
+		target.ProcessDirectDamage(DamageType.CLOSE_COMBAT, m_Player, target.GetDefaultHitComponent(), ammoName, target.GetDefaultHitPosition(), DM_MELEE_DAMAGE_MULT_ZOMBIE - 1.0);
 	}
 }
