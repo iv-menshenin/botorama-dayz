@@ -334,8 +334,8 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 		}
 	}
 
-	//! Кандидат-укрытие: точка на круге с navmesh-путём, на земле, и луч
-	//! «агрессор (голова) → кандидат (шея бота)» ЗАБЛОКИРОВАН.
+	//! Кандидат-укрытие: точка на круге, валидируется dmCoverFinder (путь, поверхность,
+	//! укрытие от прицела, коричневая зона). safeRadius = 0 — цели не проверяем.
 	bool FindCoverCandidate(dmAISurvivor bot, int sign, out vector candidate)
 	{
 		vector tPos = m_Aggressor.GetPosition();
@@ -345,55 +345,6 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 		vector dir = angles.AnglesToVector();
 		vector cand = tPos + dir * m_Dist;
 
-		ref array<vector> path = new array<vector>();
-		if (!bot.FindPathTo(cand, path))
-			return false;
-		if (path.Count() == 0)
-			return false;
-
-		vector p = path[path.Count() - 1];
-
-		float groundY = GetGame().SurfaceY(p[0], p[2]);
-		if (Math.AbsFloat(p[1] - groundY) > DM_EVADE_AIM_MAX_SURFACE_DELTA)
-			return false;
-
-		vector rayFrom = GetHeadPosition(tPos);
-		vector rayTo = Vector(p[0], groundY + m_NeckHeight, p[2]);
-
-		if (!IsBlocked(rayFrom, rayTo))
-			return false;
-
-		candidate = p;
-		return true;
-	}
-
-	//! Голова агрессора (фолбэк: ноги + высота глаз).
-	vector GetHeadPosition(vector fallbackPos)
-	{
-		int hb = -1;
-		Human human = Human.Cast(m_Aggressor);
-		if (human)
-			hb = human.GetBoneIndexByName("Head");
-		vector end;
-		if (hb >= 0)
-			end = m_Aggressor.GetBonePositionWS(hb);
-		else
-			end = fallbackPos + Vector(0.0, DM_EYE_HEIGHT, 0.0);
-		return end;
-	}
-
-	//! True, когда луч от агрессора до кандидата перекрыт (укрытие). Агрессор игнорируется.
-	bool IsBlocked(vector from, vector to)
-	{
-		RaycastRVParams rp = new RaycastRVParams(from, to, m_Aggressor);
-		rp.sorted = true;
-		rp.type = ObjIntersectView;
-		rp.flags = CollisionFlags.NEARESTCONTACT;
-
-		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
-			return false;
-
-		return true;
+		return dmCoverFinder.ValidateCandidate(bot, m_Aggressor, tPos, cand, m_NeckHeight, 0.0, candidate);
 	}
 }

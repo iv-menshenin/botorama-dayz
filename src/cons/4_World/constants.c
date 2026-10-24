@@ -610,6 +610,20 @@ static const float DM_EVADE_AIM_STALL_TIMEOUT   = 8.0;
 static const bool  DM_EVADE_AIM_STRAFE          = true;
 static const float DM_EVADE_AIM_STRAFE_SWITCH   = 0.5;    // смена стороны страйфа, с
 
+//! Поиск укрытия (dmCoverFinder)
+static const float DM_COVER_START_ANGLE = 15.0;
+static const float DM_COVER_ANGLE_STEP  = 15.0;
+static const float DM_COVER_MAX_ANGLE   = 90.0;
+static const float DM_COVER_DIST_STEP   = 10.0;
+static const float DM_COVER_MAX_SURFACE_DELTA = 1.5;
+static const float DM_COVER_SAFE_THREAT = 0.4;   // threat выше — «опасная» цель
+static const float DM_COVER_SAFE_RADIUS = 75.0;  // радиус «нет угроз рядом» (медицина)
+//! Коричневые зоны (точки пулевых ранений)
+static const float DM_BROWN_BULLET_RADIUS = 5.0;
+static const float DM_BROWN_BULLET_TIMEOUT = 30.0;
+//! Флаг пулевой опасности
+static const float DM_BULLET_DANGER_FORGET = 300.0; // 5 минут
+
 //! Melee: cooldown (seconds) between the bot's strikes.
 static const float DM_MELEE_COOLDOWN = 0.6;
 

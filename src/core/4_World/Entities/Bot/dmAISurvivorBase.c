@@ -1290,12 +1290,13 @@ class dmAISurvivorBase : PlayerBase
 				AddHealth("", "Health", hlth * 0.33);
 		}
 
-		if (source)
-		{
-			dmAISurvivor bot = dmAISurvivor.Find(this);
-			if (bot)
-				bot.RegisterDamageThreat(source, damageResult.GetHighestDamage("Health"));
-		}
+		dmAISurvivor bot = dmAISurvivor.Find(this);
+		if (bot && source)
+			bot.RegisterDamageThreat(source, damageResult.GetHighestDamage("Health"));
+
+		//! Огнестрельное ранение: точка пулевой опасности (флаг + brown zone).
+		if (bot && damageType == DamageType.FIRE_ARM)
+			bot.RegisterBulletHit();
 
 		//! Fire damage from a fireplace/barrel — remember the hazard and escape it.
 		//! (FireplaceBase.Cast, а не ammo=="FireDamage": не реагируем на покрышки и

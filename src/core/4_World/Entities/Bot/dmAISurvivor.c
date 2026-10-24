@@ -112,6 +112,14 @@ class dmAISurvivor
 	EntityAI m_LastShotEntity;
 	int m_ShotSerial;
 
+	//! Коричневые зоны (точки пулевых ранений) — per-bot реестр. НЕ влияет на
+	//! pathfinding, только на поиск укрытий (dmCoverFinder).
+	private ref dmBrownZone m_BrownZone;
+
+	//! Флаг пулевой опасности + время последнего огнестрельного ранения.
+	private bool m_IsBulletDanger;
+	private float m_LastBulletHitTime;
+
 	//! Patrol points (world positions visited in order).
 	private ref array<vector> m_PatrolPoints;
 
@@ -158,6 +166,7 @@ class dmAISurvivor
 		m_Explorer = new dmExplorer();
 		m_Hearing = new dmHearing(this);
 		m_VoiceCenter = new dmBotVoiceCenter(this);
+		m_BrownZone = new dmBrownZone();
 	}
 
 	//! Model class to use. Must be set before Spawn().
@@ -1111,6 +1120,51 @@ class dmAISurvivor
 	bool IsInCombat()
 	{
 		return m_IsInCombat;
+	}
+
+	//------------------------------------------------------------------
+	// Bullet danger (brown zone)
+	//------------------------------------------------------------------
+
+	//! Зарегистрировать огнестрельное ранение: ставит флаг опасности и добавляет
+	//! «коричневую зону» в точке попадания.
+	void RegisterBulletHit()
+	{
+		m_IsBulletDanger = true;
+		m_LastBulletHitTime = GetGame().GetTickTime();
+		m_BrownZone.Add(GetPosition(), DM_BROWN_BULLET_RADIUS, DM_BROWN_BULLET_TIMEOUT);
+
+		#ifdef DM_BOT_DEBUG_COVER
+		dmBotLog.Debug("[BrownZone] RegisterBulletHit pos=" + GetPosition() + " lastHit=" + m_LastBulletHitTime);
+		#endif
+	}
+
+	//! Активен ли флаг пулевой опасности. Ленивый таймаут: если прошло больше
+	//! DM_BULLET_DANGER_FORGET — сброс флага и false.
+	bool IsBulletDanger()
+	{
+		if (!m_IsBulletDanger)
+			return false;
+		float now = GetGame().GetTickTime();
+		if (now - m_LastBulletHitTime > DM_BULLET_DANGER_FORGET)
+		{
+			m_IsBulletDanger = false;
+			return false;
+		}
+		return true;
+	}
+
+	//! Явно установить/сбросить флаг пулевой опасности.
+	void SetBulletDanger(bool v)
+	{
+		m_IsBulletDanger = v;
+		if (v)
+			m_LastBulletHitTime = GetGame().GetTickTime();
+	}
+
+	dmBrownZone GetBrownZone()
+	{
+		return m_BrownZone;
 	}
 
 	//------------------------------------------------------------------
