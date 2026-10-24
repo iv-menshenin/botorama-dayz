@@ -1141,18 +1141,22 @@ class dmAISurvivor
 		return DM_DANGER_DIST_HIGH;                                    // 350 м
 	}
 
-	//! «Известная» опасная цель ближе danger-дистанции. «Известная» = видимая ИЛИ
-	//! недавно услышанная (НЕ фильтровать по m_HasLOS). Итерируем ВСЕ цели — из-за
-	//! type-aware порога ближайшая может быть неопасной, а дальняя — опасной.
+	//! ВРАЖДЕБНАЯ (threat >= DM_ATTACK_THREAT_THRESHOLD) известная цель ближе
+	//! danger-дистанции. «Известная» = видимая ИЛИ недавно услышанная (НЕ фильтровать
+	//! по m_HasLOS). Нейтрал/пассивный зомби/шум (threat < 0.5) НЕ блокирует лечение.
+	//! Итерируем ВСЕ цели — из-за type-aware порога ближайшая может быть неопасной,
+	//! а дальняя — опасной.
 	bool HasImminentThreat()
 	{
 		float now = GetGame().GetTickTime();
 		vector myPos = GetPosition();
+		float playerDanger = GetDangerDistance();
 		int i;
 		for (i = 0; i < m_Targets.Count(); i++)
 		{
 			dmTarget t = m_Targets[i];
 			if (t.m_Friendly) continue;
+			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
 			EntityAI e = t.m_Entity;
 			if (!e || !e.IsAlive()) continue;
 			// известная: видимая ИЛИ недавний контакт (услышана/повреждена)
@@ -1163,7 +1167,7 @@ class dmAISurvivor
 			float dist = d.Length();
 			float danger = DM_ZOMBIE_DANGER_DIST;
 			if (!e.IsInherited(ZombieBase))
-				danger = GetDangerDistance();
+				danger = playerDanger;
 			if (dist < danger)
 				return true;
 		}
