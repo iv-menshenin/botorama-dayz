@@ -696,3 +696,29 @@
   см. decisions.md «cover»); при правке одной группы помнить о второй.
 - **низкий** — `dmBrownZone.Prune` зовётся только из `IsPointInside`; при долгом отсутствии
   поиска укрытия зоны накапливаются. Чистить также в `Add` или ограничить размер.
+
+## R. Переход бой → лечение (v3.314)
+
+Находки `dayz-reviewer` (не rework) + артефакты тестов:
+
+- **средний** — цикл «подлечился → снова погнался за далёкой целью»: рёбра
+  `idle/explore/travel/follow → fight/shoot` по-прежнему на `HasHostile()` (без дистанции), поэтому
+  далёкая враждебная цель после лечения снова уводит в бой. Сознательно отложено (заказчик: «пока
+  не трогаем»). Решение при переделке: сузить эти рёбра на `HasImminentThreat()` (симметрично `medical→fight`).
+- **средний** — страховка `m_CooldownGameTime` против осцилляции на границе danger-дистанции D из
+  плана НЕ реализована (гистерезиса нет; бот может дёргаться fight↔medical до 4 Гц при `DM_FSM_PREEMPT_INTERVAL=0.25`).
+  Добавить dwell при входе в MedicalCare (или выходе из Fighting), если подтвердится эмпирически.
+- **низкий** — `dmAISurvivor.IsMeleeEngaged`: sentinel `m_LastCloseCombatDamageTime == 0.0` («никогда
+  не били») даёт ложное «engaged» в первые 2.5 с аптайма сервера (`now < 2.5`). Явный `bool m_MeleeHitEver`
+  или проверка `> 0.0 && ...`.
+- **низкий** — `dmBotState_Fighting.CanExit` зовёт `GetHostileTarget()`, который мутирует `m_LastHostileTarget`
+  (липкий кэш цели) — побочный эффект в предикате. Использовать `GetHostileTargetEx(false)` или признать мутацию.
+- **низкий (test)** — e2e-ручка `bullet` падает на «честном» пути `ProcessDirectDamage(FIRE_ARM, source, …)`:
+  `EEHitBy → EvaluateDamageHitAnimation` даёт `NULL pointer pSource` (источник не резолвится). Мягкий краш —
+  фолбэк `RegisterBulletHit()+bleeding` гарантирует итог, но шумит в `SCRIPT(E)`. Починить тест-ручку (передавать
+  валидный source или не звать ProcessDirectDamage).
+- **низкий (test)** — e2e-ручка `give` кладёт предмет в руки (`CreateInHands`), что НЕ работает, когда бот в
+  мили-команде (руки заняты). Для сценариев «дать бинт во время боя» нужна ручка «положить в cargo»
+  (`CreateInInventory`), либо `give` до входа в бой.
+- **низкий** — `dmBotCondition_CanShoot` использует `IsInherited(ZombieBase)` (тот же готч, что чинили в
+  `HasImminentThreat`) — перевести на `ZombieBase.Cast` при следующем касании.

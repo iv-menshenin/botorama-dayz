@@ -254,7 +254,7 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   `DM_PERCEPTION_INTERVAL` (0.3 c).
 - Пайплайн `Scan()`: box-запрос вокруг бота (`SceneGetEntitiesInBox` с `QueryFlags.DYNAMIC`
   или `PhysicsGetEntitiesInBox` — переключается `ToggleQuery()`/`m_UseScene`) →
-  классификация (`PlayerBase.Cast` / `IsInherited(ZombieBase)` / `IsInherited(AnimalBase)`)
+  классификация (`PlayerBase.Cast` / `ZombieBase.Cast` / `AnimalBase.Cast`)
   → дистанция → FOV (полуугол `DM_PERCEPTION_FOV/2` от направления взгляда) → LOS.
 - Направление взгляда — корпус+голова: head-bone `GetBoneTransformWS` → `transform[1]`
   (forward), кэш `m_HeadBone`; нет кости → `GetDirection()`. `lookDir[1]=0` + `Normalize()`.
