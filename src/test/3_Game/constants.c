@@ -124,6 +124,11 @@ static const string DM_CHAT_CAR = "car";
 static const string DM_CHAT_CAR_SITDOWN = "sitdown";
 static const string DM_CHAT_CAR_GETOUT = "getout";
 
+//! Car command family ("/car ...") — repairs the car the player is looking at.
+//! Separate from DM_CHAT_CAR, which is the "/bot car sitdown|getout" sub-command.
+static const string DM_CHAT_CMD_CAR = "car";
+static const string DM_CHAT_CAR_REPAIR = "repair";
+
 //! Sub-command "drive" — bot drives to a world point ("/bot drive {x} {z}").
 static const string DM_CHAT_DRIVE = "drive";
 

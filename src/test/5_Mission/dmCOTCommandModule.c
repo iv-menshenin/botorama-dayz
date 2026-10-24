@@ -272,4 +272,20 @@ class dmCOTSpawnCityModule : dmCOTCommandModuleBase
 	}
 }
 
+//! "/car ..." — repair (dmCarCommand.Handle: parts[1] == "repair").
+class dmCOTCarModule : dmCOTCommandModuleBase
+{
+	override string GetFamily()
+	{
+		return DM_CHAT_CMD_CAR;
+	}
+
+	override array<string> GetSubCommandNames()
+	{
+		array<string> names = new array<string>();
+		names.Insert(DM_CHAT_CAR_REPAIR);
+		return names;
+	}
+}
+
 #endif

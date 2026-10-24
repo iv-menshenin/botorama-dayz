@@ -20,6 +20,7 @@ modded class JMModuleConstructor
 		modules.Insert(dmCOTLaunchModule);
 		modules.Insert(dmCOTPoiModule);
 		modules.Insert(dmCOTSpawnCityModule);
+		modules.Insert(dmCOTCarModule);
 	}
 }
 

@@ -10,7 +10,7 @@
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
 //! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
-//! driveto | drive | cardump | griddump, and observe (teleport a connected player). `wait`, `sleep`
+//! driveto | drive | cardump | carstate | cardamage | carrepair | griddump, and observe (teleport a connected player). `wait`, `sleep`
 //! and `drivetest` are the deferred ops: they tick across frames (wait until a
 //! condition is met or its timeout expires; sleep until its timeout; drivetest
 //! until the bot drives to the exit or a guard aborts). Everything else executes
@@ -51,7 +51,7 @@ class dmE2EStep
 	bool GroundOnly;  // raycast groundOnly flag
 	vector Min;       // scanbox min corner (world)
 	vector Max;       // scanbox max corner (world)
-	string Obj;       // object name (getpos, setpos, clearobj, driveto, drive, cardump, carpos, carspeed)
+	string Obj;       // object name (getpos, setpos, clearobj, driveto, drive, cardump, carstate, cardamage, carrepair, carpos, carspeed)
 	int Count;        // number of bots to spawn (army)
 	string Settlement; // settlement name for the army center (optional)
 	float Radius;     // spawn scatter radius around the center (army, default 50)
@@ -864,6 +864,18 @@ class dmE2EBridge
 		else if (step.Op == "cardump")
 		{
 			RunCarDump(step, r);
+		}
+		else if (step.Op == "carstate")
+		{
+			RunCarState(step, r);
+		}
+		else if (step.Op == "cardamage")
+		{
+			RunCarDamage(step, r);
+		}
+		else if (step.Op == "carrepair")
+		{
+			RunCarRepair(step, r);
 		}
 		else if (step.Op == "griddump")
 		{
@@ -2938,6 +2950,168 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "dumped";
+	}
+
+	//! "carstate" — dump the named car's damage zones, attachments (health +
+	//! energy when present) and fluid fractions, via AppendDump.
+	private void RunCarState(dmE2EStep step, dmE2EStepResult r)
+	{
+		Object obj;
+		if (!m_Objects.Find(step.Obj, obj) || !obj)
+		{
+			r.Ok = false;
+			r.Reason = "no such car";
+			return;
+		}
+
+		CarScript car = CarScript.Cast(obj);
+		if (!car)
+		{
+			r.Ok = false;
+			r.Reason = "not a car";
+			return;
+		}
+
+		array<string> zones = new array<string>();
+		car.GetDamageZones(zones);
+		AppendDump(r, "zones=" + zones.Count());
+
+		int i;
+		for (i = 0; i < zones.Count(); i++)
+			AppendDump(r, "zone[" + zones[i] + "]=" + car.GetHealth01(zones[i], "Health"));
+		AppendDump(r, "zone[]=" + car.GetHealth01("", "Health"));
+
+		int attCount = car.GetInventory().AttachmentCount();
+		AppendDump(r, "attachments=" + attCount);
+
+		EntityAI att;
+		string line;
+		for (i = 0; i < attCount; i++)
+		{
+			att = car.GetInventory().GetAttachmentFromIndex(i);
+			if (!att)
+				continue;
+			line = "att[" + i + "]=" + att.GetType() + " hp=" + att.GetHealth01("", "Health");
+			if (att.HasEnergyManager())
+				line = line + " energy=" + att.GetCompEM().GetEnergy() + "/" + att.GetCompEM().GetEnergyMax();
+			AppendDump(r, line);
+		}
+
+		AppendDump(r, "oil=" + car.GetFluidFraction(CarFluid.OIL));
+		AppendDump(r, "brake=" + car.GetFluidFraction(CarFluid.BRAKE));
+		AppendDump(r, "fuel=" + car.GetFluidFraction(CarFluid.FUEL));
+		AppendDump(r, "coolant=" + car.GetFluidFraction(CarFluid.COOLANT));
+
+		r.Ok = true;
+		r.Reason = "dumped";
+	}
+
+	//! "cardamage" — deterministic damage: every zone and attachment to 30%
+	//! health, remove one optional part (spark plug; else the last non-wheel
+	//! attachment), and set fluids to known fractions (oil/brake empty, fuel and
+	//! coolant exactly 0.5).
+	private void RunCarDamage(dmE2EStep step, dmE2EStepResult r)
+	{
+		Object obj;
+		if (!m_Objects.Find(step.Obj, obj) || !obj)
+		{
+			r.Ok = false;
+			r.Reason = "no such car";
+			return;
+		}
+
+		CarScript car = CarScript.Cast(obj);
+		if (!car)
+		{
+			r.Ok = false;
+			r.Reason = "not a car";
+			return;
+		}
+
+		array<string> zones = new array<string>();
+		car.GetDamageZones(zones);
+		int i;
+		for (i = 0; i < zones.Count(); i++)
+			car.SetHealth01(zones[i], "Health", 0.3);
+		car.SetHealth01("", "Health", 0.3);
+
+		int attCount = car.GetInventory().AttachmentCount();
+		EntityAI att;
+		for (i = 0; i < attCount; i++)
+		{
+			att = car.GetInventory().GetAttachmentFromIndex(i);
+			if (att)
+				att.SetHealth01("", "Health", 0.3);
+		}
+
+		//! Удаляем одну необязательную деталь, чтобы repair её НЕ вернул.
+		ItemBase plug = ItemBase.Cast(car.FindAttachmentBySlotName("SparkPlug"));
+		if (plug)
+		{
+			plug.Delete();
+		}
+		else
+		{
+			int vi;
+			EntityAI victim;
+			bool isWheel;
+			int wi;
+			for (vi = attCount - 1; vi >= 0; vi--)
+			{
+				victim = car.GetInventory().GetAttachmentFromIndex(vi);
+				isWheel = false;
+				for (wi = 0; wi < car.WheelCount(); wi++)
+				{
+					if (car.WheelGetEntity(wi) == victim)
+						isWheel = true;
+				}
+				if (victim && !isWheel)
+				{
+					victim.Delete();
+					break;
+				}
+			}
+		}
+
+		car.LeakAll(CarFluid.OIL);
+		car.LeakAll(CarFluid.BRAKE);
+
+		car.LeakAll(CarFluid.FUEL);
+		car.Fill(CarFluid.FUEL, car.GetFluidCapacity(CarFluid.FUEL) * 0.5);
+		car.LeakAll(CarFluid.COOLANT);
+		car.Fill(CarFluid.COOLANT, car.GetFluidCapacity(CarFluid.COOLANT) * 0.5);
+
+		r.Ok = true;
+		r.Reason = "damaged";
+	}
+
+	//! "carrepair" — call the shared dmCarRepair core on the named car and dump
+	//! the zone/attachment counts.
+	private void RunCarRepair(dmE2EStep step, dmE2EStepResult r)
+	{
+		Object obj;
+		if (!m_Objects.Find(step.Obj, obj) || !obj)
+		{
+			r.Ok = false;
+			r.Reason = "no such car";
+			return;
+		}
+
+		CarScript car = CarScript.Cast(obj);
+		if (!car)
+		{
+			r.Ok = false;
+			r.Reason = "not a car";
+			return;
+		}
+
+		int z;
+		int a;
+		dmCarRepair.Repair(car, z, a);
+		AppendDump(r, "zones=" + z + " atts=" + a);
+
+		r.Ok = true;
+		r.Reason = "repaired";
 	}
 
 	//! "griddump" — run the road honeycomb over the route from Pos to TargetPos
