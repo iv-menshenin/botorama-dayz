@@ -1166,7 +1166,7 @@ class dmAISurvivor
 			d[1] = 0.0;
 			float dist = d.Length();
 			float danger = DM_ZOMBIE_DANGER_DIST;
-			if (!e.IsInherited(ZombieBase))
+			if (!ZombieBase.Cast(e))
 				danger = playerDanger;
 			if (dist < danger)
 				return true;
