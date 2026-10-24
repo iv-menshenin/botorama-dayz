@@ -79,6 +79,16 @@ class dmBotState_MedicalCare : dmBotState
 		}
 	}
 
+	//! Хард-блокер выхода: перевязка (ACTION_BANDAGE) в фазе animate/wait/apply
+	//! не прерывается ни кооперативным EXIT, ни вытеснением. Таблетки (ACTION_PILL),
+	//! шина (ACTION_SPLINT) и фаза укрытия-MoveTo — прерываемы.
+	override bool CanExit()
+	{
+		if ( m_Intent && !m_Intent.IsFinished() && m_Intent.m_Kind == dmMedicalActionKind.ACTION_BANDAGE && m_Intent.m_Phase >= 1 )
+			return false;    // animate/wait/apply перевязки — не прерывать
+		return super.CanExit();
+	}
+
 	override int OnUpdate(float pDt)
 	{
 		//! Фаза укрытия: ждём завершения MoveTo (дошёл/провал/истечение). По любому

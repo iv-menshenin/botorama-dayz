@@ -138,7 +138,22 @@ class dmBotState_Fighting : dmBotState
 		if ( m_Look ) m_Look.Finish();
 
 		dmAISurvivor bot = GetOwner();
-		if ( bot ) bot.SetInCombat(false);
+		if ( bot )
+		{
+			bot.SetInCombat(false);
+			bot.ClearMeleeDanger();
+		}
+	}
+
+	//! Хард-блокер выхода: активная фаза мили при живой угрозе — не покидать
+	//! состояние (ни кооперативным EXIT, ни вытеснением). Побочных эффектов нет —
+	//! сброс мили-флагов выполняется в OnExit.
+	override bool CanExit()
+	{
+		dmAISurvivor bot = GetOwner();
+		if ( bot.GetHostileTarget() != null && bot.IsMeleeEngaged() )
+			return false;    // активная фаза мили: нельзя выйти (и не прервать вытеснением)
+		return super.CanExit();
 	}
 
 	void ResolveTarget()
