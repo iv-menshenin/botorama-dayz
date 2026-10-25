@@ -45,9 +45,14 @@ class dmBotConditions
 		return new dmBotCondition_CanShootVisible();
 	}
 
-	static dmBotCondition CanShootHidden()
+	static dmBotCondition Flanking()
 	{
-		return new dmBotCondition_CanShootHidden();
+		return new dmBotCondition_Flanking();
+	}
+
+	static dmBotCondition Kamping()
+	{
+		return new dmBotCondition_Kamping();
 	}
 
 	static dmBotCondition MedicalCare()
@@ -68,5 +73,15 @@ class dmBotConditions
 	static dmBotCondition LastPositionSpreadGreatOrEqual(float spread)
 	{
 		return new dmBotCondition_LastPositionSpread(spread, false);
+	}
+
+	static dmBotCondition PawnInBuilding()
+	{
+		return new dmBotCondition_PawnInBuilding();
+	}
+
+	static dmBotCondition TargetInBuilding()
+	{
+		return new dmBotCondition_TargetInBuilding();
 	}
 }

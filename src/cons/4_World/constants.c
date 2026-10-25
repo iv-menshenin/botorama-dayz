@@ -264,6 +264,11 @@ static const float DM_PATH_ROUND_LOOKAHEAD   = 25.0;
 //! Raycast distance (meters) straight ahead at eye level to detect a closed door.
 static const float DM_DOOR_OPEN_DIST = 2.0;
 
+//! Roof probe: raycast height (meters) straight up from a point to detect a
+//! building roof above it (IsPointUnderRoofBuilding). Instant equivalent of
+//! vanilla CheckUnderRoof (which probes the same 25 m ceiling, but caches 10 s).
+static const float DM_ROOF_PROBE_HEIGHT = 25.0;
+
 //! Throttle interval (seconds) for the proactive door check in MoveTo.
 static const float DM_DOOR_CHECK_INTERVAL = 0.5;
 
@@ -621,6 +626,28 @@ static const float DM_COVER_SAFE_RADIUS = 75.0;  // радиус «нет угр
 //! MedicalCare: поиск укрытия перед лечением (dmCoverFinder.FindSafeCover).
 static const float DM_MEDICAL_COVER_MIN_DIST = 10.0;   // мин. радиус свипа от угрозы
 static const float DM_MEDICAL_COVER_MAX_DIST = 100.0;  // макс. радиус (>= DM_COVER_SAFE_RADIUS, чтобы выйти за 75 м от угроз)
+
+//! Kamping cover finder (dmCampCoverFinder): конус поиска препятствий напротив
+//! двери (вершина = дверь, ось = «наружу») и высота сканбокса.
+static const float DM_CAMP_CONE_LENGTH = 100.0;      // длина конуса (до точки Y)
+static const float DM_CAMP_CONE_HALF_WIDTH = 50.0;   // полуширина основания на длине L (полуугол ≈ 26.5°)
+static const float DM_CAMP_SCAN_HEIGHT = 2.0;
+//! Препятствие ближе этого (м) к двери — не считается укрытием.
+static const float DM_CAMP_MIN_DOOR_DIST = 5.0;
+//! Точки укрытия: запас за коллизией препятствия (плюс к GetCollisionRadius).
+static const float DM_CAMP_COVER_BACK = 1.0;
+//! Высота груди для рейкаста «дверь → точка» (детект внешних дверей убран — все двери внешние).
+static const float DM_CAMP_DOOR_EYE_HEIGHT = 1.5;
+//! Высота глаз в присяде для LOS-проверки «дверь → точка».
+static const float DM_CAMP_CROUCH_EYE = 0.9;
+//! Максимум точек укрытия в результате и максимум дистанции от бота.
+static const int DM_CAMP_MAX_RESULTS = 5;
+//! Бот может подходить к зданию с 80–100 м; укрытие напротив дальней двери должно проходить дистанционный чек.
+static const float DM_CAMP_MAX_DIST = 120.0;
+//! Kamping state (dmBotState_Kamping): радиус поиска здания у цели и длительность
+//! sticky-удержания оружия на двери (переассертится каждый тик WAIT-фазы).
+static const float DM_CAMP_BUILDING_SEARCH_RADIUS = 10.0;
+static const float DM_CAMP_HOLD_SECONDS = 3.0;
 //! Коричневые зоны (точки пулевых ранений)
 static const float DM_BROWN_BULLET_RADIUS = 5.0;
 static const float DM_BROWN_BULLET_TIMEOUT = 30.0;

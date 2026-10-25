@@ -75,6 +75,9 @@
    ORIGIN_DISTANCE`). Если нужны и статика, и динамика — **два отдельных вызова**
    (`SceneGetEntitiesInBox(..., QueryFlags.DYNAMIC)` + `...(..., QueryFlags.STATIC)`).
    Один флаг на вызов — эталон `dmLoot.c`/`dmRedZone.c` (DYNAMIC), `dmExplorer.c` (STATIC).
+   **Исключение**: `PhxInteractionLayers` (параметр `RayCastBullet`) — НАТИВНАЯ битмаска,
+   `|` там ЛЕГАЛЕН (`PhxInteractionLayers.ITEM_LARGE | PhxInteractionLayers.BUILDING | PhxInteractionLayers.VEHICLE`),
+   как в ванили `environment.c:406`. Не путать с `QueryFlags`/`CollisionFlags` (последовательные enum'ы — `|` запрещён).
 
 5. **Имя поля/переменной НЕ должно совпадать с именем встроенного ТИПА/класса** —
    движок компилирует скрипты на загрузке и падает `Variable name '<X>' already used
@@ -343,6 +346,13 @@ class CfgSoundSets
   (пустой тип — всё ещё не-null), но в логах `GetType()` будет пустой строкой, а `parent == null`
   (см. ниже про null-guard в self-фильтре). Отличать «хит baked-статики» от «нет хита» — по
   `obj != null`, а НЕ по непустому имени типа.
+- **`GetCollisionBox(out vector minMax[2])` возвращает MODEL-SPACE (локальный) AABB, а НЕ
+  world-space.** Центр `(minMax[0]+minMax[1])*0.5` для здания дал `(2.16, −0.99)` (локальная
+  величина), тогда как `GetDoorSoundPos`/`GetWorldPosition`/`GetPosition` — world-space. НЕ
+  смешивать: `normalize(GetDoorSoundPos − GetCollisionBox-центр)` даёт ось на абсолютную
+  позицию двери от начала координат (эмпирика v3.319, ломало выбор двери и конус сканбокса).
+  World-центр здания — `GetWorldPosition()` (≈ центр футпринта). `GetBoundingCenter()`
+  (object.c:103) никем не используется — семантика непроверяема, не полагаться.
 
 ## Проверочный список при написании кода
 

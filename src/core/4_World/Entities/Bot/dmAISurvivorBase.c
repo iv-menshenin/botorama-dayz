@@ -41,6 +41,10 @@ class dmAISurvivorBase : PlayerBase
 	private bool m_WeaponRaised = false;
 	private float m_WeaponRaisedTimer = 0.0;
 	private float m_RaiseReadyDuration = 0.5;
+	//! Sticky weapon hold: absolute time (GetGame().GetTickTime()) until which
+	//! RaiseWeapon(false) is ignored. Kamping's wait phase keeps the bot aimed
+	//! while watching a door. 0.0 = no active hold.
+	private float m_WeaponHoldUntil = 0.0;
 	private dmBotAimMode m_AimMode = dmBotAimMode.ADS;
 	private int m_VarRaised = -1;
 	private int m_VarAimX = -1;
@@ -421,9 +425,35 @@ class dmAISurvivorBase : PlayerBase
 	//! docs/research/combat.md. Called by the brain (A3 shooting state).
 	void RaiseWeapon(bool up = true)
 	{
+		if (!up && m_WeaponHoldUntil > 0.0 && GetGame().GetTickTime() < m_WeaponHoldUntil)
+			return; // sticky hold active — ignore lower
 		if (up && !m_WeaponRaised)
 			m_RaiseReadyDuration = GetRaiseReadyDuration();
 		m_WeaponRaised = up;
+	}
+
+	//! Raise and hold the weapon for at least holdSeconds: subsequent
+	//! RaiseWeapon(false) calls are ignored until the hold expires. Kamping's
+	//! wait phase uses this so the bot stays aimed while watching a door.
+	void RaiseWeaponSticky(float holdSeconds)
+	{
+		RaiseWeapon(true);
+		m_WeaponHoldUntil = GetGame().GetTickTime() + holdSeconds;
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[Kamping] RaiseWeaponSticky holdSeconds=" + holdSeconds + " until=" + m_WeaponHoldUntil);
+		#endif
+	}
+
+	//! Clear any active sticky hold (call before a forced lower, e.g. OnExit).
+	void ClearWeaponHold()
+	{
+		#ifdef DM_BOT_DEBUG_FSM
+		if (m_WeaponHoldUntil > 0.0)
+			dmBotLog.Debug("[Kamping] ClearWeaponHold until=" + m_WeaponHoldUntil);
+		#endif
+
+		m_WeaponHoldUntil = 0.0;
 	}
 
 	//! Select the aiming mode (hip-fire / ironsights / optics), applied each frame
@@ -539,6 +569,41 @@ class dmAISurvivorBase : PlayerBase
 	{
 		vector p = GetPosition();
 		return p[1] - GetGame().SurfaceY(p[0], p[2]) > DM_FALL_DANGER_DROP;
+	}
+
+	//! True when a world point is under a building roof (ceiling above), i.e.
+	//! "inside/under a building". Ray straight up (DM_ROOF_PROBE_HEIGHT), hit must
+	//! be a House. Instant equivalent of vanilla CheckUnderRoof without its 10s cache.
+	static bool IsPointUnderRoofBuilding(vector pos)
+	{
+		vector from = pos;
+		vector to = pos + Vector(0.0, DM_ROOF_PROBE_HEIGHT, 0.0);
+		Object hitObj;
+		vector hitPos;
+		vector hitNormal;
+		float hitFrac;
+		bool hit = DayZPhysics.RayCastBullet(from, to, PhxInteractionLayers.ITEM_LARGE | PhxInteractionLayers.BUILDING | PhxInteractionLayers.VEHICLE, null, hitObj, hitPos, hitNormal, hitFrac);
+		if (!hit)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Kamping] roof: no hit pos=" + pos);
+			#endif
+			return false;
+		}
+		if (!hitObj)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Kamping] roof: hit but obj null pos=" + pos);
+			#endif
+			return false;
+		}
+		bool isHouse = hitObj.IsInherited(House);
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug("[Kamping] roof: hitType=" + hitObj.GetType() + " isHouse=" + isHouse + " pos=" + pos);
+		#endif
+
+		return isHouse;
 	}
 
 	//! Disable the vanilla client aiming model (mouse-driven) — an AI bot has no
