@@ -47,7 +47,6 @@ class dmBotState_Shooting : dmBotState
 		dmAISurvivor bot = GetOwner();
 		m_PreferredSpeed = bot.GetPreferredSpeed();
 		bot.SetPreferredSpeed(3.0);
-		bot.SetInCombat(true);
 
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (pawn && m_TargetEntity)
@@ -128,7 +127,7 @@ class dmBotState_Shooting : dmBotState
 
 		//! Если бот давно не стрелял (напр. цель вне досягаемости/нет LOS) —
 		//! перевыставить предпочтительный режим огня на оружии.
-		if (pawn.GetTimeSinceLastShot() > 10.0)
+		if (pawn.GetTimeSinceLastShot() > DM_COMBAT_ENGAGE_TIMEOUT)
 			pawn.RefreshPreferredFireMode();
 
 		m_Elapsed += pDt;
@@ -181,7 +180,6 @@ class dmBotState_Shooting : dmBotState
 		if ( bot )
 		{
 			bot.SetPreferredSpeed(m_PreferredSpeed);
-			bot.SetInCombat(false);
 
 			dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 			if (pawn)

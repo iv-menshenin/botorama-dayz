@@ -559,9 +559,25 @@ static const float DM_DAMAGE_THREAT_HP_THRESHOLD = 30.0;
 //! boundary between the fast and slow LOS-refresh cadences in GetRefreshTime.
 static const float DM_ATTACK_THREAT_THRESHOLD = 0.5;
 
+//! Combat engage: окно (сек) после последнего выстрела, в течение которого бот
+//! считается «активно ведущим стрельбу» (IsInCombat — помимо мили-флага).
+static const float DM_COMBAT_ENGAGE_TIMEOUT = 10.0;
+
 //! Target selection: видимая цель ближе этого (м) выбирается по текущей схеме
 //! (ближайшая); дальше — аукцион по досягаемости оружия (WeaponAllowDist).
 static const float DM_TARGET_NEAR_RANGE = 25.0;
+
+//! Target facing: угол (градусы) между orientation цели и направлением «цель ->
+//! бот», ниже которого цель считается «смотрит на бота» (для Rushing-гейта).
+static const float DM_TARGET_FACING_ANGLE = 70.0;
+
+//! Rushing: смещение последней известной позиции цели (м), выше которого MoveTo
+//! пересоздаётся (бот не бежит в устаревшую точку).
+static const float DM_RUSH_REPATH_DIST = 5.0;
+
+//! Rushing: дистанция (м) до цели движения, ближе которой бот поднимает оружие
+//! (sticky) на подходе.
+static const float DM_RUSH_RAISE_DIST = 15.0;
 
 //! Restrain (связывание): угроза, назначаемая restrainer'у при связывании (сознание).
 static const float DM_RESTRAIN_THREAT_RESTRAINER = 0.1;

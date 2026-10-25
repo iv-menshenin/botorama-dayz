@@ -441,6 +441,26 @@
   `Width` (или `HalfWidth`) в метаданные ребра при следующем касании дискаверинга (сейчас для
   диагностики объезда ширина пере-измеряется через `RoadWidth` на лету, см. `docs/road-detour-filed.md`).
 
+## L. Боевые состояния (Shooting/Flanking/Kamping/Rushing)
+
+- **средний** — **`FinishShootingIntents()` дублирует тройку «finish Aim+HitTo+Look»** —
+  одна и та же логика в `Shooting.OnExit` (только `Finish()`), `Shooting.ResolveTarget`
+  (`Finish()`+null) и `Rushing.FinishShootingIntents()` (`Finish()`+null). Вынести в Shooting
+  один `ClearShootingIntents()` (Finish+null) и звать из трёх мест (смелл #5).
+- **средний** — **Паттерн «сохранить скорость → спринт → вернуть» размножен ×4** —
+  `m_PreferredSpeed` + `SetPreferredSpeed(3.0)` + restore копируется в Shooting, Hunting,
+  Fighting и Rushing (по наследованию). Вынести `EnterSprint()/ExitSprint()` в базовый
+  `dmBotState` или хелпер (смелл #6).
+- **низкий** — **EvadeAim «end → re-trigger» цикл в фазе 3 Rushing**: уворот-интент
+  завершается условием `(d) combat` (`CheckEndConditions` → `IsInCombat()`), после чего фаза 3
+  тут же ре-триггерит `EvadeAim(forced=true)` — интент пересоздаётся каждый кадр, пока цель
+  видима и смотрит на бота. Поведение корректное (уворот перезапускается), но даёт мусорный
+  цикл create/destroy. Сгладить: у forced-уворота не завершаться по `(d) combat`.
+- **косметика** — нумерация фаз в шапке `dmBotState_Rushing` (1→2→3) не совпадает с порядком
+  веток `OnUpdate` (стрельба→уворот→подход = 1→3→2); `RaiseWeaponSticky(DM_CAMP_HOLD_SECONDS)`
+  переиспользует Kamping-константу для Rushing-подъёма (чужая доменная константа); комментарий
+  `EvadeAim` «Не запускается в бою» неточен после введения `forced`.
+
 ## Сводка по приоритету
 
 - **высокий**: (пусто — крупные задачи закрыты; следующий крупный блок — лут, см. план).
