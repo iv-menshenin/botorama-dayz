@@ -1688,42 +1688,88 @@ class dmAISurvivor
 
 	dmTarget m_LastHostileTarget; // текущая цель
 
-	//! Ближайшая враждебная цель (threat >= DM_ATTACK_THREAT_THRESHOLD, не friendly,
-	//! живая). Без ограничения дистанции; ближайшая побеждает (ничья — выше threat).
+	//! Праймари-цель (threat >= DM_ATTACK_THREAT_THRESHOLD, не friendly, живая):
+	//! ближайшая видимая; при отсутствии цели в DM_TARGET_NEAR_RANGE — аукцион по
+	//! досягаемости оружия (WeaponAllowDist), иначе fallback на ближайшую без видимости.
 	//! Это НЕ флаг боя, чтобы определить, находится ли бот в состоянии боя используйте IsInCombat().
 	dmTarget GetHostileTarget()
 	{
-		// если ближайшая видимая цель все еще жива и это текущая цель, то пока закрепляемся на ней
+		// ближайшая видимая враждебная цель
 		dmTarget t = GetHostileTargetEx(true);
+
+		// залипание: текущая цель всё ещё ближайшая видимая и жива
 		if ( t && m_LastHostileTarget == t && t.m_Entity && t.m_Entity.IsAlive() )
 		{
 			return t;
 		}
-		// проверим ближайшую цель без учета видимости, если она и есть видимая, то идем по ней
+
+		// видимая цель в пределах 25 м — текущая схема (ближайшая)
+		if ( t && DistanceToTarget(t) <= DM_TARGET_NEAR_RANGE )
+		{
+			m_LastHostileTarget = t;
+			return t;
+		}
+
+		// целей в 25 м нет — аукцион по досягаемости оружия
+		dmTarget eng = GetEngageableTarget();
+		if ( eng )
+		{
+			m_LastHostileTarget = eng;
+			return eng;
+		}
+
+		// аукцион пуст — fallback: ближайшая (любая видимость)
 		dmTarget n = GetHostileTargetEx(false);
-		if ( t == n || !n ) return t;
+		m_LastHostileTarget = n;
+		return n;
+	}
 
-		// единственная цель - вне видимости
-		if ( !t && n )
-		{
-			m_LastHostileTarget = n;
-			return n;
-		}
-
-		// иначе, нам нужно проверить дистанцию и решить какую цель выбрать
+	//! Ближайшая ВИДИМАЯ враждебная цель, которую можно достать оружием из арсенала
+	//! (WeaponAllowDist(dist) непуст). Копия GetHostileTargetEx(true) с доп. фильтром
+	//! досягаемости; невидимые цели в аукцион не входят.
+	dmTarget GetEngageableTarget()
+	{
+		dmTarget best = null;
+		float bestDist = 0.0;
+		float bestThreat = 0.0;
 		vector myPos = GetPosition();
-		vector dn = n.m_LastPosition - myPos; // до ближайшей цели
-		vector dt = t.m_LastPosition - myPos; // до ближайшей видимой цели
-		
-		// все таки цель без учета видимости, если она на много ближе видимой цели, остается в фокусе (если она была в фокусе)
-		if ( m_LastHostileTarget == n && n.m_Entity && n.m_Entity.IsAlive() && dn.Length() < dt.Length() / 10 )
+		int i;
+		for (i = 0; i < m_Targets.Count(); i++)
 		{
-			return n;
+			dmTarget t = m_Targets[i];
+			if (t.m_Friendly) continue;
+			if (!t.m_HasLOS) continue;
+			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
+			EntityAI e = t.m_Entity;
+			if (!e || !e.IsAlive()) continue;
+			vector tPos = e.GetPosition();
+			vector d = tPos - myPos;
+			d[1] = 0.0;
+			float dist = d.Length();
+			if (GetArsenal().WeaponAllowDist(dist).Count() == 0)
+				continue;
+			if (!best || dist < bestDist || (dist == bestDist && t.m_Threat > bestThreat))
+			{
+				best = t;
+				bestDist = dist;
+				bestThreat = t.m_Threat;
+			}
 		}
+		return best;
+	}
 
-		// иначе переключаемся на видимую цель
-		m_LastHostileTarget = t;
-		return t;
+	//! 2D-дистанция до цели (entity-позиция, иначе последняя известная позиция).
+	float DistanceToTarget(dmTarget t)
+	{
+		vector myPos = GetPosition();
+		vector tPos;
+		if (t.m_Entity)
+			tPos = t.m_Entity.GetPosition();
+		else
+			tPos = t.m_LastPosition;
+		vector d = tPos - myPos;
+		d[1] = 0.0;
+		return d.Length();
 	}
 
 	dmTarget GetHostileTargetEx(bool visible)

@@ -559,6 +559,10 @@ static const float DM_DAMAGE_THREAT_HP_THRESHOLD = 30.0;
 //! boundary between the fast and slow LOS-refresh cadences in GetRefreshTime.
 static const float DM_ATTACK_THREAT_THRESHOLD = 0.5;
 
+//! Target selection: видимая цель ближе этого (м) выбирается по текущей схеме
+//! (ближайшая); дальше — аукцион по досягаемости оружия (WeaponAllowDist).
+static const float DM_TARGET_NEAR_RANGE = 25.0;
+
 //! Restrain (связывание): угроза, назначаемая restrainer'у при связывании (сознание).
 static const float DM_RESTRAIN_THREAT_RESTRAINER = 0.1;
 //! Restrain (связывание): угроза, назначаемая всем людям в радиусе при связывании из отключки.
