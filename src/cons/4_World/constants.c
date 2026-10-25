@@ -914,7 +914,11 @@ static const float DM_EAT_DRINK_OPEN_TIMEOUT  = 3.0;
 //! EatDrink: интервал (секунды) пересканирования, когда есть/пить нечего.
 static const float DM_EAT_DRINK_SCAN_INTERVAL = 2.0;
 
-//! Арсенал: интервал фонового пере-чека регистрации оружия/патронов (сек, 5 мин).
-//! Раз в этот интервал Tick перепроверяет один предмет и один калибр — страховка
-//! от дрейфа состояния (выстрел сжигает патроны, предмет мог выпасть без Unregister).
-static const float DM_ARSENAL_RECHECK_INTERVAL = 300.0;
+//! Арсенал: задержка (сек) после спавна до стартового полного рескана инвентаря.
+//! Ловит спавн-лоадаут, применённый после первого тика; рескан идёт по одной
+//! вещи за фрейм (без спайка кадра).
+static const float DM_ARSENAL_RESCAN_DELAY = 5.0;
+
+//! Арсенал: интервал периодической полной актуализации — случайные 7–10 минут.
+static const int DM_ARSENAL_RESCAN_MIN_MINUTES = 7;
+static const int DM_ARSENAL_RESCAN_MAX_MINUTES = 10;

@@ -1,8 +1,9 @@
 //! dmArsenal — профиль арсенала бота: зарегистрированный огнестрел, мили и
 //! патроны по калибру. Заполняется вызовами Register/Unregister (подбор/выброс —
-//! подключаются отдельной задачей); фоновый Tick раз в DM_ARSENAL_RECHECK_INTERVAL
-//! перепроверяет по одному предмету и по одному калибру (страховка от дрейфа
-//! состояния: выстрел сжигает патроны без Unregister, предмет мог выпасть и т.п.).
+//! подключаются отдельной задачей); фоновый Tick делает стартовый рескан (5 с
+//! после спавна) и периодическую полную актуализацию (раз в случайные 7–10 мин)
+//! — страховка от дрейфа состояния: выстрел сжигает патроны без Unregister,
+//! предмет мог выпасть и т.п.
 //!
 //! Калибр — класс пули (CfgAmmo <bullet>), резолвится так же, как в
 //! dmWeaponRange.GetCaliber: CfgMagazines <тип магазина/пачки> ammo -> имя пули.
@@ -15,10 +16,12 @@ class dmArsenal
 	ref map<string, int> m_AmmoByCaliber; // калибр (класс пули) -> сумма патронов
 	ref array<EntityAI> m_Melee;          // зарегистрированное мили
 
-	float m_RecheckTimer;
-	int m_RecheckIdx;                      // какой m_Weapons проверяем следующим
-	int m_CaliberRecheckIdx;               // какой калибр пересчитываем следующим
-	bool m_Scanned;                        // был ли выполнен стартовый Rescan
+	float m_PeriodicTimer;                 // счётчик до следующей периодической актуализации
+	float m_PeriodicInterval;              // текущий случайный интервал (сек)
+	ref array<EntityAI> m_RescanQueue;     // вещи для пофреймового ре-регистра (null = нет активного рескана)
+	int m_RescanIdx;
+	float m_SpawnTimer;
+	bool m_InitialRescanDone;
 
 	void dmArsenal(dmAISurvivor owner)
 	{
@@ -26,10 +29,12 @@ class dmArsenal
 		m_Weapons = new array<EntityAI>();
 		m_AmmoByCaliber = new map<string, int>();
 		m_Melee = new array<EntityAI>();
-		m_RecheckTimer = 0.0;
-		m_RecheckIdx = 0;
-		m_CaliberRecheckIdx = 0;
-		m_Scanned = false;
+		m_RescanQueue = null;
+		m_RescanIdx = 0;
+		m_SpawnTimer = 0.0;
+		m_InitialRescanDone = false;
+		m_PeriodicTimer = 0.0;
+		m_PeriodicInterval = RandomInterval();
 	}
 
 	//! Подбор предмета: огнестрел/мили — в списки, магазин/рассыпные патроны — в подсчёт по калибру.
@@ -118,50 +123,68 @@ class dmArsenal
 		}
 	}
 
-	//! Фоновый пере-чек: раз в DM_ARSENAL_RECHECK_INTERVAL — один предмет + один калибр.
-	//! Первым тиком после спавна выполняет полный Rescan (спавн-лоадаут не проходит
-	//! через лут, поэтому подбор его не зарегистрировал).
+	//! Фоновый тик: стартовый отложенный рескан (5 с после спавна) + периодическая
+	//! самовосстанавливающаяся актуализация (полный ре-регистр раз в 7–10 минут).
 	void Tick(float dt)
 	{
-		if (!m_Scanned)
+		if (!m_InitialRescanDone)
 		{
-			m_Scanned = true;
-			Rescan();
+			m_SpawnTimer += dt;
+			if (m_SpawnTimer >= DM_ARSENAL_RESCAN_DELAY && !m_RescanQueue)
+				BeginRescan();
+			if (m_RescanQueue)
+				ProcessRescanFrame();
 		}
-		m_RecheckTimer += dt;
-		if (m_RecheckTimer < DM_ARSENAL_RECHECK_INTERVAL)
-			return;
-		m_RecheckTimer = 0.0;
-		RecheckOneWeapon();
-		RecheckOneCaliber();
+		else
+		{
+			//! Периодическая самовосстанавливающаяся актуализация: раз в случайные
+			//! 7–10 минут полный ре-регистр всех вещей инвентаря (пофреймово).
+			m_PeriodicTimer += dt;
+			if (m_PeriodicTimer >= m_PeriodicInterval && !m_RescanQueue)
+			{
+				BeginRescan();
+				m_PeriodicTimer = 0.0;
+				m_PeriodicInterval = RandomInterval();
+			}
+			if (m_RescanQueue)
+				ProcessRescanFrame();
+		}
 	}
 
-	//! Полная синхронизация с инвентарём пешки: очистить списки и заново
-	//! зарегистрировать каждый предмет (Register идемпотентен и фильтрует —
-	//! огнестрел/мили/патроны регистрируются, прочее игнорируется).
-	void Rescan()
+	//! Начать полный рескан: очистить списки и зафиксировать очередь вещей инвентаря.
+	private void BeginRescan()
 	{
 		m_Weapons.Clear();
 		m_Melee.Clear();
 		m_AmmoByCaliber.Clear();
-		m_RecheckIdx = 0;
-		m_CaliberRecheckIdx = 0;
 
 		dmAISurvivorBase pawn = m_Owner.GetPawn();
 		if (!pawn)
-			return;
-
-		array<EntityAI> items = new array<EntityAI>();
-		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
-		int i;
-		for (i = 0; i < items.Count(); i++)
 		{
-			Register(items[i]);
+			m_InitialRescanDone = true; // пешки нет — нечего ре-регистрировать
+			return;
 		}
+		m_RescanQueue = new array<EntityAI>();
+		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, m_RescanQueue);
+		m_RescanIdx = 0;
+	}
 
-		#ifdef DM_BOT_DEBUG_ARSENAL
-		dmBotLog.Debug("[Arsenal] Rescan: weapons=" + m_Weapons.Count() + " melee=" + m_Melee.Count() + " calibers=" + m_AmmoByCaliber.Count());
-		#endif
+	//! Одна вещь за фрейм: Register + инкремент индекса; при исчерпании — завершение.
+	private void ProcessRescanFrame()
+	{
+		if (m_RescanIdx < m_RescanQueue.Count())
+		{
+			Register(m_RescanQueue[m_RescanIdx]);
+			m_RescanIdx = m_RescanIdx + 1;
+		}
+		if (m_RescanIdx >= m_RescanQueue.Count())
+		{
+			m_RescanQueue = null;
+			m_InitialRescanDone = true;
+			#ifdef DM_BOT_DEBUG_ARSENAL
+			dmBotLog.Debug("[Arsenal] Rescan done: weapons=" + m_Weapons.Count() + " melee=" + m_Melee.Count() + " calibers=" + m_AmmoByCaliber.Count());
+			#endif
+		}
 	}
 
 	//! Все винтовки, эффективные на дистанции dist (GetEffectiveRange >= dist).
@@ -239,82 +262,11 @@ class dmArsenal
 		return mag.GetAmmoCount();
 	}
 
-	//! Жив ли предмет и лежит ли он (по-прежнему) в инвентаре пешки.
-	private bool IsInInventory(EntityAI item)
+	//! Случайный интервал актуализации: 7–10 минут (в секундах).
+	private float RandomInterval()
 	{
-		if (!item)
-			return false;
-		dmAISurvivorBase pawn = m_Owner.GetPawn();
-		if (!pawn)
-			return false;
-		array<EntityAI> items = new array<EntityAI>();
-		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
-		return items.Find(item) >= 0;
-	}
-
-	//! Проверить m_Weapons[m_RecheckIdx] (по кругу): выпал из инвентаря — Remove.
-	private void RecheckOneWeapon()
-	{
-		if (m_Weapons.Count() == 0)
-			return;
-		if (m_RecheckIdx >= m_Weapons.Count())
-			m_RecheckIdx = 0;
-		EntityAI item = m_Weapons[m_RecheckIdx];
-		if (!item || !IsInInventory(item))
-		{
-			m_Weapons.RemoveItem(item);
-			#ifdef DM_BOT_DEBUG_ARSENAL
-			if (item)
-				dmBotLog.Debug("[Arsenal] RecheckOneWeapon: " + item.GetType() + " left inventory");
-			#endif
-		}
-		if (m_Weapons.Count() > 0)
-			m_RecheckIdx = (m_RecheckIdx + 1) % m_Weapons.Count();
-		else
-			m_RecheckIdx = 0;
-	}
-
-	//! Пересчитать следующий калибр из m_AmmoByCaliber: пронумеровать инвентарь,
-	//! суммировать GetItemRounds у магазинов/пачек этого калибра.
-	private void RecheckOneCaliber()
-	{
-		if (m_AmmoByCaliber.Count() == 0)
-			return;
-		TStringArray calibers = m_AmmoByCaliber.GetKeyArray();
-		if (m_CaliberRecheckIdx >= calibers.Count())
-			m_CaliberRecheckIdx = 0;
-		string caliber = calibers[m_CaliberRecheckIdx];
-		if (m_CaliberRecheckIdx < calibers.Count() - 1)
-			m_CaliberRecheckIdx = m_CaliberRecheckIdx + 1;
-		else
-			m_CaliberRecheckIdx = 0;
-
-		int total = 0;
-		dmAISurvivorBase pawn = m_Owner.GetPawn();
-		if (pawn)
-		{
-			array<EntityAI> items = new array<EntityAI>();
-			pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
-			int i;
-			for (i = 0; i < items.Count(); i++)
-			{
-				EntityAI it = items[i];
-				if (!it)
-					continue;
-				if (!it.IsMagazine() && !it.IsAmmoPile())
-					continue;
-				if (GetItemCaliber(it) != caliber)
-					continue;
-				total = total + GetItemRounds(it);
-			}
-		}
-
-		if (total <= 0)
-			m_AmmoByCaliber.Remove(caliber);
-		else
-			m_AmmoByCaliber.Set(caliber, total);
-		#ifdef DM_BOT_DEBUG_ARSENAL
-		dmBotLog.Debug("[Arsenal] RecheckOneCaliber: " + caliber + " -> " + total);
-		#endif
+		int minutes = Math.RandomIntInclusive(DM_ARSENAL_RESCAN_MIN_MINUTES, DM_ARSENAL_RESCAN_MAX_MINUTES);
+		int seconds = minutes * 60;
+		return (float)seconds;
 	}
 }
