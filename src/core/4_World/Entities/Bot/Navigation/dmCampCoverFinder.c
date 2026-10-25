@@ -110,9 +110,23 @@ class dmCampCoverJob
 			return;
 		}
 
+		ref map<string, bool> seen = new map<string, bool>();
 		int i;
+		vector dp;
+		int kx;
+		int kz;
+		string key;
 		for (i = 0; i < m_DoorCount; i++)
+		{
+			dp = m_Building.GetDoorSoundPos(i);
+			kx = Math.Floor(dp[0] * 2.0 + 0.5);
+			kz = Math.Floor(dp[2] * 2.0 + 0.5);
+			key = kx.ToString() + ":" + kz.ToString();
+			if (seen.Contains(key))
+				continue;
+			seen.Insert(key, true);
 			m_Doors.Insert(i);
+		}
 
 		m_Owner.CacheDoors(m_Building, m_Doors);
 
