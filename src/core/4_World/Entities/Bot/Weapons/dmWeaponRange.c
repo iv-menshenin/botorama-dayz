@@ -46,7 +46,7 @@ class dmWeaponRange
 		float eff = wl * initSpeed * ism;
 
 		// дробовик: поправка на разлёт дроби — делим на 2
-		if (w.IsInherited(Shotgun_Base))
+		if (IsShotgun(w))
 			eff = eff * 0.5;
 
 		s_BaseCache.Insert(key, eff);
@@ -57,7 +57,7 @@ class dmWeaponRange
 	static float GetEffectiveRange(Weapon_Base w)
 	{
 		float eff = GetBaseRange(w);
-		if (eff <= 0.0 || w.IsInherited(Shotgun_Base))
+		if (eff <= 0.0 || IsShotgun(w))
 			return eff;
 
 		ItemOptics optic = w.GetAttachedOptics();
@@ -86,5 +86,14 @@ class dmWeaponRange
 		if (!g_Game.ConfigGetText(CFG_MAGAZINESPATH + " " + chamberable[0] + " ammo", bullet))
 			return "";
 		return bullet;
+	}
+
+	//! Дробовик по калибру: все дробовики стреляют 12-м калибром (Bullet_12Gauge*),
+	//! и никакое другое оружие — нет. Базовый класс дробовика — config-класс
+	//! (CfgVehicles), а не скриптовый, поэтому IsInherited(...) на нём не компилируется.
+	private static bool IsShotgun(Weapon_Base w)
+	{
+		string caliber = GetCaliber(w);
+		return caliber.IndexOf("12Gauge") >= 0;
 	}
 }
