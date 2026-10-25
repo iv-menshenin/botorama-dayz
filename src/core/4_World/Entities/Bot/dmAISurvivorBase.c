@@ -2284,6 +2284,9 @@ class dmAISurvivorBase : PlayerBase
 	//! deferred HandEventDrop-тайминга (см. docs/research/body-drop.md, Вариант B).
 	override bool DropItem(ItemBase item)
 	{
+		dmAISurvivor brain = dmAISurvivor.Find(this);
+		if (brain)
+			brain.GetArsenal().Unregister(item);
 		EntityAI clone = DropItemToGround(item);
 		return clone != null;
 	}

@@ -18,6 +18,7 @@ class dmArsenal
 	float m_RecheckTimer;
 	int m_RecheckIdx;                      // какой m_Weapons проверяем следующим
 	int m_CaliberRecheckIdx;               // какой калибр пересчитываем следующим
+	bool m_Scanned;                        // был ли выполнен стартовый Rescan
 
 	void dmArsenal(dmAISurvivor owner)
 	{
@@ -28,6 +29,7 @@ class dmArsenal
 		m_RecheckTimer = 0.0;
 		m_RecheckIdx = 0;
 		m_CaliberRecheckIdx = 0;
+		m_Scanned = false;
 	}
 
 	//! Подбор предмета: огнестрел/мили — в списки, магазин/рассыпные патроны — в подсчёт по калибру.
@@ -117,14 +119,49 @@ class dmArsenal
 	}
 
 	//! Фоновый пере-чек: раз в DM_ARSENAL_RECHECK_INTERVAL — один предмет + один калибр.
+	//! Первым тиком после спавна выполняет полный Rescan (спавн-лоадаут не проходит
+	//! через лут, поэтому подбор его не зарегистрировал).
 	void Tick(float dt)
 	{
+		if (!m_Scanned)
+		{
+			m_Scanned = true;
+			Rescan();
+		}
 		m_RecheckTimer += dt;
 		if (m_RecheckTimer < DM_ARSENAL_RECHECK_INTERVAL)
 			return;
 		m_RecheckTimer = 0.0;
 		RecheckOneWeapon();
 		RecheckOneCaliber();
+	}
+
+	//! Полная синхронизация с инвентарём пешки: очистить списки и заново
+	//! зарегистрировать каждый предмет (Register идемпотентен и фильтрует —
+	//! огнестрел/мили/патроны регистрируются, прочее игнорируется).
+	void Rescan()
+	{
+		m_Weapons.Clear();
+		m_Melee.Clear();
+		m_AmmoByCaliber.Clear();
+		m_RecheckIdx = 0;
+		m_CaliberRecheckIdx = 0;
+
+		dmAISurvivorBase pawn = m_Owner.GetPawn();
+		if (!pawn)
+			return;
+
+		array<EntityAI> items = new array<EntityAI>();
+		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			Register(items[i]);
+		}
+
+		#ifdef DM_BOT_DEBUG_ARSENAL
+		dmBotLog.Debug("[Arsenal] Rescan: weapons=" + m_Weapons.Count() + " melee=" + m_Melee.Count() + " calibers=" + m_AmmoByCaliber.Count());
+		#endif
 	}
 
 	//! Все винтовки, эффективные на дистанции dist (GetEffectiveRange >= dist).
