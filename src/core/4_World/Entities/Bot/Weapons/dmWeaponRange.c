@@ -82,8 +82,19 @@ class dmWeaponRange
 		w.ConfigGetTextArray("chamberableFrom", chamberable);
 		if (chamberable.Count() == 0)
 			return "";
+		return GetBulletFromMagazine(chamberable[0]);
+	}
+
+	//! Имя пули (CfgAmmo) по типу магазина/рассыпной пачки: прямой резолв
+	//! CfgMagazines <magazineType> -> поле "ammo". Единый источник истины калибра —
+	//! надёжнее нативного AmmoTypesAPI.MagazineTypeToAmmoType, который не резолвит
+	//! рассыпные пачки (Ammunition_Base).
+	static string GetBulletFromMagazine(string magazineType)
+	{
+		if (magazineType == "")
+			return "";
 		string bullet;
-		if (!AmmoTypesAPI.MagazineTypeToAmmoType(chamberable[0], bullet))
+		if (!g_Game.ConfigGetText(CFG_MAGAZINESPATH + " " + magazineType + " ammo", bullet))
 			return "";
 		return bullet;
 	}

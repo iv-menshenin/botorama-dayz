@@ -240,17 +240,14 @@ class dmArsenal
 		return count;
 	}
 
-	//! Калибр (класс пули) магазина/россыпи: AmmoTypesAPI резолвит имя пули из типа
-	//! магазина (CfgMagazines). Magazine — typedef Magazine_Base, покрывает и
-	//! отъёмный магазин, и Ammunition_Base (россыпную пачку).
+	//! Калибр (класс пули) магазина/россыпи: единый резолв через dmWeaponRange.
+	//! Magazine — typedef Magazine_Base, покрывает и отъёмный магазин, и
+	//! Ammunition_Base (россыпную пачку).
 	private string GetItemCaliber(EntityAI item)
 	{
 		if (!item)
 			return "";
-		string bullet;
-		if (!AmmoTypesAPI.MagazineTypeToAmmoType(item.GetType(), bullet))
-			return "";
-		return bullet;
+		return dmWeaponRange.GetBulletFromMagazine(item.GetType());
 	}
 
 	//! Число патронов в магазине/россыпи. Magazine — typedef, покрывает и отъёмный

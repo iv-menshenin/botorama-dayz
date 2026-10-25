@@ -818,7 +818,11 @@ class dmAISurvivor
 		{
 			Weapon_Base w = suitable[i];
 			int ammo = GetArsenal().WeaponAmmoCount(w);
-			if (ammo > bestAmmo)
+			//! Ствол годен, если заряжен (патронник/магазин/внутр.магазин) ИЛИ
+			//! в арсенале есть патроны под его калибр (можно перезарядить).
+			if (!IsWeaponLoaded(w) && ammo <= 0)
+				continue;
+			if (best == null || ammo > bestAmmo)
 			{
 				best = w;
 				bestAmmo = ammo;

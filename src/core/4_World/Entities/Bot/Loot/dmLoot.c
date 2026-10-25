@@ -686,8 +686,8 @@ class dmLoot
 			Magazine mag = Magazine.Cast(items[i]);
 			if (!mag)
 				continue;
-			string itemBullet;
-			if (!AmmoTypesAPI.MagazineTypeToAmmoType(mag.GetType(), itemBullet))
+			string itemBullet = dmWeaponRange.GetBulletFromMagazine(mag.GetType());
+			if (itemBullet == "")
 				continue;
 			if (itemBullet == bulletType)
 				count = count + mag.GetAmmoCount();
@@ -708,7 +708,7 @@ class dmLoot
 	}
 
 	//! Тип пули оружия: chamberableFrom[0] (имя CfgMagazines, детерминированно) →
-	//! имя пули CfgAmmo через AmmoTypesAPI.MagazineTypeToAmmoType.
+	//! имя пули CfgAmmo через dmWeaponRange.GetBulletFromMagazine (единый резолв).
 	private static bool GetFirearmBulletType(Weapon_Base weapon, out string bulletType)
 	{
 		bulletType = "";
@@ -718,6 +718,7 @@ class dmLoot
 		weapon.ConfigGetTextArray("chamberableFrom", chamberable);
 		if (chamberable.Count() == 0)
 			return false;
-		return AmmoTypesAPI.MagazineTypeToAmmoType(chamberable[0], bulletType);
+		bulletType = dmWeaponRange.GetBulletFromMagazine(chamberable[0]);
+		return bulletType != "";
 	}
 }
