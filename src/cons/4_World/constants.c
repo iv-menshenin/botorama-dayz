@@ -264,6 +264,11 @@ static const float DM_PATH_ROUND_LOOKAHEAD   = 25.0;
 //! Raycast distance (meters) straight ahead at eye level to detect a closed door.
 static const float DM_DOOR_OPEN_DIST = 2.0;
 
+//! Roof probe: raycast height (meters) straight up from a point to detect a
+//! building roof above it (IsPointUnderRoofBuilding). Instant equivalent of
+//! vanilla CheckUnderRoof (which probes the same 25 m ceiling, but caches 10 s).
+static const float DM_ROOF_PROBE_HEIGHT = 25.0;
+
 //! Throttle interval (seconds) for the proactive door check in MoveTo.
 static const float DM_DOOR_CHECK_INTERVAL = 0.5;
 

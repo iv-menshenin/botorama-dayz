@@ -69,4 +69,14 @@ class dmBotConditions
 	{
 		return new dmBotCondition_LastPositionSpread(spread, false);
 	}
+
+	static dmBotCondition PawnInBuilding()
+	{
+		return new dmBotCondition_PawnInBuilding();
+	}
+
+	static dmBotCondition TargetInBuilding()
+	{
+		return new dmBotCondition_TargetInBuilding();
+	}
 }

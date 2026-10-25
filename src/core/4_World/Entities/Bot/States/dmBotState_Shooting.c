@@ -185,7 +185,10 @@ class dmBotState_Shooting : dmBotState
 
 			dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 			if (pawn)
+			{
+				pawn.ClearWeaponHold();
 				pawn.RaiseWeapon(false);
+			}
 		}
 	}
 
