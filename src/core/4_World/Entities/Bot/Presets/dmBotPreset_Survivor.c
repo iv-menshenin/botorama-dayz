@@ -9,6 +9,7 @@ class dmBotPreset_Survivor
 		dmBotState idle    = new dmBotState_Idle();
 		dmBotState fight   = new dmBotState_Fighting();
 		dmBotState shoot   = new dmBotState_Shooting();
+		dmBotState flank   = new dmBotState_Flanking();
 		dmBotState explore = new dmBotState_Exploration();
 		dmBotState stealth = new dmBotState_Stealth();
 		dmBotState medical = new dmBotState_MedicalCare();
@@ -16,29 +17,38 @@ class dmBotPreset_Survivor
 		fsm.AddState(idle, "Idle");
 		fsm.AddState(fight, "Fighting");
 		fsm.AddState(shoot, "Shooting");
+		fsm.AddState(flank, "Flanking");
 		fsm.AddState(explore, "Exploration");
 		fsm.AddState(stealth, "Stealth");
 		fsm.AddState(medical, "MedicalCare");
 
 		idle.AddTransition(explore, 1.0);
-		idle.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
+		idle.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShootVisible()));
+		idle.AddTransition(flank, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShootHidden()));
 		idle.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		idle.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 
 		shoot.AddTransition(idle, 0.1);
 		shoot.AddTransition(explore, 1.0);
 		shoot.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+		shoot.AddTransition(flank, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShootHidden()));
+		flank.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShootVisible()));
+		flank.AddTransition(idle, 0.1);
+		flank.AddTransition(explore, 1.0);
+		flank.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		fight.AddTransition(idle, 1.0);
 		fight.AddTransition(explore, 1.0);
 		fight.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 
-		explore.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot()));
+		explore.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShootVisible()));
+		explore.AddTransition(flank, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShootHidden()));
 		explore.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		explore.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 
 		stealth.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		
-		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShoot()));
+		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShootVisible()));
+		medical.AddTransition(flank, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShootHidden()));
 		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShoot().Not()));
 
 		fsm.SetDefaultState("Exploration");
