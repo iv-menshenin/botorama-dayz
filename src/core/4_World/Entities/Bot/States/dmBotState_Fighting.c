@@ -20,6 +20,7 @@ class dmBotState_Fighting : dmBotState
 	ref dmBotIntent_HoldLook m_Look;
 	float m_RetargetTimer;
 	float m_StallLogCooldown;
+	float m_PreferredSpeed;
 	ref dmInventoryFrame m_EquipRoot;
 
 	bool m_Turning = false;
@@ -45,6 +46,8 @@ class dmBotState_Fighting : dmBotState
 		bot.SetMeleeCooldown(0.0);
 		bot.SetLastMeleeStrikeTime(GetGame().GetTickTime());
 		bot.SetInCombat(true);
+		m_PreferredSpeed = bot.GetPreferredSpeed();
+		bot.SetPreferredSpeed(3.0);
 
 		ResolveTarget();
 
@@ -144,6 +147,7 @@ class dmBotState_Fighting : dmBotState
 		{
 			bot.SetInCombat(false);
 			bot.ClearMeleeDanger();
+			bot.SetPreferredSpeed(m_PreferredSpeed);
 		}
 	}
 

@@ -1214,7 +1214,17 @@ class dmAISurvivor
 
 	bool IsInCombat()
 	{
-		return m_IsInCombat;
+		if (m_IsInCombat)
+			return true;
+		dmAISurvivorBase pawn = m_Pawn;
+		if (pawn)
+		{
+			if (pawn.IsRaised())
+				return true;
+			if (pawn.GetTimeSinceLastShot() < DM_COMBAT_ENGAGE_TIMEOUT)
+				return true;
+		}
+		return false;
 	}
 
 	//------------------------------------------------------------------
@@ -1319,7 +1329,7 @@ class dmAISurvivor
 
 	//! Уворот от прицела: пара персональных интентов (EvadeAim MOVE + HoldLook LOOK).
 	//! Не запускается в бою; повторный вызов игнорируется, пока уворот активен.
-	void EvadeAim(EntityAI aggressor)
+	void EvadeAim(EntityAI aggressor, bool forced = false)
 	{
 		if (!aggressor)
 			return;
@@ -1328,7 +1338,7 @@ class dmAISurvivor
 		if (m_Pawn && m_Pawn.IsInVehicle())
 			return;
 		UpdateEvade();
-		if ( IsInCombat() )
+		if ( !forced && IsInCombat() )
 		{
 			#ifdef DM_BOT_DEBUG_EVADE
 			dmBotLog.Debug("[Evade] guard: in combat");
@@ -1770,6 +1780,25 @@ class dmAISurvivor
 		vector d = tPos - myPos;
 		d[1] = 0.0;
 		return d.Length();
+	}
+
+	//! Смотрит ли цель (телом) в сторону бота: угол между orientation цели и
+	//! направлением «цель -> бот» меньше DM_TARGET_FACING_ANGLE. Работает для
+	//! игроков и зомби (у обоих есть GetOrientation).
+	bool IsTargetFacingBot(dmTarget t)
+	{
+		if (!t || !t.m_Entity)
+			return false;
+		vector botPos = GetPosition();
+		vector tPos = t.m_Entity.GetPosition();
+		vector toBot = botPos - tPos;
+		toBot[1] = 0.0;
+		if (toBot.Length() < 0.01)
+			return false;
+		float toBotYaw = toBot.VectorToAngles()[0];
+		float bodyYaw = t.m_Entity.GetOrientation()[0];
+		float angle = Math.AbsFloat(AngleDiff(bodyYaw, toBotYaw));
+		return angle < DM_TARGET_FACING_ANGLE;
 	}
 
 	dmTarget GetHostileTargetEx(bool visible)

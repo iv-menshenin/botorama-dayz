@@ -50,6 +50,11 @@ class dmBotConditions
 		return new dmBotCondition_Flanking();
 	}
 
+	static dmBotCondition Rushing()
+	{
+		return new dmBotCondition_Rushing();
+	}
+
 	static dmBotCondition Kamping()
 	{
 		return new dmBotCondition_Kamping();
