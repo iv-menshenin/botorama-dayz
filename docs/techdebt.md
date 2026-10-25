@@ -728,3 +728,15 @@
   (`CreateInInventory`), либо `give` до входа в бой.
 - **низкий** — `dmBotCondition_CanShoot` использует `IsInherited(ZombieBase)` (тот же готч, что чинили в
   `HasImminentThreat`) — перевести на `ZombieBase.Cast` при следующем касании.
+
+## S. Арсенал (профиль оружия, v3.323)
+
+- **средний** — `dmArsenal.WeaponAmmoCount` не учитывает **патрон в патроннике** и **внутренний магазин**
+  оружия. Для переламывающихся/внутренне-магазинных дальнобойных винтовок (B95, Мосин, Izh18) россыпь уходит
+  в патронник через `ReloadWeaponAI`/`TidyInventory` → периодический рескан её не видит (`calibers=0`), хотя
+  отъёмные магазины и россыпь-по-подбору (путь `Register`) считаются корректно. Поправить: в счёт добавить
+  `GetChamberedCartridgeMagazineTypeName` + `GetInternalMagazineCartridgeCount` (источники уже читаются в
+  `dmAISurvivor.HasNoAmmo`/`IsWeaponLoaded`). Сделать в фазе интеграции арсенала с FSM.
+- **низкий** — `dmArsenal` рескан очищает списки и пере-регистрирует пофреймово: в этом окне (~N фреймов)
+  запросы `WeaponAllowDist`/`WeaponAmmoCount` видят частично заполненный профиль. Окно мало и запросы на
+  FSM-переходах (редки), но при интеграции учесть (напр. запрашивать после `m_InitialRescanDone`).
