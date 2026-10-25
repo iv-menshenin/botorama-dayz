@@ -65,7 +65,7 @@ class dmArsenal
 			}
 			return;
 		}
-		if (item.IsMagazine() || item.IsAmmoPile())
+		if (Magazine.Cast(item) != null)
 		{
 			string caliber = GetItemCaliber(item);
 			if (caliber == "")
@@ -102,7 +102,7 @@ class dmArsenal
 			dmBotLog.Debug("[Arsenal] Unregister melee: " + item.GetType());
 			#endif
 		}
-		if (item.IsMagazine() || item.IsAmmoPile())
+		if (Magazine.Cast(item) != null)
 		{
 			string caliber = GetItemCaliber(item);
 			if (caliber == "")
@@ -240,13 +240,15 @@ class dmArsenal
 		return count;
 	}
 
-	//! Калибр (класс пули) магазина/россыпи: CfgMagazines <тип> ammo -> имя пули.
+	//! Калибр (класс пули) магазина/россыпи: AmmoTypesAPI резолвит имя пули из типа
+	//! магазина (CfgMagazines). Magazine — typedef Magazine_Base, покрывает и
+	//! отъёмный магазин, и Ammunition_Base (россыпную пачку).
 	private string GetItemCaliber(EntityAI item)
 	{
 		if (!item)
 			return "";
 		string bullet;
-		if (!g_Game.ConfigGetText(CFG_MAGAZINESPATH + " " + item.GetType() + " ammo", bullet))
+		if (!AmmoTypesAPI.MagazineTypeToAmmoType(item.GetType(), bullet))
 			return "";
 		return bullet;
 	}

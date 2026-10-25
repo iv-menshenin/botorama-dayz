@@ -72,7 +72,7 @@ class dmWeaponRange
 		return eff + inc;
 	}
 
-	//! Класс пули (калибр) оружия — резолв chamberableFrom[0] -> CfgMagazines ammo.
+	//! Класс пули (калибр) оружия — резолв chamberableFrom[0] -> имя пули.
 	//! Нужен для подсчёта патронов в арсенале (следующая задача).
 	static string GetCaliber(Weapon_Base w)
 	{
@@ -83,7 +83,7 @@ class dmWeaponRange
 		if (chamberable.Count() == 0)
 			return "";
 		string bullet;
-		if (!g_Game.ConfigGetText(CFG_MAGAZINESPATH + " " + chamberable[0] + " ammo", bullet))
+		if (!AmmoTypesAPI.MagazineTypeToAmmoType(chamberable[0], bullet))
 			return "";
 		return bullet;
 	}
