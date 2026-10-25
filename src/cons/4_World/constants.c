@@ -913,3 +913,8 @@ static const float DM_EAT_DRINK_FULL_TIME     = 10.0;
 static const float DM_EAT_DRINK_OPEN_TIMEOUT  = 3.0;
 //! EatDrink: интервал (секунды) пересканирования, когда есть/пить нечего.
 static const float DM_EAT_DRINK_SCAN_INTERVAL = 2.0;
+
+//! Арсенал: интервал фонового пере-чека регистрации оружия/патронов (сек, 5 мин).
+//! Раз в этот интервал Tick перепроверяет один предмет и один калибр — страховка
+//! от дрейфа состояния (выстрел сжигает патроны, предмет мог выпасть без Unregister).
+static const float DM_ARSENAL_RECHECK_INTERVAL = 300.0;
