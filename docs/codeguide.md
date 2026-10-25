@@ -75,6 +75,9 @@
    ORIGIN_DISTANCE`). Если нужны и статика, и динамика — **два отдельных вызова**
    (`SceneGetEntitiesInBox(..., QueryFlags.DYNAMIC)` + `...(..., QueryFlags.STATIC)`).
    Один флаг на вызов — эталон `dmLoot.c`/`dmRedZone.c` (DYNAMIC), `dmExplorer.c` (STATIC).
+   **Исключение**: `PhxInteractionLayers` (параметр `RayCastBullet`) — НАТИВНАЯ битмаска,
+   `|` там ЛЕГАЛЕН (`PhxInteractionLayers.ITEM_LARGE | PhxInteractionLayers.BUILDING | PhxInteractionLayers.VEHICLE`),
+   как в ванили `environment.c:406`. Не путать с `QueryFlags`/`CollisionFlags` (последовательные enum'ы — `|` запрещён).
 
 5. **Имя поля/переменной НЕ должно совпадать с именем встроенного ТИПА/класса** —
    движок компилирует скрипты на загрузке и падает `Variable name '<X>' already used

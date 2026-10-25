@@ -17,5 +17,8 @@ modded class MissionServer
 
 		//! Runtime road graph (full + simplified): load + CSR build on first tick.
 		dmRoadGraphManager.Get().Tick(timeslice);
+
+		//! Kamping cover finder: async per-tick cover search, cached per (building, door).
+		dmCampCoverFinder.Get().Tick(timeslice);
 	}
 }

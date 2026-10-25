@@ -626,6 +626,25 @@ static const float DM_COVER_SAFE_RADIUS = 75.0;  // радиус «нет угр
 //! MedicalCare: поиск укрытия перед лечением (dmCoverFinder.FindSafeCover).
 static const float DM_MEDICAL_COVER_MIN_DIST = 10.0;   // мин. радиус свипа от угрозы
 static const float DM_MEDICAL_COVER_MAX_DIST = 100.0;  // макс. радиус (>= DM_COVER_SAFE_RADIUS, чтобы выйти за 75 м от угроз)
+
+//! Kamping cover finder (dmCampCoverFinder): прямоугольник сканирования напротив
+//! двери (вдоль оси «наружу» × поперёк) и высота сканбокса.
+static const float DM_CAMP_RECT_LENGTH = 75.0;
+static const float DM_CAMP_RECT_WIDTH = 30.0;
+static const float DM_CAMP_SCAN_HEIGHT = 2.0;
+//! Точки укрытия: отступ за препятствие (дальняя сторона) и боковое смещение.
+static const float DM_CAMP_COVER_BACK = 1.5;
+static const float DM_CAMP_COVER_SPREAD = 1.0;
+//! Детект внешней двери: длина «выходного» луча, высота груди для рейкаста и
+//! отступ старта за створку (см. research/camping-doors.md §1).
+static const float DM_CAMP_DOOR_PROBE_DIST = 10.0;
+static const float DM_CAMP_DOOR_EYE_HEIGHT = 1.5;
+static const float DM_CAMP_DOOR_STEPBACK = 0.5;
+//! Высота глаз в присяде для LOS-проверки «дверь → точка».
+static const float DM_CAMP_CROUCH_EYE = 0.9;
+//! Максимум точек укрытия в результате и максимум дистанции от бота.
+static const int DM_CAMP_MAX_RESULTS = 5;
+static const float DM_CAMP_MAX_DIST = 75.0;
 //! Коричневые зоны (точки пулевых ранений)
 static const float DM_BROWN_BULLET_RADIUS = 5.0;
 static const float DM_BROWN_BULLET_TIMEOUT = 30.0;
