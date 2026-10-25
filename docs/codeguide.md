@@ -84,6 +84,16 @@
    только при загрузке на сервере. Переименуй поле (напр. `SurfaceType`/`SurfaceName`).
    Другие рискованные имена полей: `Object`, `Game`, `Shape`, `LOD`, `Car`, `Human`.
 
+6. **Глубокая fluent-цепочка `.And()/.Or()/.Not()` (>2 уровней) — native segfault.**
+   Цепочка `A().And(B()).And(C())` (вложенные `new dmBotCondition_And` как временные
+   объекты) роняет сервер при захвате результата (`m_Require = cond` в
+   `dmBotTransition.Require`), тогда как 2-уровневая `A().And(B())` и
+   `A().And(B().Not())` — работают. Правило: в `Require(...)`/`BlockWhen(...)` держать
+   цепочку **≤2 уровней**; композицию из 3+ предикатов выносить в отдельный
+   лист-класс с одним `Evaluate` (и уже его подключать 2-уровневой связкой
+   `HasHostile().And(MyCompositeLeaf())`). Эталон — `dmBotCondition_CanShootVisible`/
+   `CanShootHidden` (лист «HasLoadedFirearm + не-zombie + m_HasLOS/!m_HasLOS»).
+
 ## Типы и ссылки (`ref`)
 
 - **Managed-классы** (наследуют `Managed`, напр. `EntityAI` → `PlayerBase`) — ссылки

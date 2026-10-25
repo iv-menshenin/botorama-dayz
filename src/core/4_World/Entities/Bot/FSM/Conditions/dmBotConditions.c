@@ -40,6 +40,16 @@ class dmBotConditions
 		return new dmBotCondition_CanShoot();
 	}
 
+	static dmBotCondition CanShootVisible()
+	{
+		return new dmBotCondition_CanShootVisible();
+	}
+
+	static dmBotCondition CanShootHidden()
+	{
+		return new dmBotCondition_CanShootHidden();
+	}
+
 	static dmBotCondition MedicalCare()
 	{
 		return new dmBotCondition_MedicalCare();

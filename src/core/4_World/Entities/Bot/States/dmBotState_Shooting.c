@@ -1,13 +1,15 @@
 //! dmBotState_Shooting — ranged engagement (thin coordinator).
 //!
-//! PREEMPTIVE "shoot" state. The state no longer computes aim or fires inline:
-//! it resolves a hostile target (dmAISurvivor.GetHostileTarget()), picks the
-//! aim mode (HIP within DM_AIM_ADS_DISTANCE for DM_AIM_HIP_GRACE seconds, then
-//! ADS; ADS immediately beyond), keeps the weapon raised, and keeps a single
-//! dmBotIntent_Aim intent alive — which does the actual aiming (dmAiming),
-//! body turn, raise and fire. Target resolution runs on entry and every
-//! DM_FIGHT_RETARGET_INTERVAL seconds, always taking the nearest hostile.
-//! EXITs when no hostile target remains or the weapon runs out of ammo.
+//! PREEMPTIVE "shoot" state for a VISIBLE target. The state no longer computes
+//! aim or fires inline: it resolves a hostile target
+//! (dmAISurvivor.GetHostileTarget()), picks the aim mode (HIP within
+//! DM_AIM_ADS_DISTANCE for DM_AIM_HIP_GRACE seconds, then ADS; ADS immediately
+//! beyond), keeps the weapon raised, and keeps a single dmBotIntent_Aim intent
+//! alive — which does the actual aiming (dmAiming), body turn, raise and fire.
+//! Target resolution runs on entry and every DM_FIGHT_RETARGET_INTERVAL seconds,
+//! always taking the nearest hostile. EXITs when no hostile target remains, the
+//! weapon runs out of ammo, or the target is no longer visible (yields to
+//! dmBotState_Flanking, which arcs around the cover for a clear shot).
 class dmBotState_Shooting : dmBotState
 {
 	EntityAI m_TargetEntity;
@@ -17,9 +19,7 @@ class dmBotState_Shooting : dmBotState
 	ref dmBotIntent_Aim m_Aim;
 	ref dmBotIntent_HitTo m_HitTo;
 	ref dmBotIntent_HoldLook m_Look;
-	ref dmBotIntent_Flank m_Flank;
 
-	float m_InFlanking;
 	float m_RetargetTimer;
 	float m_Elapsed;
 	bool m_NoFirearm;
@@ -38,7 +38,6 @@ class dmBotState_Shooting : dmBotState
 		m_TargetEntity = null;
 		m_Target = null;
 		m_Aim = null;
-		m_Flank = null;
 		m_RetargetTimer = 0.0;
 		m_Elapsed = 0.0;
 		m_NoFirearm = false;
@@ -111,9 +110,13 @@ class dmBotState_Shooting : dmBotState
 				return EXIT;
 		}
 
+		//! Цель враждебна, но не видна — уступить Flanking (обход по дуге).
+		dmTarget t = bot.FindTarget(m_TargetEntity);
+		if (t && !t.m_HasLOS)
+			return EXIT;
+
 		EnsureLook();
 		EnsureHitTo(bot);
-		EnsureFlank(bot);
 
 		vector botPos = bot.GetPosition();
 		vector tPos = m_TargetEntity.GetPosition();
@@ -122,19 +125,6 @@ class dmBotState_Shooting : dmBotState
 		float dist = d.Length();
 		m_HitTo.m_Active = (dist <= HIT_BUTTSTCK_RANGE);
 		m_Look.m_Active = (dist <= HIT_BUTTSTCK_RANGE);
-
-		//! Фланг: цель враждебна, но не видна и далеко — обходим укрытие по дуге.
-		dmTarget t = bot.FindTarget(m_TargetEntity);
-		bool flankActive = false;
-		if (t && !t.m_HasLOS && t.m_Threat >= DM_ATTACK_THREAT_THRESHOLD && dist > DM_FLANK_MIN_DIST)
-		{
-			flankActive = true;
-			m_InFlanking += pDt;
-		} else {
-			m_InFlanking = 0.0;
-		}
-		m_Flank.m_Active = flankActive;
-		if (m_Aim) m_Aim.m_Active = !flankActive;
 
 		//! Если бот давно не стрелял (напр. цель вне досягаемости/нет LOS) —
 		//! перевыставить предпочтительный режим огня на оружии.
@@ -165,19 +155,13 @@ class dmBotState_Shooting : dmBotState
 			return CONTINUE;
 		}
 
-		#ifdef DM_BOT_DEBUG_FSM
-		if (t)
-			dmBotLog.Debug("[FSM] Shooting: flankActive=" + flankActive + " m_InFlanking=" + m_InFlanking + " dist=" + dist + " m_HasLOS=" + t.m_HasLOS);
-		#endif
-
-		if ( pawn.IsWeaponReady() && dist > HIT_BUTTSTCK_RANGE && !(flankActive && m_InFlanking > DM_FLANK_LOW_WEAPON_TIMING))
+		if (pawn.IsWeaponReady() && dist > HIT_BUTTSTCK_RANGE)
 		{
 			pawn.SetAimMode(SelectAimMode());
 			pawn.RaiseWeapon(true);
 			EnsureAim(bot);
 		} else {
 			pawn.RaiseWeapon(false);
-			if (m_Aim) m_Aim.m_Active = !flankActive;
 		}
 
 		return CONTINUE;
@@ -192,7 +176,6 @@ class dmBotState_Shooting : dmBotState
 		if ( m_HitTo ) m_HitTo.Finish();
 		if ( m_Aim ) m_Aim.Finish();
 		if ( m_Look ) m_Look.Finish();
-		if ( m_Flank ) m_Flank.Finish();
 
 		dmAISurvivor bot = GetOwner();
 		if ( bot )
@@ -248,7 +231,6 @@ class dmBotState_Shooting : dmBotState
 			if (m_Aim) { m_Aim.Finish(); m_Aim = null; }
 			if (m_HitTo) { m_HitTo.Finish(); m_HitTo = null; }
 			if (m_Look) { m_Look.Finish(); m_Look = null; }
-			if (m_Flank) { m_Flank.Finish(); m_Flank = null; }
 			m_Elapsed = 0.0;
 			m_RetargetTimer = 0.0;
 
@@ -273,20 +255,6 @@ class dmBotState_Shooting : dmBotState
 			m_HitTo.m_Priority = dmBotIntentPriority.CRITICAL;
 			m_HitTo.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 			bot.AddFSMIntent(m_HitTo);
-		}
-	}
-
-	void EnsureFlank(dmAISurvivor bot)
-	{
-		if (m_Flank && (m_Flank.IsFinished() || m_Flank.IsExpired()))
-			m_Flank = null;
-		if (!m_Flank)
-		{
-			m_Flank = new dmBotIntent_Flank();
-			m_Flank.m_TargetEntity = m_TargetEntity;
-			m_Flank.m_Priority = dmBotIntentPriority.CRITICAL;
-			m_Flank.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
-			bot.AddFSMIntent(m_Flank);
 		}
 	}
 
