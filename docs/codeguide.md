@@ -346,6 +346,13 @@ class CfgSoundSets
   (пустой тип — всё ещё не-null), но в логах `GetType()` будет пустой строкой, а `parent == null`
   (см. ниже про null-guard в self-фильтре). Отличать «хит baked-статики» от «нет хита» — по
   `obj != null`, а НЕ по непустому имени типа.
+- **`GetCollisionBox(out vector minMax[2])` возвращает MODEL-SPACE (локальный) AABB, а НЕ
+  world-space.** Центр `(minMax[0]+minMax[1])*0.5` для здания дал `(2.16, −0.99)` (локальная
+  величина), тогда как `GetDoorSoundPos`/`GetWorldPosition`/`GetPosition` — world-space. НЕ
+  смешивать: `normalize(GetDoorSoundPos − GetCollisionBox-центр)` даёт ось на абсолютную
+  позицию двери от начала координат (эмпирика v3.319, ломало выбор двери и конус сканбокса).
+  World-центр здания — `GetWorldPosition()` (≈ центр футпринта). `GetBoundingCenter()`
+  (object.c:103) никем не используется — семантика непроверяема, не полагаться.
 
 ## Проверочный список при написании кода
 

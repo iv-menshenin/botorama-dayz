@@ -107,20 +107,22 @@ proto native vector GetLadderPosBottom(int ladderIndex);// building.c:14
 ### Как получить «центр здания» в world-space
 
 - **`proto native bool GetCollisionBox(out vector minMax[2]);`** — `3_game/entities/object.c:376`.
-  `minMax[0]` = min, `minMax[1]` = max (world AABB). Центр = `(minMax[0]+minMax[1])*0.5`.
-  Самый надёжный вариант (не зависит от точки привязки модели). [нужно проверить] — world-space
-  AABB или model-space: косвенно подтверждается использованием как «высота»
-  (`minMax[1][1]-minMax[0][1]`) в `miscgameplayfunctions.c:974-980` (`IsUnderRoofFromToCalculation`);
-  для повёрнутых зданий AABB-футпринт в XZ раздут, но ЦЕНТР остаётся корректным приближением.
-- **`proto native vector GetPosition();`** — `object.c:293`. Позиция привязки модели;
-  у зданий обычно у основания футпринта (часто, но НЕ гарантированно, его центр).
-  [нужно проверить] конкретно для целевых типов зданий.
-- **`proto native vector GetWorldPosition();`** — `object.c:297` (с учётом прокси; для
-  обычного здания = `GetPosition`).
-- **`proto native vector GetBoundingCenter();`** — `object.c:103` (нативный bounding-центр).
+  `minMax[0]` = min, `minMax[1]` = max. **ПРОВЕРЕНО ЭМПИРИЧЕСКИ (v3.319): возвращает
+  MODEL-SPACE (локальный) AABB, а НЕ world-space** — центр `(minMax[0]+minMax[1])*0.5`
+  для здания дал `(2.16, −0.99)` ≈ локальную величину, а не world-координату (~13500,13043).
+  НЕ использовать для world-центра; смешивание с world-space (`GetDoorSoundPos`) ломает
+  направление `out = doorPos − center` (указывает на абсолютную позицию двери от 0,0).
+- **`proto native vector GetWorldPosition();`** — `object.c:297` — **world-space позиция
+  (origin/точка привязки модели, у зданий ≈ центр футпринта у основания)**. КАНОНИЧНЫЙ
+  world-центр здания для оси «наружу».
+- **`proto native vector GetPosition();`** — `object.c:293` — для top-level здания = world-space,
+  фолбэк к `GetWorldPosition()`.
+- **`proto native vector GetBoundingCenter();`** — `object.c:103` (нативный bounding-центр);
+  никем не используется в vanilla/Expansion — семантика (world vs model) непроверяема,
+  НЕ полагаться.
 
-**Рекомендация**: центр = `GetCollisionBox`-центр (детерминирован, не зависит от точки
-привязки); фолбэк `GetPosition()`. Для точки стояния «напротив двери»:
+**Рекомендация**: центр здания = `GetWorldPosition()` (world-space, ≈ центр футпринта);
+НЕ `GetCollisionBox` (model-space). Для точки стояния «напротив двери»:
 `standPoint = D + out * standDist` (`standDist ≈ 1.0–1.5 м`), XZ на navmesh через
 `SampleNavmeshPosition` (бот и так снэпит в `MoveTo`).
 

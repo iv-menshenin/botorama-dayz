@@ -45,9 +45,14 @@ class dmBotConditions
 		return new dmBotCondition_CanShootVisible();
 	}
 
-	static dmBotCondition CanShootHidden()
+	static dmBotCondition Flanking()
 	{
-		return new dmBotCondition_CanShootHidden();
+		return new dmBotCondition_Flanking();
+	}
+
+	static dmBotCondition Kamping()
+	{
+		return new dmBotCondition_Kamping();
 	}
 
 	static dmBotCondition MedicalCare()

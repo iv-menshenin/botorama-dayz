@@ -583,12 +583,24 @@ class dmAISurvivorBase : PlayerBase
 		vector hitNormal;
 		float hitFrac;
 		bool hit = DayZPhysics.RayCastBullet(from, to, PhxInteractionLayers.ITEM_LARGE | PhxInteractionLayers.BUILDING | PhxInteractionLayers.VEHICLE, null, hitObj, hitPos, hitNormal, hitFrac);
-		if (!hit || !hitObj)
+		if (!hit)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Kamping] roof: no hit pos=" + pos);
+			#endif
 			return false;
+		}
+		if (!hitObj)
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			dmBotLog.Debug("[Kamping] roof: hit but obj null pos=" + pos);
+			#endif
+			return false;
+		}
 		bool isHouse = hitObj.IsInherited(House);
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Kamping] IsPointUnderRoofBuilding pos=" + pos + " hitType=" + hitObj.GetType() + " isHouse=" + isHouse);
+		dmBotLog.Debug("[Kamping] roof: hitType=" + hitObj.GetType() + " isHouse=" + isHouse + " pos=" + pos);
 		#endif
 
 		return isHouse;

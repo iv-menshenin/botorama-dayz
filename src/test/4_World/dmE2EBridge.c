@@ -916,6 +916,10 @@ class dmE2EBridge
 				bot.SetFSM(dmBotPreset_Hunter.Create(bot));
 			else if (step.Preset == "medical")
 				bot.SetFSM(dmBotTestPreset_Medical.Create(bot));
+			else if (step.Preset == "kamping")
+				bot.SetFSM(dmBotTestPreset_Kamping.Create(bot));
+			else if (step.Preset == "flanking")
+				bot.SetFSM(dmBotTestPreset_Flanking.Create(bot));
 			r.Ok = true;
 			r.Reason = "spawned";
 		}

@@ -72,3 +72,37 @@ class dmBotTestPreset_Hunting
 		return fsm;
 	}
 }
+
+class dmBotTestPreset_Kamping
+{
+	static dmBotFSM Create(dmAISurvivor owner)
+	{
+		dmBotFSM fsm = new dmBotFSM(owner);
+		dmBotState idle = new dmBotState_Idle();
+		dmBotState kamping = new dmBotState_Kamping();
+		fsm.AddState(idle, "Idle");
+		fsm.AddState(kamping, "Kamping");
+		idle.AddTransition(kamping, 2.0).Require(dmBotConditions.Kamping());
+		kamping.AddTransition(idle, 1.0);
+		fsm.SetDefaultState("Idle");
+		fsm.Start();
+		return fsm;
+	}
+}
+
+class dmBotTestPreset_Flanking
+{
+	static dmBotFSM Create(dmAISurvivor owner)
+	{
+		dmBotFSM fsm = new dmBotFSM(owner);
+		dmBotState idle = new dmBotState_Idle();
+		dmBotState flank = new dmBotState_Flanking();
+		fsm.AddState(idle, "Idle");
+		fsm.AddState(flank, "Flanking");
+		idle.AddTransition(flank, 2.0).Require(dmBotConditions.Flanking());
+		flank.AddTransition(idle, 1.0);
+		fsm.SetDefaultState("Idle");
+		fsm.Start();
+		return fsm;
+	}
+}

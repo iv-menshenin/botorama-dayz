@@ -39,9 +39,8 @@ class dmCampCoverJob
 
 	int m_Phase;
 	vector m_Center;
-	int m_DoorProbeIdx;
 	int m_DoorCount;
-	ref array<int> m_ExternalDoors;
+	ref array<int> m_Doors;
 
 	vector m_DoorPos;           // XZ двери + высота груди
 	vector m_OutDir;            // ось «наружу» (2D, нормирована)
@@ -65,25 +64,14 @@ class dmCampCoverJob
 			m_Key = dmCampCoverFinder.KeyOf(building, doorIdx);
 
 		m_Phase = dmCampPhase.DOORS_PROBE;
-		m_DoorProbeIdx = 0;
 		m_DoorCount = building.GetDoorCount();
-		m_ExternalDoors = new array<int>();
+		m_Doors = new array<int>();
 		m_Obstacles = new array<EntityAI>();
 		m_Candidates = new array<ref dmCampCandidate>();
 		m_ValidateIdx = 0;
 		m_Results = new array<vector>();
 
-		vector minMax[2];
-		vector center;
-		if (building.GetCollisionBox(minMax))
-		{
-			center = minMax[0] + minMax[1];
-			center = center * 0.5;
-		}
-		else
-		{
-			center = building.GetPosition();
-		}
+		vector center = building.GetWorldPosition();
 		center[1] = 0.0;
 		m_Center = center;
 	}
@@ -111,7 +99,7 @@ class dmCampCoverJob
 			StepValidate();
 	}
 
-	//! A. Внешние двери — по одной за тик.
+	//! A. Все двери — одним шагом (детект внешних дверей убран: все двери внешние).
 	void StepDoorsProbe()
 	{
 		// cover-job: если двери уже готовы (параллельный doors-job успел) — пропустить A.
@@ -122,58 +110,23 @@ class dmCampCoverJob
 			return;
 		}
 
-		if (m_DoorProbeIdx >= m_DoorCount)
-		{
-			m_Owner.CacheDoors(m_Building, m_ExternalDoors);
+		int i;
+		for (i = 0; i < m_DoorCount; i++)
+			m_Doors.Insert(i);
 
-			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] doors done building=" + m_Building.GetType() + " external=" + m_ExternalDoors.Count() + "/" + m_DoorCount);
-			#endif
-
-			if (m_DoorsOnly)
-				m_Phase = dmCampPhase.DONE;
-			else
-			{
-				m_Phase = dmCampPhase.SCANBOX;
-				PrepareScanBox();
-			}
-			return;
-		}
-
-		int idx = m_DoorProbeIdx;
-		m_DoorProbeIdx = m_DoorProbeIdx + 1;
-		ProbeDoor(idx);
-	}
-
-	//! Проверить одну дверь: «выходной» луч наружу НЕ упёрся в своё здание → внешняя.
-	void ProbeDoor(int doorIdx)
-	{
-		vector doorPos = m_Building.GetDoorSoundPos(doorIdx);
-		float groundY = GetGame().SurfaceY(doorPos[0], doorPos[2]);
-		doorPos[1] = groundY + DM_CAMP_DOOR_EYE_HEIGHT;
-
-		vector outDir = doorPos - m_Center;
-		outDir[1] = 0.0;
-		float lenSq = outDir.LengthSq();
-		if (lenSq < 0.001)
-			outDir = Vector(1.0, 0.0, 0.0);
-		else
-			outDir.Normalize();
-
-		vector from = doorPos + outDir * DM_CAMP_DOOR_STEPBACK;
-		vector to = doorPos + outDir * DM_CAMP_DOOR_PROBE_DIST;
-		Object hitObj;
-		vector hitPos;
-		vector hitNormal;
-		float hitFrac;
-		bool hit = DayZPhysics.RayCastBullet(from, to, PhxInteractionLayers.ITEM_LARGE | PhxInteractionLayers.BUILDING | PhxInteractionLayers.VEHICLE, null, hitObj, hitPos, hitNormal, hitFrac);
-		bool internal = hit && hitObj == m_Building;
-		if (!internal)
-			m_ExternalDoors.Insert(doorIdx);
+		m_Owner.CacheDoors(m_Building, m_Doors);
 
 		#ifdef DM_BOT_DEBUG_CAMP
-		dmBotLog.Debug("[Camp] door " + doorIdx + " internal=" + internal + " external=" + !internal);
+		dmBotLog.Debug("[Camp] doors done building=" + m_Building.GetType() + " doors=" + m_Doors.Count() + "/" + m_DoorCount);
 		#endif
+
+		if (m_DoorsOnly)
+			m_Phase = dmCampPhase.DONE;
+		else
+		{
+			m_Phase = dmCampPhase.SCANBOX;
+			PrepareScanBox();
+		}
 	}
 
 	//! Подготовка к SCANBOX: позиция двери, ось «наружу», перпендикуляр.
@@ -194,17 +147,24 @@ class dmCampCoverJob
 		m_OutDir = outDir;
 		m_PerpDir = Vector(-outDir[2], 0.0, outDir[0]);
 
+		#ifdef DM_BOT_DEBUG_CAMP
+		dmBotLog.Debug("[Camp] Kamping: prepare door=" + m_DoorIdx + " center=<" + m_Center[0] + "," + m_Center[2] + ">");
+		dmBotLog.Debug("[Camp] Kamping: prepare doorPos=<" + m_DoorPos[0] + "," + m_DoorPos[2] + ">");
+		dmBotLog.Debug("[Camp] Kamping: prepare outDir=<" + m_OutDir[0] + "," + m_OutDir[2] + ">");
+		#endif
+
 		m_Obstacles.Clear();
 		m_Candidates.Clear();
 		m_ValidateIdx = 0;
 		m_Results.Clear();
 	}
 
-	//! B. Сканбокс препятствий напротив двери (один шаг): STATIC + DYNAMIC двумя вызовами.
+	//! B. Сканбокс препятствий в конусе напротив двери (один шаг): STATIC + DYNAMIC
+	//! двумя вызовами; сканбокс — по AABB, вбирающему весь конус, фильтр — InCone.
 	void StepScanBox()
 	{
-		float halfLen = DM_CAMP_RECT_LENGTH * 0.5;
-		float halfWid = DM_CAMP_RECT_WIDTH * 0.5;
+		float halfLen = DM_CAMP_CONE_LENGTH * 0.5;
+		float halfWid = DM_CAMP_CONE_HALF_WIDTH;
 		float centerX = m_DoorPos[0] + m_OutDir[0] * halfLen;
 		float centerZ = m_DoorPos[2] + m_OutDir[2] * halfLen;
 		float extX = Math.AbsFloat(m_OutDir[0]) * halfLen + Math.AbsFloat(m_PerpDir[0]) * halfWid;
@@ -220,15 +180,26 @@ class dmCampCoverJob
 		DayZPlayerUtils.SceneGetEntitiesInBox(min, max, dynamics, QueryFlags.DYNAMIC);
 
 		int i;
+		EntityAI e;
+		bool inCone;
+		bool isObs;
 		for (i = 0; i < statics.Count(); i++)
 		{
-			if (IsObstacle(statics[i], m_Building))
-				m_Obstacles.Insert(statics[i]);
+			e = statics[i];
+			inCone = InCone(e.GetPosition());
+			isObs = IsObstacle(e, m_Building);
+			LogScanItem(e, inCone, isObs);
+			if (inCone && isObs)
+				m_Obstacles.Insert(e);
 		}
 		for (i = 0; i < dynamics.Count(); i++)
 		{
-			if (IsObstacle(dynamics[i], m_Building))
-				m_Obstacles.Insert(dynamics[i]);
+			e = dynamics[i];
+			inCone = InCone(e.GetPosition());
+			isObs = IsObstacle(e, m_Building);
+			LogScanItem(e, inCone, isObs);
+			if (inCone && isObs)
+				m_Obstacles.Insert(e);
 		}
 
 		#ifdef DM_BOT_DEBUG_CAMP
@@ -238,10 +209,48 @@ class dmCampCoverJob
 		m_Phase = dmCampPhase.CANDIDATES;
 	}
 
-	//! C. Точки-кандидаты за каждым препятствием (дальняя от двери сторона + боковые).
+	//! Диагностический дамп решения по одной сущности сканбокса (почему взята/отброшена).
+	void LogScanItem(EntityAI e, bool inCone, bool isObstacle)
+	{
+		#ifdef DM_BOT_DEBUG_CAMP
+		bool isTree = e.IsTree();
+		bool isBush = e.IsBush();
+		bool isBld = BuildingBase.Cast(e) != null;
+		bool isItem = ItemBase.Cast(e) != null;
+		dmBotLog.Debug("[Camp] scan item type=" + e.GetType() + " isTree=" + isTree + " isBush=" + isBush + " isBld=" + isBld);
+		dmBotLog.Debug("[Camp] scan item isItem=" + isItem + " inCone=" + inCone + " isObstacle=" + isObstacle);
+		#endif
+	}
+
+	//! Точка внутри конуса поиска: напротив двери вдоль оси «наружу», не ближе
+	//! DM_CAMP_MIN_DOOR_DIST и не дальше DM_CAMP_CONE_LENGTH, в пределах полуширины,
+	//! растущей линейно с дистанцией.
+	bool InCone(vector pos)
+	{
+		float dX = pos[0] - m_DoorPos[0];
+		float dZ = pos[2] - m_DoorPos[2];
+
+		float distSq = dX * dX + dZ * dZ;
+		float minSq = DM_CAMP_MIN_DOOR_DIST * DM_CAMP_MIN_DOOR_DIST;
+		if (distSq < minSq)
+			return false;
+
+		float alongAxis = dX * m_OutDir[0] + dZ * m_OutDir[2];
+		if (alongAxis <= 0.0 || alongAxis > DM_CAMP_CONE_LENGTH)
+			return false;
+
+		float perpDist = Math.AbsFloat(dX * m_PerpDir[0] + dZ * m_PerpDir[2]);
+		float maxPerp = alongAxis * DM_CAMP_CONE_HALF_WIDTH / DM_CAMP_CONE_LENGTH;
+		return perpDist <= maxPerp;
+	}
+
+	//! C. Точки-кандидаты за каждым препятствием: на дальней (от двери) стороне по
+	//! углам 0°, ±30°, ±60° от awayDir, на дистанции radius+margin от центра.
 	void StepCandidates()
 	{
 		int i;
+		float radius;
+		float dist;
 		for (i = 0; i < m_Obstacles.Count(); i++)
 		{
 			EntityAI o = m_Obstacles[i];
@@ -253,11 +262,16 @@ class dmCampCoverJob
 				continue;
 			awayDir.Normalize();
 
-			AddCandidate(oPos, awayDir, 0.0, o);
-			AddCandidate(oPos, awayDir, 0.5, o);
-			AddCandidate(oPos, awayDir, -0.5, o);
-			AddCandidate(oPos, awayDir, 1.0, o);
-			AddCandidate(oPos, awayDir, -1.0, o);
+			radius = o.GetCollisionRadius();
+			if (radius < 0.3)
+				radius = 1.0;
+			dist = radius + DM_CAMP_COVER_BACK;
+
+			AddCandidate(oPos, awayDir, 1.0, 0.0, dist, o);
+			AddCandidate(oPos, awayDir, 0.866, 0.5, dist, o);
+			AddCandidate(oPos, awayDir, 0.866, -0.5, dist, o);
+			AddCandidate(oPos, awayDir, 0.5, 0.866, dist, o);
+			AddCandidate(oPos, awayDir, 0.5, -0.866, dist, o);
 		}
 
 		#ifdef DM_BOT_DEBUG_CAMP
@@ -273,9 +287,11 @@ class dmCampCoverJob
 		m_ValidateIdx = 0;
 	}
 
-	void AddCandidate(vector oPos, vector awayDir, float side, EntityAI cover)
+	void AddCandidate(vector oPos, vector awayDir, float aFwd, float aSide, float dist, EntityAI cover)
 	{
-		vector p = oPos + awayDir * DM_CAMP_COVER_BACK + m_PerpDir * (side * DM_CAMP_COVER_SPREAD);
+		vector dir = awayDir * aFwd + m_PerpDir * aSide;
+		dir.Normalize();
+		vector p = oPos + dir * dist;
 		float groundY = GetGame().SurfaceY(p[0], p[2]);
 		p[1] = groundY;
 
@@ -309,23 +325,44 @@ class dmCampCoverJob
 		float dz = cand.m_Point[2] - m_BotPos[2];
 		float maxDistSq = DM_CAMP_MAX_DIST * DM_CAMP_MAX_DIST;
 		if (dx * dx + dz * dz > maxDistSq)
+		{
+			#ifdef DM_BOT_DEBUG_CAMP
+			dmBotLog.Debug("[Camp] reject dist point=" + cand.m_Point);
+			#endif
 			return;
+		}
 
-		// 2. LOS «дверь (глаза) → точка (присяд)»: свободен или только само укрытие.
+		// 2. LOS «дверь (глаза) → точка (присяд)»: свободен или только само укрытие
+		// (reject-лог с деталями хита — внутри ValidateLOS).
 		if (!ValidateLOS(cand))
 			return;
 
 		// 3. точка на навмеше.
 		vector sampled;
 		if (!m_Bot.SampleNavmesh(cand.m_Point, sampled))
+		{
+			#ifdef DM_BOT_DEBUG_CAMP
+			dmBotLog.Debug("[Camp] reject navmesh point=" + cand.m_Point);
+			#endif
 			return;
+		}
 
 		// 4. достижимость.
 		array<vector> path = new array<vector>();
 		if (!m_Bot.FindPathTo(sampled, path))
+		{
+			#ifdef DM_BOT_DEBUG_CAMP
+			dmBotLog.Debug("[Camp] reject path point=" + cand.m_Point);
+			#endif
 			return;
+		}
 		if (path.Count() == 0)
+		{
+			#ifdef DM_BOT_DEBUG_CAMP
+			dmBotLog.Debug("[Camp] reject path point=" + cand.m_Point);
+			#endif
 			return;
+		}
 
 		m_Results.Insert(sampled);
 
@@ -357,6 +394,17 @@ class dmCampCoverJob
 		RaycastRVResult h = hits[0];
 		if (h.obj == cand.m_Cover || h.parent == cand.m_Cover)
 			return true;
+
+		#ifdef DM_BOT_DEBUG_CAMP
+		string hitType = "null";
+		if (h.obj)
+			hitType = h.obj.GetType();
+		string hitParent = "null";
+		if (h.parent)
+			hitParent = h.parent.GetType();
+		dmBotLog.Debug("[Camp] reject LOS point=" + cand.m_Point + " hitType=" + hitType + " hitParent=" + hitParent);
+		#endif
+
 		return false;
 	}
 
