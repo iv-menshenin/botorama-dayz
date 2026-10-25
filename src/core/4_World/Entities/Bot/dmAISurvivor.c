@@ -116,6 +116,11 @@ class dmAISurvivor
 	//! pathfinding, только на поиск укрытий (dmCoverFinder).
 	private ref dmBrownZone m_BrownZone;
 
+	//! Профиль арсенала: зарегистрированный огнестрел/мили и патроны по калибру.
+	//! Фоновый пере-чек (Tick) страхует от дрейфа: выстрел сжигает патроны, предмет
+	//! мог выпасть — без явного Unregister.
+	private ref dmArsenal m_Arsenal;
+
 	//! Флаг пулевой опасности + время последнего огнестрельного ранения.
 	private bool m_IsBulletDanger;
 	private float m_LastBulletHitTime;
@@ -170,6 +175,7 @@ class dmAISurvivor
 		m_Hearing = new dmHearing(this);
 		m_VoiceCenter = new dmBotVoiceCenter(this);
 		m_BrownZone = new dmBrownZone();
+		m_Arsenal = new dmArsenal(this);
 	}
 
 	//! Model class to use. Must be set before Spawn().
@@ -281,6 +287,12 @@ class dmAISurvivor
 	dmAISurvivorBase GetPawn()
 	{
 		return m_Pawn;
+	}
+
+	//! Профиль арсенала бота (зарегистрированный огнестрел/мили + патроны по калибру).
+	dmArsenal GetArsenal()
+	{
+		return m_Arsenal;
 	}
 
 	vector GetPosition()
@@ -514,6 +526,8 @@ class dmAISurvivor
 		m_Vision.Update(this, pDt);
 
 		m_Needs.Update(this, pDt);
+
+		m_Arsenal.Tick(pDt);
 
 		if (m_FSM)
 			m_FSM.Update(pDt);

@@ -29,6 +29,7 @@ permission:
   external_directory:
     "/home/devalio/dayz/Work/**": allow
     "/mnt/deep-space/Steam/steamapps/common/DayZServer/**": allow
+    "/mnt/deep-space/Steam/steamapps/compatdata/830640/pfx/drive_c/users/steamuser/Documents/DayZ Projects/DZ/**": allow
     "*": deny
 ---
 

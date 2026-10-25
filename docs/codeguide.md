@@ -353,6 +353,12 @@ class CfgSoundSets
   позицию двери от начала координат (эмпирика v3.319, ломало выбор двери и конус сканбокса).
   World-центр здания — `GetWorldPosition()` (≈ центр футпринта). `GetBoundingCenter()`
   (object.c:103) никем не используется — семантика непроверяема, не полагаться.
+- **`Shotgun_Base` — config-класс (`CfgVehicles`), НЕ EnfusionScript-класс.** В скриптах
+  есть `Pistol_Base`/`Rifle_Base` (firearms/pistol_base.c, rifle_base.c), но общего
+  скриптового базового класса дробовика НЕТ (дробовики наследуют `DoubleBarrel_Base`/
+  `RifleSingleShot_Base`/`Rifle_Base`). Поэтому `IsInherited(Shotgun_Base)` не компилируется
+  (`Can't find variable 'Shotgun_Base'` → краш World-модуля). Детект дробовика — по калибру:
+  `CfgAmmo` пули содержат `"12Gauge"` (12-й калибр) только у дробовиков.
 
 ## Проверочный список при написании кода
 

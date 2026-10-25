@@ -26,7 +26,7 @@ class CfgMods
 		name = "botorama";
 		author = "devalio";
 		type = "mod";
-		defines[] = { "DM_BOT_PROFILE", "DM_BOT_DEBUG_BODY", "DM_BOT_DEBUG_COVER", "DM_BOT_DEBUG_CAMP" };
+		defines[] = { "DM_BOT_PROFILE", "DM_BOT_DEBUG_BODY", "DM_BOT_DEBUG_COVER", "DM_BOT_DEBUG_CAMP", "DM_BOT_DEBUG_ARSENAL" };
 		class defs 
 		{
 			class gameScriptModule {

@@ -71,6 +71,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 		if (m_TakeToHands)
 		{
 			dmLoot.TakeToHands(pawn, ItemBase.Cast(m_Item));
+			bot.GetArsenal().Register(m_Item);
 			Finish();
 			return;
 		}
@@ -164,6 +165,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 			#ifdef DM_BOT_DEBUG_LOOTING
 			dmBotLog.Debug("[Loot] PickUp: вещь легла " + m_Item.GetType());
 			#endif
+			bot.GetArsenal().Register(m_Item);
 			Finish();
 			return;
 		}
@@ -176,6 +178,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 				#ifdef DM_BOT_DEBUG_LOOTING
 				dmBotLog.Debug("[Loot] Evacuate: репак завершён, вещь легла " + m_Item.GetType());
 				#endif
+				bot.GetArsenal().Register(m_Item);
 				Finish();
 				return;
 			}
