@@ -32,6 +32,11 @@ class dmBotState_Kamping : dmBotState_Shooting
 	ref dmBotIntent_Stance m_Stance;
 	ref dmBotIntent_HoldLook m_DoorLook;
 
+	override dmBotCondition CreateGate()
+	{
+		return dmBotConditions.Kamping();
+	}
+
 	override void OnEntry(dmBotState from)
 	{
 		super.OnEntry(from);
@@ -54,6 +59,14 @@ class dmBotState_Kamping : dmBotState_Shooting
 		dmTarget t = bot.FindTarget(m_TargetEntity);
 		if (t && t.m_HasLOS)
 			return EXIT; // цель видна — уступить Shooting
+
+		if (!dmAISurvivorBase.IsPointUnderRoofBuilding(m_TargetEntity.GetPosition()))
+			return EXIT; // цель вышла из здания
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (pawn && dmAISurvivorBase.IsPointUnderRoofBuilding(pawn.GetPosition()))
+			return EXIT; // бот вошёл в здание
+		if (t && !bot.CanReach(t))
+			return EXIT; // цель вне зоны
 
 		if (m_Phase == dmKampPhase.SEARCH)
 			return StepSearch(bot);

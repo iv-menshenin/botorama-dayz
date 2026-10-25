@@ -26,7 +26,7 @@ class dmBotCondition_Flanking : dmBotCondition
 			return false;
 
 		// фланг только если есть оружие на эту дистанцию; иначе это Rushing
-		if (bot.GetArsenal().WeaponAllowDist(bot.DistanceToTarget(t)).Count() == 0)
+		if (!bot.CanReach(t))
 			return false;
 
 		return true;

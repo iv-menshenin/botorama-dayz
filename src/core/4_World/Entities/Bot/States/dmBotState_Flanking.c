@@ -9,6 +9,11 @@ class dmBotState_Flanking : dmBotState_Shooting
 {
 	ref dmBotIntent_Flank m_Flank;
 
+	override dmBotCondition CreateGate()
+	{
+		return dmBotConditions.Flanking();
+	}
+
 	override int OnUpdate(float pDt)
 	{
 		dmAISurvivor bot = GetOwner();
@@ -21,6 +26,10 @@ class dmBotState_Flanking : dmBotState_Shooting
 			if (m_Flank) { m_Flank.Finish(); m_Flank = null; }
 			return EXIT; // цель видна — уступить Shooting
 		}
+
+		// цель вне зоны — уступить Rushing
+		if (t && !bot.CanReach(t))
+			return EXIT;
 
 		EnsureFlank(bot);
 		m_Flank.m_Active = true;

@@ -563,6 +563,11 @@ static const float DM_ATTACK_THREAT_THRESHOLD = 0.5;
 //! считается «активно ведущим стрельбу» (IsInCombat — помимо мили-флага).
 static const float DM_COMBAT_ENGAGE_TIMEOUT = 10.0;
 
+//! Combat hold: минимальное время (сек) удержания стрелкового состояния после
+//! входа, пока его гейт-условие ещё релевантно (CanDoJob) — гистерезис против
+//! метания между Shooting/Flanking/Kamping/Rushing.
+static const float DM_COMBAT_HOLD_TIME = 45.0;
+
 //! Target selection: видимая цель ближе этого (м) выбирается по текущей схеме
 //! (ближайшая); дальше — аукцион по досягаемости оружия (WeaponAllowDist).
 static const float DM_TARGET_NEAR_RANGE = 25.0;

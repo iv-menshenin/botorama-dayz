@@ -20,6 +20,9 @@ class dmBotCondition_CanShootVisible : dmBotCondition
 		if (!t.m_HasLOS)
 			return false;
 
+		if (!bot.CanReach(t))
+			return false;
+
 		return true;
 	}
 }

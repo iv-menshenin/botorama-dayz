@@ -13,6 +13,11 @@ class dmBotState_Rushing : dmBotState_Shooting
 {
 	ref dmBotIntent_MoveTo m_Move;
 
+	override dmBotCondition CreateGate()
+	{
+		return dmBotConditions.Rushing();
+	}
+
 	override int OnUpdate(float pDt)
 	{
 		dmAISurvivor bot = GetOwner();
@@ -29,9 +34,8 @@ class dmBotState_Rushing : dmBotState_Shooting
 			if (!t) return EXIT;
 		}
 
-		float dist = bot.DistanceToTarget(t);
 		bool visible = t.m_HasLOS;
-		bool inRange = bot.GetArsenal().WeaponAllowDist(dist).Count() > 0;
+		bool inRange = bot.CanReach(t);
 
 		// фаза 1: видима + в досягаемости → стрельба
 		if (visible && inRange)

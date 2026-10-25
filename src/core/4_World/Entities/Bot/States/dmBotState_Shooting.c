@@ -24,11 +24,46 @@ class dmBotState_Shooting : dmBotState
 	float m_Elapsed;
 	bool m_NoFirearm;
 
+	float m_CombatHoldUntil = 0.0;
+	bool m_CombatHoldLogged;
+	ref dmBotCondition m_Gate;
+
 	const float HIT_BUTTSTCK_RANGE = 1.5;
 
 	override dmBotStateKind GetKind()
 	{
 		return dmBotStateKind.PREEMPTIVE;
+	}
+
+	//! Фабрика гейт-условия для CanDoJob (переопределяется наследниками).
+	dmBotCondition CreateGate()
+	{
+		return dmBotConditions.CanShootVisible();
+	}
+
+	bool CanDoJob()
+	{
+		if (!m_Gate)
+			m_Gate = CreateGate();
+		return m_Gate.Evaluate(GetOwner());
+	}
+
+	//! Умный гистерезис выхода: пока гейт ещё релевантен (CanDoJob) и не истекло
+	//! DM_COMBAT_HOLD_TIME с входа — не выходим (гасим метание состояний).
+	override bool CanExit()
+	{
+		if (GetGame().GetTickTime() < m_CombatHoldUntil && CanDoJob())
+		{
+			#ifdef DM_BOT_DEBUG_FSM
+			if (!m_CombatHoldLogged)
+			{
+				m_CombatHoldLogged = true;
+				dmBotLog.Debug("[FSM] " + GetName() + ": hold (45s) — CanExit blocked");
+			}
+			#endif
+			return false;
+		}
+		return super.CanExit();
 	}
 
 	override void OnEntry(dmBotState from)
@@ -41,6 +76,8 @@ class dmBotState_Shooting : dmBotState
 		m_RetargetTimer = 0.0;
 		m_Elapsed = 0.0;
 		m_NoFirearm = false;
+		m_CombatHoldUntil = GetGame().GetTickTime() + DM_COMBAT_HOLD_TIME;
+		m_CombatHoldLogged = false;
 
 		ResolveTarget();
 
@@ -122,6 +159,8 @@ class dmBotState_Shooting : dmBotState
 		vector d = tPos - botPos;
 		d[1] = 0.0;
 		float dist = d.Length();
+		if (t && !bot.CanReach(t))
+			return EXIT; // цель за досягаемостью — уступить Rushing
 		m_HitTo.m_Active = (dist <= HIT_BUTTSTCK_RANGE);
 		m_Look.m_Active = (dist <= HIT_BUTTSTCK_RANGE);
 

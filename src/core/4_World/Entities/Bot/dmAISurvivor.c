@@ -1782,6 +1782,17 @@ class dmAISurvivor
 		return d.Length();
 	}
 
+	//! Есть ли в арсенале оружие, достающее до цели (в пределах эффективной зоны).
+	//! Единый источник истины предиката «можно ли вести огонь на этой дистанции» —
+	//! используется И гейтами входа (Shooting/Flanking/Kamping), И EXIT-ами состояний,
+	//! чтобы они не рассинхронизировались.
+	bool CanReach(dmTarget t)
+	{
+		if (!t)
+			return false;
+		return GetArsenal().WeaponAllowDist(DistanceToTarget(t)).Count() > 0;
+	}
+
 	//! Смотрит ли цель (телом) в сторону бота: угол между orientation цели и
 	//! направлением «цель -> бот» меньше DM_TARGET_FACING_ANGLE. Работает для
 	//! игроков и зомби (у обоих есть GetOrientation).

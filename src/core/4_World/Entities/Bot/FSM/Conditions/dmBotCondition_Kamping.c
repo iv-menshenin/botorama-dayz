@@ -27,6 +27,9 @@ class dmBotCondition_Kamping : dmBotCondition
 		if (pawn && dmAISurvivorBase.IsPointUnderRoofBuilding(pawn.GetPosition()))
 			return false;
 
+		if (!bot.CanReach(t))
+			return false;
+
 		return true;
 	}
 }

@@ -1,6 +1,6 @@
-//! dmBotCondition_Rushing — CanShoot && !TargetVisible && !TargetInBuilding &&
-//! beyondRange (нет оружия на дистанцию цели — надо сблизиться). Зеркалит
-//! dmBotCondition_Flanking, но по обратному признаку досягаемости.
+//! dmBotCondition_Rushing — «catch-all» боевое состояние: есть сущность-цель +
+//! не-зомби + заряженный ствол. Не гейтится видимостью/крышей/досягаемостью —
+//! спор с Shooting/Flanking/Kamping решается позже через «характер».
 class dmBotCondition_Rushing : dmBotCondition
 {
 	override bool Evaluate(dmAISurvivor bot)
@@ -14,16 +14,6 @@ class dmBotCondition_Rushing : dmBotCondition
 			return false;
 
 		if (!bot.HasLoadedFirearm())
-			return false;
-
-		if (t.m_HasLOS)
-			return false;
-
-		if (dmAISurvivorBase.IsPointUnderRoofBuilding(target.GetPosition()))
-			return false;
-
-		// rush только если НЕТ оружия на эту дистанцию
-		if (bot.GetArsenal().WeaponAllowDist(bot.DistanceToTarget(t)).Count() > 0)
 			return false;
 
 		return true;
