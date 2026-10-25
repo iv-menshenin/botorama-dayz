@@ -38,7 +38,7 @@ class dmBotState_Shooting : dmBotState
 	//! Фабрика гейт-условия для CanDoJob (переопределяется наследниками).
 	dmBotCondition CreateGate()
 	{
-		return dmBotConditions.CanShootVisible();
+		return dmBotConditions.CanShootVisible(true);
 	}
 
 	bool CanDoJob()

@@ -3,6 +3,13 @@
 //! спор с Shooting/Flanking/Kamping решается позже через «характер».
 class dmBotCondition_Rushing : dmBotCondition
 {
+	bool m_InHands;
+
+	void dmBotCondition_Rushing(bool inHands = false)
+	{
+		m_InHands = inHands;
+	}
+
 	override bool Evaluate(dmAISurvivor bot)
 	{
 		dmTarget t = bot.GetHostileTarget();
@@ -13,7 +20,7 @@ class dmBotCondition_Rushing : dmBotCondition
 		if (target && target.IsInherited(ZombieBase))
 			return false;
 
-		if (!bot.HasLoadedFirearm())
+		if (!bot.CanShoot(m_InHands))
 			return false;
 
 		return true;

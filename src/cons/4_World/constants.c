@@ -786,10 +786,6 @@ static const float DM_HUNT_FACING_MAX = 0.25;
 static const float DM_HUNT_SPREAD_MIN = 1.0;
 static const float DM_HUNT_SPREAD_MAX = 250.0;
 
-//! Weapon selection: distance (meters) below which a pistol is preferred over a
-//! rifle; at/above it a rifle is preferred.
-static const float DM_WEAPON_SEL_FAR = 50.0;
-
 //! Firearm: cooldown (seconds) between the bot's shots (throttles cadence).
 static const float DM_BOT_FIRE_COOLDOWN = 0.3;
 

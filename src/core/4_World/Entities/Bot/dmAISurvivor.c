@@ -791,51 +791,40 @@ class dmAISurvivor
 		return false;
 	}
 
-	//! Pick the best loaded firearm for an engagement distance: prefer a pistol
-	//! below DM_WEAPON_SEL_FAR, a rifle at/above it; fall back to any loaded
-	//! firearm; null when there is none.
+	//! Есть ли чем стрелять. inHands=false (вход в состояние) — любой заряженный
+	//! ствол; inHands=true (выход/гистерезис) — ствол В РУКАХ заряжен ИЛИ есть
+	//! патроны под него в инвентаре (можно перезарядить).
+	bool CanShoot(bool inHands = false)
+	{
+		if (!inHands)
+			return HasLoadedFirearm();
+		Weapon_Base w = GetWeaponInHands();
+		if (!w || w.IsMeleeWeapon())
+			return false;
+		if (IsWeaponLoaded(w))
+			return true;
+		return GetArsenal().WeaponAmmoCount(w) > 0;
+	}
+
+	//! Лучший ствол на дистанцию: из оружия арсенала, достигающего dist
+	//! (WeaponAllowDist), берём то, под которое больше всего патронов (по калибру).
 	Weapon_Base SelectFirearmForRange(float dist)
 	{
-		if (!m_Pawn) return null;
-
-		array<EntityAI> items = new array<EntityAI>();
-		m_Pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
-		Weapon_Base anyLoaded = null;
-		bool wantPistol = dist < DM_WEAPON_SEL_FAR;
+		array<Weapon_Base> suitable = GetArsenal().WeaponAllowDist(dist);
+		Weapon_Base best = null;
+		int bestAmmo = 0;
 		int i;
-		for (i = 0; i < items.Count(); i++)
+		for (i = 0; i < suitable.Count(); i++)
 		{
-			Weapon_Base w = Weapon_Base.Cast(items[i]);
-			if (!w || w.IsMeleeWeapon())
-				continue;
-			if (!IsWeaponLoaded(w))
-				continue;
-			if (!anyLoaded)
-				anyLoaded = w;
-			if (wantPistol)
+			Weapon_Base w = suitable[i];
+			int ammo = GetArsenal().WeaponAmmoCount(w);
+			if (ammo > bestAmmo)
 			{
-				if (IsPistol(w))
-					return w;
-			}
-			else
-			{
-				if (IsRifle(w))
-					return w;
+				best = w;
+				bestAmmo = ammo;
 			}
 		}
-
-		// TODO Good decision and reload if needed
-		// m_TidyIntent = new dmBotIntent_TidyInventory();
-		// GetOwner().AddPersonalityIntent(m_TidyIntent);
-		if ( (!anyLoaded && HasFirearmInHands() && HasNoAmmo()) || CheckNeedsChamber() )
-		{
-			if ( m_Pawn.ReloadWeaponAI() )
-			{
-				return GetWeaponInHands();
-			}
-		}
-
-		return anyLoaded;
+		return best;
 	}
 
 	//! Find a melee weapon in the inventory (including hands); null when none.

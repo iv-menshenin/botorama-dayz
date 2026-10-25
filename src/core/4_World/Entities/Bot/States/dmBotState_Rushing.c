@@ -15,7 +15,7 @@ class dmBotState_Rushing : dmBotState_Shooting
 
 	override dmBotCondition CreateGate()
 	{
-		return dmBotConditions.Rushing();
+		return dmBotConditions.Rushing(true);
 	}
 
 	override int OnUpdate(float pDt)

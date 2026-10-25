@@ -6,6 +6,13 @@
 //! weapon range is NOT flanked (that is Rushing's job) — both excluded here.
 class dmBotCondition_Flanking : dmBotCondition
 {
+	bool m_InHands;
+
+	void dmBotCondition_Flanking(bool inHands = false)
+	{
+		m_InHands = inHands;
+	}
+
 	override bool Evaluate(dmAISurvivor bot)
 	{
 		dmTarget t = bot.GetHostileTarget();
@@ -16,7 +23,7 @@ class dmBotCondition_Flanking : dmBotCondition
 		if (target && target.IsInherited(ZombieBase))
 			return false;
 
-		if (!bot.HasLoadedFirearm())
+		if (!bot.CanShoot(m_InHands))
 			return false;
 
 		if (t.m_HasLOS)

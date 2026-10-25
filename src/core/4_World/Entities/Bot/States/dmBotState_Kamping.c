@@ -34,7 +34,7 @@ class dmBotState_Kamping : dmBotState_Shooting
 
 	override dmBotCondition CreateGate()
 	{
-		return dmBotConditions.Kamping();
+		return dmBotConditions.Kamping(true);
 	}
 
 	override void OnEntry(dmBotState from)

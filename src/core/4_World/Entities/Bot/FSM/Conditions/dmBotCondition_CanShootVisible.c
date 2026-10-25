@@ -4,6 +4,13 @@
 //! FSM transitions stay at a 2-level fluent chain (deep .And() nesting segfaults).
 class dmBotCondition_CanShootVisible : dmBotCondition
 {
+	bool m_InHands;
+
+	void dmBotCondition_CanShootVisible(bool inHands = false)
+	{
+		m_InHands = inHands;
+	}
+
 	override bool Evaluate(dmAISurvivor bot)
 	{
 		dmTarget t = bot.GetHostileTarget();
@@ -14,7 +21,7 @@ class dmBotCondition_CanShootVisible : dmBotCondition
 		if (target && target.IsInherited(ZombieBase))
 			return false;
 
-		if (!bot.HasLoadedFirearm())
+		if (!bot.CanShoot(m_InHands))
 			return false;
 
 		if (!t.m_HasLOS)

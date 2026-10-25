@@ -11,7 +11,7 @@ class dmBotState_Flanking : dmBotState_Shooting
 
 	override dmBotCondition CreateGate()
 	{
-		return dmBotConditions.Flanking();
+		return dmBotConditions.Flanking(true);
 	}
 
 	override int OnUpdate(float pDt)

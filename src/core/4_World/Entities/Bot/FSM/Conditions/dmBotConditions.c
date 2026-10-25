@@ -40,24 +40,24 @@ class dmBotConditions
 		return new dmBotCondition_CanShoot();
 	}
 
-	static dmBotCondition CanShootVisible()
+	static dmBotCondition CanShootVisible(bool inHands = false)
 	{
-		return new dmBotCondition_CanShootVisible();
+		return new dmBotCondition_CanShootVisible(inHands);
 	}
 
-	static dmBotCondition Flanking()
+	static dmBotCondition Flanking(bool inHands = false)
 	{
-		return new dmBotCondition_Flanking();
+		return new dmBotCondition_Flanking(inHands);
 	}
 
-	static dmBotCondition Rushing()
+	static dmBotCondition Rushing(bool inHands = false)
 	{
-		return new dmBotCondition_Rushing();
+		return new dmBotCondition_Rushing(inHands);
 	}
 
-	static dmBotCondition Kamping()
+	static dmBotCondition Kamping(bool inHands = false)
 	{
-		return new dmBotCondition_Kamping();
+		return new dmBotCondition_Kamping(inHands);
 	}
 
 	static dmBotCondition MedicalCare()

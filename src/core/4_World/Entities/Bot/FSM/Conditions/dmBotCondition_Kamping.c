@@ -4,6 +4,13 @@
 //! target is out of sight AND inside a building, and the bot itself is outside.
 class dmBotCondition_Kamping : dmBotCondition
 {
+	bool m_InHands;
+
+	void dmBotCondition_Kamping(bool inHands = false)
+	{
+		m_InHands = inHands;
+	}
+
 	override bool Evaluate(dmAISurvivor bot)
 	{
 		dmTarget t = bot.GetHostileTarget();
@@ -14,7 +21,7 @@ class dmBotCondition_Kamping : dmBotCondition
 		if (target && target.IsInherited(ZombieBase))
 			return false;
 
-		if (!bot.HasLoadedFirearm())
+		if (!bot.CanShoot(m_InHands))
 			return false;
 
 		if (t.m_HasLOS)
