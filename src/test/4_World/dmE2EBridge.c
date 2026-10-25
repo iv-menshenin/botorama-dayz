@@ -903,6 +903,7 @@ class dmE2EBridge
 		PlayerBase pawn = bot.Spawn(ResolveWorldPos(step.Pos), Vector(step.Yaw, 0, 0));
 		if (pawn)
 		{
+			GivePants(pawn);
 			m_Named.Insert(step.Who, bot);
 			if (step.Preset == "nomad")
 				bot.SetFSM(dmBotPreset_Nomad.Create(bot));
@@ -1502,6 +1503,7 @@ class dmE2EBridge
 			if (!pawn)
 				continue;
 
+			GivePants(pawn);
 			GiveWeapon(pawn);
 
 			if (i < countA)
@@ -1553,6 +1555,14 @@ class dmE2EBridge
 		return SnapToGroundExactly(Vector(center[0] + offX, 0.0, center[2] + offZ));
 	}
 
+	//! Дать тест-боту штаны с карго — без одежды CreateInInventory некуда класть
+	//! предметы (бот спавнится голым). GorkaPants_Autumn — штаны с карманами
+	//! (тот же класс, что в SurvivorLoadout).
+	private void GivePants(PlayerBase pawn)
+	{
+		pawn.GetInventory().CreateAttachmentEx("GorkaPants_Autumn", InventorySlots.LEGS);
+	}
+
 	//! Random rifle + matching ammo (mirrors dmLaunchCommand.GiveWeapon).
 	private void GiveWeapon(PlayerBase pawn)
 	{
@@ -1590,6 +1600,7 @@ class dmE2EBridge
 			return;
 		}
 
+		GivePants(pawn);
 		m_Named.Insert(step.Who, bot);
 
 		pawn.GetHumanInventory().CreateInHands("Machete");
