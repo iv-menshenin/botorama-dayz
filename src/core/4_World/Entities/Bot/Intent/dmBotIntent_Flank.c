@@ -263,7 +263,7 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 	{
 		RaycastRVParams rp = new RaycastRVParams(from, to, null);
 		rp.sorted = true;
-		rp.type = ObjIntersectView;
+		rp.type = ObjIntersectGeom;
 		rp.flags = CollisionFlags.NEARESTCONTACT;
 
 		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;

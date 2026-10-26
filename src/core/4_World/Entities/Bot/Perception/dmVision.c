@@ -430,7 +430,7 @@ class dmVision
 
 		RaycastRVParams rp = new RaycastRVParams(eye, end, pawn);
 		rp.sorted = true;
-		rp.type = ObjIntersectView;
+		rp.type = ObjIntersectGeom;
 		rp.flags = CollisionFlags.NEARESTCONTACT;
 
 		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
