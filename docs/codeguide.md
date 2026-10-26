@@ -346,6 +346,11 @@ class CfgSoundSets
   (пустой тип — всё ещё не-null), но в логах `GetType()` будет пустой строкой, а `parent == null`
   (см. ниже про null-guard в self-фильтре). Отличать «хит baked-статики» от «нет хита» — по
   `obj != null`, а НЕ по непустому имени типа.
+- **LOS-райкаст с `ObjIntersectView` НЕ бьёт бейкед-стены зданий** — луч «глаз→голова» сквозь
+  стену дома даёт **0 хитов** (проходит насквозь) → «видно» → бот стрелял сквозь стену.
+  Для LOS и препятствий используй `ObjIntersectGeom` (или `Fire`/`IFire`) — они бьют статику.
+  В открытом поле `View` и `Geom` дают одинаково 0 хитов (ложного «не вижу» нет). Сводка всех
+  типов `ObjIntersect*`/`CollisionFlags`/готч райкаста — `docs/research/raycast.md`.
 - **`GetCollisionBox(out vector minMax[2])` возвращает MODEL-SPACE (локальный) AABB, а НЕ
   world-space.** Центр `(minMax[0]+minMax[1])*0.5` для здания дал `(2.16, −0.99)` (локальная
   величина), тогда как `GetDoorSoundPos`/`GetWorldPosition`/`GetPosition` — world-space. НЕ
