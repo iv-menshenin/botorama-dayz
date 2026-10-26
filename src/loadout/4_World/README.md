@@ -92,12 +92,11 @@ src/loadout/4_World/
 - Файл не найден / не парсится → `Load()` возвращает `null` (команда отвечает
   ошибкой, логирует через `dmBotLog.Error`).
 - Невалидный класс / слот занят / нет места → `Create*` вернёт `null`, предмет
-  **пропускается вместе со своими аттачами**, в лог пишется `ERROR`
-  (`Loadout FAILED: <cls> -> ...`), остальные предметы применяются дальше.
-- `ERROR`-логи провалов **не гейтятся** (видны всегда); `DEBUG`/`TRACE`-логи
-  гейтятся `#ifdef DM_BOT_DEBUG_LOADOUT` (включён в `config.cpp`). Профиль —
-  `#ifdef DM_BOT_PROFILE` (спаны `Loadout.Load` / `Loadout.Apply` /
-  `Loadout.Create`).
+  **тихо пропускается вместе со своими аттачами** (в лог пишется `DEBUG`
+  `Loadout: skip <cls> -> ...`), остальные предметы применяются дальше.
+- `DEBUG`/`TRACE`-логи гейтятся `#ifdef DM_BOT_DEBUG_LOADOUT` (включён в
+  `config.cpp`). Профиль — `#ifdef DM_BOT_PROFILE` (спаны `Loadout.Load` /
+  `Loadout.Apply` / `Loadout.Create`).
 
 ## Замечание по `Chance`
 

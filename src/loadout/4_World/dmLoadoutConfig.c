@@ -32,7 +32,7 @@ class dmLoadoutPreset
 class dmLoadoutItem
 {
 	//! Candidate class names; one is picked at random.
-	ref array<string> ClassName;
+	autoptr array<string> ClassName;
 
 	//! Weight in a slot pick, or independent spawn chance in cargo.
 	float Chance = 1.0;
@@ -44,13 +44,13 @@ class dmLoadoutItem
 	ref dmLoadoutRange Quantity;
 
 	//! Presets this item belongs to; empty = always eligible.
-	ref array<string> Conform;
+	autoptr array<string> Conform;
 
 	//! Attachment slots to fill on this item.
-	ref array<ref dmLoadoutSlot> Attachments;
+	autoptr array<ref dmLoadoutSlot> Attachments;
 
 	//! Cargo items to place inside this item.
-	ref array<ref dmLoadoutItem> Cargo;
+	autoptr array<ref dmLoadoutItem> Cargo;
 }
 
 //! One slot to fill: a target slot name and the weighted candidates for it.
@@ -60,7 +60,7 @@ class dmLoadoutSlot
 	string SlotName;
 
 	//! Candidate items (weighted pick, one winner).
-	ref array<ref dmLoadoutItem> Items;
+	autoptr array<ref dmLoadoutItem> Items;
 }
 
 //! Root of a loadout file. Inherits dmJsonConfigBase for schema versioning
@@ -71,19 +71,16 @@ class dmLoadoutConfig : dmJsonConfigBase
 	static const int VERSION = 1;
 
 	//! Preset pool, rolled once per application.
-	ref array<ref dmLoadoutPreset> Presets;
+	autoptr array<ref dmLoadoutPreset> Presets;
 
 	//! Equipment slots to fill on the pawn.
-	ref array<ref dmLoadoutSlot> Slots;
+	autoptr array<ref dmLoadoutSlot> Slots;
 
 	//! Items to place into the pawn's general cargo.
-	ref array<ref dmLoadoutItem> Cargo;
+	autoptr array<ref dmLoadoutItem> Cargo;
 
 	override void Defaults()
 	{
-		Presets = new array<ref dmLoadoutPreset>();
-		Slots = new array<ref dmLoadoutSlot>();
-		Cargo = new array<ref dmLoadoutItem>();
 		Version = VERSION;
 	}
 

@@ -40,52 +40,16 @@ class dmLoadoutApplier
 		#ifdef DM_BOT_DEBUG_LOADOUT
 		dmBotLog.Debug("Loadout '" + name + "' loaded (version " + cfg.GetVersion() + ")");
 		#endif
-		Normalize(cfg);
 		return cfg;
 	}
 
-	//! The JSON omits "Chance" when it is 1.0, and the engine's JsonSerializer
-	//! does not run field initializers, so an omitted Chance deserializes as 0.0
-	//! and the item/preset would never be selected. Treat Chance <= 0.0 as 1.0.
-	static void Normalize(dmLoadoutConfig cfg)
+	//! Chance из JSON: 0.0 = «ключ отсутствует» → трактуем как 1.0 (всегда). JsonSerializer
+	//! не применяет инициализатор float Chance = 1.0 к элементам массива.
+	static float ChanceOrOne(float chance)
 	{
-		int i;
-		if (cfg.Presets)
-		{
-			for (i = 0; i < cfg.Presets.Count(); i++)
-			{
-				if (cfg.Presets[i].Chance <= 0.0)
-					cfg.Presets[i].Chance = 1.0;
-			}
-		}
-		if (cfg.Slots)
-		{
-			for (i = 0; i < cfg.Slots.Count(); i++)
-				NormalizeItems(cfg.Slots[i].Items);
-		}
-		NormalizeItems(cfg.Cargo);
-	}
-
-	//! Recursively normalize the Chance of a list of items.
-	static void NormalizeItems(array<ref dmLoadoutItem> items)
-	{
-		if (!items)
-			return;
-
-		int i;
-		int j;
-		for (i = 0; i < items.Count(); i++)
-		{
-			dmLoadoutItem it = items[i];
-			if (it.Chance <= 0.0)
-				it.Chance = 1.0;
-			if (it.Attachments)
-			{
-				for (j = 0; j < it.Attachments.Count(); j++)
-					NormalizeItems(it.Attachments[j].Items);
-			}
-			NormalizeItems(it.Cargo);
-		}
+		if (chance <= 0.0)
+			return 1.0;
+		return chance;
 	}
 
 	//! Collect the names of all loadout files (without ".json") in DM_LOADOUT_DIR.
@@ -175,7 +139,7 @@ class dmLoadoutApplier
 		int i;
 		float total = 0.0;
 		for (i = 0; i < presets.Count(); i++)
-			total += presets[i].Chance;
+			total += ChanceOrOne(presets[i].Chance);
 
 		if (total <= 0.0)
 			return "";
@@ -184,7 +148,7 @@ class dmLoadoutApplier
 		float acc = 0.0;
 		for (i = 0; i < presets.Count(); i++)
 		{
-			acc += presets[i].Chance;
+			acc += ChanceOrOne(presets[i].Chance);
 			if (r < acc)
 				return presets[i].Name;
 		}
@@ -215,19 +179,25 @@ class dmLoadoutApplier
 	//! slot whose eligible total is < 1.0 has a (1 - total) chance to stay empty.
 	static dmLoadoutItem PickItem(array<ref dmLoadoutItem> items, string preset)
 	{
+		dmLoadoutItem result = null;
+
 		if (!items || items.Count() == 0)
+		{
 			return null;
+		}
 
 		int i;
 		float total = 0.0;
 		for (i = 0; i < items.Count(); i++)
 		{
 			if (ConformOk(items[i], preset))
-				total += items[i].Chance;
+				total += ChanceOrOne(items[i].Chance);
 		}
 
 		if (total <= 0.0)
+		{
 			return null;
+		}
 
 		float r = Math.RandomFloat01() * Math.Max(total, 1.0);
 		float acc = 0.0;
@@ -235,17 +205,21 @@ class dmLoadoutApplier
 		{
 			if (!ConformOk(items[i], preset))
 				continue;
-			acc += items[i].Chance;
+			acc += ChanceOrOne(items[i].Chance);
 			if (r < acc)
-				return items[i];
+			{
+				result = items[i];
+				break;
+			}
 		}
-		return null;
+
+		return result;
 	}
 
 	//! Independent chance roll (cargo items).
 	static bool RollChance(float chance)
 	{
-		return Math.RandomFloat01() < chance;
+		return Math.RandomFloat01() < ChanceOrOne(chance);
 	}
 
 	//! Pick a random class name from the candidates; "" when none.
@@ -299,7 +273,9 @@ class dmLoadoutApplier
 
 		if (!item)
 		{
-			dmBotLog.Error("Loadout FAILED: " + cls + " -> slot '" + slotName + "'");
+			#ifdef DM_BOT_DEBUG_LOADOUT
+			dmBotLog.Debug("Loadout: skip " + cls + " -> slot '" + slotName + "'");
+			#endif
 			return;
 		}
 
@@ -320,7 +296,9 @@ class dmLoadoutApplier
 		EntityAI item = CreateChild(parent, cls);
 		if (!item)
 		{
-			dmBotLog.Error("Loadout FAILED: " + cls + " -> cargo");
+			#ifdef DM_BOT_DEBUG_LOADOUT
+			dmBotLog.Debug("Loadout: skip " + cls + " -> cargo");
+			#endif
 			return;
 		}
 
@@ -341,7 +319,9 @@ class dmLoadoutApplier
 		EntityAI child = CreateChild(parent, cls);
 		if (!child)
 		{
-			dmBotLog.Error("Loadout FAILED: " + cls + " -> " + parent.GetType());
+			#ifdef DM_BOT_DEBUG_LOADOUT
+			dmBotLog.Debug("Loadout: skip " + cls + " -> " + parent.GetType());
+			#endif
 			return;
 		}
 
