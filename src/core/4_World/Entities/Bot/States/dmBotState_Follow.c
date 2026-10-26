@@ -162,6 +162,7 @@ class dmBotState_Follow : dmBotState
 				look.m_Priority = dmBotIntentPriority.CRITICAL;
 				look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 				look.m_Deadline = 5.0;
+				look.m_Target = m_Target;
 				bot.AddPersonalityIntent( look );
 				m_LastLook = look.m_Deadline;
 			}

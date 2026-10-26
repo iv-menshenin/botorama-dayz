@@ -179,7 +179,7 @@ class dmBotState_Hunting : dmBotState
 			m_WantBuilding = false;
 		}
 
-		vector goal = RollSearchPoint();
+		vector goal = m_Target.ApproximatePosition();
 		m_Move = new dmBotIntent_MoveTo();
 		m_Move.m_Goal = goal;
 		m_Move.m_ReachDistance = DM_PATROL_REACH_DISTANCE;
@@ -189,24 +189,5 @@ class dmBotState_Hunting : dmBotState
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] Hunting: случайная точка " + goal);
 		#endif
-	}
-
-	//! Случайная точка в круге радиуса spread с центром m_SearchCenter, но не
-	//! ближе spread/3 к центру (известной позиции цели).
-	vector RollSearchPoint()
-	{
-		float spread = m_Target.m_LastPositionSpread;
-		if (spread < DM_HUNT_SPREAD_MIN)
-			spread = DM_HUNT_SPREAD_MIN;
-
-		float ang = Math.RandomFloat01() * Math.PI2;
-		float minR = spread / 3.0;
-		float r = minR + Math.RandomFloat01() * (spread - minR);
-
-		vector goal = m_SearchCenter;
-		goal[0] = goal[0] + Math.Cos(ang) * r;
-		goal[2] = goal[2] + Math.Sin(ang) * r;
-
-		return goal;
 	}
 }

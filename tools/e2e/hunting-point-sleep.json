@@ -1,0 +1,15 @@
+{
+  "Name": "hunting-point-sleep",
+  "Timeout": 90,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Preset": "hunter", "Pos": [12728.2, 0, 12851.2], "Yaw": 0 },
+    { "Op": "spawn", "Who": "B", "Pos": [12676.1, 194.57, 12827.36], "Yaw": 60 },
+    { "Op": "sleep", "Timeout": 3 },
+    { "Op": "hostile", "Who": "A", "Target": "B", "Threat": 1.0, "Spread": 20 },
+    { "Op": "sleep", "Timeout": 25 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

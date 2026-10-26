@@ -1,0 +1,13 @@
+{
+  "Name": "hunting-heard",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Preset": "hunter", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "army", "Count": 2, "Pos": [4612, 0, 9955], "Radius": 5, "Preset": "combat" },
+    { "Op": "sleep", "Timeout": 35 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

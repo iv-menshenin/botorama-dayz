@@ -24,10 +24,26 @@ class dmBotRouteSegment
 
 class dmBotPathfinder
 {
+	//! Cached AIWorld for the static navmesh snap (resolved once on first use).
+	static AIWorld s_AIWorld;
+
+	//! Shared lazy sample filter for the static navmesh snap (code with no bot/
+	//! pathfinder instance, e.g. dmTarget). Built on first use.
+	static ref PGFilter s_SampleFilter;
+
 	AIWorld m_AIWorld;
 	ref PGFilter m_Filter;
 	ref PGFilter m_SampleFilter;
 	ref PGFilter m_RoadFilter;
+
+	//! Build the sample filter: everything except crawl/crouch (snap a point onto
+	//! the navmesh without routing through crawl/crouch-only polygons).
+	static PGFilter BuildSampleFilter()
+	{
+		ref PGFilter filter = new PGFilter();
+		filter.SetFlags(PGPolyFlags.ALL & ~(PGPolyFlags.CRAWL | PGPolyFlags.CROUCH), PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
+		return filter;
+	}
 
 	void dmBotPathfinder()
 	{
@@ -53,8 +69,7 @@ class dmBotPathfinder
 		m_Filter.SetCost(PGAreaType.JUMP, 10.0);
 		m_Filter.SetCost(PGAreaType.LADDER, 1.0);
 
-		m_SampleFilter = new PGFilter();
-		m_SampleFilter.SetFlags(PGPolyFlags.ALL & ~(PGPolyFlags.CRAWL | PGPolyFlags.CROUCH), PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
+		m_SampleFilter = BuildSampleFilter();
 
 		//! Road filter — A* for vehicles over the ROAD only. Roads are WALK
 		//! polygons (with UNREACHABLE so A* can route across detached road navmesh
@@ -153,6 +168,20 @@ class dmBotPathfinder
 		dmBotLog.Debug("[PATH] SamplePosition sampled=" + sampled);
 		#endif
 		return ok;
+	}
+
+	//! Static navmesh snap for code with no bot/pathfinder instance (e.g. dmTarget).
+	//! Lazily builds the sample filter and resolves the AIWorld (both cached).
+	static bool SampleNavmeshPosition(vector pos, float maxDist, out vector sampled)
+	{
+		if (!s_AIWorld)
+			s_AIWorld = GetGame().GetWorld().GetAIWorld();
+		if (!s_SampleFilter)
+			s_SampleFilter = BuildSampleFilter();
+
+		if (!s_AIWorld)
+			return false;
+		return s_AIWorld.SampleNavmeshPosition(pos, maxDist, s_SampleFilter, sampled);
 	}
 
 	//! Ladder-aware маршрут из сегментов. Заполняет `segments` (очищает); false — нет маршрута.

@@ -1,0 +1,17 @@
+{
+  "Name": "reaim-transition",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "army", "Count": 1, "Pos": [12728.2, 0, 12851.2], "Radius": 1, "Preset": "combat" },
+    { "Op": "spawn", "Who": "B", "Pos": [12630, 0, 12810], "Yaw": 90 },
+    { "Op": "hostile", "Who": "army_A_0", "Target": "B", "Threat": 1.0 },
+    { "Op": "sleep", "Timeout": 12 },
+    { "Op": "snapshot" },
+    { "Op": "moveto", "Who": "B", "Pos": [12760, 0, 12880] },
+    { "Op": "sleep", "Timeout": 20 },
+    { "Op": "botdump", "Who": "army_A_0" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

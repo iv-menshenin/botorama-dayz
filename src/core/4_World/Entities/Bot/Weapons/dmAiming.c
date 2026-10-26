@@ -14,6 +14,12 @@ class dmAiming
 	//! Current target entity (EntityAI is managed, no ref).
 	private EntityAI m_Target;
 
+	//! Target memory (dmTarget) driving the aim point. When set, the base aim point
+	//! comes from m_DmTarget.GetAimPosition() (visibility-aware: m_LastPosition when
+	//! not visible); the entity is then used only for live-position/lead/velocity
+	//! logic on a VISIBLE target.
+	private ref dmTarget m_DmTarget;
+
 	//! Whether the aim loop is enabled (driven by the Aim intent / tests).
 	private bool m_Enabled;
 
@@ -64,6 +70,26 @@ class dmAiming
 			m_TargetVelocity = vector.Zero;
 		}
 		m_Target = target;
+		m_DmTarget = null;
+	}
+
+	//! Set the target memory; the base aim point is then derived from it
+	//! (visibility-aware: last known position when the target is not seen).
+	void SetTarget(dmTarget target)
+	{
+		if (!target)
+		{
+			m_Target = null;
+			m_DmTarget = null;
+			return;
+		}
+		if (target.m_Entity != m_Target)
+		{
+			m_TrackingTime = 0.0;
+			m_TargetVelocity = vector.Zero;
+		}
+		m_Target = target.m_Entity;
+		m_DmTarget = target;
 	}
 
 	EntityAI GetTarget()
@@ -188,6 +214,7 @@ class dmAiming
 		vector delta;
 		float deltaSpeed;
 		bool standing;
+		bool hasLOS;
 		vector transform[4];
 		float healthModifier;
 		vector position;
@@ -243,58 +270,79 @@ class dmAiming
 			m_TrackingTime = DM_AIM_MAX_TRACKING_TIME;
 
 		targetEntity = m_Target;
-
-		//! Псевдосредняя скорость цели (EMA, горизонтальная) для упреждения. При
-		//! резкой смене скорости/траектории — прыжок на новую скорость (иначе EMA
-		//! отстаёт), а при большом скачке — сброс накопленной боковой поправки.
-		human = Human.Cast(targetEntity);
-		if (human)
-		{
-			human.PhysicsGetVelocity(tv);
-			tv[1] = 0.0;
-			//! Цель остановилась (скорость упала ниже порога движения) — накопленная
-			//! боковая поправка (ветер+лид) больше не применима, сбрасываем.
-			if (tv.Length() < DM_LEAD_SPEED_EPS && m_TargetVelocity.Length() > DM_LEAD_SPEED_EPS)
-				dmBallisticsBridge.ResetLatCorr(m_Unit);
-			delta = tv - m_TargetVelocity;
-			deltaSpeed = delta.Length();
-			if (deltaSpeed > DM_LEAD_VEL_CHANGE_EPS)
-				m_TargetVelocity = tv;
-			else
-				m_TargetVelocity = (m_TargetVelocity + tv * 2.0) * (1.0 / 3.0);
-			if (deltaSpeed > DM_LAT_RESET_VEL_EPS)
-				dmBallisticsBridge.ResetLatCorr(m_Unit);
-		}
-
-		//! Aim point: head for a standing target under real optics, center mass
-		//! (Spine3) otherwise; creatures use the head. Fallback to feet + eye height.
 		targetPos = targetEntity.GetPosition();
+
+		//! Видимость цели: невидимую цель не наблюдаем — псевдоскорость/упреждение/
+		//! уточнение кости не применяются (остаётся последняя известная позиция).
+		hasLOS = true;
+		if (m_DmTarget)
+			hasLOS = m_DmTarget.m_HasLOS;
+
+		//! Базовая точка прицела — из памяти цели (m_DmTarget.GetAimPosition): при
+		//! !m_HasLOS это последняя известная позиция (телепатии нет), при видимости —
+		//! живая голова/центр. Без памяти (SetTarget(EntityAI), тесты) — ноги + высота глаз.
 		aimPos = targetPos + Vector(0, DM_EYE_HEIGHT, 0);
-		bone = -1;
-		human = Human.Cast(targetEntity);
-		if (human)
+		if (m_DmTarget)
+			aimPos = m_DmTarget.GetAimPosition();
+
+		if (hasLOS)
 		{
-			human.PhysicsGetVelocity(tv);
-			standing = tv.Length() < DM_AIM_HEADSHOT_SPEED_EPS;
-			if (standing && m_HasRealOptic)
+			//! Псевдосредняя скорость цели (EMA, горизонтальная) для упреждения. При
+			//! резкой смене скорости/траектории — прыжок на новую скорость (иначе EMA
+			//! отстаёт), а при большом скачке — сброс накопленной боковой поправки.
+			human = Human.Cast(targetEntity);
+			if (human)
 			{
-				bone = human.GetBoneIndexByName("Head");
+				human.PhysicsGetVelocity(tv);
+				tv[1] = 0.0;
+				//! Цель остановилась (скорость упала ниже порога движения) — накопленная
+				//! боковая поправка (ветер+лид) больше не применима, сбрасываем.
+				if (tv.Length() < DM_LEAD_SPEED_EPS && m_TargetVelocity.Length() > DM_LEAD_SPEED_EPS)
+					dmBallisticsBridge.ResetLatCorr(m_Unit);
+				delta = tv - m_TargetVelocity;
+				deltaSpeed = delta.Length();
+				if (deltaSpeed > DM_LEAD_VEL_CHANGE_EPS)
+					m_TargetVelocity = tv;
+				else
+					m_TargetVelocity = (m_TargetVelocity + tv * 2.0) * (1.0 / 3.0);
+				if (deltaSpeed > DM_LAT_RESET_VEL_EPS)
+					dmBallisticsBridge.ResetLatCorr(m_Unit);
+			}
+
+			//! Aim point refinement: head for a standing target under real optics,
+			//! center mass (Spine3) otherwise; creatures use the head.
+			bone = -1;
+			human = Human.Cast(targetEntity);
+			if (human)
+			{
+				human.PhysicsGetVelocity(tv);
+				standing = tv.Length() < DM_AIM_HEADSHOT_SPEED_EPS;
+				if (standing && m_HasRealOptic)
+				{
+					bone = human.GetBoneIndexByName("Head");
+				}
+				else
+				{
+					bone = human.GetBoneIndexByName("Spine3");
+					if (bone < 0)
+						bone = human.GetBoneIndexByName("Head");
+				}
 			}
 			else
 			{
-				bone = human.GetBoneIndexByName("Spine3");
-				if (bone < 0)
-					bone = human.GetBoneIndexByName("Head");
+				creature = DayZCreature.Cast(targetEntity);
+				if (creature)
+					bone = creature.GetBoneIndexByName("Head");
 			}
+			if (bone >= 0)
+				aimPos = targetEntity.GetBonePositionWS(bone);
 		}
 		else
 		{
-			creature = DayZCreature.Cast(targetEntity);
-			if (creature)
-				bone = creature.GetBoneIndexByName("Head");
+			//! Невидимая цель: скорость не наблюдаема — сбросить, чтобы упреждение
+			//! не сдвигало последнюю известную позицию.
+			m_TargetVelocity = vector.Zero;
 		}
-		if (bone >= 0)
-			aimPos = targetEntity.GetBonePositionWS(bone);
 		m_AimPosition = aimPos;
 
 		m_Unit.GetTransform(transform);

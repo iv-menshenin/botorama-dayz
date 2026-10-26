@@ -1741,6 +1741,7 @@ class dmAISurvivor
 		{
 			dmTarget t = m_Targets[i];
 			if (t.m_Friendly) continue;
+			if (!t.IsValidTarget()) continue;
 			if (!t.m_HasLOS) continue;
 			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
 			EntityAI e = t.m_Entity;
@@ -1820,6 +1821,7 @@ class dmAISurvivor
 		{
 			dmTarget t = m_Targets[i];
 			if (t.m_Friendly) continue;
+			if (!t.IsValidTarget()) continue;
 			if (visible && !t.m_HasLOS) continue;
 
 			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
@@ -1855,6 +1857,9 @@ class dmAISurvivor
 		{
 			dmTarget t = m_Targets[i];
 			if (t.m_Friendly)
+				continue;
+			//! Цель без известной позиции (обнаружена, но ни разу не видна/не слышна) — охотиться не на что.
+			if (!t.IsValidTarget())
 				continue;
 			if (t.m_HasLOS)
 				continue;

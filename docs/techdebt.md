@@ -779,3 +779,31 @@
 - **низкий** — `dmArsenal` рескан очищает списки и пере-регистрирует пофреймово: в этом окне (~N фреймов)
   запросы `WeaponAllowDist`/`WeaponAmmoCount` видят частично заполненный профиль. Окно мало и запросы на
   FSM-переходах (редки), но при интеграции учесть (напр. запрашивать после `m_InitialRescanDone`).
+
+## T. Целевая память / анти-телепатия (v3.332)
+
+Задача «не вижу цель → ориентируюсь на `dmTarget` (память), не на живую сущность». `GetAimPosition()`
+теперь возвращает `m_LastPosition` при `!m_HasLOS`; `GetLivePosition()` — только для LOS-рейкаста;
+`dmAiming` делегирует базовую точку прицела в `dmTarget`. Долг (не rework, из ревью/E2E):
+
+- **средний (pre-existing)** — `RegisterHostile` не обновляет `m_LastPosition`/`m_LastPositionSpread` для
+  **уже существующей** цели (только при создании новой). Поэтому цель «обнаружена зрением, но ни разу не
+  видна/не слышна» остаётся с `m_LastPosition == vector.Zero` и не участвует в бое (ни Shooting, ни Hunting —
+  гейт/фильтр отсекают). Это осознанный гэп («не вижу = не знаю»), но если `RegisterHostile` даёт позицию
+  (`entity.GetPosition()`) — стоит обновлять и существующую цель (тогда «враждебный» сразу получит позицию).
+- **низкий** — крипто-имя `m_DmTarget` в `dmAiming` (`m_Target` = EntityAI + `m_DmTarget` = dmTarget —
+  по имени неотличимы). Переименовать в `m_TargetMemory`.
+- **низкий** — `hasLOS = true; if (m_DmTarget) hasLOS = ...` — инвертированный фолбэк хрупок; заменить на
+  `bool hasLOS = m_DmTarget ? m_DmTarget.m_HasLOS : true;`.
+- **низкий** — имя `IsValidTarget()` шире семантики (проверяет только «есть сущность + есть позиция», без
+  `IsAlive`/threat). Рассмотреть `HasKnownPosition()` либо уточнить docstring.
+- **низкий** — `dmTarget.LastPosition()` без потребителей (взгляд идёт через `GetAimPosition()`). Либо
+  удалить, либо реально перевести читателей `m_LastPosition` на геттер.
+- **низкий** — «две истины» валидности цели: `IsValidTarget()` в выборке (`GetHuntTarget`/`GetEngageableTarget`/
+  `GetHostileTargetEx`) vs голый `m_LastPosition == vector.Zero` в `CanEnter` Shooting/Rushing/Follow (явный
+  выбор заказчика, смелл #20). Свести к одному хелперу при следующем касании.
+- **низкий** — в `dmAiming.OnUpdate` мёртвый фолбэк `aimPos = targetPos + Vector(0, DM_EYE_HEIGHT, 0)` (при
+  заданном `m_DmTarget` сразу перезаписывается) + двойной `Human.Cast`/`PhysicsGetVelocity` в hasLOS-ветке.
+- **низкий (pre-existing)** — Y-смещение в баллистике: `SetAim(..., targetPos, ...)` получает живые НОГИ, а
+  `m_AimPosition` = голова; `RecordShot` строит ожидаемую точку попадания от ног. Существовало до этого
+  задания, усугублено не было (при !LOS выстрела нет).

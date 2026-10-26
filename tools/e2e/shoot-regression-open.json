@@ -1,0 +1,14 @@
+{
+  "Name": "shoot-regression-open",
+  "Timeout": 90,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "army", "Count": 1, "Pos": [4117, 0, 10827], "Radius": 1, "Preset": "combat" },
+    { "Op": "spawn", "Who": "B", "Pos": [4152, 0, 10827], "Yaw": 180 },
+    { "Op": "hostile", "Who": "army_A_0", "Target": "B", "Threat": 1.0 },
+    { "Op": "sleep", "Timeout": 25 },
+    { "Op": "botdump", "Who": "army_A_0" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

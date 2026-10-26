@@ -155,7 +155,7 @@ class dmVision
 				continue;
 			t.m_NextLOSUpdate = now + GetRefreshTime(t);
 
-			vector targetPos = t.GetAimPosition();
+			vector targetPos = t.GetLivePosition();
 			vector toTarget = targetPos - botPos;
 			toTarget[1] = 0.0;
 			t.m_LastDistance = toTarget.Length();

@@ -3,6 +3,7 @@ class dmBotIntent_HoldLook : dmBotIntent
 {
 	vector m_Point;              // фиксированная точка (если m_Entity не задан)
 	EntityAI m_Entity;           // опционально: следим за сущностью каждый тик
+	ref dmTarget m_Target;       // опционально: следим за сущностью по ее следам, а не по ее модели в мире
 	dmBotLookTurn m_Turn = dmBotLookTurn.AUTO;
 
 	void dmBotIntent_HoldLook()
@@ -18,6 +19,12 @@ class dmBotIntent_HoldLook : dmBotIntent
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
 		super.OnUpdate(bot, pDt);
+
+		if (m_Target)
+		{
+			bot.LookAtPoint(m_Target.GetAimPosition(), m_Turn);
+			return;
+		}
 
 		if (m_Entity)
 		{

@@ -18,6 +18,15 @@ class dmBotState_Rushing : dmBotState_Shooting
 		return dmBotConditions.Rushing(true);
 	}
 
+	override bool CanEnter()
+	{
+		dmTarget t = GetOwner().GetHostileTarget();
+		if ( !t ) return false;
+		if ( t.m_LastPosition == vector.Zero ) return false;
+
+		return super.CanEnter();
+	}
+
 	override int OnUpdate(float pDt)
 	{
 		dmAISurvivor bot = GetOwner();
@@ -27,6 +36,9 @@ class dmBotState_Rushing : dmBotState_Shooting
 		dmTarget t = bot.FindTarget(m_TargetEntity);
 		if (!t)
 		{
+			#ifdef DM_BOT_DEBUG_FSM_RUSHING
+			dmBotLog.Debug("[FSM] Rushing: нет цели");
+			#endif
 			//! Цель забыта (выпала из m_Targets), но сущность жива — пере-резолв.
 			ResolveTarget();
 			if (!m_TargetEntity) return EXIT;
@@ -40,6 +52,9 @@ class dmBotState_Rushing : dmBotState_Shooting
 		// фаза 1: видима + в досягаемости → стрельба
 		if (visible && inRange)
 		{
+			#ifdef DM_BOT_DEBUG_FSM_RUSHING
+			dmBotLog.Debug("[FSM] Rushing: я вижу цель, делегирую super.OnUpdate");
+			#endif
 			if (m_Move) { m_Move.Finish(); m_Move = null; }
 			return super.OnUpdate(pDt);
 		}
@@ -50,6 +65,10 @@ class dmBotState_Rushing : dmBotState_Shooting
 		// фаза 3: видима + смотрит на бота → уворот
 		if (visible && bot.IsTargetFacingBot(t))
 		{
+			#ifdef DM_BOT_DEBUG_FSM_RUSHING
+			dmBotLog.Debug("[FSM] Rushing: я вижу цель, цель смотрит на меня");
+			#endif
+
 			if (m_Move) { m_Move.Finish(); m_Move = null; }
 			dmAISurvivorBase pawn3 = dmAISurvivorBase.Cast(bot.GetPawn());
 			if (pawn3) { pawn3.ClearWeaponHold(); pawn3.RaiseWeapon(false); }
@@ -91,6 +110,9 @@ class dmBotState_Rushing : dmBotState_Shooting
 			delta[1] = 0.0;
 			if (delta.Length() > DM_RUSH_REPATH_DIST)
 			{
+				#ifdef DM_BOT_DEBUG_FSM_RUSHING
+				dmBotLog.Debug("[FSM] Rushing: заканчиваю m_Move; delta=" + delta.Length());
+				#endif
 				m_Move.Finish();
 				m_Move = null;
 			}
@@ -98,6 +120,9 @@ class dmBotState_Rushing : dmBotState_Shooting
 
 		if (!m_Move)
 		{
+			#ifdef DM_BOT_DEBUG_FSM_RUSHING
+			dmBotLog.Debug("[FSM] Rushing: создаю m_Move интент m_LastPosition=" + t.m_LastPosition);
+			#endif
 			m_Move = new dmBotIntent_MoveTo();
 			m_Move.m_Priority = dmBotIntentPriority.CRITICAL;
 			m_Move.m_Concurrency = dmBotIntentConcurrency.PARALLEL;

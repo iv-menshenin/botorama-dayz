@@ -439,6 +439,7 @@ class dmBotCommand : dmCommandModule
 		}
 		vector botPosition = bot.GetPosition();
 		vector playerPosition = player.GetPosition();
+		dmTarget trg = bot.GetHostileTarget();
 
 		StaminaHandler sh = pawn.GetStaminaHandler();
 
@@ -486,6 +487,15 @@ class dmBotCommand : dmCommandModule
 		agentsLine += " Рана=" + pawn.GetSingleAgentCount(eAgents.WOUND_AGENT);
 		agentsLine += " Хим=" + pawn.GetSingleAgentCount(eAgents.CHEMICAL_POISON);
 		dmCommandManager.ChatToPlayer(player, agentsLine);
+
+		if ( trg )
+		{
+			string targetLine = "Цель:";
+			if ( trg.m_HasLOS ) targetLine += " видима";
+			if ( !trg.m_HasLOS ) targetLine += " невидима";
+			targetLine += " Позиция=" + trg.m_LastPosition;
+			dmCommandManager.ChatToPlayer(player, targetLine);
+		}
 
 		dmBotFSM fsm = bot.GetFSM();
 		string fsmName = "нет FSM";

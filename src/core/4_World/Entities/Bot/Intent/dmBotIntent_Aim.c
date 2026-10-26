@@ -57,7 +57,7 @@ class dmBotIntent_Aim : dmBotIntent
 		dmAiming aiming = pawn.GetAiming();
 		if (aiming)
 		{
-			aiming.SetTarget(m_TargetEntity);
+			aiming.SetTarget(t);
 			aiming.Enable();
 			bot.LookAtPoint(aiming.GetAimPosition(), dmBotLookTurn.FULL);
 

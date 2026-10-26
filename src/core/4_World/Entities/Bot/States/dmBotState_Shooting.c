@@ -49,13 +49,22 @@ class dmBotState_Shooting : dmBotState
 		return m_Gate.Evaluate(GetOwner());
 	}
 
+	override bool CanEnter()
+	{
+		dmTarget t = GetOwner().GetHostileTarget();
+		if ( !t ) return false;
+		if ( t.m_LastPosition == vector.Zero ) return false;
+
+		return super.CanEnter();
+	}
+
 	//! Умный гистерезис выхода: пока гейт ещё релевантен (CanDoJob) и не истекло
 	//! DM_COMBAT_HOLD_TIME с входа — не выходим (гасим метание состояний).
 	override bool CanExit()
 	{
 		if (GetGame().GetTickTime() < m_CombatHoldUntil && CanDoJob())
 		{
-			#ifdef DM_BOT_DEBUG_FSM
+			#ifdef DM_BOT_DEBUG_FSM_SHOOTING
 			if (!m_CombatHoldLogged)
 			{
 				m_CombatHoldLogged = true;
@@ -104,7 +113,7 @@ class dmBotState_Shooting : dmBotState
 				pawn.SetAimMode(SelectAimMode());
 				pawn.RaiseWeapon(true);
 
-				#ifdef DM_BOT_DEBUG_FSM
+				#ifdef DM_BOT_DEBUG_FSM_SHOOTING
 				dmBotLog.Debug("[FSM] Shooting: огнестрел " + w.GetType() + " dist=" + dist);
 				#endif
 			}
@@ -112,13 +121,13 @@ class dmBotState_Shooting : dmBotState
 			{
 				m_NoFirearm = true;
 
-				#ifdef DM_BOT_DEBUG_FSM
+				#ifdef DM_BOT_DEBUG_FSM_SHOOTING
 				dmBotLog.Debug("[FSM] Shooting: нет заряженного огнестрела — EXIT");
 				#endif
 			}
 		}
 
-		#ifdef DM_BOT_DEBUG_FSM
+		#ifdef DM_BOT_DEBUG_FSM_SHOOTING
 		dmBotLog.Debug("[FSM] Shooting.entry");
 		#endif
 	}
@@ -217,7 +226,7 @@ class dmBotState_Shooting : dmBotState
 
 	override void OnExit(dmBotState to)
 	{
-		#ifdef DM_BOT_DEBUG_FSM
+		#ifdef DM_BOT_DEBUG_FSM_SHOOTING
 		dmBotLog.Debug("[FSM] Shooting.exit");
 		#endif
 
@@ -285,7 +294,7 @@ class dmBotState_Shooting : dmBotState
 			m_Elapsed = 0.0;
 			m_RetargetTimer = 0.0;
 
-			#ifdef DM_BOT_DEBUG_FSM
+			#ifdef DM_BOT_DEBUG_FSM_SHOOTING
 			dmBotLog.Debug("[FSM] Shooting: цель сменилась, интент сброшен");
 			#endif
 		}
@@ -317,6 +326,7 @@ class dmBotState_Shooting : dmBotState
 		{
 			m_Look = new dmBotIntent_HoldLook();
 			m_Look.m_Entity = m_TargetEntity;
+			m_Look.m_Target = m_Target;
 			m_Look.m_Turn = dmBotLookTurn.FULL;
 			m_Look.m_Priority = dmBotIntentPriority.CRITICAL;
 			m_Look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;

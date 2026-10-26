@@ -1,0 +1,14 @@
+{
+  "Name": "probe-hesco-geom",
+  "Timeout": 40,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "spawnobj", "Who": "h1", "ClassName": "HescoBox", "Pos": [4134, 0, 10827], "Yaw": 0 },
+    { "Op": "spawnobj", "Who": "h2", "ClassName": "HescoBox", "Pos": [4134, 0, 10829], "Yaw": 0 },
+    { "Op": "raycast", "From": [4117, 0, 10827], "To": [4152, 0, 10827], "Type": "geom", "Flags": "allobjects", "Sorted": 1 },
+    { "Op": "raycast", "From": [4117, 0, 10827], "To": [4152, 0, 10827], "Type": "view", "Flags": "allobjects", "Sorted": 1 },
+    { "Op": "getpos", "Obj": "h1" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}

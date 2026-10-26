@@ -1,0 +1,14 @@
+{
+  "Name": "anti-telepathy-wall",
+  "Timeout": 90,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "army", "Count": 1, "Pos": [12728.2, 0, 12851.2], "Radius": 1, "Preset": "combat" },
+    { "Op": "spawn", "Who": "B", "Pos": [12676.1, 194.57, 12827.36], "Yaw": 60 },
+    { "Op": "hostile", "Who": "army_A_0", "Target": "B", "Threat": 1.0 },
+    { "Op": "sleep", "Timeout": 25 },
+    { "Op": "botdump", "Who": "army_A_0" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}
