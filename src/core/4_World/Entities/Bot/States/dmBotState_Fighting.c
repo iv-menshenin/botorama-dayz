@@ -30,6 +30,19 @@ class dmBotState_Fighting : dmBotState
 		return dmBotStateKind.PREEMPTIVE;
 	}
 
+	override bool CanEnter()
+	{
+		dmTarget t = GetOwner().GetHostileTarget();
+		bool ok = super.CanEnter();
+		#ifdef DM_BOT_DEBUG_FSM_FIGHTING
+		if (t)
+			dmBotLog.Debug("[FSM] Fighting: CanEnter=" + ok + " hostile=" + t.m_Entity);
+		else
+			dmBotLog.Debug("[FSM] Fighting: CanEnter=" + ok + " hostile=null");
+		#endif
+		return ok;
+	}
+
 	override void OnEntry(dmBotState from)
 	{
 		m_TargetEntity = null;
@@ -50,6 +63,13 @@ class dmBotState_Fighting : dmBotState
 		bot.SetPreferredSpeed(3.0);
 
 		ResolveTarget();
+
+		#ifdef DM_BOT_DEBUG_FSM_FIGHTING
+		if (m_TargetEntity)
+			dmBotLog.Debug("[FSM] Fighting.entry target=" + m_TargetEntity.GetType());
+		else
+			dmBotLog.Debug("[FSM] Fighting.entry (нет цели)");
+		#endif
 
 		#ifdef DM_BOT_DEBUG_FIGHT
 		dmBotLog.Debug("[FSM] Fighting.entry");
@@ -133,6 +153,10 @@ class dmBotState_Fighting : dmBotState
 
 	override void OnExit(dmBotState to)
 	{
+		#ifdef DM_BOT_DEBUG_FSM_FIGHTING
+		dmBotLog.Debug("[FSM] Fighting.exit");
+		#endif
+
 		#ifdef DM_BOT_DEBUG_FIGHT
 		dmBotLog.Debug("[FSM] Fighting.exit");
 		#endif

@@ -90,13 +90,13 @@ class dmBotIntent_HitTo : dmBotIntent
 		}
 
 		dmTarget t = bot.FindTarget(m_TargetEntity);
-		if (!t || !t.m_HasLOS)
+		if (!t || !t.IsVisible())
 		{
 			m_LastFail = dmHitToFail.HASNTLOS;
 			#ifdef DM_BOT_DEBUG_FIGHT
 			if ( t )
 			{
-				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА видимость: " + t.m_HasLOS);
+				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА видимость: " + t.IsVisible());
 			} else {
 				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА нет цели [FindTarget]");
 			}

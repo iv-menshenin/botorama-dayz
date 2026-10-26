@@ -1,0 +1,18 @@
+{
+  "Name": "diag-hunt-c2",
+  "Timeout": 100,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "target", "Pos": [4212, 0, 12401.8], "Yaw": 0 },
+    { "Op": "spawn", "Who": "hunter", "Preset": "hunting", "Pos": [4517, 0, 12403.6], "Yaw": 90 },
+    { "Op": "loadout", "Who": "hunter", "Loadout": "Stalker" },
+    { "Op": "raycast", "From": [4517, 0, 12403.6], "To": [4212, 0, 12401.8] },
+    { "Op": "hostile", "Who": "hunter", "Target": "target", "Threat": 1.0, "Spread": 25 },
+    { "Op": "sleep", "Timeout": 20 },
+    { "Op": "botdump", "Who": "hunter" },
+    { "Op": "sleep", "Timeout": 25 },
+    { "Op": "botdump", "Who": "hunter" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

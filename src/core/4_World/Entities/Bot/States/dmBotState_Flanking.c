@@ -14,6 +14,32 @@ class dmBotState_Flanking : dmBotState_Shooting
 		return dmBotConditions.Flanking(true);
 	}
 
+	override bool CanEnter()
+	{
+		dmTarget t = GetOwner().GetHostileTarget();
+		if ( !t )
+		{
+			#ifdef DM_BOT_DEBUG_FSM_FLANKING
+			dmBotLog.Debug("[FSM] Flanking: CanEnter=false (нет hostile-цели)");
+			#endif
+			return false;
+		}
+		bool ok = super.CanEnter();
+		#ifdef DM_BOT_DEBUG_FSM_FLANKING
+		dmBotLog.Debug("[FSM] Flanking: CanEnter=" + ok + " видима=" + t.IsVisible() + " цель=" + t.m_Entity);
+		#endif
+		return ok;
+	}
+
+	override void OnEntry(dmBotState from)
+	{
+		super.OnEntry(from);
+
+		#ifdef DM_BOT_DEBUG_FSM_FLANKING
+		dmBotLog.Debug("[FSM] Flanking.entry");
+		#endif
+	}
+
 	override int OnUpdate(float pDt)
 	{
 		dmAISurvivor bot = GetOwner();
@@ -21,7 +47,7 @@ class dmBotState_Flanking : dmBotState_Shooting
 		if (!m_TargetEntity) return EXIT;
 
 		dmTarget t = bot.FindTarget(m_TargetEntity);
-		if (t && t.m_HasLOS)
+		if (t && t.IsVisible())
 		{
 			if (m_Flank) { m_Flank.Finish(); m_Flank = null; }
 			return EXIT; // цель видна — уступить Shooting
@@ -38,7 +64,7 @@ class dmBotState_Flanking : dmBotState_Shooting
 		if (pawn)
 			pawn.RaiseWeapon(false);
 
-		#ifdef DM_BOT_DEBUG_FSM
+		#ifdef DM_BOT_DEBUG_FSM_FLANKING
 		dmBotLog.Debug("[FSM] Flanking: цель невидима, обход");
 		#endif
 
@@ -47,6 +73,9 @@ class dmBotState_Flanking : dmBotState_Shooting
 
 	override void OnExit(dmBotState to)
 	{
+		#ifdef DM_BOT_DEBUG_FSM_FLANKING
+		dmBotLog.Debug("[FSM] Flanking.exit");
+		#endif
 		if (m_Flank) m_Flank.Finish();
 		super.OnExit(to);
 	}

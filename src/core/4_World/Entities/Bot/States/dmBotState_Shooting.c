@@ -52,10 +52,26 @@ class dmBotState_Shooting : dmBotState
 	override bool CanEnter()
 	{
 		dmTarget t = GetOwner().GetHostileTarget();
-		if ( !t ) return false;
-		if ( t.m_LastPosition == vector.Zero ) return false;
+		if ( !t )
+		{
+			#ifdef DM_BOT_DEBUG_FSM_SHOOTING
+			dmBotLog.Debug("[FSM] Shooting: CanEnter=false (нет hostile-цели)");
+			#endif
+			return false;
+		}
+		if ( !t.IsValidTarget() )
+		{
+			#ifdef DM_BOT_DEBUG_FSM_SHOOTING
+			dmBotLog.Debug("[FSM] Shooting: CanEnter=false (цель без позиции)");
+			#endif
+			return false;
+		}
 
-		return super.CanEnter();
+		bool ok = super.CanEnter();
+		#ifdef DM_BOT_DEBUG_FSM_SHOOTING
+		dmBotLog.Debug("[FSM] Shooting: CanEnter=" + ok + " цель=" + t.m_Entity);
+		#endif
+		return ok;
 	}
 
 	//! Умный гистерезис выхода: пока гейт ещё релевантен (CanDoJob) и не истекло
@@ -160,7 +176,7 @@ class dmBotState_Shooting : dmBotState
 		dmTarget t = bot.FindTarget(m_TargetEntity);
 		if ( !t ) return EXIT;
 
-		if (!t.m_HasLOS)
+		if (!t.IsVisible())
 		{
 			m_HasntLOSTimer + pDt;
 			if ( m_HasntLOSTimer > 15 ) return EXIT;
@@ -168,7 +184,7 @@ class dmBotState_Shooting : dmBotState
 			m_HasntLOSTimer = 0;
 		}
 		if ( m_Aim )
-			m_Aim.m_Active = t.m_HasLOS;
+			m_Aim.m_Active = t.IsVisible();
 
 		EnsureLook();
 		EnsureHitTo(bot);
@@ -301,6 +317,13 @@ class dmBotState_Shooting : dmBotState
 
 		m_Target = t;
 		m_TargetEntity = newEntity;
+
+		#ifdef DM_BOT_DEBUG_FSM_SHOOTING
+		if (newEntity)
+			dmBotLog.Debug("[FSM] Shooting: ResolveTarget -> " + newEntity.GetType());
+		else
+			dmBotLog.Debug("[FSM] Shooting: ResolveTarget -> null (нет hostile-цели)");
+		#endif
 	}
 
 	void EnsureHitTo(dmAISurvivor bot)

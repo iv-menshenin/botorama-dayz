@@ -771,12 +771,17 @@ class dmAISurvivor
 		return w.IsInherited(Rifle_Base);
 	}
 
-	//! True when the bot has a loaded firearm (non-melee Weapon_Base with ammo)
-	//! anywhere in its inventory, including the hands.
+	//! Есть ли ствол с боеприпасом (заряжен ИЛИ россыпь под его калибр в арсенале) —
+	//! где-либо в инвентаре, включая руки.
 	bool HasLoadedFirearm()
 	{
 		if (!m_Pawn)
+		{
+			#ifdef DM_BOT_DEBUG_ARSENAL
+			dmBotLog.Debug("[Arsenal] HasLoadedFirearm=false (нет пешки)");
+			#endif
 			return false;
+		}
 		array<EntityAI> items = new array<EntityAI>();
 		m_Pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
 		int i;
@@ -785,9 +790,18 @@ class dmAISurvivor
 			Weapon_Base w = Weapon_Base.Cast(items[i]);
 			if (!w || w.IsMeleeWeapon())
 				continue;
+			#ifdef DM_BOT_DEBUG_ARSENAL
+			dmBotLog.Debug("[Arsenal] firearm=" + w.GetType() + " loaded=" + IsWeaponLoaded(w));
+			dmBotLog.Debug("[Arsenal] caliber=" + dmWeaponRange.GetCaliber(w) + " ammo=" + GetArsenal().WeaponAmmoCount(w));
+			#endif
 			if (IsWeaponLoaded(w))
 				return true;
+			if (GetArsenal().WeaponAmmoCount(w) > 0)
+				return true;
 		}
+		#ifdef DM_BOT_DEBUG_ARSENAL
+		dmBotLog.Debug("[Arsenal] HasLoadedFirearm=false (нет ствола с боеприпасом)");
+		#endif
 		return false;
 	}
 
@@ -797,13 +811,33 @@ class dmAISurvivor
 	bool CanShoot(bool inHands = false)
 	{
 		if (!inHands)
-			return HasLoadedFirearm();
+		{
+			bool result = HasLoadedFirearm();
+			#ifdef DM_BOT_DEBUG_ARSENAL
+			dmBotLog.Debug("[Arsenal] CanShoot(inHands=false)=" + result);
+			#endif
+			return result;
+		}
 		Weapon_Base w = GetWeaponInHands();
 		if (!w || w.IsMeleeWeapon())
+		{
+			#ifdef DM_BOT_DEBUG_ARSENAL
+			dmBotLog.Debug("[Arsenal] CanShoot(inHands=true)=false (нет огнестрела в руках)");
+			#endif
 			return false;
+		}
 		if (IsWeaponLoaded(w))
+		{
+			#ifdef DM_BOT_DEBUG_ARSENAL
+			dmBotLog.Debug("[Arsenal] CanShoot(inHands=true)=true (ствол заряжен)");
+			#endif
 			return true;
-		return GetArsenal().WeaponAmmoCount(w) > 0;
+		}
+		int ammo = GetArsenal().WeaponAmmoCount(w);
+		#ifdef DM_BOT_DEBUG_ARSENAL
+		dmBotLog.Debug("[Arsenal] CanShoot(inHands=true): ствол пуст, патронов в арсенале=" + ammo);
+		#endif
+		return ammo > 0;
 	}
 
 	//! Лучший ствол на дистанцию: из оружия арсенала, достигающего dist
@@ -1167,8 +1201,8 @@ class dmAISurvivor
 			EntityAI e = t.m_Entity;
 			if (!e || !e.IsAlive()) continue;
 			// известная: видимая ИЛИ недавний контакт (услышана/повреждена)
-			if (!t.m_HasLOS && now - t.m_LastContact > DM_IMMINENT_CONTACT_WINDOW) continue;
-			vector tPos = t.m_LastPosition;
+			if (!t.IsVisible() && now - t.m_LastContact > DM_IMMINENT_CONTACT_WINDOW) continue;
+			vector tPos = t.LastPosition();
 			vector d = tPos - myPos;
 			d[1] = 0.0;
 			float dist = d.Length();
@@ -1517,7 +1551,7 @@ class dmAISurvivor
 		}
 
 		// Когда бот не видит цели, он теряет к цели интерес
-		if ( !t.m_HasLOS && now - t.m_LastContact > 45.0 && now - t.m_LastDamage > 120.0 )
+		if ( !t.IsVisible() && now - t.m_LastContact > 45.0 && now - t.m_LastDamage > 120.0 )
 		{
 			t.m_Threat -= Math.Clamp(0.005 * pDt, 0.0, 0.01);
 		}
@@ -1624,8 +1658,9 @@ class dmAISurvivor
 		t.m_LastContact = GetGame().GetTickTime();
 	}
 
-	//! Force-add an entity to the target memory as hostile (used by tests/orders).
-	//! Unlike RegisterDamageThreat this is unconditional and takes an explicit threat.
+	//! Force-add враждебность + явная позиция/спред (перезаписывается и для уже
+	//! известной цели). Используется тестами/приказами; в отличие от
+	//! RegisterDamageThreat — безусловно, с явным threat.
 	dmTarget RegisterHostile(EntityAI entity, float threat = 1.0, float spread = 0.0)
 	{
 		if (!entity) return null;
@@ -1636,14 +1671,13 @@ class dmAISurvivor
 			t = new dmTarget();
 			t.m_Type = dmTargetType.DESTROY;
 			t.m_Entity = entity;
-			t.m_Threat = threat;
-			t.m_LastContact = GetGame().GetTickTime();
-			t.m_LastPosition = entity.GetPosition();
-			t.m_LastPositionSpread = spread;
 			m_Targets.Insert(t);
 		}
 		if (threat > t.m_Threat) t.m_Threat = threat;
 		t.m_Friendly = false;
+		t.m_LastPosition = entity.GetPosition();
+		t.m_LastPositionSpread = spread;
+		t.m_LastContact = GetGame().GetTickTime();
 		return t;
 	}
 
@@ -1662,7 +1696,7 @@ class dmAISurvivor
 		if (t)
 		{
 			t.m_LastContact = GetGame().GetTickTime();
-			if (!t.m_HasLOS)
+			if (!t.IsVisible())
 			{
 				if (!t.m_Friendly && attractiveness > t.m_Attractiveness)
 					t.m_Attractiveness = attractiveness;
@@ -1742,7 +1776,7 @@ class dmAISurvivor
 			dmTarget t = m_Targets[i];
 			if (t.m_Friendly) continue;
 			if (!t.IsValidTarget()) continue;
-			if (!t.m_HasLOS) continue;
+			if (!t.IsVisible()) continue;
 			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
 			EntityAI e = t.m_Entity;
 			if (!e || !e.IsAlive()) continue;
@@ -1766,11 +1800,7 @@ class dmAISurvivor
 	float DistanceToTarget(dmTarget t)
 	{
 		vector myPos = GetPosition();
-		vector tPos;
-		if (t.m_Entity)
-			tPos = t.m_Entity.GetPosition();
-		else
-			tPos = t.m_LastPosition;
+		vector tPos = t.GetLivePosition();
 		vector d = tPos - myPos;
 		d[1] = 0.0;
 		return d.Length();
@@ -1822,19 +1852,15 @@ class dmAISurvivor
 			dmTarget t = m_Targets[i];
 			if (t.m_Friendly) continue;
 			if (!t.IsValidTarget()) continue;
-			if (visible && !t.m_HasLOS) continue;
+			if (visible && !t.IsVisible()) continue;
 
 			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
 
 			EntityAI e = t.m_Entity;
 			if (!e || !e.IsAlive()) continue;
 
-			vector tPos;
-			if (e)
-				tPos = e.GetPosition();
-			else
-				tPos = t.m_LastPosition;
-				
+			vector tPos = t.GetLivePosition();
+
 			vector d = tPos - myPos;
 			d[1] = 0.0;
 			float dist = d.Length();
@@ -1861,7 +1887,7 @@ class dmAISurvivor
 			//! Цель без известной позиции (обнаружена, но ни разу не видна/не слышна) — охотиться не на что.
 			if (!t.IsValidTarget())
 				continue;
-			if (t.m_HasLOS)
+			if (t.IsVisible())
 				continue;
 			EntityAI e = t.m_Entity;
 			if (e && !e.IsAlive())

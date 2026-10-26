@@ -26,6 +26,7 @@ class dmBotState_Follow : dmBotState
 	float m_LostSightTimer;
 	float m_ExitTimer;
 	vector m_ExitRefPos;
+	vector m_LastKnownPosition;
 	float m_DebugAccum = 0.0;
 	float m_ExitDebugAccum = 0.0;
 	bool m_UseFollow = false;
@@ -49,9 +50,8 @@ class dmBotState_Follow : dmBotState
 		dmTarget t = bot.FindTarget(target);
 		if (!t)
 			return false;
-		if (t.m_LastPosition == vector.Zero)
-			return false;
-		return true;
+			
+		return t.IsValidTarget();
 	}
 
 	//! Follow is a PREEMPTIVE state — it evicts an INTERRUPTIBLE Idle when the
@@ -121,7 +121,7 @@ class dmBotState_Follow : dmBotState
 
 		//! «Магия»: цель не видна ≥ DM_FOLLOW_LOST_SIGHT_TIME → обновить последнюю
 		//! известную позицию (только позицию), чтобы бот догонял актуальную точку.
-		if (m_Target.m_HasLOS)
+		if (m_Target.IsVisible())
 		{
 			m_LostSightTimer = 0.0;
 		}
@@ -131,7 +131,7 @@ class dmBotState_Follow : dmBotState
 			if (m_LostSightTimer >= DM_FOLLOW_LOST_SIGHT_TIME)
 			{
 				m_LostSightTimer = 0.0;
-				m_Target.m_LastPosition = m_TargetEntity.GetPosition();
+				m_Target.RememberPosition(m_TargetEntity.GetPosition());
 			}
 		}
 
@@ -219,23 +219,24 @@ class dmBotState_Follow : dmBotState
 		if (m_IntentFollow) { m_IntentFollow.Finish(); m_IntentFollow = null; }
 		if (m_IntentMove && (m_IntentMove.IsFailed() || m_IntentMove.IsFinished()))
 			m_IntentMove = null;
-		if (m_IntentMove)
+		if (m_IntentMove && m_Target.IsVisible())
 		{
-			//! Re-aim if the last known position moved (the 1-min magic refreshed it).
-			vector aimDrift = m_Target.m_LastPosition - m_IntentMove.m_Goal;
-			aimDrift[1] = 0.0;
-			if (aimDrift.Length() > 1.0)
+			vector newGoal = m_Target.GetLivePosition();
+			vector delta = newGoal - m_LastKnownPosition;
+			delta[1] = 0.0;
+			if (delta.Length() > DM_FOLLOW_REPATH_DIST)
 			{
-				m_IntentMove.Finish();
-				m_IntentMove = null;
+				m_IntentMove.m_Goal = m_Target.ApproximatePosition();
+				m_LastKnownPosition = m_Target.GetLivePosition();
 			}
 		}
 		if (!m_IntentMove)
 		{
 			m_IntentMove = new dmBotIntent_MoveTo();
-			m_IntentMove.m_Goal = m_Target.m_LastPosition;
+			m_IntentMove.m_Goal = m_Target.ApproximatePosition();
 			m_IntentMove.m_ReachDistance = DM_FOLLOW_REACH;
 			m_IntentMove.m_ReachDeadline = 1.0;
+			m_LastKnownPosition = m_Target.GetLivePosition();
 			bot.AddFSMIntent(m_IntentMove);
 		}
 		}
@@ -265,7 +266,7 @@ class dmBotState_Follow : dmBotState
 		if (m_DebugAccum >= 1.0)
 		{
 			m_DebugAccum = 0.0;
-			dmBotLog.Debug("[FSM] Follow: dist=" + dist + " hasLOS=" + m_Target.m_HasLOS + " useFollow=" + m_UseFollow);
+			dmBotLog.Debug("[FSM] Follow: dist=" + dist + " hasLOS=" + m_Target.IsVisible() + " useFollow=" + m_UseFollow);
 		}
 		#endif
 

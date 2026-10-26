@@ -17,9 +17,9 @@ class dmBotCondition_LastPositionSpread : dmBotCondition
 		if (t)
         {
             if ( m_LessThan )
-			    return t.m_LastPositionSpread <= m_Radius;
+			    return t.LastPositionSpread() <= m_Radius;
 
-            return t.m_LastPositionSpread >= m_Radius;
+            return t.LastPositionSpread() >= m_Radius;
         }
 
 		return false;

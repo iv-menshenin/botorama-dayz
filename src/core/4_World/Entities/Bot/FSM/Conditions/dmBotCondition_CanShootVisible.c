@@ -24,7 +24,7 @@ class dmBotCondition_CanShootVisible : dmBotCondition
 		if (!bot.CanShoot(m_InHands))
 			return false;
 
-		if (!t.m_HasLOS)
+		if (!t.IsVisible())
 			return false;
 
 		if (!bot.CanReach(t))

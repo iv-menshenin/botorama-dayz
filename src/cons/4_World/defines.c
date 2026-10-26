@@ -26,6 +26,10 @@
 //!   DM_BOT_DEBUG_FSM     — FSM transitions and state entry/exit.
 //!   DM_BOT_DEBUG_FSM_SHOOTING — огнестрел Shooting-состояние (вход/выход/смена цели/hold).
 //!   DM_BOT_DEBUG_FSM_RUSHING  — Rushing-состояние (фазы/подход/уворот).
+//!   DM_BOT_DEBUG_FSM_HUNTING  — Hunting-состояние (поиск цели, случайные точки, здания).
+//!   DM_BOT_DEBUG_FSM_FLANKING — Flanking-состояние (обход дугой для восстановления видимости).
+//!   DM_BOT_DEBUG_FSM_KAMPING  — Kamping-состояние (осада выхода здания).
+//!   DM_BOT_DEBUG_FSM_FIGHTING — мили Fighting-состояние (подход/удар/уворот).
 //!   DM_BOT_DEBUG_PAWN    — pawn/animation (variable binding, look sync).
 //!   DM_BOT_DEBUG_BODY    — body mechanics (CE profile, corpse registration, blood/
 //!                          shock/unconscious bridge, periodic body stats).

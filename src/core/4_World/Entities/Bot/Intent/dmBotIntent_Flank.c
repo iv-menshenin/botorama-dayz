@@ -156,7 +156,7 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 		if (!m_TargetEntity)
 			return false;
 		dmTarget t = bot.FindTarget(m_TargetEntity);
-		if (t && t.m_HasLOS)
+		if (t && t.IsVisible())
 			return true;
 		return false;
 	}

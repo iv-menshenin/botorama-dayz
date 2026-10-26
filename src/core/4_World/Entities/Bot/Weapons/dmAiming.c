@@ -276,7 +276,7 @@ class dmAiming
 		//! уточнение кости не применяются (остаётся последняя известная позиция).
 		hasLOS = true;
 		if (m_DmTarget)
-			hasLOS = m_DmTarget.m_HasLOS;
+			hasLOS = m_DmTarget.IsVisible();
 
 		//! Базовая точка прицела — из памяти цели (m_DmTarget.GetAimPosition): при
 		//! !m_HasLOS это последняя известная позиция (телепатии нет), при видимости —

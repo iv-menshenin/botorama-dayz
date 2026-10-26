@@ -238,9 +238,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 		if (!t)
 			return false;
 		vector botPos = bot.GetPosition();
-		vector tPos = t.m_LastPosition;
-		if (t.m_Entity && t.m_Entity.IsAlive())
-			tPos = t.m_Entity.GetPosition();
+		vector tPos = t.GetLivePosition();
 		return vector.Distance(botPos, tPos) < DM_EAT_DRINK_ENEMY_RADIUS;
 	}
 

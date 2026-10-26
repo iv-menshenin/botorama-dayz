@@ -131,7 +131,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 			dmTarget evT = bot.FindTarget(m_Aggressor);
 			dmBotLog.Debug("[Evade] tick baseDir=" + m_BaseDir + " mDist=" + m_Dist + " flank=" + m_FlankAngle + " hasPath=" + m_HasPath);
 			if (evT)
-				dmBotLog.Debug("[Evade] tick los=" + evT.m_HasLOS + " threat=" + evT.m_Threat);
+				dmBotLog.Debug("[Evade] tick los=" + evT.IsVisible() + " threat=" + evT.m_Threat);
 			#endif
 		}
 
@@ -240,7 +240,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 		}
 
 		dmTarget t = bot.FindTarget(m_Aggressor);
-		if (!t || !t.m_HasLOS)
+		if (!t || !t.IsVisible())
 		{
 			#ifdef DM_BOT_DEBUG_EVADE
 			dmBotLog.Debug("[Evade] end: (c) no LOS");

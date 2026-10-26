@@ -37,6 +37,23 @@ class dmBotState_Kamping : dmBotState_Shooting
 		return dmBotConditions.Kamping(true);
 	}
 
+	override bool CanEnter()
+	{
+		dmTarget t = GetOwner().GetHostileTarget();
+		if ( !t || !t.m_Entity )
+		{
+			#ifdef DM_BOT_DEBUG_FSM_KAMPING
+			dmBotLog.Debug("[FSM] Kamping: CanEnter=false (нет hostile-цели)");
+			#endif
+			return false;
+		}
+		bool ok = super.CanEnter();
+		#ifdef DM_BOT_DEBUG_FSM_KAMPING
+		dmBotLog.Debug("[FSM] Kamping: CanEnter=" + ok + " видима=" + t.IsVisible() + " цель=" + t.m_Entity);
+		#endif
+		return ok;
+	}
+
 	override void OnEntry(dmBotState from)
 	{
 		super.OnEntry(from);
@@ -48,6 +65,10 @@ class dmBotState_Kamping : dmBotState_Shooting
 		m_Move = null;
 		m_Stance = null;
 		m_DoorLook = null;
+
+		#ifdef DM_BOT_DEBUG_FSM_KAMPING
+		dmBotLog.Debug("[FSM] Kamping.entry");
+		#endif
 	}
 
 	override int OnUpdate(float pDt)
@@ -57,8 +78,13 @@ class dmBotState_Kamping : dmBotState_Shooting
 		if (!m_TargetEntity) return EXIT;
 
 		dmTarget t = bot.FindTarget(m_TargetEntity);
-		if (t && t.m_HasLOS)
+		if (t && t.IsVisible())
+		{
+			#ifdef DM_BOT_DEBUG_FSM_KAMPING
+			dmBotLog.Debug("[FSM] Kamping: цель видна — EXIT (уступить Shooting)");
+			#endif
 			return EXIT; // цель видна — уступить Shooting
+		}
 
 		if (!dmAISurvivorBase.IsPointUnderRoofBuilding(m_TargetEntity.GetPosition()))
 			return EXIT; // цель вышла из здания
@@ -187,6 +213,9 @@ class dmBotState_Kamping : dmBotState_Shooting
 
 	override void OnExit(dmBotState to)
 	{
+		#ifdef DM_BOT_DEBUG_FSM_KAMPING
+		dmBotLog.Debug("[FSM] Kamping.exit");
+		#endif
 		if (m_Move) m_Move.Finish();
 		if (m_Stance) m_Stance.Finish();
 		if (m_DoorLook) m_DoorLook.Finish();

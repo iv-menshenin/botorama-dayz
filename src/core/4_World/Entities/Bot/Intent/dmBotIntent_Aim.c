@@ -73,7 +73,7 @@ class dmBotIntent_Aim : dmBotIntent
 			return;
 		}
 
-		if (!t.m_HasLOS)
+		if (!t.IsVisible())
 		{
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[FSM] BotIntent: Aim has no LOS");

@@ -156,12 +156,7 @@ class dmBotState_MedicalCare : dmBotState
 		vector threatPoint = bot.GetPosition();
 		dmTarget hostile = bot.GetHostileTarget();
 		if (hostile)
-		{
-			if (hostile.m_Entity)
-				threatPoint = hostile.m_Entity.GetPosition();
-			else
-				threatPoint = hostile.m_LastPosition;
-		}
+			threatPoint = hostile.GetLivePosition();
 
 		vector dest;
 		if (dmCoverFinder.FindSafeCover(bot, threatPoint, DM_MEDICAL_COVER_MIN_DIST, DM_MEDICAL_COVER_MAX_DIST, DM_COVER_SAFE_RADIUS, dest))
