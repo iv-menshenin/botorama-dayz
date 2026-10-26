@@ -21,6 +21,7 @@ class dmBotState_Shooting : dmBotState
 	ref dmBotIntent_HoldLook m_Look;
 
 	float m_RetargetTimer;
+	float m_HasntLOSTimer;
 	float m_Elapsed;
 	bool m_NoFirearm;
 
@@ -148,8 +149,17 @@ class dmBotState_Shooting : dmBotState
 
 		//! Цель враждебна, но не видна — уступить Flanking (обход по дуге).
 		dmTarget t = bot.FindTarget(m_TargetEntity);
-		if (t && !t.m_HasLOS)
-			return EXIT;
+		if ( !t ) return EXIT;
+
+		if (!t.m_HasLOS)
+		{
+			m_HasntLOSTimer + pDt;
+			if ( m_HasntLOSTimer > 15 ) return EXIT;
+		} else {
+			m_HasntLOSTimer = 0;
+		}
+		if ( m_Aim )
+			m_Aim.m_Active = t.m_HasLOS;
 
 		EnsureLook();
 		EnsureHitTo(bot);
@@ -254,6 +264,7 @@ class dmBotState_Shooting : dmBotState
 			m_Aim.m_TargetEntity = m_TargetEntity;
 			m_Aim.m_Priority = dmBotIntentPriority.CRITICAL;
 			m_Aim.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+			m_Aim.m_Active = false;
 			bot.AddFSMIntent(m_Aim);
 		}
 	}
