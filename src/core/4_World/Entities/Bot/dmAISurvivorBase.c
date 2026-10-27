@@ -171,6 +171,11 @@ class dmAISurvivorBase : PlayerBase
 	private bool m_MeleeAttackRequest = false;
 	private EntityAI m_MeleeTarget;
 
+	//! Latch: TRUE once the pawn received a hit (set in EEHitBy, including a blocked
+	//! light — that path also goes through EEHitBy with Dummy_Light). ExpectHit()
+	//! arms it ("we expect a hit"), ReceivedHit() reads it without resetting.
+	private bool m_ReceivedHit = false;
+
 	//! One-shot melee evade request from the brain (see RequestMeleeEvade). The
 	//! fight logic consumes it and starts a native roll via StartMeleeEvadeA.
 	private bool m_MeleeEvadeRequest = false;
@@ -186,6 +191,11 @@ class dmAISurvivorBase : PlayerBase
 	private float m_LastFrameYaw = 0.0;
 	private bool m_YawInit = false;
 	private bool m_Striking = false;
+
+	//! Edge-лог нативного мили-состояния: предыдущее значение IsMeleeEvade()/
+	//! IsMeleeStriking(), чтобы печатать в RPT только на переходах (TickMeleeStateLog).
+	private bool m_LastEvadeLogState = false;
+	private bool m_LastStrikingLogState = false;
 
 	//! One-shot fire request from the brain (see RequestFire). Processed by
 	//! TryFireWeapon inside the CommandHandler; m_FireCooldown throttles cadence.
@@ -1113,6 +1123,7 @@ class dmAISurvivorBase : PlayerBase
 		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);
 
 		TickMeleeSpinOracle();
+		TickMeleeStateLog();
 
 		#ifdef SERVER
 		TickTalking(pDt);
@@ -1354,6 +1365,8 @@ class dmAISurvivorBase : PlayerBase
 	override void EEHitBy(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
 	{
 		super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+
+		m_ReceivedHit = true;
 
 		#ifdef DM_BOT_DEBUG_DAMAGE
 		dmBotLog.Debug("EEHitBy damageType=" + damageType + " ammo=" + ammo + " dmgZone=" + dmgZone);
@@ -1857,6 +1870,20 @@ class dmAISurvivorBase : PlayerBase
 		return m_MeleeTarget;
 	}
 
+	//! Вооружаем латч «получил удар»: сбрасывает флаг, после чего ReceivedHit()
+	//! вернёт TRUE только если реально пришёл удар (EEHitBy).
+	void ExpectHit()
+	{
+		m_ReceivedHit = false;
+	}
+
+	//! TRUE после удара по пешке (включая заблокированный лайт — он идёт через
+	//! EEHitBy с Dummy_Light). Флаг НЕ сбрасывает сам — сброс через ExpectHit().
+	bool ReceivedHit()
+	{
+		return m_ReceivedHit;
+	}
+
 	//! Можно ли бить серию (комбо): нужна стамина тяжёлого удара + шанс 2/3.
 	//! RandomInt(0, 3) даёт {0,1,2} (max эксклюзивен) → "> 0" = 2 из 3.
 	bool CanFightCombo()
@@ -1870,6 +1897,13 @@ class dmAISurvivorBase : PlayerBase
 	bool IsMeleeStriking()
 	{
 		return (GetCommand_Move() == null) && !IsUnconscious() && !IsClimbing() && !IsClimbingLadder() && !IsFalling() && !IsSwimming() && !IsInVehicle();
+	}
+
+	//! Бот сейчас в нативном мили-увороте (ролл не закончен).
+	bool IsMeleeEvade()
+	{
+		HumanCommandMove move = GetCommand_Move();
+		return move && move.IsMeleeEvade();
 	}
 
 	//! Melee spin oracle (diagnostic): accumulates the absolute body-yaw change
@@ -1904,6 +1938,30 @@ class dmAISurvivorBase : PlayerBase
 				dmBotLog.Error("Melee spin: turn=" + m_MeleeTurnAccum + " deg");
 		}
 		m_LastFrameYaw = yaw;
+	}
+
+	//! Edge-лог нативного мили-состояния (эвейд/замах) в RPT: покадрово читаем
+	//! IsMeleeEvade()/IsMeleeStriking() и печатаем только при смене состояния, чтобы
+	//! подтвердить, что нативный move.IsMeleeEvade() реально поднимается true сразу
+	//! после RequestMeleeEvade и сбрасывается по концу ролла на AI_SERVER.
+	private void TickMeleeStateLog()
+	{
+		bool evading = IsMeleeEvade();
+		if (evading != m_LastEvadeLogState)
+		{
+			m_LastEvadeLogState = evading;
+			#ifdef DM_BOT_DEBUG_FIGHT
+			dmBotLog.Debug("[Melee] IsMeleeEvade=" + evading);
+			#endif
+		}
+		bool striking = IsMeleeStriking();
+		if (striking != m_LastStrikingLogState)
+		{
+			m_LastStrikingLogState = striking;
+			#ifdef DM_BOT_DEBUG_FIGHT
+			dmBotLog.Debug("[Melee] IsMeleeStriking=" + striking);
+			#endif
+		}
 	}
 
 	//! Play a gesture/emote animation by EmoteConstants ID. Gated by the vanilla

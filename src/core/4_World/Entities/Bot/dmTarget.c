@@ -81,6 +81,39 @@ class dmTarget
 		return true;
 	}
 
+	//! Враг сейчас в замахе/атаке мили (мы «ожидаем удара» от него).
+	bool IsWindingUp()
+	{
+		if (!m_Entity)
+			return false;
+		DayZPlayerImplement dp = DayZPlayerImplement.Cast(m_Entity);
+		if (dp && dp.GetCommand_Melee2())
+			return true;          // игрок/бот в MELEE2
+		DayZInfected zi = DayZInfected.Cast(m_Entity);
+		if (zi && zi.GetCommand_Attack())
+			return true;          // зомби в attack-команде
+		return false;
+	}
+
+	//! Корпус врага направлен в сторону точки myPos (атакует «меня», а не кого-то ещё).
+	bool IsFacingMe(vector myPos)
+	{
+		if (!m_Entity)
+			return false;
+		vector enemyPos = m_Entity.GetPosition();
+		vector toMe = myPos - enemyPos;
+		toMe[1] = 0.0;
+		if (toMe.LengthSq() < 0.0001)
+			return false;
+		toMe.Normalize();
+		vector enemyDir = m_Entity.GetDirection();
+		enemyDir[1] = 0.0;
+		if (enemyDir.LengthSq() < 0.0001)
+			return false;
+		enemyDir.Normalize();
+		return vector.Dot(enemyDir, toMe) > 0.5;  // ~±60°, согласовано с PVP_MAX_BLOCKABLE_ANGLE
+	}
+
 	//! Последняя известная позиция цели (на высоте головы) — использовать ТОЛЬКО
 	//! для взгляда (LookAtPoint), не как точку движения/поиска.
 	vector LastPosition()

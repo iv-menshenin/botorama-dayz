@@ -2588,6 +2588,23 @@ class dmE2EBridge
 		line = "orient=" + bot.GetOrientation();
 		AppendDump(r, line);
 
+		dmAISurvivorBase aiPawn = dmAISurvivorBase.Cast(pawn);
+		bool meleeStriking = false;
+		bool meleeEvading = false;
+		bool receivedHit = false;
+		if (aiPawn)
+		{
+			meleeStriking = aiPawn.IsMeleeStriking();
+			meleeEvading = aiPawn.IsMeleeEvade();
+			receivedHit = aiPawn.ReceivedHit();
+		}
+		line = "meleeStriking=" + meleeStriking;
+		AppendDump(r, line);
+		line = "meleeEvading=" + meleeEvading;
+		AppendDump(r, line);
+		line = "receivedHit=" + receivedHit;
+		AppendDump(r, line);
+
 		dmBotFSM fsm = bot.GetFSM();
 		string fsmName = "none";
 		if (fsm && fsm.GetCurrentState())
