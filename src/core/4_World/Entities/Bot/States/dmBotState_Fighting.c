@@ -1,29 +1,45 @@
-//! dmBotState_Fighting — reactive melee engagement (thin coordinator).
+//! dmBotState_Fighting — reactive melee engagement (mini-FSM skeleton).
 //!
 //! PREEMPTIVE "melee fight" state (no raised stance — strikes come from ERECT).
-//! Unlike the old linear flow, the state is now a thin coordinator that resolves a
-//! hostile target and keeps three CRITICAL intents alive depending on range and
-//! the strike cooldown:
-//!   - out of reach       -> Approach (move toward the target);
-//!   - in reach, cooldown -> Evasion (strafe while the strike recharges);
-//!   - in reach, ready    -> HitTo (face + request a melee strike).
-//! A HoldLook (FULL) intent keeps the body turned toward the target the whole time.
+//! A minimal phase machine driving the fight; this atom implements only the
+//! APPROACH phase — the bot resolves a hostile target and closes the distance.
+//! Strike / body-turn / block / evade phases arrive in follow-up atoms.
 //! Target resolution runs on entry and every DM_FIGHT_RETARGET_INTERVAL seconds,
 //! always taking the nearest hostile from dmAISurvivor.GetHostileTarget().
+
+enum dmFightPhase
+{
+	FIGHT_FIRST_MOVE,  // зомби: стартовый блок (позже)
+	FIGHT_APPROACH,
+	FIGHT_TURN,
+	FIGHT_STRIKE,
+	FIGHT_BLOCK,
+	FIGHT_EVADE,
+};
+
+enum dmFightEnemyType
+{
+	FIGHT_ZOMBIE,
+	FIGHT_PLAYER,
+	FIGHT_ANIMAL,
+};
+
 class dmBotState_Fighting : dmBotState
 {
 	EntityAI m_TargetEntity;
 	ref dmTarget m_Target;
 	ref dmBotIntent_Approach m_Approach;
-	ref dmBotIntent_Evasion m_Evasion;
-	ref dmBotIntent_HitTo m_HitTo;
 	ref dmBotIntent_HoldLook m_Look;
 	float m_RetargetTimer;
-	float m_StallLogCooldown;
 	float m_PreferredSpeed;
 	ref dmInventoryFrame m_EquipRoot;
 
-	bool m_Turning = false;
+	dmFightPhase m_Phase;
+	dmFightEnemyType m_EnemyType;
+	float m_PhaseTimer;
+	dmFightPhase m_LastLoggedPhase;
+	bool m_StrikeRequested;
+	bool m_StrikeStarted;
 
 	override dmBotStateKind GetKind()
 	{
@@ -48,21 +64,21 @@ class dmBotState_Fighting : dmBotState
 		m_TargetEntity = null;
 		m_Target = null;
 		m_Approach = null;
-		m_Evasion = null;
-		m_HitTo = null;
 		m_Look = null;
 		m_RetargetTimer = 0.0;
-		m_StallLogCooldown = 0.0;
 		m_EquipRoot = null;
 
 		dmAISurvivor bot = GetOwner();
-		bot.SetMeleeCooldown(0.0);
-		bot.SetLastMeleeStrikeTime(GetGame().GetTickTime());
 		bot.SetInCombat(true);
 		m_PreferredSpeed = bot.GetPreferredSpeed();
 		bot.SetPreferredSpeed(3.0);
 
 		ResolveTarget();
+
+		m_Phase = dmFightPhase.FIGHT_APPROACH;
+		m_PhaseTimer = 0.0;
+		m_LastLoggedPhase = dmFightPhase.FIGHT_FIRST_MOVE; // != APPROACH: первый тик залогирует смену фазы
+		DetectEnemyType();
 
 		#ifdef DM_BOT_DEBUG_FSM_FIGHTING
 		if (m_TargetEntity)
@@ -105,49 +121,36 @@ class dmBotState_Fighting : dmBotState
 		float bodyYaw = bot.GetOrientation()[0];
 		float yawDiff = dmAISurvivor.AngleDiff(yawToTarget, bodyYaw);
 
-		EnsureLook();
-		EnsureApproach(bot);
-		EnsureEvasion(bot);
-		EnsureHitTo(bot);
-
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[FSM] Fighting dist=" + dist + " reach=" + reach + " yawDiff=" + yawDiff + " Cooldown=" + bot.GetMeleeCooldown());
+		dmBotLog.Debug("[FSM] Fighting dist=" + dist + " reach=" + reach + " yawDiff=" + yawDiff);
 		#endif
 
-		m_Turning = false;
-		if ( dist <= reach )
+		// 1) выход фазы
+		if (PhaseExited(pDt))
+			m_Phase = DecideNextPhase();
+		// 2) действие фазы
+		switch (m_Phase)
 		{
-			//! Корпус доворачивается к цели слайдом (как MoveTo): на ходу (Approach/Evasion)
-			//! foot-step не гоняется, а нативный RotateOrient доворачивает только >~171°.
-			if ( bot.GetMeleeCooldown() == 0.0 && Math.AbsFloat(yawDiff) > DM_MELEE_FACE_ANGLE )
-			{
-				m_Turning = true;
-				bot.TurnBodyToward(yawToTarget, DM_FIGHT_BODY_TURN_RATE, pDt);
-				m_HitTo.m_Active = false;
-			} else {
-				m_HitTo.m_Active = !(bot.GetMeleeCooldown() > 0.0);
-			}
-			m_Approach.m_Active = (m_HitTo.m_LastFail == dmHitToFail.TOOFAR) || (bot.GetMeleeCooldown() == 0.0 && dist > (reach * 0.75)); // a small gap
-		} else {
-			m_HitTo.m_Active = false;
-			m_Approach.m_Active = true; // a small gap
+			case dmFightPhase.FIGHT_STRIKE:
+				Phase_Strike(bot, pawn);
+				break;
+			case dmFightPhase.FIGHT_TURN:
+				Phase_Turn(bot);
+				break;
+			default:
+				Phase_Approach(bot);
+				break;
 		}
-		m_Evasion.m_Active = !m_Turning && (bot.GetMeleeCooldown() > 0.0) && !m_Approach.m_Active;
+		m_PhaseTimer += pDt;
 
-		//! Melee stall oracle (diagnostic): in reach, cooldown ready, but no strike
-		//! requested for DM_MELEE_STALL_THRESHOLD seconds — the "dummy" bug where the
-		//! bot stands and looks without attacking. Logs (throttled to ~1/2s); no
-		//! behavior change.
-		float now = GetGame().GetTickTime();
-		if (dist <= reach && bot.GetMeleeCooldown() == 0.0 && now - bot.GetLastMeleeStrikeTime() > DM_MELEE_STALL_THRESHOLD)
+		// edge-лог смены фазы
+		if (m_Phase != m_LastLoggedPhase)
 		{
-			if (now > m_StallLogCooldown)
-			{
-				m_StallLogCooldown = now + 2.0;
-				dmBotLog.Error("Melee stall: in reach, cooldown 0, no strike for " + (now - bot.GetLastMeleeStrikeTime()) + "s (dist=" + dist + ")");
-			}
+			m_LastLoggedPhase = m_Phase;
+			#ifdef DM_BOT_DEBUG_FSM_FIGHTING
+			dmBotLog.Debug("[FSM] Fighting phase=" + PhaseName(m_Phase));
+			#endif
 		}
-
 		return CONTINUE;
 	}
 
@@ -162,9 +165,7 @@ class dmBotState_Fighting : dmBotState
 		#endif
 
 		if ( m_Approach ) m_Approach.Finish();
-		if ( m_HitTo ) m_HitTo.Finish();
-		if ( m_Evasion ) m_Evasion.Finish();
-		if ( m_Look ) m_Look.Finish();
+		if ( m_Look ) { m_Look.Finish(); m_Look = null; }
 
 		dmAISurvivor bot = GetOwner();
 		if ( bot )
@@ -196,11 +197,9 @@ class dmBotState_Fighting : dmBotState
 
 		if (newEntity != m_TargetEntity)
 		{
-			//! Цель сменилась (или исчезла) — сбросить интенты, чтобы они
-			//! пересоздались под новую цель (иначе бьют/смотрят в старую).
+			//! Цель сменилась (или исчезла) — сбросить интент, чтобы он
+			//! пересоздался под новую цель (иначе подходит к старой).
 			if (m_Approach) { m_Approach.Finish(); m_Approach = null; }
-			if (m_Evasion) { m_Evasion.Finish(); m_Evasion = null; }
-			if (m_HitTo) { m_HitTo.Finish(); m_HitTo = null; }
 			if (m_Look) { m_Look.Finish(); m_Look = null; }
 
 			#ifdef DM_BOT_DEBUG_FIGHT
@@ -212,19 +211,12 @@ class dmBotState_Fighting : dmBotState
 		m_TargetEntity = newEntity;
 	}
 
-	void EnsureLook()
+	void DetectEnemyType()
 	{
-		if (m_Look && (m_Look.IsFinished() || m_Look.IsExpired()))
-			m_Look = null;
-		if (!m_Look)
-		{
-			m_Look = new dmBotIntent_HoldLook();
-			m_Look.m_Entity = m_TargetEntity;
-			m_Look.m_Turn = dmBotLookTurn.FULL;
-			m_Look.m_Priority = dmBotIntentPriority.CRITICAL;
-			m_Look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
-			GetOwner().AddFSMIntent(m_Look);
-		}
+		m_EnemyType = dmFightEnemyType.FIGHT_ZOMBIE;
+		if (!m_TargetEntity) return;
+		if (PlayerBase.Cast(m_TargetEntity)) m_EnemyType = dmFightEnemyType.FIGHT_PLAYER;
+		else if (AnimalBase.Cast(m_TargetEntity)) m_EnemyType = dmFightEnemyType.FIGHT_ANIMAL;
 	}
 
 	void EnsureApproach(dmAISurvivor bot)
@@ -235,40 +227,137 @@ class dmBotState_Fighting : dmBotState
 		{
 			m_Approach = new dmBotIntent_Approach();
 			m_Approach.m_TargetEntity = m_TargetEntity;
-			m_Approach.m_ReachDistance = GetMeleeReach(bot);
+			//! Гистерезис 2×рейнджа вернём в финальном атоме — сейчас нужен стоп ровно в зоне удара.
+			m_Approach.m_ReachDistance = 1.0 * GetMeleeReach(bot);
 			m_Approach.m_Priority = dmBotIntentPriority.CRITICAL;
 			m_Approach.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 			bot.AddFSMIntent(m_Approach);
 		}
 	}
 
-	void EnsureEvasion(dmAISurvivor bot)
+	void Phase_Approach(dmAISurvivor bot)
 	{
-		if (m_Evasion && (m_Evasion.IsFinished() || m_Evasion.IsExpired()))
-			m_Evasion = null;
-		if (!m_Evasion)
+		EnsureApproach(bot);
+		m_Approach.m_Active = true;
+		if (m_Look) m_Look.m_Active = false;   // подход сам доворачивает через KeepLookAtGoal
+	}
+
+	void EnsureLook(dmAISurvivor bot)
+	{
+		if (m_Look && (m_Look.IsFinished() || m_Look.IsExpired()))
+			m_Look = null;
+		if (!m_Look)
 		{
-			m_Evasion = new dmBotIntent_Evasion();
-			m_Evasion.m_TargetEntity = m_TargetEntity;
-			m_Evasion.m_Priority = dmBotIntentPriority.CRITICAL;
-			m_Evasion.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
-			bot.AddFSMIntent(m_Evasion);
+			m_Look = new dmBotIntent_HoldLook();
+			m_Look.m_Entity = m_TargetEntity;
+			m_Look.m_Turn = dmBotLookTurn.FULL;
+			m_Look.m_Priority = dmBotIntentPriority.CRITICAL;
+			m_Look.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+			bot.AddFSMIntent(m_Look);
 		}
 	}
 
-	void EnsureHitTo(dmAISurvivor bot)
+	void Phase_Strike(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
-		if (m_HitTo && (m_HitTo.IsFinished() || m_HitTo.IsExpired()))
-			m_HitTo = null;
-		if (!m_HitTo)
+		if (!m_StrikeRequested)
 		{
-			m_HitTo = new dmBotIntent_HitTo();
-			m_HitTo.m_TargetEntity = m_TargetEntity;
-			m_HitTo.m_ReachDistance = GetMeleeReach(bot);
-			m_HitTo.m_Priority = dmBotIntentPriority.CRITICAL;
-			m_HitTo.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
-			bot.AddFSMIntent(m_HitTo);
+			pawn.RequestMeleeAttack(m_TargetEntity);
+			m_StrikeRequested = true;
 		}
+		if (!m_StrikeStarted && pawn.IsMeleeStriking())
+			m_StrikeStarted = true;
+		if (m_Approach) m_Approach.m_Active = false;  // стоим на месте, бьём
+		if (m_Look) m_Look.m_Active = false;          // тело уже довёрнуто из TURN
+	}
+
+	void Phase_Turn(dmAISurvivor bot)
+	{
+		if (m_Approach) m_Approach.m_Active = false;   // стоим на месте — доворот без движения
+		EnsureLook(bot);
+		m_Look.m_Active = true;                        // HoldLook (FULL) доворачивает каждый тик
+	}
+
+	bool PhaseExited(float pDt)
+	{
+		switch (m_Phase)
+		{
+			case dmFightPhase.FIGHT_APPROACH:
+				return InStrikeRange();      // dist <= StrikeRange() — в зоне удара
+			case dmFightPhase.FIGHT_TURN:
+				return AngleAllowsStrike();   // довернулся до 20° — можно бить
+			case dmFightPhase.FIGHT_STRIKE:
+			{
+				dmAISurvivorBase pawn = GetOwner().GetPawn();
+				if (!m_StrikeRequested) return false;    // ещё не запрашивали
+				if (!m_StrikeStarted) return false;      // замах ещё не стартовал
+				if (pawn && pawn.IsMeleeStriking()) return false;  // замах ещё идёт
+				//! Замах завершён: сброс латчей — чтобы следующий STRIKE-цикл
+				//! (комбо-серия) запросил новый удар.
+				m_StrikeRequested = false;
+				m_StrikeStarted = false;
+				return true;
+			}
+		}
+		return true;
+	}
+
+	dmFightPhase DecideNextPhase()
+	{
+		if (!InStrikeRange()) return dmFightPhase.FIGHT_APPROACH;
+		if (!AngleAllowsStrike()) return dmFightPhase.FIGHT_TURN;
+		return dmFightPhase.FIGHT_STRIKE;
+	}
+
+	string PhaseName(dmFightPhase p)
+	{
+		switch (p)
+		{
+			case dmFightPhase.FIGHT_FIRST_MOVE:
+				return "FIRST_MOVE";
+			case dmFightPhase.FIGHT_APPROACH:
+				return "APPROACH";
+			case dmFightPhase.FIGHT_TURN:
+				return "TURN";
+			case dmFightPhase.FIGHT_STRIKE:
+				return "STRIKE";
+			case dmFightPhase.FIGHT_BLOCK:
+				return "BLOCK";
+			case dmFightPhase.FIGHT_EVADE:
+				return "EVADE";
+		}
+		return "UNKNOWN";
+	}
+
+	float DistToTarget()
+	{
+		if (!m_TargetEntity) return 99999.0;
+		vector botPos = GetOwner().GetPosition();
+		vector tPos = m_TargetEntity.GetPosition();
+		vector d = tPos - botPos;
+		d[1] = 0.0;
+		return d.Length() - 0.5;
+	}
+
+	float StrikeRange() { return GetMeleeReach(GetOwner()); }
+
+	bool InStrikeRange() { return DistToTarget() <= StrikeRange(); }
+
+	//! Signed yaw difference (degrees) between the body facing and the target direction.
+	float AngleToTarget()
+	{
+		if (!m_TargetEntity) return 0.0;
+		vector botPos = GetOwner().GetPosition();
+		vector tPos = m_TargetEntity.GetPosition();
+		vector d = tPos - botPos;
+		d[1] = 0.0;
+		float yawToTarget = d.VectorToAngles()[0];
+		float bodyYaw = GetOwner().GetOrientation()[0];
+		return dmAISurvivor.AngleDiff(yawToTarget, bodyYaw);
+	}
+
+	bool AngleAllowsStrike()
+	{
+		return Math.AbsFloat(AngleToTarget()) <= DM_MELEE_FACE_ANGLE;
 	}
 
 	//! Держать в руках целый мили-предмет: если в руках не мили (или мили сломан),
