@@ -1,0 +1,10 @@
+{
+  "Name": "melee-snap-3296-zombies",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "meleefight", "Who": "M", "Pos": [10480, 0, 10750], "Yaw": 0, "Zombies": 4, "ZombieDist": 3.0, "Preset": "survivor" },
+    { "Op": "sleep", "Timeout": 50 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

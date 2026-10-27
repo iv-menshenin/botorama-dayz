@@ -1999,8 +1999,9 @@ class dmAISurvivor
 		IntentsArbitrationPool(m_FSMIntents, pDt);
 
 		//! Default rest: channels nobody won fall back to "at ease".
+		//! MOVE без сброса: движение гасится OnCancel завершаемого интента, а не
+		//! арбитражем (иначе затирается прямое SetMove, напр. блок мили).
 		if (!m_Winner.Get(dmBotIntentsChannel.LOOK)) LookForward();
-		if (!m_Winner.Get(dmBotIntentsChannel.MOVE)) SetWalk(false);
 		if (!m_Winner.Get(dmBotIntentsChannel.STANCE)) SetStance(DayZPlayerConstants.STANCEIDX_ERECT);
 
 		IntentsTickAges(m_PersonalityIntents, pDt);

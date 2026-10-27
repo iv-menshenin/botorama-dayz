@@ -1,0 +1,21 @@
+{
+  "Name": "melee-light-fist",
+  "Timeout": 60,
+  "Comment": "LIGHT: bare hands, attacker stamina depleted (<25%) by in-place wall sprint. Strike WHILE still sprinting (do NOT stop, stamina recovers fast when idle) so GetAttackTypeFromInputs reads low stamina -> LIGHT -> EEHitBy ammo=MeleeFist. A pins against wall at ~[4213.3,12402.8], B ~0.7m away.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [4213.0, 0.0, 12403.7], "Yaw": 0.0 },
+    { "Op": "spawn", "Who": "B", "Pos": [4213.0, 0.0, 12403.2], "Yaw": 180.0 },
+    { "Op": "orient", "Who": "A", "Yaw": 0.0 },
+    { "Op": "orient", "Who": "B", "Yaw": 180.0 },
+    { "Op": "move", "Who": "A", "Yaw": 0.0, "Speed": 3.0 },
+    { "Op": "sleep", "Timeout": 12.0 },
+    { "Op": "sleep", "Timeout": 12.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "strike", "Who": "A", "Target": "B" },
+    { "Op": "sleep", "Timeout": 1.5 },
+    { "Op": "botdump", "Who": "B" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

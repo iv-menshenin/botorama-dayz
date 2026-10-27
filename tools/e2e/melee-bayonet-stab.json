@@ -1,0 +1,18 @@
+{
+  "Name": "melee-bayonet-stab",
+  "Timeout": 30,
+  "Comment": "PASS: A.bayonet==true (givebayonet attached Mosin_Bayonet to Mosin9130's weaponMuzzleMosin slot, HasBayonetAttached()==true) AND B.healthRaw after strike < B.healthRaw before strike (stab connected). DM_BOT_DEBUG_DAMAGE log line shows the bayonet stab ammo type, not the rifle buttstock.",
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [10480.0, 0.0, 10750.0], "Yaw": 90.0 },
+    { "Op": "spawn", "Who": "B", "Pos": [10481.2, 0.0, 10750.0], "Yaw": 270.0 },
+    { "Op": "givebayonet", "Who": "A" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "orient", "Who": "A", "Yaw": 90.0 },
+    { "Op": "sleep", "Timeout": 1.0 },
+    { "Op": "strike", "Who": "A", "Target": "B" },
+    { "Op": "sleep", "Timeout": 1.5 },
+    { "Op": "botdump", "Who": "B" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

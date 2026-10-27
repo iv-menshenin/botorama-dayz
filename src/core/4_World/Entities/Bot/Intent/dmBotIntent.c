@@ -76,6 +76,9 @@ class dmBotIntent
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".OnCancel");
 		#endif
+		//! Сброс движения при завершении интента (центральный сброс из UpdateIntents удалён).
+		if (m_Manage == dmBotIntentsChannel.MOVE)
+			bot.SetMove(0.0, 0.0);
 	}
 
 	//! Вызвать из OnUpdate, когда условие выполнения достигнуто.

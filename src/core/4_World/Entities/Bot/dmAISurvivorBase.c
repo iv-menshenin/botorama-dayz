@@ -1331,12 +1331,28 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
+	//! Trace-only hook: fires natively right before the engine applies damage to
+	//! this entity. Logs the damage pipeline stage; forwards to super (returns
+	//! true = apply the vanilla damage), so it changes no behavior.
+	override bool EEOnDamageCalculated(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
+	{
+		#ifdef DM_BOT_DEBUG_DAMAGE
+		dmBotLog.Debug("EEOnDamageCalculated damageType=" + damageType + " ammo=" + ammo + " source=" + source);
+		#endif
+
+		return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+	}
+
 	//! Taking damage: register the source as a maximum threat immediately, even if
 	//! it is outside the vision FOV (attacking from behind). This drives the bot's
 	//! reactive defence before perception would ever notice the attacker.
 	override void EEHitBy(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
 	{
 		super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+
+		#ifdef DM_BOT_DEBUG_DAMAGE
+		dmBotLog.Debug("EEHitBy damageType=" + damageType + " ammo=" + ammo + " dmgZone=" + dmgZone);
+		#endif
 
 		#ifdef DM_BOT_DEBUG_BALLISTICS
 		dmBotLog.Debug("[Ballistics] HIT time=" + GetGame().GetTime() + " ammo=" + ammo);
@@ -1737,6 +1753,14 @@ class dmAISurvivorBase : PlayerBase
 		m_IsMoving = speed > 0.0;
 	}
 
+	//! Желаемый угол движения (относительно корпуса, градусы), записанный SetMove.
+	//! Читается блок-логикой мили: нативный фильтрованный угол обнуляется при упоре
+	//! в препятствие, а желание «назад» должно сохраняться для постановки блока.
+	float GetDesiredMoveAngle()
+	{
+		return m_DesiredMoveAngle;
+	}
+
 	//! Set the desired stance (STANCEIDX_*). Applied by ApplyStance.
 	void SetStance(int stanceIdx)
 	{
@@ -1826,6 +1850,14 @@ class dmAISurvivorBase : PlayerBase
 	EntityAI GetMeleeAttackTarget()
 	{
 		return m_MeleeTarget;
+	}
+
+	//! Можно ли бить серию (комбо): нужна стамина тяжёлого удара + шанс 2/3.
+	//! RandomInt(0, 3) даёт {0,1,2} (max эксклюзивен) → "> 0" = 2 из 3.
+	bool CanFightCombo()
+	{
+		if (!CanConsumeStamina(EStaminaConsumers.MELEE_HEAVY)) return false;
+		return Math.RandomInt(0, 3) > 0;
 	}
 
 	//! True while a melee strike is in progress: the MELEE2 command has replaced
@@ -1986,7 +2018,8 @@ class dmAISurvivorBase : PlayerBase
 	void ConsumeMeleeAttackRequest()
 	{
 		m_MeleeAttackRequest = false;
-		m_MeleeTarget = null;
+		//! Цель держим до следующего RequestMeleeAttack: TargetSelection на hit-кадре
+		//! заново читает GetMeleeAttackTarget(), и обнуление здесь теряло бы её.
 	}
 
 	//! Ask for a single shot along the direction already stored via SetAim. The

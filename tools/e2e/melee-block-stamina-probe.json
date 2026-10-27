@@ -1,0 +1,19 @@
+{
+  "Name": "melee-block-stamina-probe",
+  "Timeout": 40,
+  "Comment": "Probe: how much does sprinting (move speed=3) drain stamina in N seconds? Spawn A in open field, sprint north, dump stamina over time.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [4212.0, 0.0, 12402.95], "Yaw": 0.0 },
+    { "Op": "orient", "Who": "A", "Yaw": 0.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "move", "Who": "A", "Yaw": 0.0, "Speed": 3.0 },
+    { "Op": "sleep", "Timeout": 3.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 3.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 4.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

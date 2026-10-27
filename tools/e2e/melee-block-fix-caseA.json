@@ -1,0 +1,23 @@
+{
+  "Name": "melee-block-fix-caseA",
+  "Timeout": 30,
+  "Comment": "Case A (block): target T spawns (4212,12403.7) yaw=180 (facing south), attacker A spawns (4212,12402.95) yaw=0 (facing north, ~1.2m south of T). T raises weapon + moves backward (yaw=180 -> north) into the wall dead-end (4211.88,12404.19), still facing the attacker. Then A strikes T. EXPECT: NO damage (forcedDummy=true, ammo=Dummy_Light; healthRaw stays 100).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "T", "Pos": [4212.0, 0.0, 12403.7], "Yaw": 180.0 },
+    { "Op": "spawn", "Who": "A", "Pos": [4212.0, 0.0, 12402.95], "Yaw": 0.0 },
+    { "Op": "orient", "Who": "T", "Yaw": 180.0 },
+    { "Op": "orient", "Who": "A", "Yaw": 0.0 },
+    { "Op": "botdump", "Who": "T" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "raiseweapon", "Who": "T", "Value": "on" },
+    { "Op": "move", "Who": "T", "Yaw": 180.0, "Speed": 1.0 },
+    { "Op": "sleep", "Timeout": 1.0 },
+    { "Op": "botdump", "Who": "T" },
+    { "Op": "strike", "Who": "A", "Target": "T" },
+    { "Op": "sleep", "Timeout": 1.5 },
+    { "Op": "botdump", "Who": "T" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

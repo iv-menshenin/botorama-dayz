@@ -1,0 +1,23 @@
+{
+  "Name": "melee-light-wallprobe",
+  "Timeout": 60,
+  "Comment": "Probe: sprint A north into the wall at ~[4213,12403.7], dump stamina+pos over time to find the pinned position and how fast stamina drains (in-place wall sprint). B placed south of A for reference.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [4213.0, 0.0, 12403.7], "Yaw": 0.0 },
+    { "Op": "spawn", "Who": "B", "Pos": [4213.0, 0.0, 12403.2], "Yaw": 180.0 },
+    { "Op": "orient", "Who": "A", "Yaw": 0.0 },
+    { "Op": "orient", "Who": "B", "Yaw": 180.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "move", "Who": "A", "Yaw": 0.0, "Speed": 3.0 },
+    { "Op": "sleep", "Timeout": 8.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 8.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 8.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "move", "Who": "A", "Yaw": 0.0, "Speed": 0.0 },
+    { "Op": "botdump", "Who": "B" },
+    { "Op": "clearall" }
+  ]
+}

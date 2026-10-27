@@ -6,10 +6,10 @@
 //! exists, so there is zero overhead when no agent is driving.
 //!
 //! Ops: ping | spawn | moveto | follow | patrol | speed | loadout | look | say |
-//! shock | healplayer | restrain | give | wait | assert | snapshot | clearall (named bots)
+//! shock | healplayer | restrain | give | givebayonet | wait | assert | snapshot | clearall (named bots)
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
-//! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | getpos | setpos | clearobj (named objects), the car ops spawncar |
+//! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | strike | orient | raiseweapon | getpos | setpos | clearobj (named objects), the car ops spawncar |
 //! driveto | drive | cardump | carstate | cardamage | carrepair | griddump, and observe (teleport a connected player). `wait`, `sleep`
 //! and `drivetest` are the deferred ops: they tick across frames (wait until a
 //! condition is met or its timeout expires; sleep until its timeout; drivetest
@@ -32,7 +32,7 @@ class dmE2EStep
 	string Target;    // target bot name (follow, distance, look)
 	string Turn;      // look turn mode: "auto" (default, head-first) | "full" | "none"
 	vector Pos;       // [x,y,z] world position (spawn, moveto, reached, look, ...)
-	float Yaw;        // orientation in degrees (spawn, spawnobj, setpos)
+	float Yaw;        // orientation in degrees (spawn, spawnobj, setpos, move)
 	autoptr array<vector> Points;  // patrol points [[x,z],...]
 	float Speed;      // preferred movement speed (1..3)
 	string Loadout;   // loadout name
@@ -745,6 +745,10 @@ class dmE2EBridge
 		{
 			RunGive(step, r);
 		}
+		else if (step.Op == "givebayonet")
+		{
+			RunGiveBayonet(step, r);
+		}
 		else if (step.Op == "assert")
 		{
 			RunAssert(step, r);
@@ -816,6 +820,22 @@ class dmE2EBridge
 		else if (step.Op == "botdump")
 		{
 			RunBotDump(step, r);
+		}
+		else if (step.Op == "strike")
+		{
+			RunStrike(step, r);
+		}
+		else if (step.Op == "orient")
+		{
+			RunOrient(step, r);
+		}
+		else if (step.Op == "raiseweapon")
+		{
+			RunRaiseWeapon(step, r);
+		}
+		else if (step.Op == "move")
+		{
+			RunMove(step, r);
 		}
 		else if (step.Op == "poidump")
 		{
@@ -1341,6 +1361,49 @@ class dmE2EBridge
 		pawn.GetHumanInventory().CreateInHands(step.Value);
 		r.Ok = true;
 		r.Reason = "gave " + step.Value;
+	}
+
+	//! "givebayonet" — дать боту винтовку (Mosin9130) с НАДЕТЫМ штык-ножом
+	//! (Mosin_Bayonet) в дульном слоте weaponMuzzleMosin, чтобы HasBayonetAttached()
+	//! вернул true и мили-удар стал WPN_STAB. Фолбэк: если CreateAttachmentEx не
+	//! триггерит OnWasAttached (не ставит SetBayonetAttached), ставим флаг вручную.
+	private void RunGiveBayonet(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		Weapon_Base w = Weapon_Base.Cast(pawn.GetHumanInventory().CreateInHands("Mosin9130"));
+		if (!w)
+		{
+			r.Ok = false;
+			r.Reason = "weapon create failed";
+			return;
+		}
+
+		int slotId = InventorySlots.GetSlotIdFromString("weaponMuzzleMosin");
+		w.GetInventory().CreateAttachmentEx("Mosin_Bayonet", slotId);
+
+		if (!w.HasBayonetAttached())
+			w.SetBayonetAttached(true, slotId);
+
+		string line = "weapon=" + w.GetType() + " bayonetSlot=" + slotId + " bayonet=" + w.HasBayonetAttached();
+		AppendDump(r, line);
+
+		r.Ok = true;
+		r.Reason = "gave bayonet rifle";
 	}
 
 	//! "assert" — instantaneous condition check; Ok = condition result.
@@ -2489,7 +2552,16 @@ class dmE2EBridge
 		line = "restrained=" + pawn.IsRestrained() + " bleeding=" + pawn.IsBleeding() + " inHands=" + inHandsName;
 		AppendDump(r, line);
 
+		bool bayonet = false;
+		if (ih)
+			bayonet = ih.HasBayonetAttached();
+		line = "bayonet=" + bayonet;
+		AppendDump(r, line);
+
 		line = "health=" + pawn.GetHealth01() + " blood=" + pawn.GetHealth("", "Blood") + " shock=" + pawn.GetHealth("", "Shock");
+		AppendDump(r, line);
+
+		line = "healthRaw=" + pawn.GetHealth("", "Health");
 		AppendDump(r, line);
 
 		line = "bulletDanger=" + bot.IsBulletDanger();
@@ -2546,6 +2618,172 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "dumped";
+	}
+
+	//! "strike" — request one melee strike against a target bot by calling the pawn
+	//! directly (dmAISurvivorBase.RequestMeleeAttack). No brain/FSM involved: the
+	//! one-shot flag is consumed by dmBotMeleeFightLogic_LightHeavy.HandleFightLogic
+	//! on the next CommandHandler and the MELEE2 command starts (melee.md §5).
+	private void RunStrike(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivor target;
+		if (!m_Named.Find(step.Target, target))
+		{
+			r.Ok = false;
+			r.Reason = "no such target";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		PlayerBase targetPawn = target.GetPawn();
+		if (!targetPawn)
+		{
+			r.Ok = false;
+			r.Reason = "no target pawn";
+			return;
+		}
+
+		pawn.RequestMeleeAttack(targetPawn);
+
+		#ifdef DM_BOT_DEBUG_FIGHT
+		dmBotLog.Debug("[E2E] strike " + step.Who + " -> " + step.Target);
+		#endif
+
+		string line = "strike requested target=" + targetPawn.GetType();
+		AppendDump(r, line);
+
+		r.Ok = true;
+		r.Reason = "strike requested";
+	}
+
+	//! "orient" — set the named bot's body orientation AND its target body yaw in
+	//! one go, so ApplyBodyTurn does not foot-step it back to the old facing.
+	//! Spawn() only sets the physical orientation and leaves m_TargetBodyYaw at 0,
+	//! so a fresh pawn would otherwise turn back toward yaw 0 — that turn noise is
+	//! exactly what fast-exits the native melee command (clean strike context).
+	private void RunOrient(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		bot.SetOrientation(Vector(step.Yaw, 0, 0));
+		pawn.SetTargetBodyYaw(step.Yaw);
+
+		#ifdef DM_BOT_DEBUG_FIGHT
+		dmBotLog.Debug("[E2E] orient " + step.Who + " yaw=" + step.Yaw);
+		#endif
+
+		string line = "orient yaw=" + step.Yaw + " actual=" + bot.GetOrientation();
+		AppendDump(r, line);
+
+		r.Ok = true;
+		r.Reason = "oriented yaw=" + step.Yaw;
+	}
+
+	//! "raiseweapon" — raise/lower the bot's weapon by calling the pawn directly
+	//! (dmAISurvivorBase.RaiseWeapon). Value = "on"/"true" (raise) or "off"/"false"
+	//! (lower). No brain/FSM involved.
+	private void RunRaiseWeapon(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		bool up = true;
+		if (step.Value == "off" || step.Value == "false")
+			up = false;
+
+		pawn.RaiseWeapon(up);
+
+		string state = "on";
+		if (!up)
+			state = "off";
+
+		#ifdef DM_BOT_DEBUG_FIGHT
+		dmBotLog.Debug("[E2E] raiseweapon " + step.Who + " raise=" + state);
+		#endif
+
+		string line = "raise=" + state;
+		AppendDump(r, line);
+
+		r.Ok = true;
+		r.Reason = "raise=" + state;
+	}
+
+	//! "move" — set the named bot's desired movement by calling the pawn directly
+	//! (dmAISurvivorBase.SetMove). Yaw = movement direction relative to the body
+	//! (0 forward, ±90 strafe, ±180 backward); Speed = 1..3. No brain/FSM involved:
+	//! the desired state is applied by ApplyMovement each frame. Used by the melee
+	//! block test to drive the bot backwards while raised.
+	private void RunMove(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		pawn.SetMove(step.Yaw, step.Speed);
+
+		#ifdef DM_BOT_DEBUG_FIGHT
+		dmBotLog.Debug("[E2E] move " + step.Who + " yaw=" + step.Yaw + " speed=" + step.Speed);
+		#endif
+
+		string line = "move yaw=" + step.Yaw + " speed=" + step.Speed;
+		AppendDump(r, line);
+
+		r.Ok = true;
+		r.Reason = "moved yaw=" + step.Yaw + " speed=" + step.Speed;
 	}
 
 	//! "poidump" — dump the POI registry: total location count and the location at

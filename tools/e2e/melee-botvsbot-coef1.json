@@ -1,0 +1,15 @@
+{
+  "Name": "melee-botvsbot-coef1",
+  "Timeout": 90,
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [5000, 0, 3600], "Yaw": 0, "Preset": "combat" },
+    { "Op": "spawn", "Who": "B", "Pos": [5005, 0, 3600], "Yaw": 180, "Preset": "combat" },
+    { "Op": "give", "Who": "A", "Value": "Machete" },
+    { "Op": "give", "Who": "B", "Value": "Machete" },
+    { "Op": "hostile", "Who": "A", "Target": "B", "Threat": 0.9 },
+    { "Op": "hostile", "Who": "B", "Target": "A", "Threat": 0.9 },
+    { "Op": "sleep", "Timeout": 30 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

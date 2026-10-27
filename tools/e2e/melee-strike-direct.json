@@ -1,0 +1,16 @@
+{
+  "Name": "melee-strike-direct",
+  "Timeout": 30,
+  "Comment": "PASS: B.healthRaw after strike < B.healthRaw before strike (one fist hit connected), AND A.orient yaw after strike within 30 deg of its baseline yaw 90 (no melee spin; spin threshold DM_MELEE_SPIN_THRESHOLD=180).",
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [10480.0, 0.0, 10750.0], "Yaw": 90.0 },
+    { "Op": "spawn", "Who": "B", "Pos": [10481.2, 0.0, 10750.0], "Yaw": 270.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "botdump", "Who": "B" },
+    { "Op": "strike", "Who": "A", "Target": "B" },
+    { "Op": "sleep", "Timeout": 1.5 },
+    { "Op": "botdump", "Who": "B" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

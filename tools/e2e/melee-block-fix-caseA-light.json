@@ -1,0 +1,29 @@
+{
+  "Name": "melee-block-fix-caseA-light",
+  "Timeout": 60,
+  "Comment": "Case A (block) with LIGHT attack: deplete attacker stamina (sprint into the blocking target) so GetAttackTypeFromInputs falls back to LIGHT (weaponMode=0), then strike. EXPECT forcedDummy=true -> ammo=Dummy_Light -> NO damage (healthRaw stays 100).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "T", "Pos": [4212.0, 0.0, 12403.7], "Yaw": 180.0 },
+    { "Op": "spawn", "Who": "A", "Pos": [4212.0, 0.0, 12402.95], "Yaw": 0.0 },
+    { "Op": "orient", "Who": "T", "Yaw": 180.0 },
+    { "Op": "orient", "Who": "A", "Yaw": 0.0 },
+    { "Op": "botdump", "Who": "T" },
+    { "Op": "raiseweapon", "Who": "T", "Value": "on" },
+    { "Op": "move", "Who": "T", "Yaw": 180.0, "Speed": 1.0 },
+    { "Op": "sleep", "Timeout": 1.0 },
+    { "Op": "botdump", "Who": "T" },
+    { "Op": "move", "Who": "A", "Yaw": 0.0, "Speed": 3.0 },
+    { "Op": "sleep", "Timeout": 8.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 8.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 6.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "strike", "Who": "A", "Target": "T" },
+    { "Op": "sleep", "Timeout": 1.5 },
+    { "Op": "botdump", "Who": "T" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

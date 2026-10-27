@@ -1,0 +1,19 @@
+{
+  "Name": "melee-machete-bot",
+  "Timeout": 60,
+  "Comment": "Decisive: MACHEte (weapon) -> BOT. If B.healthRaw drops after the strike, native super.EvaluateHit->EvaluateHit_Player->ProcessMeleeHit works on PlayerBase-AI, so the fist-no-hit problem is in bare fists (raised stance etc). If B.healthRaw does NOT drop, the problem is the bot TARGET itself (native hit detect doesn't fire on PlayerBase-AI at all). ApplyZombieExtraDamage is NOT expected here (bot, not zombie).",
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [10480.0, 0.0, 10750.0], "Yaw": 90.0 },
+    { "Op": "spawn", "Who": "B", "Pos": [10481.2, 0.0, 10750.0], "Yaw": 270.0 },
+    { "Op": "give", "Who": "A", "Value": "Machete" },
+    { "Op": "orient", "Who": "A", "Yaw": 90.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "botdump", "Who": "B" },
+    { "Op": "sleep", "Timeout": 1.0 },
+    { "Op": "strike", "Who": "A", "Target": "B" },
+    { "Op": "sleep", "Timeout": 1.5 },
+    { "Op": "botdump", "Who": "B" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

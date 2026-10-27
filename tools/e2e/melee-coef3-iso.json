@@ -1,0 +1,10 @@
+{
+  "Name": "melee-coef3-iso",
+  "Timeout": 90,
+  "Steps": [
+    { "Op": "meleefight", "Who": "M", "Pos": [5000, 0, 3600], "Yaw": 0, "Zombies": 1, "ZombieDist": 2.0, "Preset": "survivor" },
+    { "Op": "sleep", "Timeout": 30 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

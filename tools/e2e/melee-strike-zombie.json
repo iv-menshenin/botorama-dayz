@@ -1,0 +1,13 @@
+{
+  "Name": "melee-strike-zombie",
+  "Timeout": 90,
+  "Comment": "Decisive hypothesis test: native StartCommand_Melee2(target) + super.EvaluateHit against a ZOMBIE (not a bot). meleefight spawns a machete Survivor bot + 1 brain-driven zombie (ZmbM_PatrolNormal_Autumn, init_ai=true) registered hostile. PASS marker (in RPT, DM_BOT_DEBUG_FIGHT): 'start melee2 target=' then 'ApplyZombieExtraDamage ammo=... target=' (ApplyZombieExtraDamage fires ONLY from our EvaluateHit override, which vanilla HandleHitEvent calls ONLY when native WasHit() emitted => proves native hit-detection works for zombies). Zombie death = additional confirmation. Bot healthRaw via botdump confirms the bot survived zombie counterattacks.",
+  "Steps": [
+    { "Op": "meleefight", "Who": "M", "Pos": [10480, 0, 10750], "Yaw": 0, "Zombies": 1, "ZombieDist": 1.5, "Preset": "survivor" },
+    { "Op": "botdump", "Who": "M" },
+    { "Op": "sleep", "Timeout": 20 },
+    { "Op": "botdump", "Who": "M" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

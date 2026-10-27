@@ -1,0 +1,20 @@
+{
+  "Name": "melee-wpn-buttstock",
+  "Timeout": 40,
+  "Comment": "WPN_HIT_BUTTSTOCK: A holds Mosin9130 (no bayonet) -> GetAttackTypeFromInputs returns WPN_HIT_BUTTSTOCK (buttstock). Expect EEHitBy ammo=<rifle buttstock>, B.healthRaw drops.",
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [10480.0, 0.0, 10750.0], "Yaw": 90.0 },
+    { "Op": "spawn", "Who": "B", "Pos": [10481.2, 0.0, 10750.0], "Yaw": 270.0 },
+    { "Op": "give", "Who": "A", "Value": "Mosin9130" },
+    { "Op": "orient", "Who": "A", "Yaw": 90.0 },
+    { "Op": "orient", "Who": "B", "Yaw": 270.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "botdump", "Who": "B" },
+    { "Op": "sleep", "Timeout": 1.0 },
+    { "Op": "strike", "Who": "A", "Target": "B" },
+    { "Op": "sleep", "Timeout": 1.5 },
+    { "Op": "botdump", "Who": "B" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

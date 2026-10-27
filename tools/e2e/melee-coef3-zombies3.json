@@ -1,0 +1,10 @@
+{
+  "Name": "melee-coef3-zombies3",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "meleefight", "Who": "M", "Pos": [10480, 0, 10750], "Yaw": 0, "Zombies": 3, "ZombieDist": 2.5, "Preset": "survivor" },
+    { "Op": "sleep", "Timeout": 45 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "Name": "melee-block-fix-caseA-light3",
+  "Timeout": 70,
+  "Comment": "Case A (block) LIGHT attack v3: drain A stamina by sprinting south 9s then north 8s (slightly shorter) so A ends SOUTH of T (facing T). Re-orient T south + A north before strike. EXPECT forcedDummy=true -> Dummy_Light -> no damage.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "T", "Pos": [4212.0, 0.0, 12403.7], "Yaw": 180.0 },
+    { "Op": "spawn", "Who": "A", "Pos": [4212.0, 0.0, 12402.95], "Yaw": 0.0 },
+    { "Op": "orient", "Who": "T", "Yaw": 180.0 },
+    { "Op": "orient", "Who": "A", "Yaw": 180.0 },
+    { "Op": "raiseweapon", "Who": "T", "Value": "on" },
+    { "Op": "move", "Who": "T", "Yaw": 180.0, "Speed": 1.0 },
+    { "Op": "sleep", "Timeout": 1.0 },
+    { "Op": "move", "Who": "A", "Yaw": 0.0, "Speed": 3.0 },
+    { "Op": "sleep", "Timeout": 9.0 },
+    { "Op": "orient", "Who": "A", "Yaw": 0.0 },
+    { "Op": "move", "Who": "A", "Yaw": 0.0, "Speed": 3.0 },
+    { "Op": "sleep", "Timeout": 8.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "botdump", "Who": "T" },
+    { "Op": "orient", "Who": "T", "Yaw": 180.0 },
+    { "Op": "orient", "Who": "A", "Yaw": 0.0 },
+    { "Op": "strike", "Who": "A", "Target": "T" },
+    { "Op": "sleep", "Timeout": 1.5 },
+    { "Op": "botdump", "Who": "T" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

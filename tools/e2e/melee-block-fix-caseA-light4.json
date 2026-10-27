@@ -1,0 +1,27 @@
+{
+  "Name": "melee-block-fix-caseA-light4",
+  "Timeout": 70,
+  "Comment": "Case A (block) LIGHT v4: A spawns 1m EAST of T, sprints north into the same wall (drains stamina in place, no collision with T), then re-orient A west + T east, strike. EXPECT forcedDummy=true -> Dummy_Light -> no damage.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "T", "Pos": [4212.0, 0.0, 12403.7], "Yaw": 180.0 },
+    { "Op": "spawn", "Who": "A", "Pos": [4213.0, 0.0, 12403.7], "Yaw": 0.0 },
+    { "Op": "orient", "Who": "T", "Yaw": 180.0 },
+    { "Op": "orient", "Who": "A", "Yaw": 0.0 },
+    { "Op": "raiseweapon", "Who": "T", "Value": "on" },
+    { "Op": "move", "Who": "T", "Yaw": 180.0, "Speed": 1.0 },
+    { "Op": "sleep", "Timeout": 1.0 },
+    { "Op": "move", "Who": "A", "Yaw": 0.0, "Speed": 3.0 },
+    { "Op": "sleep", "Timeout": 9.0 },
+    { "Op": "sleep", "Timeout": 9.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "botdump", "Who": "T" },
+    { "Op": "orient", "Who": "A", "Yaw": 90.0 },
+    { "Op": "orient", "Who": "T", "Yaw": 270.0 },
+    { "Op": "strike", "Who": "A", "Target": "T" },
+    { "Op": "sleep", "Timeout": 1.5 },
+    { "Op": "botdump", "Who": "T" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

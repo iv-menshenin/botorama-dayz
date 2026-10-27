@@ -1,0 +1,14 @@
+{
+  "Name": "melee-block-move",
+  "Timeout": 20,
+  "Comment": "PASS: server log (DM_BOT_DEBUG_FIGHT) shows `dmBotMeleeFightLogic: block=true raised=true angle=180` after raiseweapon + move(yaw=180). Edge-triggered on IsInBlock() change. NOTE/GAP: the brain's per-tick arbitration resets MOVE to idle (SetWalk(false)) when no MOVE intent wins, so a single `move` op holds m_DesiredMoveAngle for at most one tick and the block may flicker true->false. A persistent block needs a MOVE-writing intent — flagged to the orchestrator.",
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [10480.0, 0.0, 10750.0], "Yaw": 90.0 },
+    { "Op": "orient", "Who": "A", "Yaw": 90.0 },
+    { "Op": "raiseweapon", "Who": "A", "Value": "on" },
+    { "Op": "move", "Who": "A", "Yaw": 180.0, "Speed": 1.0 },
+    { "Op": "sleep", "Timeout": 1.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

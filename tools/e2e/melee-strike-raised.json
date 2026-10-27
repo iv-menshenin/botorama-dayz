@@ -1,0 +1,18 @@
+{
+  "Name": "melee-strike-raised",
+  "Timeout": 30,
+  "Comment": "PASS: B.healthRaw after raised strike < B.healthRaw baseline (native hit applied via raised stance), AND A.orient yaw stable (no melee spin). Hypothesis: raising (dmAI_Raised) before strike makes native WasHit() emit. Baseline direct-strike (no raise): healthRaw stays 100.",
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [10480.0, 0.0, 10750.0], "Yaw": 90.0 },
+    { "Op": "spawn", "Who": "B", "Pos": [10481.2, 0.0, 10750.0], "Yaw": 270.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "botdump", "Who": "B" },
+    { "Op": "raiseweapon", "Who": "A", "Value": "on" },
+    { "Op": "sleep", "Timeout": 1.0 },
+    { "Op": "strike", "Who": "A", "Target": "B" },
+    { "Op": "sleep", "Timeout": 1.5 },
+    { "Op": "botdump", "Who": "B" },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

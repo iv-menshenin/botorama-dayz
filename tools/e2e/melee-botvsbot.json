@@ -1,0 +1,21 @@
+{
+  "Name": "melee-botvsbot",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [0, 0, 0], "Yaw": 0, "Preset": "combat" },
+    { "Op": "spawn", "Who": "B", "Pos": [10, 0, 0], "Yaw": 180, "Preset": "combat" },
+    { "Op": "spawn", "Who": "C", "Pos": [0, 0, 10], "Yaw": 90, "Preset": "combat" },
+    { "Op": "spawn", "Who": "D", "Pos": [10, 0, 10], "Yaw": 270, "Preset": "combat" },
+    { "Op": "give", "Who": "A", "Value": "Machete" },
+    { "Op": "give", "Who": "B", "Value": "Machete" },
+    { "Op": "give", "Who": "C", "Value": "Machete" },
+    { "Op": "give", "Who": "D", "Value": "Machete" },
+    { "Op": "hostile", "Who": "A", "Target": "B", "Threat": 0.8 },
+    { "Op": "hostile", "Who": "B", "Target": "A", "Threat": 0.8 },
+    { "Op": "hostile", "Who": "C", "Target": "D", "Threat": 0.8 },
+    { "Op": "hostile", "Who": "D", "Target": "C", "Threat": 0.8 },
+    { "Op": "sleep", "Timeout": 45 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

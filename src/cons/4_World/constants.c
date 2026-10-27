@@ -703,6 +703,10 @@ static const float DM_MELEE_FACE_ANGLE = 20.0;
 //! Melee: damage multiplier (coefficient) applied per strike against zombies.
 static const float DM_MELEE_DAMAGE_MULT_ZOMBIE = 3.0;
 
+//! Melee: delay (ms) from StartCommand_Melee2 to the "Hit" anim frame, when damage
+//! is applied via CallLater (ApplyMeleeDamage) instead of the unstable native WasHit().
+static const int DM_MELEE_HIT_DELAY_MS = 250;
+
 //! Melee: fallback strike reach (meters) when the weapon reach can't be read.
 static const float DM_MELEE_REACH = 1.5;
 
