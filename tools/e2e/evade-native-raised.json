@@ -1,0 +1,23 @@
+{
+  "Name": "evade-native-raised",
+  "Timeout": 30,
+  "Comment": "Native melee evade from RAISED stance (raiseweapon on first). Compare vs ERECT: if raise is required, the roll should play here and move the bot (pos/vel/stamina deltas).",
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [10480.0, 0.0, 10750.0], "Yaw": 90.0 },
+    { "Op": "orient", "Who": "A", "Yaw": 90.0 },
+    { "Op": "raiseweapon", "Who": "A", "Value": "on" },
+    { "Op": "sleep", "Timeout": 1.0 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "evade", "Who": "A", "Yaw": -90.0 },
+    { "Op": "sleep", "Timeout": 0.3 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 0.7 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "evade", "Who": "A", "Yaw": 90.0 },
+    { "Op": "sleep", "Timeout": 0.3 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "sleep", "Timeout": 0.7 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "clearall" }
+  ]
+}

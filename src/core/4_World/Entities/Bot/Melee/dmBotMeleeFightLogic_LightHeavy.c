@@ -69,6 +69,21 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 			SetBlock(shouldBlock);
 		}
 
+		//! Эвейд: one-shot запрос → нативный ролл StartMeleeEvadeA. Гейтится наличием
+		//! MOVE-команды (hcm != null), как и старт удара ниже.
+		if (m_Bot && hcm && m_Bot.HasMeleeEvadeRequest())
+		{
+			float evadeAngle = m_Bot.GetMeleeEvadeAngle();
+			m_IsEvading = true;
+			SetCooldown(EVADE_COOLDOWN, EFightLogicCooldownCategory.EVADE);
+			hcm.StartMeleeEvadeA(evadeAngle);
+			m_Player.DepleteStamina(EStaminaModifiers.MELEE_EVADE);
+			m_Bot.ConsumeMeleeEvadeRequest();
+			#ifdef DM_BOT_DEBUG_FIGHT
+			dmBotLog.Debug("dmBotMeleeFightLogic: evade angle=" + evadeAngle);
+			#endif
+		}
+
 		//! Комбо: пока MELEE2 активен, цель в зоне комбо и CanFightCombo — продолжаем
 		//! серию через ванильный HandleComboHit (выбор типа удара + ContinueCombo +
 		//! снятие стамины). Идёт до проверки request: серия не зависит от нового

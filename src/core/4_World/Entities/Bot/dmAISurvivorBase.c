@@ -171,6 +171,11 @@ class dmAISurvivorBase : PlayerBase
 	private bool m_MeleeAttackRequest = false;
 	private EntityAI m_MeleeTarget;
 
+	//! One-shot melee evade request from the brain (see RequestMeleeEvade). The
+	//! fight logic consumes it and starts a native roll via StartMeleeEvadeA.
+	private bool m_MeleeEvadeRequest = false;
+	private float m_MeleeEvadeAngle = 0.0;
+
 	//! Melee spin oracle (diagnostic): accumulated absolute body-yaw change while
 	//! mid-strike, to detect the "spin" bug where ApplyBodyTurn foot-step turns
 	//! during the swing. Logged by TickMeleeSpinOracle (see DM_MELEE_SPIN_THRESHOLD).
@@ -2020,6 +2025,30 @@ class dmAISurvivorBase : PlayerBase
 		m_MeleeAttackRequest = false;
 		//! Цель держим до следующего RequestMeleeAttack: TargetSelection на hit-кадре
 		//! заново читает GetMeleeAttackTarget(), и обнуление здесь теряло бы её.
+	}
+
+	//! Попросить боевую логику выполнить один эвейд (ролл) на угол относительно
+	//! корпуса (-90 влево / +90 вправо). Запрос потребляется
+	//! dmBotMeleeFightLogic_LightHeavy.HandleFightLogic через StartMeleeEvadeA.
+	void RequestMeleeEvade(float angle)
+	{
+		m_MeleeEvadeRequest = true;
+		m_MeleeEvadeAngle = angle;
+	}
+
+	bool HasMeleeEvadeRequest()
+	{
+		return m_MeleeEvadeRequest;
+	}
+
+	float GetMeleeEvadeAngle()
+	{
+		return m_MeleeEvadeAngle;
+	}
+
+	void ConsumeMeleeEvadeRequest()
+	{
+		m_MeleeEvadeRequest = false;
 	}
 
 	//! Ask for a single shot along the direction already stored via SetAim. The

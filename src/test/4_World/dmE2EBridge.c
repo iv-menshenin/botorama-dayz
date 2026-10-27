@@ -9,7 +9,7 @@
 //! shock | healplayer | restrain | give | givebayonet | wait | assert | snapshot | clearall (named bots)
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
-//! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | strike | orient | raiseweapon | getpos | setpos | clearobj (named objects), the car ops spawncar |
+//! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | strike | evade | orient | raiseweapon | getpos | setpos | clearobj (named objects), the car ops spawncar |
 //! driveto | drive | cardump | carstate | cardamage | carrepair | griddump, and observe (teleport a connected player). `wait`, `sleep`
 //! and `drivetest` are the deferred ops: they tick across frames (wait until a
 //! condition is met or its timeout expires; sleep until its timeout; drivetest
@@ -824,6 +824,10 @@ class dmE2EBridge
 		else if (step.Op == "strike")
 		{
 			RunStrike(step, r);
+		}
+		else if (step.Op == "evade")
+		{
+			RunEvade(step, r);
 		}
 		else if (step.Op == "orient")
 		{
@@ -2669,6 +2673,42 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "strike requested";
+	}
+
+	//! "evade" — request one melee evade (roll) by calling the pawn directly
+	//! (dmAISurvivorBase.RequestMeleeEvade). No brain/FSM involved: the one-shot
+	//! flag is consumed by dmBotMeleeFightLogic_LightHeavy.HandleFightLogic on the
+	//! next CommandHandler, which starts a native StartMeleeEvadeA roll. Yaw = the
+	//! evade angle relative to the body (-90 left / +90 right).
+	private void RunEvade(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		pawn.RequestMeleeEvade(step.Yaw);
+
+		#ifdef DM_BOT_DEBUG_FIGHT
+		dmBotLog.Debug("[E2E] evade " + step.Who + " angle=" + step.Yaw);
+		#endif
+
+		string line = "evade requested angle=" + step.Yaw;
+		AppendDump(r, line);
+
+		r.Ok = true;
+		r.Reason = "evade requested";
 	}
 
 	//! "orient" — set the named bot's body orientation AND its target body yaw in
