@@ -357,7 +357,7 @@ class dmBotState_Fighting : dmBotState
 			case dmFightPhase.FIGHT_STRIKE:
 				return m_Strike && m_Strike.IsFinished();   // интент завершил удар
 			case dmFightPhase.FIGHT_BLOCK:
-				return m_Block && m_Block.IsFinished();   // удар получен ИЛИ таймаут (в интенте)
+				return (m_Block && m_Block.IsFinished()) || !EnemyIsWindingUp();   // удар/таймаут ИЛИ враг закончил melee2
 			case dmFightPhase.FIGHT_EVADE:
 				return m_Evade && m_Evade.IsFinished();   // ролл завершён
 		}
