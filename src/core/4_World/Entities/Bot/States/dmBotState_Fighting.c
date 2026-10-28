@@ -9,7 +9,7 @@
 
 enum dmFightPhase
 {
-	FIGHT_FIRST_MOVE,  // зомби: стартовый блок (позже)
+	FIGHT_FIRST_MOVE,  // зомби: стартовый блок (до удара или 10с)
 	FIGHT_APPROACH,
 	FIGHT_TURN,
 	FIGHT_STRIKE,
@@ -78,11 +78,18 @@ class dmBotState_Fighting : dmBotState
 		bot.SetPreferredSpeed(3.0);
 
 		ResolveTarget();
-
-		m_Phase = dmFightPhase.FIGHT_APPROACH;
-		m_PhaseTimer = 0.0;
-		m_LastLoggedPhase = dmFightPhase.FIGHT_FIRST_MOVE; // != APPROACH: первый тик залогирует смену фазы
 		DetectEnemyType();
+
+		if (m_EnemyType == dmFightEnemyType.FIGHT_ZOMBIE)
+			m_Phase = dmFightPhase.FIGHT_FIRST_MOVE;
+		else
+			m_Phase = dmFightPhase.FIGHT_APPROACH;
+		m_PhaseTimer = 0.0;
+		//! Sentinel «не стартовая фаза» — первый тик залогирует смену фазы.
+		if (m_Phase == dmFightPhase.FIGHT_FIRST_MOVE)
+			m_LastLoggedPhase = dmFightPhase.FIGHT_APPROACH;
+		else
+			m_LastLoggedPhase = dmFightPhase.FIGHT_FIRST_MOVE;
 
 		#ifdef DM_BOT_DEBUG_FSM_FIGHTING
 		if (m_TargetEntity)
@@ -135,6 +142,9 @@ class dmBotState_Fighting : dmBotState
 		// 2) действие фазы
 		switch (m_Phase)
 		{
+			case dmFightPhase.FIGHT_FIRST_MOVE:
+				Phase_FirstMove(bot);
+				break;
 			case dmFightPhase.FIGHT_STRIKE:
 				Phase_Strike(bot);
 				break;
@@ -331,6 +341,16 @@ class dmBotState_Fighting : dmBotState
 		m_Look.m_Active = true;   // корпус к врагу — иначе EvaluateHit_Player не гасит урон
 	}
 
+	void Phase_FirstMove(dmAISurvivor bot)
+	{
+		EnsureBlock(bot);
+		m_Block.m_Timeout = DM_FIGHT_FIRST_MOVE_T;   // стартовый блок держим 10с
+		m_Block.m_Active = true;
+		if (m_Approach) m_Approach.m_Active = false;
+		EnsureLook(bot);
+		m_Look.m_Active = true;
+	}
+
 	void EnsureEvade(dmAISurvivor bot)
 	{
 		if (m_Evade && (m_Evade.IsFinished() || m_Evade.IsExpired()))
@@ -357,6 +377,8 @@ class dmBotState_Fighting : dmBotState
 	{
 		switch (m_Phase)
 		{
+			case dmFightPhase.FIGHT_FIRST_MOVE:
+				return m_Block && m_Block.IsFinished();   // удар получен ИЛИ таймаут 10с (в интенте)
 			case dmFightPhase.FIGHT_APPROACH:
 				return InStrikeRange();      // dist <= StrikeRange() — в зоне удара
 			case dmFightPhase.FIGHT_TURN:

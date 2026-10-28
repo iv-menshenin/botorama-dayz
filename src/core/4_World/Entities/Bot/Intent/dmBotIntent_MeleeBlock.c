@@ -11,6 +11,7 @@ class dmBotIntent_MeleeBlock : dmBotIntent
 {
 	bool m_Armed;
 	float m_Elapsed;
+	float m_Timeout = DM_MELEE_BLOCK_TIMEOUT;
 
 	void dmBotIntent_MeleeBlock()
 	{
@@ -39,7 +40,7 @@ class dmBotIntent_MeleeBlock : dmBotIntent
 		pawn.RaiseWeapon(true);
 		bot.IntentMove(180.0, DM_MELEE_BLOCK_SPEED);   // назад → fight-logic ставит SetBlock
 		m_Elapsed += pDt;
-		if (pawn.ReceivedHit() || m_Elapsed > DM_MELEE_BLOCK_TIMEOUT)
+		if (pawn.ReceivedHit() || m_Elapsed > m_Timeout)
 			Finish();
 	}
 }

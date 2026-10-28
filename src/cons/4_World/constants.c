@@ -758,6 +758,9 @@ static const float DM_FIGHT_RETARGET_INTERVAL = 2.0;
 //! Скорость слайд-доворота корпуса к цели в мили-бою (градусов/сек).
 static const float DM_FIGHT_BODY_TURN_RATE = 200.0;
 
+//! Fighting: таймаут (сек) стартового блока зомби (фаза FIRST_MOVE).
+static const float DM_FIGHT_FIRST_MOVE_T = 10.0;
+
 //! Melee approach: distance (meters) below which the bot steers straight at the
 //! target (SetMoveYaw + SetMove) instead of running a navmesh MoveTo.
 static const float DM_MELEE_APPROACH_NO_PATH_DIST = 3.0;
