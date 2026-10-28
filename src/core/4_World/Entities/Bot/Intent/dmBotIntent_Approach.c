@@ -46,9 +46,34 @@ class dmBotIntent_Approach: dmBotIntent_MoveTo
 		m_PathGoalValid = false;
 	}
 
+	//! Рулить ли прямо на живую цель (сбросив путь): остался только последний
+	//! waypoint, есть прямая видимость цели и дистанция < DM_APPROACH_STRAIGHT_DIST.
+	bool ShouldSteerStraight(dmAISurvivor bot)
+	{
+		if (!m_HasPath || m_Path.Count() == 0 || m_PathIdx != m_Path.Count() - 1)
+			return false;
+		vector botPos = bot.GetPosition();
+		vector toGoal = m_Goal - botPos;
+		toGoal[1] = 0.0;
+		if (toGoal.Length() > DM_APPROACH_STRAIGHT_DIST)
+			return false;
+		dmTarget t = bot.FindTarget(m_TargetEntity);
+		if (!t || !t.IsVisible())
+			return false;
+		return true;
+	}
+
 	override void UpdateGoal(dmAISurvivor bot, float pDt)
 	{
 		if ( m_TargetEntity ) m_Goal = m_TargetEntity.GetPosition();
+
+		//! Steer straight: на последнем waypoint'е с видимостью цели и близко —
+		//! сбрасываем путь, базовый TickMove рулит прямо на m_Goal (мгновенная реакция).
+		if (ShouldSteerStraight(bot))
+		{
+			if (m_HasPath) { m_HasPath = false; m_Path.Clear(); }
+			return;
+		}
 
 		//! Ре-патинг по дрейфу цели (как FollowTo): маршрут перепрокладываем, только
 		//! когда цель реально сдвинулась от конца прошлого пути (иначе ре-патинг

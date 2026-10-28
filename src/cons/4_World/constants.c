@@ -767,6 +767,9 @@ static const float DM_MELEE_APPROACH_NO_PATH_DIST = 3.0;
 //! so a 2 m drift would let the bot steer at a point far behind the live target.
 static const float DM_APPROACH_REPATH_DIST = 1.0;
 
+//! Melee approach: в этом радиусе (и с LOS) рулим прямо на живую цель, сбросив путь.
+static const float DM_APPROACH_STRAIGHT_DIST = 20.0;
+
 //! Melee evasion: strafe speed (0..3) while dodging between strikes.
 static const float DM_MELEE_EVADE_SPEED = 2.0;
 
