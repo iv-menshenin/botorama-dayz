@@ -364,6 +364,29 @@ class CfgSoundSets
   `RifleSingleShot_Base`/`Rifle_Base`). Поэтому `IsInherited(Shotgun_Base)` не компилируется
   (`Can't find variable 'Shotgun_Base'` → краш World-модуля). Детект дробовика — по калибру:
   `CfgAmmo` пули содержат `"12Gauge"` (12-й калибр) только у дробовиков.
+- **Yaw→forward: `forward = (Sin(yaw), Cos(yaw))`, НЕ `(Cos(yaw+π/2), Sin(yaw+π/2))`.**
+  Ванильный `MiscGameplayFunctions.GetHeadingVector` берёт `headingAngle =
+  GetInputController().GetHeadingAngle()` = **`-yaw`** (инпут-контроллер «отрицателен» к
+  физическому `GetOrientation()[0]`), и `(Cos(-yaw+π/2), Sin(-yaw+π/2))` сворачивается в
+  `(Sin(yaw), Cos(yaw))`. Подстановка `+yaw` в `(Cos+π/2, Sin+π/2)` даёт ЗЕРКАЛЬНЫЙ forward
+  (X с обратным знаком) → forward развёрнут на 180°. Симптом: блок не гасил урон
+  (`hitAngle≈178°` при правильном развороте корпуса). Проявляется только на E/W-геометрии
+  (yaw≈90/270°); на N/S (0/180°) обе формулы совпадают — ложноположительный PASS возможен.
+- **`dmAI_TurnAmount` (turnAmount) — селектор позы, НЕ скорость.** Граф-переменная
+  `dmAI_TurnAmount` читается 5-позовым блендом `ErcTurnNBlend` (`Thresholds {-2 -1 0 1 2}`,
+  `Children {L180 L90 Idle R90 R180}`, `BlendFn Linear`). `turnAmount = dBody/90` — линейный
+  вес (угол непрерывный, 30° → вес 0.33 = частичный поворот), НО СКОРОСТЬ поворота — это
+  длительность root-motion анимации (зашита в `.agf`), а не переменная. «Ускорить через
+  константу» нельзя: `/90 → /22.5` ломает маппинг (ошибка 45° → вес 2.0 → поза R180 →
+  перелёт ~135°), значения за ±2 насыщаются. Ускорение анимации — только
+  `DebugOverrideAnimationSpeed(путь.anm, speed)` (Debug-натив, не прод).
+- **`CreateObject(init_ai=true)` даёт безмозглого AI-существа.** Без `InitAIAgent` ванильный
+  AI-агент грузит behaviour-дерево, но стоит в «Calm» и не берёт цель (не двигается/не
+  атакует). Рабочий спавн (паттерн Expansion `ExpansionMissionEventHorde`): `CreateObject(cls,
+  pos, false, false, true)` (init_ai=false) + `creature.InitAIAgent(GetGame().GetWorld().
+  GetAIWorld().CreateGroup(creature.ConfigGetString("aiAgentTemplate")))`. Причём ванильная
+  перцепция `DayZInfected` завязана на реальных сетевых игроков и НЕ видит
+  `INSTANCETYPE_AI_SERVER`-бота — зомби не агрится на AI-бота даже с мозгом (см. techdebt U).
 
 ## Проверочный список при написании кода
 

@@ -334,6 +334,45 @@ description: Живой справочник по ИИ-ботам для DayZ (�
     тот сбрасывается при переходе фазы и оставит стреляный ствол без перезарядки (бесконечное ожидание).
 - **Ванильные «конкуренты» прицела**: `HandleWeapons`/`HandleADS`/`HandleOptic` (все зовутся из `CommandHandler`, каждый может `ExitSights()→SetADS(false)`) + `AimingModel` — переопределить no-op'ом/false, иначе наш `SetADS` топчется и ствол трясётся/не поднимается. `HasPlayerSigns()` — заглушка `false`.
 
+### Мини-FSM кулачного боя (переписано; «тонкий координатор» с HitTo/Evasion/cooldown выше — УСТАРЕЛ)
+
+- **`dmBotState_Fighting` — фазы-машина**, а не координатор интентов. `enum dmFightPhase`
+  (`FIRST_MOVE`/`APPROACH`/`TURN`/`STRIKE`/`BLOCK`/`EVADE`) + предикаты-методы
+  (`DistToTarget`/`AngleToTarget`/`InStrikeRange`/`AngleAllowsStrike`/`AngleAllowsBlock`/
+  `EnemyTooClose`/`EnemyIsWindingUp`/`EnemyIsFacingMe`) + приоритетный арбитр
+  `DecideNextPhase` (защита → подход → доворот → удар; читается как фраза). Действия — ТОЛЬКО
+  интенты (`Approach`/`MeleeStrike`/`MeleeBlock`/`MeleeEvade`/`HoldLook`), НЕ прямые вызовы
+  пешки. Тип врага `dmFightEnemyType` (ZOMBIE/PLAYER/ANIMAL): animal без BLOCK/EVADE, у зомби
+  стартовая фаза FIRST_MOVE (блок 10с), player/animal — APPROACH.
+- **Доворот корпуса через `LookAtYaw`/`LookAtPoint(FULL)` из FSM НЕ работает**: одноразовый
+  вызов сбрасывается `LookForward()` в `UpdateIntents` (нет LOOK-интента-победителя) → корпус не
+  крутится. Правильно — держать FULL через LOOK-интент `HoldLook` (пере-выставляет look каждый
+  тик в `OnUpdate`). Симптом: TURN залипала на `yawDiff=90°`.
+- **Движение — через накопитель `IntentMove`, НЕ нативный `SetMove`**: интенты зовут
+  `bot.IntentMove(angle, speed)` (векторная сумма + max скорость); `ResetIntentMove` в начале
+  тика мозга, `HandleOnMove` в конце — нет вкладов → `SetMove(0,0)` (авто-стоп). Нативный
+  `SetMove` пешки зовётся ТОЛЬКО из `HandleOnMove`. Убрало «залипание движения» (SetMove sticky,
+  сброс был только в `OnCancel` при Finish, а `m_Active=false` лишь пропускал интент в арбитраже).
+- **Блок**: `dmBotIntent_MeleeBlock` = `RaiseWeapon(true)` + `IntentMove(180, …)` (назад) →
+  fight-logic сам ставит `SetMeleeBlock`+`SetBlock` (гашение урона читает скриптовый `SetBlock`).
+  Гашение — `EvaluateHit_Player` по ФИЗИЧЕСКОМУ `GetOrientation()[0]` (forward = `(Sin,Cos)`,
+  НЕ инпут-контроллер — у AI stale). Выход блока — удар получен / таймаут / враг закончил melee2
+  (`!EnemyIsWindingUp`). Оружие опускается (`RaiseWeapon(false)`) в TURN/APPROACH/OnExit.
+- **Во время удара (melee2) анимация сама управляет корпусом и взглядом**: гейть ВСЮ мобильность
+  по `IsMeleeStriking()` (`GetCommand_Move()==null && !busy`): `ApplyBodyTurn` (foot-step),
+  `UpdateLook` (взгляд/корпус), `TurnBodyToward` (слайд). НЕ «замораживать» корпус снапом
+  `SetOrientation(m_MeleeStrikeYaw)` каждый кадр (HeadingModel override) — это давало вращение
+  вокруг оси (конфликт с ротацией melee2). Гибрид доворота: foot-step (ноги видны) + слайд
+  `TurnBodyToward` поверх (скорость ~2×), слайд тоже гейтится `IsMeleeStriking`.
+- **Точность мили-удара**: `EvaluateHit` перед `super.EvaluateHit` — короткий рейкаст ВПЕРЁД
+  (по yaw, горизонтально, из груди `Spine3`, длина `reach×1.1`) — куда упёрлось туда нативный
+  хит (`SetHitPos`/`SetHitZoneIdx`); промах если пусто/препятствие. Зомби — без рейкаста, допуск
+  дистанции `reach×1.5` (хак). `Reach` — `dmBotMeleeCombat.GetReach()` (каст с базового
+  `DayZPlayerImplementMeleeCombat`, у которого `GetReach` нет).
+- **Approach ре-патит по дрейфу + steer-straight**: `UpdateGoal` обновляет `m_Goal` каждый тик,
+  ре-патинг по дрейфу >1м (троттл 1Гц); когда остался последний waypoint + LOS + dist<20м —
+  сбрасывает путь → `TickMove` рулит прямо на живую `m_Goal` (мгновенная реакция на смещение цели).
+
 ## Лут
 
 - **`dmLoot` (статик)** — лутинг-движок: `GetCategory` (FOOD/WEAPON/MELEE/MAGAZINE/AMMO/CLOTHING/
