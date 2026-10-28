@@ -139,14 +139,25 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 		return true;
 	}
 
-	//! Vanilla hit path: super.EvaluateHit applies one full hit (damage + blood/sound
-	//! effects + block check via EvaluateHit_Player/EvaluateHit_Infected ->
-	//! EvaluateHit_Common) using the valid hitZone from dmBotMeleeCombat.TargetSelection.
-	//! For zombies we then apply the remaining (N-1)x multiplier deferred to the next
-	//! frame (CallLater), so it does not collide with the per-frame damage dedup that
-	//! made the old direct-damage loop ineffective.
+	//! Re-check distance/obstacles on the actual hit frame (the last animation phase):
+	//! dmBotMeleeCombat.TargetSelection resolved the hitZone earlier (a head->torso
+	//! raycast), and the target may have stepped behind cover/out of reach since then.
+	//! A short chest ray (reach x1.1) re-resolves where the swing actually lands
+	//! (target/tree/wall) and re-aims the native hit there; a miss (nothing within
+	//! reach, or a zombie farther than reach x1.5) aborts the hit. Then super.EvaluateHit
+	//! applies one full hit (damage + blood/sound + block check), and for zombies the
+	//! remaining (N-1)x multiplier is deferred to the next frame (CallLater) so it does
+	//! not collide with the per-frame damage dedup that made the old direct-damage loop
+	//! ineffective.
 	override protected void EvaluateHit(InventoryItem weapon)
 	{
+		dmBotMeleeCombat mc = dmBotMeleeCombat.Cast(m_MeleeCombat);
+		if (!mc)
+		{
+			super.EvaluateHit(weapon);
+			return;
+		}
+
 		EntityAI target = m_MeleeCombat.GetTargetEntity();
 
 		#ifdef DM_BOT_DEBUG_DAMAGE
@@ -155,6 +166,59 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 		else
 			dmBotLog.Debug("EvaluateHit called target=null");
 		#endif
+
+		if (target)
+		{
+			vector botPos = m_Player.GetPosition();
+			vector targetPos = target.GetPosition();
+
+			if (ZombieBase.Cast(target))
+			{
+				//! Зомби — обход: без рейкаста, только дистанция <= 1.5× рейнджа.
+				float zdist = vector.Distance(botPos, targetPos);
+				if (zdist > mc.GetReach() * DM_MELEE_ZOMBIE_REACH_MULT)
+				{
+					#ifdef DM_BOT_DEBUG_DAMAGE
+					dmBotLog.Debug("EvaluateHit: zombie miss dist=" + zdist + " reach=" + mc.GetReach());
+					#endif
+					return;
+				}
+			}
+			else
+			{
+				//! Короткий рейкаст из груди (не из глаз), длина = reach × 1.1.
+				//! Куда упёрлось (цель/дерево/стена) — туда и кидаем нативный хит.
+				int chestBone = m_Player.GetBoneIndexByName("Spine3");
+				vector rayStart;
+				if (chestBone >= 0)
+					rayStart = m_Player.GetBonePositionWS(chestBone);
+				else
+					rayStart = botPos + Vector(0, 1.3, 0);  // фолбэк: уровень груди
+
+				//! Рейкаст ВПЕРЁД (по направлению корпуса), горизонтально — куда смотрит удар.
+				//! forward для yaw = (Sin, Cos), как в EvaluateHit_Player.
+				float yawRad = m_Player.GetOrientation()[0] * Math.DEG2RAD;
+				vector forward = Vector(Math.Sin(yawRad), 0.0, Math.Cos(yawRad));
+				float reach = mc.GetReach() * DM_MELEE_HIT_REACH_MULT;
+				vector rayEnd = rayStart + forward * reach;
+
+				vector hitPos = rayEnd;
+				vector hitNormal;
+				int hitZone = -1;
+				set<Object> hitObjects = new set<Object>;
+				if (!DayZPhysics.RaycastRV(rayStart, rayEnd, hitPos, hitNormal, hitZone, hitObjects, null, m_Player, false, false, ObjIntersectIFire, 0.0, CollisionFlags.ALLOBJECTS))
+				{
+					#ifdef DM_BOT_DEBUG_DAMAGE
+					dmBotLog.Debug("EvaluateHit: raycast miss (nothing in reach)");
+					#endif
+					return;
+				}
+
+				//! Куда упёрлось — туда бьём (точка удара + компонент).
+				m_MeleeCombat.SetHitPos(hitPos);
+				m_MeleeCombat.SetHitZoneIdx(hitZone);
+			}
+		}
 
 		super.EvaluateHit(weapon);
 

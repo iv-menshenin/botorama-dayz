@@ -710,6 +710,11 @@ static const int DM_MELEE_HIT_DELAY_MS = 250;
 //! Melee: fallback strike reach (meters) when the weapon reach can't be read.
 static const float DM_MELEE_REACH = 1.5;
 
+//! Melee: запас рейкаста-удара на кадре Hit (+10% к reach).
+static const float DM_MELEE_HIT_REACH_MULT = 1.1;
+//! Melee: зомби — допуск дистанции ×1.5 (хак, без рейкаста).
+static const float DM_MELEE_ZOMBIE_REACH_MULT = 1.5;
+
 //! Melee block: «враг слишком близко» → блок/эвейд (метры).
 static const float DM_MELEE_BLOCK_RANGE = 5.0;
 //! Melee block: угол (градусы) корпуса к врагу, при котором блок срабатывает
