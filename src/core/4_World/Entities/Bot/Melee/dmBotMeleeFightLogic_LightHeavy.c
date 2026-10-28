@@ -170,7 +170,10 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 	//! SetOrientation/foot-step without syncing the input-controller heading, so
 	//! that heading stays stale and hitAngle > PVP_MAX_BLOCKABLE_ANGLE -> the block
 	//! never cancels damage. Here the angle is taken from the PHYSICAL body
-	//! orientation (GetOrientation()[0] = yaw in degrees, 0 = north), same formula.
+	//! orientation (GetOrientation()[0] = yaw in degrees, 0 = north). The
+	//! controller heading is the NEGATIVE of the physical yaw, so the vanilla
+	//! (Cos(angle+PI_HALF), Sin(angle+PI_HALF)) at angle=-yaw reduces to the
+	//! forward (Sin(yaw), Cos(yaw)) used below (not the vanilla formula verbatim).
 	override protected void EvaluateHit_Player(InventoryItem weapon, Object target)
 	{
 		int weaponMode = m_MeleeCombat.GetWeaponMode();
@@ -184,7 +187,11 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 			vector agressorPos = m_Player.GetPosition();
 
 			float yawRad = targetPlayer.GetOrientation()[0] * Math.DEG2RAD;
-			vector targetForward = Vector(Math.Cos(yawRad + Math.PI_HALF), 0.0, Math.Sin(yawRad + Math.PI_HALF));
+			//! Forward из физического yaw: инпут-контроллер GetHeadingAngle() = -yaw, поэтому
+			//! ванильное (Cos(angle+PI_HALF), Sin(angle+PI_HALF)) при angle=-yaw сводится к
+			//! (Sin(yaw), Cos(yaw)). Подстановка +yaw в (Cos+PI_HALF, Sin+PI_HALF) даёт знак X
+			//! наоборот (forward зеркален) → hitAngle≈180°, блок не гасил урон.
+			vector targetForward = Vector(Math.Sin(yawRad), 0.0, Math.Cos(yawRad));
 			float hitAngle = Math.RAD2DEG * Math.AbsFloat(Math3D.AngleFromPosition(targetPos, targetForward, agressorPos));
 
 			bool inBlock = targetPlayer.GetMeleeFightLogic() && targetPlayer.GetMeleeFightLogic().IsInBlock();

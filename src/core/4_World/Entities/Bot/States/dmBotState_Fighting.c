@@ -30,6 +30,9 @@ class dmBotState_Fighting : dmBotState
 	ref dmTarget m_Target;
 	ref dmBotIntent_Approach m_Approach;
 	ref dmBotIntent_HoldLook m_Look;
+	ref dmBotIntent_MeleeStrike m_Strike;
+	ref dmBotIntent_MeleeBlock m_Block;
+	ref dmBotIntent_MeleeEvade m_Evade;
 	float m_RetargetTimer;
 	float m_PreferredSpeed;
 	ref dmInventoryFrame m_EquipRoot;
@@ -38,8 +41,6 @@ class dmBotState_Fighting : dmBotState
 	dmFightEnemyType m_EnemyType;
 	float m_PhaseTimer;
 	dmFightPhase m_LastLoggedPhase;
-	bool m_StrikeRequested;
-	bool m_StrikeStarted;
 
 	override dmBotStateKind GetKind()
 	{
@@ -65,6 +66,9 @@ class dmBotState_Fighting : dmBotState
 		m_Target = null;
 		m_Approach = null;
 		m_Look = null;
+		m_Strike = null;
+		m_Block = null;
+		m_Evade = null;
 		m_RetargetTimer = 0.0;
 		m_EquipRoot = null;
 
@@ -132,10 +136,16 @@ class dmBotState_Fighting : dmBotState
 		switch (m_Phase)
 		{
 			case dmFightPhase.FIGHT_STRIKE:
-				Phase_Strike(bot, pawn);
+				Phase_Strike(bot);
 				break;
 			case dmFightPhase.FIGHT_TURN:
 				Phase_Turn(bot);
+				break;
+			case dmFightPhase.FIGHT_BLOCK:
+				Phase_Block(bot);
+				break;
+			case dmFightPhase.FIGHT_EVADE:
+				Phase_Evade(bot);
 				break;
 			default:
 				Phase_Approach(bot);
@@ -166,6 +176,9 @@ class dmBotState_Fighting : dmBotState
 
 		if ( m_Approach ) m_Approach.Finish();
 		if ( m_Look ) { m_Look.Finish(); m_Look = null; }
+		if ( m_Strike ) { m_Strike.Finish(); m_Strike = null; }
+		if ( m_Block ) { m_Block.Finish(); m_Block = null; }
+		if ( m_Evade ) { m_Evade.Finish(); m_Evade = null; }
 
 		dmAISurvivor bot = GetOwner();
 		if ( bot )
@@ -201,6 +214,9 @@ class dmBotState_Fighting : dmBotState
 			//! пересоздался под новую цель (иначе подходит к старой).
 			if (m_Approach) { m_Approach.Finish(); m_Approach = null; }
 			if (m_Look) { m_Look.Finish(); m_Look = null; }
+			if (m_Strike) { m_Strike.Finish(); m_Strike = null; }
+			if (m_Block) { m_Block.Finish(); m_Block = null; }
+			if (m_Evade) { m_Evade.Finish(); m_Evade = null; }
 
 			#ifdef DM_BOT_DEBUG_FIGHT
 			dmBotLog.Debug("[FSM] Fighting: цель сменилась, интенты сброшены");
@@ -257,17 +273,26 @@ class dmBotState_Fighting : dmBotState
 		}
 	}
 
-	void Phase_Strike(dmAISurvivor bot, dmAISurvivorBase pawn)
+	void EnsureStrike(dmAISurvivor bot)
 	{
-		if (!m_StrikeRequested)
+		if (m_Strike && (m_Strike.IsFinished() || m_Strike.IsExpired()))
+			m_Strike = null;
+		if (!m_Strike)
 		{
-			pawn.RequestMeleeAttack(m_TargetEntity);
-			m_StrikeRequested = true;
+			m_Strike = new dmBotIntent_MeleeStrike();
+			m_Strike.m_TargetEntity = m_TargetEntity;
+			m_Strike.m_Priority = dmBotIntentPriority.CRITICAL;
+			m_Strike.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+			bot.AddFSMIntent(m_Strike);
 		}
-		if (!m_StrikeStarted && pawn.IsMeleeStriking())
-			m_StrikeStarted = true;
-		if (m_Approach) m_Approach.m_Active = false;  // стоим на месте, бьём
-		if (m_Look) m_Look.m_Active = false;          // тело уже довёрнуто из TURN
+	}
+
+	void Phase_Strike(dmAISurvivor bot)
+	{
+		EnsureStrike(bot);
+		m_Strike.m_Active = true;
+		if (m_Approach) m_Approach.m_Active = false;  // стоим, бьём
+		if (m_Look) m_Look.m_Active = false;
 	}
 
 	void Phase_Turn(dmAISurvivor bot)
@@ -275,6 +300,50 @@ class dmBotState_Fighting : dmBotState
 		if (m_Approach) m_Approach.m_Active = false;   // стоим на месте — доворот без движения
 		EnsureLook(bot);
 		m_Look.m_Active = true;                        // HoldLook (FULL) доворачивает каждый тик
+	}
+
+	void EnsureBlock(dmAISurvivor bot)
+	{
+		if (m_Block && (m_Block.IsFinished() || m_Block.IsExpired()))
+			m_Block = null;
+		if (!m_Block)
+		{
+			m_Block = new dmBotIntent_MeleeBlock();
+			m_Block.m_Priority = dmBotIntentPriority.CRITICAL;
+			m_Block.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+			bot.AddFSMIntent(m_Block);
+		}
+	}
+
+	void Phase_Block(dmAISurvivor bot)
+	{
+		EnsureBlock(bot);
+		m_Block.m_Active = true;
+		if (m_Approach) m_Approach.m_Active = false;
+		EnsureLook(bot);
+		m_Look.m_Active = true;   // корпус к врагу — иначе EvaluateHit_Player не гасит урон
+	}
+
+	void EnsureEvade(dmAISurvivor bot)
+	{
+		if (m_Evade && (m_Evade.IsFinished() || m_Evade.IsExpired()))
+			m_Evade = null;
+		if (!m_Evade)
+		{
+			m_Evade = new dmBotIntent_MeleeEvade();
+			m_Evade.m_TargetEntity = m_TargetEntity;
+			m_Evade.m_Priority = dmBotIntentPriority.CRITICAL;
+			m_Evade.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
+			bot.AddFSMIntent(m_Evade);
+		}
+	}
+
+	void Phase_Evade(dmAISurvivor bot)
+	{
+		EnsureEvade(bot);
+		m_Evade.m_Active = true;
+		if (m_Approach) m_Approach.m_Active = false;
+		if (m_Look) m_Look.m_Active = false;   // ролл сам разворачивает
 	}
 
 	bool PhaseExited(float pDt)
@@ -286,23 +355,23 @@ class dmBotState_Fighting : dmBotState
 			case dmFightPhase.FIGHT_TURN:
 				return AngleAllowsStrike();   // довернулся до 20° — можно бить
 			case dmFightPhase.FIGHT_STRIKE:
-			{
-				dmAISurvivorBase pawn = GetOwner().GetPawn();
-				if (!m_StrikeRequested) return false;    // ещё не запрашивали
-				if (!m_StrikeStarted) return false;      // замах ещё не стартовал
-				if (pawn && pawn.IsMeleeStriking()) return false;  // замах ещё идёт
-				//! Замах завершён: сброс латчей — чтобы следующий STRIKE-цикл
-				//! (комбо-серия) запросил новый удар.
-				m_StrikeRequested = false;
-				m_StrikeStarted = false;
-				return true;
-			}
+				return m_Strike && m_Strike.IsFinished();   // интент завершил удар
+			case dmFightPhase.FIGHT_BLOCK:
+				return m_Block && m_Block.IsFinished();   // удар получен ИЛИ таймаут (в интенте)
+			case dmFightPhase.FIGHT_EVADE:
+				return m_Evade && m_Evade.IsFinished();   // ролл завершён
 		}
 		return true;
 	}
 
 	dmFightPhase DecideNextPhase()
 	{
+		if (EnemyTooClose() && EnemyIsWindingUp() && EnemyIsFacingMe())
+		{
+			if (AngleAllowsBlock())
+				return dmFightPhase.FIGHT_BLOCK;
+			return dmFightPhase.FIGHT_EVADE;
+		}
 		if (!InStrikeRange()) return dmFightPhase.FIGHT_APPROACH;
 		if (!AngleAllowsStrike()) return dmFightPhase.FIGHT_TURN;
 		return dmFightPhase.FIGHT_STRIKE;
@@ -358,6 +427,30 @@ class dmBotState_Fighting : dmBotState
 	bool AngleAllowsStrike()
 	{
 		return Math.AbsFloat(AngleToTarget()) <= DM_MELEE_FACE_ANGLE;
+	}
+
+	//! Враг вплотную — блок/эвейд уже уместен, а не удар.
+	bool EnemyTooClose()
+	{
+		return DistToTarget() <= DM_MELEE_BLOCK_RANGE;
+	}
+
+	//! Враг сейчас в замахе/атаке мили (мы «ожидаем удара» от него).
+	bool EnemyIsWindingUp()
+	{
+		return m_Target && m_Target.IsWindingUp();
+	}
+
+	//! Корпус врага направлен на бота (атакует «меня», а не кого-то ещё).
+	bool EnemyIsFacingMe()
+	{
+		return m_Target && m_Target.IsFacingMe(GetOwner().GetPosition());
+	}
+
+	//! Угол корпуса к врагу позволяет блок (гашение по EvaluateHit_Player).
+	bool AngleAllowsBlock()
+	{
+		return Math.AbsFloat(AngleToTarget()) <= DM_MELEE_BLOCK_ANGLE;
 	}
 
 	//! Держать в руках целый мили-предмет: если в руках не мили (или мили сломан),
