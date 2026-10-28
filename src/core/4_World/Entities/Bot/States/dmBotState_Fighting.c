@@ -184,6 +184,8 @@ class dmBotState_Fighting : dmBotState
 		if ( bot )
 		{
 			bot.SetInCombat(false);
+			dmAISurvivorBase pawn = bot.GetPawn();
+			if (pawn) pawn.RaiseWeapon(false);   // выход из боя — руки вниз
 			bot.ClearMeleeDanger();
 			bot.SetPreferredSpeed(m_PreferredSpeed);
 		}
@@ -256,6 +258,8 @@ class dmBotState_Fighting : dmBotState
 		EnsureApproach(bot);
 		m_Approach.m_Active = true;
 		if (m_Look) m_Look.m_Active = false;   // подход сам доворачивает через KeepLookAtGoal
+		dmAISurvivorBase pawn = bot.GetPawn();
+		if (pawn) pawn.RaiseWeapon(false);     // подход — руки вниз
 	}
 
 	void EnsureLook(dmAISurvivor bot)
@@ -298,6 +302,8 @@ class dmBotState_Fighting : dmBotState
 	void Phase_Turn(dmAISurvivor bot, float yawToTarget, float pDt)
 	{
 		if (m_Approach) m_Approach.m_Active = false;   // стоим
+		dmAISurvivorBase pawn = bot.GetPawn();
+		if (pawn) pawn.RaiseWeapon(false);             // доворот — руки вниз
 		EnsureLook(bot);
 		m_Look.m_Active = true;                        // foot-step: ноги шевелятся (моушен-граф)
 		bot.TurnBodyToward(yawToTarget, DM_FIGHT_BODY_TURN_RATE, pDt);  // слайд: доворачиваем быстрее
