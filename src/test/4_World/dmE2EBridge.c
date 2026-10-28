@@ -1695,9 +1695,14 @@ class dmE2EBridge
 		{
 			zpos = botPos + Vector(Math.RandomFloat(-zdist, zdist), 0.0, Math.RandomFloat(-zdist, zdist));
 			zpos = SnapToGroundExactly(zpos);
-			ZombieBase z = ZombieBase.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", zpos, false, true));
+			ZombieBase z = ZombieBase.Cast(GetGame().CreateObject("ZmbM_PatrolNormal_Autumn", zpos, false, false, true));
 			if (z)
 			{
+				string templateName = z.ConfigGetString("aiAgentTemplate");
+				if (templateName == "")
+					templateName = "Infected";
+				AIGroup group = GetGame().GetWorld().GetAIWorld().CreateGroup(templateName);
+				z.InitAIAgent(group);
 				bot.RegisterHostile(z, 1.0, DM_INVASION_SPREAD);
 				spawned = spawned + 1;
 			}

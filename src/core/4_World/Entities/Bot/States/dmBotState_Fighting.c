@@ -395,7 +395,8 @@ class dmBotState_Fighting : dmBotState
 
 	dmFightPhase DecideNextPhase()
 	{
-		if (EnemyTooClose() && EnemyIsWindingUp() && EnemyIsFacingMe())
+		//! Защита (блок/эвейд) — только против зомби и игрока; у animal её нет.
+		if (m_EnemyType != dmFightEnemyType.FIGHT_ANIMAL && EnemyTooClose() && EnemyIsWindingUp() && EnemyIsFacingMe())
 		{
 			if (AngleAllowsBlock())
 				return dmFightPhase.FIGHT_BLOCK;
