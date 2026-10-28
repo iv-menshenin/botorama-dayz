@@ -139,7 +139,7 @@ class dmBotState_Fighting : dmBotState
 				Phase_Strike(bot);
 				break;
 			case dmFightPhase.FIGHT_TURN:
-				Phase_Turn(bot);
+				Phase_Turn(bot, yawToTarget, pDt);
 				break;
 			case dmFightPhase.FIGHT_BLOCK:
 				Phase_Block(bot);
@@ -295,11 +295,12 @@ class dmBotState_Fighting : dmBotState
 		if (m_Look) m_Look.m_Active = false;
 	}
 
-	void Phase_Turn(dmAISurvivor bot)
+	void Phase_Turn(dmAISurvivor bot, float yawToTarget, float pDt)
 	{
-		if (m_Approach) m_Approach.m_Active = false;   // стоим на месте — доворот без движения
+		if (m_Approach) m_Approach.m_Active = false;   // стоим
 		EnsureLook(bot);
-		m_Look.m_Active = true;                        // HoldLook (FULL) доворачивает каждый тик
+		m_Look.m_Active = true;                        // foot-step: ноги шевелятся (моушен-граф)
+		bot.TurnBodyToward(yawToTarget, DM_FIGHT_BODY_TURN_RATE, pDt);  // слайд: доворачиваем быстрее
 	}
 
 	void EnsureBlock(dmAISurvivor bot)

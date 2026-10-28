@@ -9,6 +9,10 @@ class dmBotIntent_Approach: dmBotIntent_MoveTo
 {
 	EntityAI m_TargetEntity;
 
+	float m_PathTimer;
+	vector m_LastPathGoal = vector.Zero;
+	bool m_PathGoalValid = false;
+
 	void dmBotIntent_Approach()
 	{
 		m_Concurrency = dmBotIntentConcurrency.PARALLEL;
@@ -36,11 +40,32 @@ class dmBotIntent_Approach: dmBotIntent_MoveTo
 		if ( m_TargetEntity ) m_Goal = m_TargetEntity.GetPosition();
 
 		super.OnStart(bot);
+
+		m_PathTimer = DM_FOLLOW_PATH_INTERVAL;
+		m_LastPathGoal = vector.Zero;
+		m_PathGoalValid = false;
 	}
 
 	override void UpdateGoal(dmAISurvivor bot, float pDt)
 	{
 		if ( m_TargetEntity ) m_Goal = m_TargetEntity.GetPosition();
+
+		//! Ре-патинг по дрейфу цели (как FollowTo): маршрут перепрокладываем, только
+		//! когда цель реально сдвинулась от конца прошлого пути (иначе ре-патинг
+		//! сбрасывает progress-monitor и ломает stuck-detection).
+		m_PathTimer += pDt;
+		if (m_PathTimer >= DM_FOLLOW_PATH_INTERVAL)
+		{
+			m_PathTimer = 0.0;
+			vector drift = m_Goal - m_LastPathGoal;
+			drift[1] = 0.0;
+			if (!m_PathGoalValid || drift.Length() > DM_APPROACH_REPATH_DIST)
+			{
+				m_LastPathGoal = m_Goal;
+				m_PathGoalValid = true;
+				RePath(bot);
+			}
+		}
 	}
 	
 	override float GetMoveSpeed(dmAISurvivor bot)

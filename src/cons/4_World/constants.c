@@ -7,7 +7,7 @@ static const string DM_DEFAULT_MODEL = "dmAI_SurvivorM_Denis";
 static const float DM_EYE_HEIGHT = 1.4;
 
 //! Look turn smoothing speed (per second). Higher = faster head turn.
-static const float DM_LOOK_TURN_SPEED = 3.0;
+static const float DM_LOOK_TURN_SPEED = 12.0;
 
 //! Maximum head look yaw offset from the body (degrees).
 static const float DM_LOOK_MAX_YAW = 90.0;
@@ -761,6 +761,11 @@ static const float DM_FIGHT_BODY_TURN_RATE = 200.0;
 //! Melee approach: distance (meters) below which the bot steers straight at the
 //! target (SetMoveYaw + SetMove) instead of running a navmesh MoveTo.
 static const float DM_MELEE_APPROACH_NO_PATH_DIST = 3.0;
+
+//! Melee approach: minimum 2D target drift (meters) that triggers a re-path.
+//! Tighter than DM_FOLLOW_REPATH_DIST (2.0) — the melee target is within reach,
+//! so a 2 m drift would let the bot steer at a point far behind the live target.
+static const float DM_APPROACH_REPATH_DIST = 1.0;
 
 //! Melee evasion: strafe speed (0..3) while dodging between strikes.
 static const float DM_MELEE_EVADE_SPEED = 2.0;

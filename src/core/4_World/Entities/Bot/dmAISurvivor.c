@@ -963,6 +963,11 @@ class dmAISurvivor
 		if (!m_Pawn)
 			return;
 
+		//! Во время удара анимация melee2 сама управляет корпусом — слайд-доворот
+		//! конфликтует с ней.
+		if (m_Pawn.IsMeleeStriking())
+			return;
+
 		float bodyYaw = m_Pawn.GetOrientation()[0];
 		float dBody = AngleDiff(worldYaw, bodyYaw);
 		float maxStep = rateDegPerSec * pDt;
