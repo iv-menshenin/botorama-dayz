@@ -41,7 +41,6 @@ class dmBotIntent_SitByFireplace : dmBotIntent_MoveTo
 
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
-		bot.SetMove(0.0, 0.0);
 		bot.FacePoint(m_Fireplace.GetPosition());
 
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());

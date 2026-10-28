@@ -46,7 +46,6 @@ class dmBotIntent_MedicalAction : dmBotIntent
 		m_Phase = 0;
 		m_PhaseTimer = 0.0;
 		m_ActionCB = null;
-		bot.SetMove(0.0, 0.0);
 
 		#ifdef DM_BOT_DEBUG_MEDICAL
 		dmBotLog.Debug("[Medical] OnStart: m_Phase=" + m_Phase);
@@ -66,8 +65,6 @@ class dmBotIntent_MedicalAction : dmBotIntent
 			Fail();
 			return;
 		}
-
-		bot.SetMove(0.0, 0.0);
 
 		if (m_Phase == 0)
 			PhasePrepare(pawn);
@@ -226,7 +223,6 @@ class dmBotIntent_MedicalAction : dmBotIntent
 	{
 		super.OnCancel(bot);
 		StopAction(bot);
-		bot.SetMove(0.0, 0.0);
 	}
 
 	void StopAction(dmAISurvivor bot)

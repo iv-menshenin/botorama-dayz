@@ -153,7 +153,6 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 		//! Конечные условия (a)-(d).
 		if (CheckEndConditions(bot))
 		{
-			bot.SetMove(0.0, 0.0);
 			Finish();
 			return;
 		}
@@ -163,7 +162,6 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 		if (m_StallTimer > DM_EVADE_AIM_STALL_TIMEOUT)
 		{
 			dmBotLog.Error("EvadeAim: stall timeout, abort");
-			bot.SetMove(0.0, 0.0);
 			Fail();
 			return;
 		}
@@ -188,11 +186,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 					m_StrafeTimer = 0.0;
 					m_StrafeSign = -m_StrafeSign;
 				}
-				bot.SetMove(m_StrafeSign * 90.0, 3.0);
-			}
-			else
-			{
-				bot.SetMove(0.0, 0.0);
+				bot.IntentMove(m_StrafeSign * 90.0, 3.0);
 			}
 			return;
 		}
@@ -202,8 +196,6 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
-		bot.SetMove(0.0, 0.0);
-
 		#ifdef DM_BOT_DEBUG_EVADE
 		dmBotLog.Debug("[Evade] reached goal");
 		#endif

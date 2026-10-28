@@ -172,7 +172,6 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! finish. Subclasses (e.g. dmBotIntent_PickUp) override to act on the goal.
 	void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
-		bot.SetMove(0.0, 0.0);
 		Finish();
 	}
 
@@ -292,7 +291,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		dmBotLog.Debug("[PATH] TickRecover m_RecoverDir=" + m_RecoverDir);
 		#endif
 		m_RecoverTimer -= pDt;
-		bot.SetMove(m_RecoverDir, 1.0);
+		bot.IntentMove(m_RecoverDir, 1.0);
 
 		if (m_RecoverTimer > 0.0)
 			return;
@@ -306,7 +305,6 @@ class dmBotIntent_MoveTo : dmBotIntent
 		{
 			if (ShouldLogNoPath("recover:" + m_Goal.ToString()))
 				dmBotLog.Error("MoveTo: восстановление не помогло, путь к " + m_Goal + " недоступен, abort");
-			bot.SetMove(0.0, 0.0);
 			Fail();
 			return;
 		}
@@ -323,7 +321,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		dmBotLog.Debug("[PATH] TickDetour m_DetourDir=" + m_DetourDir);
 		#endif
 		m_DetourTimer -= pDt;
-		bot.SetMove(m_DetourDir, 1.0);
+		bot.IntentMove(m_DetourDir, 1.0);
 
 		if (m_DetourTimer > 0.0)
 			return;
@@ -337,7 +335,6 @@ class dmBotIntent_MoveTo : dmBotIntent
 		{
 			if (ShouldLogNoPath("detour:" + m_Goal.ToString()))
 				dmBotLog.Error("MoveTo: detour не помог, путь к " + m_Goal + " недоступен, abort");
-			bot.SetMove(0.0, 0.0);
 			Fail();
 			return;
 		}
@@ -351,7 +348,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 	void TickVeer(dmAISurvivor bot, float pDt)
 	{
 		m_VeerTimer -= pDt;
-		bot.SetMove(m_VeerDir, m_VeerSpeed);
+		bot.IntentMove(m_VeerDir, m_VeerSpeed);
 		if (m_VeerTimer <= 0.0)
 		{
 			m_Veering = false;
@@ -388,12 +385,11 @@ class dmBotIntent_MoveTo : dmBotIntent
 	void TickStepBack(dmAISurvivor bot, float pDt)
 	{
 		m_StepBackTimer -= pDt;
-		bot.SetMove(180.0, 1.0);
+		bot.IntentMove(180.0, 1.0);
 
 		if (m_StepBackTimer <= 0.0)
 		{
 			m_SteppingBack = false;
-			bot.SetMove(0.0, 0.0);
 			RePath(bot);
 		}
 	}
@@ -553,7 +549,6 @@ class dmBotIntent_MoveTo : dmBotIntent
 			#ifdef DM_BOT_DEBUG_PATHFINDER
 			dmBotLog.Debug("[PATH] TickMove STOP m_NoGroundAhead=" + m_NoGroundAhead);
 			#endif
-			bot.SetMove(0.0, 0.0);
 			return;
 		}
 
@@ -648,7 +643,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (KeepLookAtGoal())
 			bot.LookAtPoint(subGoal + Vector(0, DM_EYE_HEIGHT, 0), dmBotLookTurn.FULL);
 		float speed = GetMoveSpeed(bot);
-		bot.SetMove(moveAngle, speed);
+		bot.IntentMove(moveAngle, speed);
 
 		#ifdef DM_BOT_DEBUG_FSM
 		m_DebugAccum += pDt;
@@ -864,7 +859,6 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (ShouldLogNoPath("stuck:" + m_Goal.ToString()))
 			dmBotLog.Error("MoveTo: застрял на пути к " + m_Goal + ", abort");
-		bot.SetMove(0.0, 0.0);
 		Fail();
 		return false;
 	}
@@ -1558,7 +1552,5 @@ class dmBotIntent_MoveTo : dmBotIntent
 	override void OnCancel(dmAISurvivor bot)
 	{
 		super.OnCancel(bot);
-
-		bot.SetMove(0.0, 0.0);
 	}
 }

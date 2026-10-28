@@ -32,6 +32,6 @@ class dmBotIntent_Evasion : dmBotIntent
 			m_Sign = -m_Sign;
 		}
 
-		bot.SetMove(m_Sign * 90.0, DM_MELEE_EVADE_SPEED);
+		bot.IntentMove(m_Sign * 90.0, DM_MELEE_EVADE_SPEED);
 	}
 }

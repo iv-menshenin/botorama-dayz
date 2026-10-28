@@ -1178,10 +1178,7 @@ class dmAISurvivorBase : PlayerBase
 		ApplyWeaponADS();
 		if (!onLadder)
 		{
-			if (IsMeleeStriking())
-				SetOrientation(Vector(m_MeleeStrikeYaw, 0.0, 0.0));   // заморозка на замахе
-			else
-				ApplyBodyTurn(pDt);
+			ApplyBodyTurn(pDt);
 		}
 		if (onLadder)
 			m_TurnSharp = false;   // иначе устаревший флаг резкого поворота затормозит подъём
@@ -1551,28 +1548,6 @@ class dmAISurvivorBase : PlayerBase
 		m_FireRequest = false;
 	}
 
-	//! Заморозить яу тела только на время MELEE2 (замах): нативный доворот к цели
-	//! раскручивает модель (натив↔скрипт осцилляция). Для MOVE и прочего — нативный
-	//! HeadingModel (RotateOrient) доворачивает корпус к направлению движения.
-	//! Mirrors Expansion eAIBase.HeadingModel.
-	override bool HeadingModel(float pDt, SDayZPlayerHeadingModel pModel)
-	{
-		GetMovementState(m_MovementState);
-		float angle;
-		if (m_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_MELEE2)
-		{
-			//! Заморозка на время замаха: снап orientation к стартовому яу, чтобы
-			//! нативный доворот к цели не раскрутил модель (натив↔скрипт осцилляция).
-			m_fLastHeadingDiff = 0;
-			angle = m_MeleeStrikeYaw * Math.DEG2RAD;
-			pModel.m_fHeadingAngle = angle;
-			pModel.m_fOrientationAngle = angle;
-			SetOrientation(Vector(m_MeleeStrikeYaw, 0.0, 0.0));
-			return true;
-		}
-		return super.HeadingModel(pDt, pModel);
-	}
-
 	//! Signed angle difference, normalized to (-180, 180].
 	static float AngleDiff(float a, float b)
 	{
@@ -1590,6 +1565,21 @@ class dmAISurvivorBase : PlayerBase
 	//! m_TurnSharp тормозит движение только при резком довороте ВО ВРЕМЯ ходьбы.
 	void ApplyBodyTurn(float pDt)
 	{
+		//! Во время удара (melee2) анимация сама управляет корпусом — foot-step
+		//! конфликтует с ней (вращение вокруг оси). Гасим любой идущий foot-step.
+		if (IsMeleeStriking())
+		{
+			if (m_TurnState != 0)
+			{
+				if (m_CmdStopTurn >= 0)
+					AnimCallCommand(m_CmdStopTurn, 0, 0.0);
+				if (m_VarTurnAmount >= 0)
+					AnimSetFloat(m_VarTurnAmount, 0.0);
+				m_TurnState = 0;
+			}
+			return;
+		}
+
 		float bodyYaw = GetOrientation()[0];
 		float dBody = AngleDiff(m_TargetBodyYaw, bodyYaw);
 		bool moving = m_IsMoving;

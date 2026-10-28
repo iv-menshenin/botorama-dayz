@@ -203,7 +203,6 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
 		// super.OnReachedGoal(bot, pos);
-		bot.SetMove(0.0, 0.0);
 		m_IsReached = true;
 
 		#ifdef DM_BOT_DEBUG_FSM

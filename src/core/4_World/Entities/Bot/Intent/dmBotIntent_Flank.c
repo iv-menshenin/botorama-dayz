@@ -92,7 +92,6 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 		//! Positive case: the target is now visible — stop and hand back to Aim.
 		if (CheckLOS(bot))
 		{
-			bot.SetMove(0.0, 0.0);
 			Finish();
 			return;
 		}
@@ -105,7 +104,6 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 			dmBotLog.Debug("[FSM] Flank: stall timeout=" + m_StallTimer);
 			#endif
 			dmBotLog.Error("Flank: stall timeout, abort");
-			bot.SetMove(0.0, 0.0);
 			Fail();
 			return;
 		}
@@ -121,7 +119,6 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 		//! No path yet (both sides failed this tick) — hold position, try next tick.
 		if (!m_HasPath)
 		{
-			bot.SetMove(0.0, 0.0);
 			return;
 		}
 
@@ -130,8 +127,6 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
-		bot.SetMove(0.0, 0.0);
-
 		//! Re-check LOS at the candidate; if visible we are done.
 		if (CheckLOS(bot))
 		{
@@ -174,7 +169,6 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 				dmBotLog.Debug("[FSM] Flank: свип исчерпан angle=" + m_FlankAngle);
 				#endif
 				dmBotLog.Error("Flank: свип исчерпан, abort");
-				bot.SetMove(0.0, 0.0);
 				Fail();
 				return;	
 			}

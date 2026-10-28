@@ -77,6 +77,13 @@ class dmAISurvivor
 	//! True while walking (movement controls body facing).
 	private bool m_IsMoving = false;
 
+	//! Накопитель движения (авто-сброс): сумма векторов скорости вкладов за тик
+	//! (локальный фрейм: X = вправо, Z = вперёд), максимум скорости и число вкладов.
+	//! Заполняет IntentMove(), применяет HandleOnMove() в конце тика; нет вкладов → стоп.
+	private vector m_IntentMoveAccum = vector.Zero;
+	private float m_IntentMoveMaxSpeed = 0.0;
+	private int m_IntentMoveCount = 0;
+
 	//! Desired movement direction (world yaw, degrees). Set by movement intents;
 	//! ComputeBodyYaw uses it to face the movement direction when the body isn't
 	//! held by a priority look intent.
@@ -529,6 +536,9 @@ class dmAISurvivor
 
 		m_Arsenal.Tick(pDt);
 
+		//! Сброс накопителя движения в начале тика: интенты заново вносят вклады.
+		ResetIntentMove();
+
 		if (m_FSM)
 			m_FSM.Update(pDt);
 
@@ -551,6 +561,7 @@ class dmAISurvivor
 
 		UpdateEvade();
 		UpdateIntents(pDt);
+		HandleOnMove();
 		m_Pawn.GetInventoryFrames().Tick();
 		if (m_Pawn.GetAiming().IsEnabled())
 			m_Pawn.GetAiming().OnUpdate(pDt);
@@ -897,19 +908,43 @@ class dmAISurvivor
 	// Movement
 	//------------------------------------------------------------------
 
-	//! Set movement direction (relative to the body, degrees) and speed (0..3).
-	//! @param angle -180..180: 0 = forward, ±90 = strafe, ±180 = backward.
-	//! @param speed 0 = idle, 1 = walk, 2 = run, 3 = sprint.
-	void SetMove(float angle, float speed)
+	//! Прокси движения: НЕ зовёт нативный SetMove, только накапливает вклад в тик.
+	//! Многократные вызовы дают векторное среднее направления (диагональ) и максимум
+	//! скорости. Применяет HandleOnMove() в конце тика.
+	void IntentMove(float angle, float speed)
+	{
+		float rad = angle * Math.DEG2RAD;
+		m_IntentMoveAccum[0] = m_IntentMoveAccum[0] + Math.Sin(rad) * speed;
+		m_IntentMoveAccum[2] = m_IntentMoveAccum[2] + Math.Cos(rad) * speed;
+		if (speed > m_IntentMoveMaxSpeed)
+			m_IntentMoveMaxSpeed = speed;
+		m_IntentMoveCount++;
+	}
+
+	//! Обнулить накопитель — вызывать в начале тика (перед FSM/интентами).
+	void ResetIntentMove()
+	{
+		m_IntentMoveAccum = vector.Zero;
+		m_IntentMoveMaxSpeed = 0.0;
+		m_IntentMoveCount = 0;
+	}
+
+	//! Применить накопленное движение в конце тика. Нет вкладов → авто-стоп.
+	void HandleOnMove()
 	{
 		if (!m_Pawn)
 			return;
 
-		m_IsMoving = speed > 0.0;
+		if (m_IntentMoveCount <= 0)
+		{
+			m_IsMoving = false;
+			m_Pawn.SetMove(0.0, 0.0);
+			return;
+		}
 
-		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Pawn);
-		if (pawn)
-			pawn.SetMove(angle, speed);
+		float angle = Math.Atan2(m_IntentMoveAccum[0], m_IntentMoveAccum[2]) * Math.RAD2DEG;
+		m_IsMoving = m_IntentMoveMaxSpeed > 0.0;
+		m_Pawn.SetMove(angle, m_IntentMoveMaxSpeed);
 	}
 
 	//! Set the desired movement direction as a WORLD yaw (degrees). Used by
@@ -937,13 +972,12 @@ class dmAISurvivor
 			m_Pawn.SetOrientation(Vector(bodyYaw + step, 0.0, 0.0));
 	}
 
-	//! Enable/disable forward walking (convenience wrapper over SetMove).
+	//! Enable/disable forward walking (convenience wrapper over IntentMove).
 	void SetWalk(bool walk)
 	{
 		if (walk)
-			SetMove(0.0, 1.0);
-		else
-			SetMove(0.0, 0.0);
+			IntentMove(0.0, 1.0);
+		// false = не вносить вклад (авто-стоп)
 	}
 
 	//! Snap the body to face a world point (ignore vertical).
@@ -1999,8 +2033,8 @@ class dmAISurvivor
 		IntentsArbitrationPool(m_FSMIntents, pDt);
 
 		//! Default rest: channels nobody won fall back to "at ease".
-		//! MOVE без сброса: движение гасится OnCancel завершаемого интента, а не
-		//! арбитражем (иначе затирается прямое SetMove, напр. блок мили).
+		//! MOVE без сброса: движение гасится авто-стопом в HandleOnMove (нет вкладов
+		//! в тике → SetMove(0,0)), а не арбитражем и не OnCancel интента.
 		if (!m_Winner.Get(dmBotIntentsChannel.LOOK)) LookForward();
 		if (!m_Winner.Get(dmBotIntentsChannel.STANCE)) SetStance(DayZPlayerConstants.STANCEIDX_ERECT);
 
@@ -2066,6 +2100,11 @@ class dmAISurvivor
 		#endif
 
 		if (!m_Pawn)
+			return;
+
+		//! Во время удара анимация melee2 сама управляет корпусом и взглядом — не
+		//! доворачиваем (иначе вращение вокруг оси).
+		if (m_Pawn.IsMeleeStriking())
 			return;
 
 		float t = Math.Min(1.0, DM_LOOK_TURN_SPEED * pDt);

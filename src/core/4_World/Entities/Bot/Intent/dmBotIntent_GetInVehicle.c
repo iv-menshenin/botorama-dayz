@@ -259,7 +259,6 @@ class dmBotIntent_GetInVehicle : dmBotIntent_MoveTo
 		if (m_Pawn && m_Pawn.IsInVehicle())
 			return;
 
-		bot.SetMove(0.0, 0.0);
 		if (m_Pawn)
 			m_Pawn.RaiseWeapon(false);
 		#ifdef DM_BOT_DEBUG_FSM

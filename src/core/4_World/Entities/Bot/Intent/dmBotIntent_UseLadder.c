@@ -102,7 +102,6 @@ class dmBotIntent_UseLadder : dmBotIntent
 					#ifdef DM_BOT_DEBUG_FSM
 					dmBotLog.Debug("[Ladder] UseLadder: approach timeout, giving up");
 					#endif
-					bot.SetMove(0.0, 0.0);
 					Fail();
 					return;
 				}
@@ -111,7 +110,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 				float bodyYaw = bot.GetOrientation()[0];
 				float moveAngle = dmAISurvivor.AngleDiff(entryYaw, bodyYaw);
 				bot.SetMoveYaw(dirYaw);
-				bot.SetMove(moveAngle, 2.0);
+				bot.IntentMove(moveAngle, 2.0);
 				return;
 			}
 
@@ -170,9 +169,9 @@ class dmBotIntent_UseLadder : dmBotIntent
 
 		if ( m_Direction < 0 )
 		{
-			bot.SetMove(180.0, 3.0);
+			bot.IntentMove(180.0, 3.0);
 		} else {
-			bot.SetMove(0.0, 3.0);
+			bot.IntentMove(0.0, 3.0);
 		}
 
 		HumanCommandLadder hcl = pawn.GetCommand_Ladder();
@@ -216,7 +215,5 @@ class dmBotIntent_UseLadder : dmBotIntent
 	override void OnCancel(dmAISurvivor bot)
 	{
 		super.OnCancel(bot);
-
-		bot.SetMove(0.0, 0.0);
 	}
 }

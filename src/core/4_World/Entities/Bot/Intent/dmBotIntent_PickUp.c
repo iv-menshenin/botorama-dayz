@@ -45,8 +45,6 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 	//! завершая интент (ждём, пока вещь фактически ляжет, в OnUpdate).
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
-		bot.SetMove(0.0, 0.0);
-
 		if (!m_Item || m_Item.IsDamageDestroyed() || m_Item.IsSetForDeletion())
 		{
 			Fail();

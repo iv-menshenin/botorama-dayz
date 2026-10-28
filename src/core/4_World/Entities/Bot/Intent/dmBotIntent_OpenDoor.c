@@ -68,7 +68,6 @@ class dmBotIntent_OpenDoor : dmBotIntent
 			if (dist >= DM_DOOR_STEP_BACK_DIST || m_PhaseTimer <= 0.0)
 			{
 				m_Building.OpenDoor(m_DoorIdx);
-				bot.SetMove(0.0, 0.0);   // стоп: не пятиться, пока дверь открывается
 
 				//! Hand animation: additive upper-body modifier over MOVE
 				//! (CMD_ACTIONMOD_OPENDOORFW). Gate: skip if a full-body action or
@@ -86,7 +85,7 @@ class dmBotIntent_OpenDoor : dmBotIntent
 				return;
 			}
 
-			bot.SetMove(180.0, DM_DOOR_OPEN_STEPBACK_SPEED);
+			bot.IntentMove(180.0, DM_DOOR_OPEN_STEPBACK_SPEED);
 			return;
 		}
 
@@ -104,7 +103,6 @@ class dmBotIntent_OpenDoor : dmBotIntent
 		super.OnCancel(bot);
 
 		StopAction(bot);
-		bot.SetMove(0.0, 0.0);
 	}
 
 	//! Remove the door-open hand-animation modifier (if still active). Guarded so a
