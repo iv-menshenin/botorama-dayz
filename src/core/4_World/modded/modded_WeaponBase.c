@@ -92,6 +92,15 @@ modded class Weapon_Base
 	//! AddNoise + this AddNoise).
 	override void OnFire(int muzzle_index)
 	{
+		#ifdef SERVER
+		#ifdef DM_PERCEPTION_DEBUG
+		Man own = GetHierarchyRootPlayer();
+		string ot = "null";
+		if (own) ot = own.GetType();
+		dmBotLog.Debug("[Noise] OnFire SERVER muzzle=" + muzzle_index + " owner=" + ot);
+		#endif
+		#endif
+
 		super.OnFire(muzzle_index);
 		#ifdef SERVER
 		Man owner = GetHierarchyRootPlayer();

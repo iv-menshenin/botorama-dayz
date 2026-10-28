@@ -22,6 +22,11 @@ class dmNoiseSystem
 	//! Сгенерировать шум (source может быть null — позиционный шум, напр. попадание пули).
 	static void AddNoise(EntityAI source, vector position, float strength, int type = dmNoiseType.OTHER)
 	{
+		#ifdef DM_PERCEPTION_DEBUG
+		string src = "null";
+		if (source) src = source.GetType();
+		dmBotLog.Debug("[Noise] AddNoise type=" + type + " src=" + src + " pos=" + position + " strength=" + strength);
+		#endif
 		SI_OnNoiseAdded.Invoke(source, position, strength, type);
 	}
 };

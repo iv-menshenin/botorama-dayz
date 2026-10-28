@@ -17,6 +17,13 @@ class dmHearing
 		if (!m_Bot || !m_Bot.IsSpawned())
 			return;
 
+		#ifdef DM_PERCEPTION_DEBUG
+		string ssrc = "null";
+		if (source) ssrc = source.GetType();
+		dmBotLog.Debug("[Noise] OnNoise IN type=" + type + " src=" + ssrc + " pos=" + position);
+		dmBotLog.Debug("[Noise] OnNoise IN strength=" + strength + " bot=" + m_Bot.GetPosition());
+		#endif
+
 		vector botPos = m_Bot.GetPosition();
 		vector d = position - botPos;
 		if (d.LengthSq() > strength * strength)
