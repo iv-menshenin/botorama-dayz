@@ -232,6 +232,12 @@ GetGame().RemoteObjectTreeCreate(item);   // клиент рисует в нов
 `RemoteObjectTreeDelete/Create` — `3_game/global/game.c:706/708`; `Man.LocalTakeToDst` —
 `3_game/entities/man.c:842`.
 
+> **⚠ ОПРОВЕРГНУТО (см. раздел «Синхронизация земля→слот/карго» ниже).** Обёртка
+> `RemoteObjectTreeDelete/Create` ломает и дроп (слот не освобождается), и «надеть» (клиент не
+> видит предмет надетым). Правильный путь — голый `LocalTakeToDst` без обёртки, как
+> `LocalDropEntity`. Также `eAI_TakeItemToLocation` — НЕ эталон: в дефолтной сборке Expansion он
+> выключен (`#ifdef EXPANSIONMODAI_TAKETOLOCATION`, не задан), прод-путь — clone+delete.
+
 **Слот-зависимое размещение** (портировано в `dmLoot.FindDestination`): одежда → свободный слот
 из `item.ConfigGetTextArray("inventorySlot", slots)` (`Object.c:894`) через
 `InventorySlots.GetSlotIdFromString`/`HasAttachmentSlot`/`FindAttachment`; мили →
@@ -265,6 +271,10 @@ GetGame().RemoteObjectTreeCreate(item);
 НЕ в руках `HumanInventory.DropEntity` (`humaninventory.c:139`) идёт по ветке `default` → `super.DropEntity`
 (немедленно, без `HandEvent`).
 
+> **⚠ ОПРОВЕРГНУТО (drop-to-ground.md §3.2/§4):** обёртка `RemoteObjectTreeDelete/Create` вокруг
+> `LocalDropEntity` НЕ освобождает слот карго. Рабочий рецепт дропа — ванильный `LocalDropEntity(item)`
+> **БЕЗ** обёртки (реализован в `dmAISurvivorBase.DropItemToGroundLocal`).
+
 **Готча: свой `DropItem` обязан быть `override bool DropItem(ItemBase item)`.** Ванильный
 `PlayerBase.DropItem(ItemBase)` (`playerbase.c:6278`) делает `PredictiveDropEntity` →
 `JunctureDropEntity` → `TakeToDst(JUNCTURE)` → отложенный ивент, который на dedicated/offline
@@ -272,13 +282,208 @@ GetGame().RemoteObjectTreeCreate(item);
 предмет лишь телепортирует (`SetPosition`+`PlaceOnSurface`), НЕ убирая из слота. Если сигнатура
 своего `DropItem` отличается (напр. `EntityAI`), фрейм-менеджер (`dmInventoryFrame.m_Item : ItemBase`)
 вызывает ванильный оверлоад. Правильно: `override bool DropItem(ItemBase item)` с
-`LocalDropEntity(item)` + `RemoteObjectTreeDelete/Create`.
+`LocalDropEntity(item)` **БЕЗ** `RemoteObjectTreeDelete/Create` (см. drop-to-ground.md §4 и
+раздел «Синхронизация земля→слот» ниже — обёртка для дропа опровергнута).
 
 **`TakeToAttachmentSlot` ставит предмет строго в указанный `slotId`** (`dst.SetAttachment(this, item, slotId)`),
 без `FindDestination`; не удалось — `false` (предмет остаётся на земле). `FindDestination` остался
 только в `dmLoot.CanCarry` (exploration-проверка «влезет ли»). Дженерик-скан `FindDestination` НЕЛЬЗЯ
 использовать для одежды — он сканирует слоты по порядку (BODY раньше LEGS) и кладёт штаны в карго
 занятой куртки, не доходя до пустого LEGS.
+
+---
+
+## Синхронизация «земля → слот/карго» (надеть/подобрать) для `INSTANCETYPE_AI_SERVER`
+
+> **⚠ ГИПОТЕЗА ЭТОГО РАЗДЕЛА ОПРОВЕРГНУТА ЭКСПЕРИМЕНТОМ** (прогон `wearprobe`/`dropprobe` +
+> клиентский `slotdump`/`scanobj`, v3.398). Реальность обратная: **обёртка
+> `RemoteObjectTreeDelete(item)` ДО мува обязательна** — без неё клиент держит старую картину
+> (призрак на земле / надетый). `LocalTakeToDst` (LOCAL) сам по себе клиенту НЕ синкает (смена
+> родителя для AI-пешки не реплицируется без явного re-sync сети). Правильный рецепт и таблица
+> вариантов — **`docs/research/item-move-sync.md`** (авторитетный). Тезисы ниже — историческая
+> гипотеза `dayz-research`, оставлены для трассы рассуждения; доверять итоговому выводу нельзя.
+
+Статус: **ОПРОВЕРГНУТО** (см. `item-move-sync.md`).
+Ведёт субагент `dayz-research`. Дополняет `docs/research/drop-to-ground.md` (§3.2/§4) и
+пересматривает «эталон» `eAI_TakeItemToLocation`.
+
+### Ключевой вопрос одним предложением
+
+**Да (гипотеза, `[нужно подтвердить]`):** для «надеть/подобрать» (GROUND→ATTACHMENT/CARGO)
+достаточно ванильного `pawn.LocalTakeToDst(src, dst)` **БЕЗ** `RemoteObjectTreeDelete/Create` —
+ровно как `LocalDropEntity` достаточно для дропа. Обёртка «unregisters from network» + «postponed
+re-registration» ломает клиентскую видимость «надето» (и серверное освобождение слота в обратном
+направлении), потому что нативная `LocationSyncMoveEntity` **сама** реплицирует смену родителя
+клиенту, а явный re-sync сети — это ломающий её дубль.
+
+### 1. `LocationSyncMoveEntity` (LOCAL) сам синкает клиента — а SERVER-режим ломается
+
+`TakeToDst(InventoryMode, src, dst)` (`inventory.c:1056`):
+
+```c
+case InventoryMode.SERVER:                        // inventory.c:1061
+	ret = LocationSyncMoveEntity(src, dst);        // :1062 — локальный мув
+	if (ret && dst.IsValid())
+		InventoryInputUserData.SendServerMove(null, InventoryCommandType.SYNC_MOVE, src, dst);  // :1064
+	return ret;
+case InventoryMode.LOCAL:                         // inventory.c:1066
+	ret = LocationSyncMoveEntity(src, dst);        // :1067 — ТОЛЬКО локальный мув, без SendServerMove
+	return ret;
+```
+
+`SendServerMove` (`inventoryinputuserdata.c:57`) → `GameInventory.ServerLocationSyncMoveEntity(player, src.GetItem(), ctx)`
+с `player = null` (см. `inventory.c:1064`). Это и есть та ветка, которая падает у серверного ИИ
+(см. «краш 2» в этой заметке) — deferred inventory-команда с null-`player`.
+
+Ключевой факт о нативах (`inventory.c`, комментарии ванили):
+
+| Натив | Комментарий | Синк на клиента |
+|---|---|---|
+| `LocationMoveEntity(src,dst)` | «removes … adds it to destination» | нет (локальный) |
+| `LocationSyncMoveEntity(src,dst)` (`:567`) | «**synchronously** removes … adds it, **no anims involved**» | нет явного; «synchronously» = сразу/без анимации, НЕ «сетевой синк» |
+| `ServerLocationSyncMoveEntity(player,item,ctx)` (`:590`) | «synchronously removes … **+ sync via inventory command**, no anims» | ДА — через `NetworkMessageInventoryCommand` |
+
+Т.е. «Sync» в названии `LocationSyncMoveEntity` = «синхронный (без анимации/отложенных HandEvent)»,
+а НЕ «сетевой синк». Сетевой синк даёт только `Server*`-семейство (с префиксом `Server`) — и именно
+оно требует валидный `Man player`, которого у `INSTANCETYPE_AI_SERVER` в deferred-обработчике нет.
+
+**Почему тогда `LocalDropEntity` (LOCAL) всё же синкает клиенту без обёртки** (эмпирика
+drop-to-ground.md §3.2 п.3): смена `InventoryLocation` (parent: карго/слот → `null`/земля) на
+нативном уровне помечает иерархию предмета «грязной» для репликации — клиент получает новое
+родительское отношение обычной entity-репликацией, БЕЗ inventory-команды. Слова
+`SetSynchDirty()` (`entityai.c:3069`: «Sets object synchronization dirty flag … take effect only
+in MP on server side») описывают ровно этот механизм. Тот же механизм должен работать и для
+обратного направления (parent: `null`/земля → бот/слот): реплицируется смена родителя, а не
+только позиция. **Это и есть обоснование гипотезы «без обёртки достаточно».**
+
+### 2. Что реально делают `RemoteObjectTreeDelete`/`Create`
+
+`game.c:706-709` (ваниль):
+
+```c
+proto native void RemoteObjectTreeDelete(Object obj); // "deletes only remote object tree (unregisters from network). do not use if not sure what you do"
+proto native void RemoteObjectTreeCreate(Object obj); // "postponed registration of network object tree (and creation of remote objects). do not use if not sure what you do"
+```
+
+- `Delete` шлёт клиенту `DeleteObject` по **всему дереву** (предмет + его children) и «unregisters
+  from network». `EntityAI` на сервере **не** удаляется (`replaceitemwithnewlambdabase.c:117`:
+  «@NOTE: this does not delete the object on server, only it's network representation»).
+- `Create` — «postponed registration»: сервер снова рассылает `CreateVehicle` по дереву.
+
+Ванильный комментарий прямо предупреждает «do not use if not sure what you do» — это низкоуровневый
+костыль, задуманный для **одного** сценария: замена корневого предмета (`replaceitemwithnewlambdabase.c`,
+`miscgameplayfunctions.c` `DropEquipAndDestroyRootLambda`), где старый root честно `DeleteSafe`/`ObjectDelete`,
+а его children надо пере-зарегистрировать, чтобы порядок `DeleteObject(old)` → `CreateVehicle(new)`
+на клиенте сохранился. Для простого мува **той же** сущности (не replace, не delete root) обёртка —
+чужой механизм, применённый не к месту.
+
+**Почему обёртка ломает «надето» (гипотеза, `[нужно подтвердить]`):** `RemoteObjectTreeDelete(item)`
+сначала шлёт клиенту `DeleteObject(item)` (клиент роняет предмет), затем `LocalTakeToDst` меняет
+родителя на сервере, затем `RemoteObjectTreeCreate(item)` заново создаёт предмет на клиенте. Но
+re-registration идёт относительно **сетевого дерева, чьё состояние в этот момент нестабильно**
+(предмет «unregistered», а его новый родитель — бот — уже/ещё не в нужном состоянии). В итоге клиент
+получает `CreateVehicle` с предметом, НЕ привязанным к слоту/скелету бота (или привязанным к старой
+позиции) → «предмет исчез с земли, но не надет». Для CARGO→GROUND та же последовательность оставляет
+слот не-освобождённым на сервере (drop-to-ground §3.2: `ok=true`, но `FindDestination` видит «нет места»).
+
+### 3. ВАЖНАЯ ПОПРАВКА к «эталону»: Expansion по умолчанию делает clone+delete, а не локальный мув
+
+В этой заметке (строки 225–231) и в `drop-to-ground.md` §1 `eAI_TakeItemToLocation` (`eAIBase.c:10605`)
+приводится как «эталон локального мува». Уточнение: в **дефолтной** сборке Expansion этот путь
+**выключен** — он за `#ifdef EXPANSIONMODAI_TAKETOLOCATION`, а define нигде НЕ задан
+(`grep EXPANSIONMODAI_TAKETOLOCATION` → только 2 ссылки, обе в `eAIBase.c:10332/10566`).
+
+Что реально выполняется в проде Expansion:
+
+```c
+// eAI_TakeItemToInventoryImpl (eAIBase.c:10566) — «взять предмет в инвентарь»:
+#ifdef EXPANSIONMODAI_TAKETOLOCATION
+	if (eAI_TakeItemToLocation(item, il_dst))          // локальный мув + обёртка — НЕ скомпилировано
+#else
+	EntityAI clone = Expansion_CloneItemToLocation(item, il_dst);  // ← ДЕФОЛТ: clone+delete
+#endif
+```
+
+`Expansion_CloneItemToLocation` (`eAIBase.c:6000-6075`) = `ExpansionItemSpawnHelper.Clone(src, true,
+location, false)` + `g_Game.ObjectDelete(src)` — **новая** сущность в слоте, оригинал удаляется.
+Это ванильный «replace»-путь (создать сразу в слоте через `CreateObjectEx(ECE_OBJECT_SWAP)` + перенос
+свойств), а не мув той же сущности. Т.е. эталон «надеть так, чтобы клиент увидел» у Expansion — это
+**clone+delete/создание-на-месте**, а вовсе не `LocalTakeToDst`+обёртка.
+
+Следствие: (а) для `dmLoot` путь clone+delete НЕ подходит — он меняет `EntityAI` (ломает
+`Ignore(item)`/re-collect по ссылке, см. decisions.md «body: дроп из рук — clone+delete»); (б) но он
+доказывает, что корректная клиентская видимость «надето» в DayZ достигается **созданием предмета
+прямо в слоте** (или нативной сменой родителя), а не ручным re-sync сети.
+
+**Единственный реально продакшен-путь Expansion, использующий обёртку** — `eAI_DropItemImpl`
+(`eAIBase.c:10256`, CARGO/ATTACHMENT→GROUND) → `eAI_TakeItemToLocation` **всегда** (не за `#ifdef`).
+То есть для дропа Expansion всё же тащит `RemoteObjectTreeDelete`+`LocalTakeToDst`+`RemoteObjectTreeCreate`
+в проде — и ровно этот путь наша эмпирика (drop-to-ground §3.2) показала сломанным (слот не
+освобождается). Т.е. «эталон» с обёрткой, скорее всего, **латентно багован и в самом Expansion**, а
+заметен он только в нашем tight-репаке (дроп → тут же пере-проверка места).
+
+### 4. Рекомендация
+
+1. **Убрать обёртку** `GetGame().RemoteObjectTreeDelete/Create` из всех четырёх методов
+   `dmLoot` (`TakeToHands`/`TakeIntoCargo`/`TakeToAttachmentSlot`/`TakeIntoDestination`,
+   `dmLoot.c:555/576/606/629`) — оставить голый `pawn.LocalTakeToDst(src, dst)`, как
+   `DropItemToGroundLocal` (ванильный `LocalDropEntity` без обёртки).
+2. **Фолбэк, если «надето» не синкнется моделью одежды:** после `LocalTakeToDst` дёрнуть
+   `item.SetSynchDirty()` (`entityai.c:3069`) — ванильный способ явно пометить сущность к
+   репликации. Это и есть «правильный re-sync» вместо `RemoteObjectTreeDelete/Create`
+   (обёртка реплицирует всё дерево и «unregisters», а `SetSynchDirty` — точечно один предмет).
+3. `TakeToHands` сохраняет `GetItemAccessor().HideItemInHands(true/false)` (эталон
+   `eAI_TakeItemToLocation`, `eAIBase.c:10623/10643/10652-10653`) — это отдельный фикс
+   hand-anim-стейта, он к сетевому синку отношения не имеет и нужен независимо.
+4. Если же по итогам E2E окажется, что голый `LocalTakeToDst` для GROUND→ATTACHMENT **не**
+   поднимает одежду на модели клиента (а `SetSynchDirty` не помогает) — тогда правильный
+   fallback = clone+delete по образцу `Expansion_CloneItemToLocation` (`eAIBase.c:6000`),
+   и `Ignore`/re-collect придётся ключить по **типу+позиции**, а не по ссылке (см. techdebt).
+
+### Сигнатуры (путь + строка)
+
+| Сигнатура | Файл:строка |
+|---|---|
+| `bool GameInventory.TakeToDst(InventoryMode, src, dst)` (SERVER→SendServerMove / LOCAL→только LocationSyncMoveEntity) | `inventory.c:1056-1070` |
+| `static proto native bool LocationSyncMoveEntity(src,dst)` («synchronously…, no anims») | `inventory.c:567` |
+| `static proto native bool ServerLocationSyncMoveEntity(Man,item,ctx)` («+ sync via inventory command») | `inventory.c:590` |
+| `static void SendServerMove(Man player, int type, src, dst)` (player=null у AI_SERVER) | `inventoryinputuserdata.c:57` |
+| `proto native void RemoteObjectTreeDelete/Create(Object)` («do not use if not sure») | `game.c:707/709` |
+| `proto native void SetSynchDirty()` («Sets object synchronization dirty flag… MP server side») | `entityai.c:3069` |
+| `bool AddEntityToInventory(item)` → `LocationAddEntity(il)` (создание-на-месте) | `inventory.c:926/546` |
+| `EntityAI Expansion_CloneItemToLocation(src, location)` (clone+delete, ДЕФОЛТ Expansion) | `eAIBase.c:6000` |
+| `bool eAI_TakeItemToLocation(item, il_dst)` (локальный мув + обёртка; `#ifdef EXPANSIONMODAI_TAKETOLOCATION`) | `eAIBase.c:10605` |
+| `eAI_TakeItemToInventoryImpl` (ветка clone `:10566` / локальный мув `:10567`) | `eAIBase.c:10476/10566` |
+| `eAI_DropItemImpl` (CARGO→GROUND всегда через `eAI_TakeItemToLocation`) | `eAIBase.c:10256` |
+| `HumanItemAccessor.HideItemInHands(bool)` / `IsItemInHandsHidden()` | `humanitems.c:118/121` |
+
+### Открытые вопросы / `[нужно проверить]` / `[нужно подтвердить]`
+
+1. **[нужно подтвердить] голый `LocalTakeToDst` синкает «надето» (модель одежды).** Серверная +
+   клиентская проверка: бот берёт с земли куртку через `TakeToAttachmentSlot` БЕЗ обёртки →
+   клиентский наблюдатель (`scanobj`/`botdump`) видит `FindAttachment(BODY) == куртка` **и** модель
+   бота меняется (не голый). Это прямой ответ на ключевой вопрос.
+2. **[нужно проверить] `item.SetSynchDirty()` после `LocalTakeToDst`** — достаточен ли он, чтобы
+   клиент увидел смену родителя/слота, если голый мув её не поднял (прогон варианта А: голый мув;
+   варианта Б: мув + `SetSynchDirty`; сравнить клиентскую видимость `FindAttachment`/модели).
+3. **[нужно проверить] не остаётся ли «призрак» на земле.** Убедиться, что после убранной обёртки
+   клиент НЕ видит предмет одновременно и на земле, и надетым (для CARGO→GROUND обёртка такого
+   дубля не давала; для GROUND→ATTACHMENT с обёрткой «призрак на земле» и был симптомом).
+4. **[нужно подтвердить] «старые вещи телепортируются к месту сброса»** — воспроизвести симптом до
+   фикса (обёртка) и после (голый мув), чтобы зафиксировать, что именно обёртка его вызывает, а не
+   `Ignore`/re-collect по ссылке.
+
+### Существенные развилки и принятые решения
+
+- **Развилка:** обёртка `RemoteObjectTreeDelete/Create` вокруг `LocalTakeToDst` (рецепт из этой
+  заметки) vs голый `LocalTakeToDst` (как `LocalDropEntity`). **Решение:** голый `LocalTakeToDst`,
+  обёртку убрать. Почему: нативная `LocationSyncMoveEntity` сама реплицирует смену родителя; обёртка
+  — чужой механизм (для replace-корня), который эмпирически ломал и дроп (слот), и надеть (видимость).
+  Действует пока: E2E подтвердит клиентскую видимость «надето» без обёртки; иначе — fallback clone+delete.
+- **Развилка:** считать `eAI_TakeItemToLocation` эталоном «надеть». **Решение:** НЕ считать — в дефолтной
+  сборке Expansion он выключен (`EXPANSIONMODAI_TAKETOLOCATION` не задан), прод-путь — clone+delete
+  (`Expansion_CloneItemToLocation`). Почему: влияет на то, что мы портируем как «проверенный приём».
+  Действует пока: define не появится в актуальных сборках Expansion.
 
 ---
 

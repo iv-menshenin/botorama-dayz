@@ -1,0 +1,19 @@
+{
+  "Name": "surv-arsenal-3c-swap",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [4117.0, 0.0, 10827.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "healbot", "Who": "A" },
+    { "Op": "loadout", "Who": "A", "Loadout": "E2E_MosinKnife" },
+    { "Op": "givecargo", "Who": "A", "ClassName": "Ammo_762x39", "Count": 25 },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "spawnonroute", "Who": "A", "ClassName": "CZ527", "Obj": "w1" },
+    { "Op": "sleep", "Timeout": 20 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "invdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "clearall" }
+  ]
+}

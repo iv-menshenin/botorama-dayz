@@ -1,0 +1,17 @@
+{
+  "Name": "surv-medical-4b-infect",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [4117.0, 0.0, 10827.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "healbot", "Who": "A" },
+    { "Op": "givecargo", "Who": "A", "ClassName": "TetracyclineAntibiotics", "Count": 1 },
+    { "Op": "infect", "Who": "A", "Value": "influenza" },
+    { "Op": "sleep", "Timeout": 20 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "invdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "clearall" }
+  ]
+}

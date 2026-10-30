@@ -15,7 +15,7 @@
 //! not MissionGameplay.OnUpdate, which is unusable across modules in 1.30 (two
 //! modded MissionGameplay blocks both overriding OnUpdate silently drop one).
 //!
-//! Ops: ping | botdump | scanobj | raycast.
+//! Ops: ping | botdump | scanobj | slotdump | raycast.
 
 //! Singleton executor: picks up e2e-client/in/*.json (one job per tick) and runs
 //! it immediately. Ticked by its own self-rescheduling CallLater (Get() schedules
@@ -191,6 +191,10 @@ class dmE2EClientBridge
 		{
 			RunScanObj(step, r);
 		}
+		else if (step.Op == "slotdump")
+		{
+			RunSlotDump(step, r);
+		}
 		else if (step.Op == DM_E2E_CLIENT_OP_RAYCAST)
 		{
 			RunRaycast(step, r);
@@ -319,6 +323,93 @@ class dmE2EClientBridge
 
 		r.Ok = true;
 		r.Reason = objs.Count().ToString() + " objects";
+	}
+
+	//! "slotdump" — дамп НАДЕТОГО с точки зрения КЛИЕНТА: FindAttachment по слотам
+	//! одежды (BODY/LEGS/FEET/BACK/VEST/HIPS/HEADGEAR/MASK/EYEWEAR/GLOVES/ARMBAND/
+	//! SHOULDER/MELEE) + GetItemInHands, с именами типов. Это то, что клиент реально
+	//! «видит» надетым на пешке. Ищет бота как botdump (реестр + фильтр
+	//! dmAISurvivorBase.Cast + радиус вокруг Pos/локального игрока).
+	private void RunSlotDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		bool filter = step.Radius > 0.0;
+		vector center = vector.Zero;
+		if (filter)
+		{
+			center = step.Pos;
+			if (center[0] == 0.0 && center[1] == 0.0 && center[2] == 0.0)
+			{
+				PlayerBase lp = GetGame().GetPlayer();
+				if (lp)
+					center = lp.GetPosition();
+			}
+			else
+			{
+				center = ResolveWorldPos(center);
+			}
+		}
+
+		array<PlayerBase> players = dmEntityRegistry.GetPlayers();
+		int i;
+		int dumped = 0;
+		for (i = 0; i < players.Count(); i++)
+		{
+			PlayerBase p = players[i];
+			if (!p)
+				continue;
+			if (dmAISurvivorBase.Cast(p) == null)
+				continue;
+			if (filter && vector.Distance(p.GetPosition(), center) > step.Radius)
+				continue;
+
+			DumpSlots(p, r);
+			dumped = dumped + 1;
+		}
+
+		r.Ok = true;
+		r.Reason = "dumped " + dumped;
+	}
+
+	//! Дамп одетых слотов одного AI_REMOTE бота (клиентская картина).
+	private void DumpSlots(PlayerBase p, dmE2EStepResult r)
+	{
+		string line = "bot pos=" + p.GetPosition();
+		AppendDump(r, line);
+
+		array<int> slots = {
+			InventorySlots.BODY,
+			InventorySlots.LEGS,
+			InventorySlots.BACK,
+			InventorySlots.VEST,
+			InventorySlots.HIPS,
+			InventorySlots.FEET,
+			InventorySlots.HEADGEAR,
+			InventorySlots.MASK,
+			InventorySlots.EYEWEAR,
+			InventorySlots.GLOVES,
+			InventorySlots.ARMBAND,
+			InventorySlots.SHOULDER,
+			InventorySlots.MELEE
+		};
+
+		int i;
+		for (i = 0; i < slots.Count(); i++)
+		{
+			int slotId = slots[i];
+			EntityAI att = null;
+			if (p.GetInventory().HasAttachmentSlot(slotId))
+				att = p.GetInventory().FindAttachment(slotId);
+			string attName = "none";
+			if (att)
+				attName = att.GetType();
+			AppendDump(r, "slot=" + InventorySlots.GetSlotName(slotId) + " item=" + attName);
+		}
+
+		EntityAI ih = p.GetItemInHands();
+		string hands = "none";
+		if (ih)
+			hands = ih.GetType();
+		AppendDump(r, "hands=" + hands);
 	}
 
 	//! "raycast" — client raycast (view/LOD geometry) between two points, like the

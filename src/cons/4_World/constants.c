@@ -892,6 +892,10 @@ static const float DM_STEP_BACK_TIME = 0.5;
 //! Loot: timeout (seconds) after which an ignored item is picked up again.
 static const float DM_LOOT_IGNORE_TIMEOUT = 300.0;
 
+//! Loot: таймаут (с) держания предмета в руках вне боя — по истечении руки
+//! освобождаются (dmLoot.FreeHands кладёт предмет в MELEE/SHOULDER/Backpack_1, НЕ дропает).
+static const float DM_HOLD_IN_HANDS_TIMEOUT = 60.0;
+
 //! Loot: used-capacity fraction (0..1) above which the inventory counts as full
 //! (less than 25% free space). See dmRequirements.IsFull.
 static const float DM_LOOT_FULL_THRESHOLD = 0.75;
@@ -905,6 +909,15 @@ static const float DM_LOOT_MELEE_RATE_MULT = 0.1;
 
 //! Loot: нормировка initSpeed огнестрела (м/с → условные единицы) в dmLoot.RateWeapon.
 static const float DM_LOOT_FIREARM_SPEED_DIV = 1000.0;
+
+//! Loot: decay (множитель ранга дубликатов) по группе. Патрон/магазин под своё
+//! оружие держится дороже чужого калибра; еда/вода и ремонт — со своим decay,
+//! прочее (weapon/melee/clothing/medical/other) — по умолчанию.
+static const float DM_LOOT_DECAY_AMMO_MATCH = 0.95;
+static const float DM_LOOT_DECAY_AMMO_OTHER = 0.85;
+static const float DM_LOOT_DECAY_FOOD  = 0.75;
+static const float DM_LOOT_DECAY_REPAIR = 0.70;
+static const float DM_LOOT_DECAY_DEFAULT = 0.50;
 
 //! Loot: needs-coordinator tick interval (seconds) — how often inventory -> desires.
 static const float DM_NEEDS_TICK_INTERVAL = 5.0;

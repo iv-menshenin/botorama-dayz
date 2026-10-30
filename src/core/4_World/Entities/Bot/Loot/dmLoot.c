@@ -59,6 +59,9 @@ class dmLoot
 		if (!item)
 			return dmLootCategory.OTHER;
 
+		if (IsMedical(item))
+			return dmLootCategory.MEDICAL;
+
 		if (item.IsInherited(Edible_Base))
 			return dmLootCategory.FOOD;
 
@@ -79,9 +82,6 @@ class dmLoot
 
 		if (item.IsInherited(WeaponCleaningKit) || item.IsInherited(SewingKit) || item.IsInherited(LeatherSewingKit) || item.IsInherited(DuctTape))
 			return dmLootCategory.REPAIR;
-
-		if (item.IsInherited(BandageDressing))
-			return dmLootCategory.MEDICAL;
 
 		return dmLootCategory.OTHER;
 	}
@@ -112,6 +112,10 @@ class dmLoot
 			if (!item)
 				continue;
 			if (item.IsDamageDestroyed() || item.GetHealth01() <= 0.0)
+				continue;
+			if (IsMedical(item))
+				continue;
+			if (item.GetQuantity() <= 0.0 && item.IsOpen())   // пустая открытая бутылка/еда — пропуск; запечатанная консерва (qty=0, !IsOpen) — для вскрытия
 				continue;
 			if (!item.IsInherited(Edible_Base))
 				continue;
@@ -151,6 +155,32 @@ class dmLoot
 			return TetracyclineAntibiotics.Cast(item) != null;
 		if (kind == dmMedicalItemKind.VITAMINS)
 			return VitaminBottle.Cast(item) != null;
+		return false;
+	}
+
+	//! Является ли предмет медикаментом.
+	static bool IsMedical(ItemBase item)
+	{
+		if ( IsBandage(item) )
+			return true;
+		if ( Splint.Cast(item) )
+			return true;
+		if ( PainkillerTablets.Cast(item) )
+			return true;
+		if ( CharcoalTablets.Cast(item) )
+			return true;
+		if ( TetracyclineAntibiotics.Cast(item) )
+			return true;
+		if ( VitaminBottle.Cast(item) )
+			return true;
+		if ( IodineTincture.Cast(item) )
+			return true;
+		if ( DisinfectantAlcohol.Cast(item) )
+			return true;
+		if ( PurificationTablets.Cast(item) )
+			return true;
+		if ( ChelatingTablets.Cast(item) )
+			return true;
 		return false;
 	}
 
@@ -261,6 +291,66 @@ class dmLoot
 				result.Insert(item);
 		}
 		return result;
+	}
+
+	//! Дропаемое карго (вариант A): нативный EnumerateInventory(LEVELORDER) + фильтр
+	//! по InventoryLocationType.CARGO. Возвращает НОВЫЙ массив (как ScanNearbyItems).
+	static array<EntityAI> CollectCargoFiltered(PlayerBase pawn)
+	{
+		array<EntityAI> result = new array<EntityAI>();
+		if (!pawn)
+			return result;
+
+		array<EntityAI> items = new array<EntityAI>();
+		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.LEVELORDER, items);
+
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			InventoryLocation loc = new InventoryLocation();
+			if (items[i].GetInventory().GetCurrentInventoryLocation(loc) && loc.GetType() == InventoryLocationType.CARGO)
+				result.Insert(items[i]);
+		}
+		return result;
+	}
+
+	//! Дропаемое карго (вариант B): ручная рекурсия. Карго → дропаемое (+ спуск внутрь
+	//! контейнера); слоты → ТОЛЬКО спуск (аттач сам НЕ дропаем).
+	static array<EntityAI> CollectCargoRecursive(PlayerBase pawn)
+	{
+		array<EntityAI> result = new array<EntityAI>();
+		if (!pawn)
+			return result;
+		CollectCargoRecursiveEntity(pawn, result);
+		return result;
+	}
+
+	//! Рекурсивный спуск (вариант B): карго сущности — дропаемое (вставка + спуск),
+	//! слоты-аттачи — только спуск (магазин/оптика/GPS сами НЕ дропаются).
+	private static void CollectCargoRecursiveEntity(EntityAI ent, array<EntityAI> outItems)
+	{
+		GameInventory inv = ent.GetInventory();
+		if (!inv)
+			return;
+
+		int i;
+		CargoBase cargo = inv.GetCargo();
+		if (cargo)
+		{
+			for (i = 0; i < cargo.GetItemCount(); i++)
+			{
+				EntityAI it = cargo.GetItem(i);
+				outItems.Insert(it);
+				CollectCargoRecursiveEntity(it, outItems);
+			}
+		}
+
+		for (i = 0; i < inv.GetAttachmentSlotsCount(); i++)
+		{
+			EntityAI att = inv.FindAttachment(inv.GetAttachmentSlotId(i));
+			if (att)
+				CollectCargoRecursiveEntity(att, outItems);
+		}
 	}
 
 	static void RemoveNearbyItem(PlayerBase pawn, EntityAI item, float radius)
@@ -472,8 +562,9 @@ class dmLoot
 		return false;
 	}
 
-	//! Надеть item в руки с ручным ре-синком сети (готча — docs/research/loot.md):
-	//! SERVER-перенос у AI-бота не кладёт оружие в руки сам.
+	//! Надеть item в руки. Обёртка RemoteObjectTreeDelete/Create обязательна для синка
+	//! клиенту (иначе «призрак»: клиент держит старую картину — предмет на земле/надетый).
+	//! HideItemInHands(true/false) — отдельный трюк анимации руки, к сетевому синку отношения не имеет.
 	static bool TakeToHands(PlayerBase pawn, ItemBase item)
 	{
 		if (!pawn || !item)
@@ -494,7 +585,8 @@ class dmLoot
 	}
 
 	//! Перенести item в карго контейнера `to`; при to == null — в любое свободное место
-	//! через FindDestination (аттачмент → карго). Ручной ре-синк сети (готча — research/loot.md).
+	//! через FindDestination (аттачмент → карго). Обёртка RemoteObjectTreeDelete/Create
+	//! обязательна для синка клиенту (иначе «призрак» — клиент держит старую картину).
 	static bool TakeIntoCargo(PlayerBase pawn, ItemBase item, EntityAI to = null)
 	{
 		if (!pawn || !item)
@@ -521,10 +613,10 @@ class dmLoot
 		return ok;
 	}
 
-	//! Надеть item СТРОГО в слот slotId (dst.SetAttachment(pawn, item, slotId)) с ручным
-	//! ре-синком сети: item приходит с земли, а SERVER-перенос у AI-бота не синкается
-	//! сам (готча — docs/research/loot.md). При неудаче возвращает false (предмет
-	//! остаётся на земле). SetAttachment — аналог dst.SetHands(pawn, item) в TakeToHands.
+	//! Надеть item СТРОГО в слот slotId (dst.SetAttachment(pawn, item, slotId)). При неудаче
+	//! возвращает false (предмет остаётся на земле). Обёртка RemoteObjectTreeDelete/Create
+	//! обязательна для синка клиенту (иначе «призрак» — клиент держит старую картину).
+	//! SetAttachment — аналог dst.SetHands(pawn, item) в TakeToHands.
 	static bool TakeToAttachmentSlot(PlayerBase pawn, ItemBase item, int slotId)
 	{
 		if (!pawn || !item)
@@ -547,7 +639,8 @@ class dmLoot
 		return ok;
 	}
 
-	//! Перенести item прямо в уже заполненное назначение dst с ручным ре-синком сети.
+	//! Перенести item прямо в уже заполненное назначение dst. Обёртка RemoteObjectTreeDelete/Create
+	//! обязательна для синка клиенту (иначе «призрак» — клиент держит старую картину).
 	static bool TakeIntoDestination(PlayerBase pawn, ItemBase item, InventoryLocation dst)
 	{
 		if (!pawn || !item || !dst)
@@ -560,6 +653,95 @@ class dmLoot
 		bool ok = pawn.LocalTakeToDst(src, dst);
 		GetGame().RemoteObjectTreeCreate(item);
 		return ok;
+	}
+
+	//! Освободить руки: переместить предмет из рук в первое свободное место
+	//! (MELEE → SHOULDER → Backpack_1 рюкзака). false — рука пуста либо места нет.
+	//! Мув ТОЙ ЖЕ сущности (НЕ clone+delete): RemoteObjectTreeDelete → LocalTakeToDst
+	//! → отложенный RemoteObjectTreeCreate (CallLater). Из HANDS LocalTakeToDst уходит
+	//! в deferred HandEvent (мув следующим тиком, item-move-sync.md), поэтому create
+	//! откладывается — синхронный create пере-зарегистрировал бы предмет на прежнем
+	//! месте (HANDS). При неудаче мува create делается сразу (вернуть предмет клиенту).
+	static bool FreeHands(PlayerBase pawn)
+	{
+		if (!pawn)
+			return false;
+
+		EntityAI item = pawn.GetItemInHands();
+		if (!item)
+			return false;
+
+		GameInventory inv = pawn.GetInventory();
+		if (!inv)
+			return false;
+
+		InventoryLocation dst = new InventoryLocation();
+
+		int slotId = InventorySlots.INVALID;
+		if (inv.CanAddAttachmentEx(item, InventorySlots.MELEE) && !inv.FindAttachment(InventorySlots.MELEE))
+			slotId = InventorySlots.MELEE;
+		else if (inv.CanAddAttachmentEx(item, InventorySlots.SHOULDER) && !inv.FindAttachment(InventorySlots.SHOULDER))
+			slotId = InventorySlots.SHOULDER;
+
+		if (slotId != InventorySlots.INVALID)
+		{
+			dst.SetAttachment(pawn, item, slotId);
+			return TakeFromHands(pawn, item, dst);
+		}
+
+		EntityAI bag = inv.FindAttachment(InventorySlots.BACK);
+		if (bag)
+		{
+			int backSlotId = InventorySlots.GetSlotIdFromString("Backpack_1");
+			if (bag.GetInventory().CanAddAttachmentEx(item, backSlotId) && !bag.GetInventory().FindAttachment(backSlotId))
+			{
+				dst.SetAttachment(bag, item, backSlotId);
+				return TakeFromHands(pawn, item, dst);
+			}
+		}
+
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] FreeHands: нет свободного места для " + item.GetType());
+		#endif
+		return false;
+	}
+
+	//! Мув ТОЙ ЖЕ сущности из рук в слот dst: RemoteObjectTreeDelete → LocalTakeToDst
+	//! → отложенный RemoteObjectTreeCreate. Из HANDS LocalTakeToDst уходит в deferred
+	//! HandEvent, поэтому create откладывается CallLater (следующий тик, после
+	//! фактического перемещения); при неудаче мува create делается сразу, не оставляя
+	//! предмет unregistered на клиенте.
+	private static bool TakeFromHands(PlayerBase pawn, EntityAI item, InventoryLocation dst)
+	{
+		InventoryLocation src = new InventoryLocation();
+		if (!item.GetInventory().GetCurrentInventoryLocation(src))
+			return false;
+
+		GetGame().RemoteObjectTreeDelete(item);
+		bool ok = pawn.LocalTakeToDst(src, dst);
+		if (ok)
+		{
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ReCreateTree, 0, false, item);
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] FreeHands: " + item.GetType() + " в слоте (deferred create)");
+			#endif
+		}
+		else
+		{
+			GetGame().RemoteObjectTreeCreate(item);
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] FreeHands: мув не удался для " + item.GetType() + " (create сразу)");
+			#endif
+		}
+		return ok;
+	}
+
+	//! Отложенный RemoteObjectTreeCreate (deferred_delete_create, item-move-sync.md):
+	//! пере-регистрирует сетевое дерево предмета на клиенте уже на НОВОМ месте.
+	private static void ReCreateTree(EntityAI item)
+	{
+		if (item && !item.IsSetForDeletion())
+			GetGame().RemoteObjectTreeCreate(item);
 	}
 
 	//! -------------------------------------------------------------------------

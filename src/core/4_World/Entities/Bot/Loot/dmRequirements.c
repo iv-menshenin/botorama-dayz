@@ -55,6 +55,35 @@ class dmRequirements
 		return 0.5;
 	}
 
+	//! Decay (множитель ранга дубликатов) по группе. Патрон/магазин под своё
+	//! оружие держится дороже чужого калибра; еда/вода и ремонт — со своим decay;
+	//! прочее (weapon/melee/clothing/medical/other) — по умолчанию.
+	private float GetDecay(dmLootCategory category, ItemBase item, dmAISurvivor bot)
+	{
+		if (category == dmLootCategory.AMMO || category == dmLootCategory.MAGAZINE)
+		{
+			if (IsMatchingCaliber(item, bot))
+				return DM_LOOT_DECAY_AMMO_MATCH;
+			return DM_LOOT_DECAY_AMMO_OTHER;
+		}
+		if (category == dmLootCategory.FOOD)
+			return DM_LOOT_DECAY_FOOD;
+		if (category == dmLootCategory.REPAIR)
+			return DM_LOOT_DECAY_REPAIR;
+		return DM_LOOT_DECAY_DEFAULT;
+	}
+
+	//! Калибр патрона/магазина соответствует одному из зарегистрированных стволов.
+	private bool IsMatchingCaliber(ItemBase item, dmAISurvivor bot)
+	{
+		if (!item || !bot)
+			return false;
+		string bullet = dmWeaponRange.GetBulletFromMagazine(item.GetType());
+		if (bullet == "")
+			return false;
+		return bot.GetArsenal().HasWeaponForCaliber(bullet);
+	}
+
 	//! Анализ инвентаря. Тик ~5с (вызывает dmNeeds/состояние).
 	void Update(dmAISurvivor bot)
 	{
@@ -70,14 +99,17 @@ class dmRequirements
 		if (!pawn)
 			return;
 
-		array<EntityAI> items = new array<EntityAI>();
-		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+		array<EntityAI> items = dmLoot.CollectCargoRecursive(pawn);
+
+		SortItemsByQuality(items);
 
 		int foodCount = 0;
 		int weaponCount = 0;
 		int meleeCount = 0;
-		int magCount = 0;
-		int ammoCount = 0;
+		int magMatchCount = 0;
+		int magOtherCount = 0;
+		int ammoMatchCount = 0;
+		int ammoOtherCount = 0;
 		int clothCount = 0;
 		int repairCount = 0;
 		int medicalCount = 0;
@@ -88,9 +120,11 @@ class dmRequirements
 		ItemBase item;
 		dmLootCategory category;
 		float baseIndex;
-		int n;
-		float div;
+		float decay;
+		float factor;
 		float index;
+		int n;
+		bool isMatch;
 		dmItemIndex entry;
 
 		for (i = 0; i < items.Count(); i++)
@@ -107,6 +141,11 @@ class dmRequirements
 
 			category = dmLoot.GetCategory(item);
 			baseIndex = GetBaseIndex(category);
+			decay = GetDecay(category, item, bot);
+
+			isMatch = false;
+			if (category == dmLootCategory.AMMO || category == dmLootCategory.MAGAZINE)
+				isMatch = IsMatchingCaliber(item, bot);
 
 			n = 1;
 			if (category == dmLootCategory.FOOD)
@@ -126,13 +165,29 @@ class dmRequirements
 			}
 			else if (category == dmLootCategory.MAGAZINE)
 			{
-				magCount = magCount + 1;
-				n = magCount;
+				if (isMatch)
+				{
+					magMatchCount = magMatchCount + 1;
+					n = magMatchCount;
+				}
+				else
+				{
+					magOtherCount = magOtherCount + 1;
+					n = magOtherCount;
+				}
 			}
 			else if (category == dmLootCategory.AMMO)
 			{
-				ammoCount = ammoCount + 1;
-				n = ammoCount;
+				if (isMatch)
+				{
+					ammoMatchCount = ammoMatchCount + 1;
+					n = ammoMatchCount;
+				}
+				else
+				{
+					ammoOtherCount = ammoOtherCount + 1;
+					n = ammoOtherCount;
+				}
 			}
 			else if (category == dmLootCategory.CLOTHING)
 			{
@@ -155,11 +210,11 @@ class dmRequirements
 				n = otherCount;
 			}
 
-			div = 1.0;
+			factor = 1.0;
 			for (k = 1; k < n; k++)
-				div = div * 2.0;
+				factor = factor * decay;
 
-			index = baseIndex / div;
+			index = baseIndex * factor;
 
 			entry = new dmItemIndex();
 			entry.m_Item = item;
@@ -188,6 +243,21 @@ class dmRequirements
 		for (i = 0; i < m_Items.Count(); i++)
 			order.Insert(m_Items[i].m_Item);
 		return order;
+	}
+
+	//! Debug: «тип=индекс» для каждого предмета в порядке GetDiscardOrder (по
+	//! возрастанию индекса). Baseline-характеризация ранжирования.
+	array<string> DebugRankDump()
+	{
+		array<string> lines = new array<string>();
+		int i;
+		for (i = 0; i < m_Items.Count(); i++)
+		{
+			if (!m_Items[i])
+				continue;
+			lines.Insert(m_Items[i].m_Item.GetType() + "=" + m_Items[i].m_Index);
+		}
+		return lines;
 	}
 
 	//! Стоит ли эвакуироваться ради предмета с desire: желание выше индекса наименее
@@ -293,6 +363,40 @@ class dmRequirements
 			m_Items.Remove(minIdx);
 		}
 		m_Items = sorted;
+	}
+
+	//! Сортировка items по убыванию качества (лучшая вещь типа получает n=1,
+	//! т.е. выше индекс). Тот же selection sort, что SortByIndex, но критерий —
+	//! Quality(item) = GetQuantityNormalized() + GetHealth01(). Строит новый массив
+	//! (без перекладывания ссылок во временную переменную), затем копирует обратно.
+	private void SortItemsByQuality(array<EntityAI> items)
+	{
+		ref array<EntityAI> sorted = new array<EntityAI>();
+		int bestIdx;
+		int i;
+		while (items.Count() > 0)
+		{
+			bestIdx = 0;
+			for (i = 1; i < items.Count(); i++)
+			{
+				if (Quality(items[i]) > Quality(items[bestIdx]))
+					bestIdx = i;
+			}
+			sorted.Insert(items[bestIdx]);
+			items.Remove(bestIdx);
+		}
+		for (i = 0; i < sorted.Count(); i++)
+			items.Insert(sorted[i]);
+	}
+
+	//! Качество предмета (0..2): нормализованная доля содержимого (полная бутылка = 1,
+	//! пустая = 0) + нормированное здоровье (целый = 1, битый = 0). Выше = нужнее.
+	private float Quality(EntityAI item)
+	{
+		ItemBase ib = ItemBase.Cast(item);
+		if (!ib)
+			return 0.0;
+		return ib.GetQuantityNormalized() + ib.GetHealth01();
 	}
 
 	//! Занятая доля ВСЕХ cargo пешки (главный + надетые вещи): capacity =

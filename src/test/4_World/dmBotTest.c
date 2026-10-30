@@ -1171,6 +1171,9 @@ class dmBotTest_LootingChange : dmTestSuite_TestCase
 	{
 		super.Setup(bot, player);
 
+		bot.SetFSM(dmBotPreset_Survivor.Create(bot));
+		bot.SetExplorationStandStill(true);
+
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn)
 			return;
@@ -1194,7 +1197,7 @@ class dmBotTest_LootingChange : dmTestSuite_TestCase
 
 	override string GetSummary()
 	{
-		return "Тест «Лут (смена одежды)». Бот в шортах/футболке/обуви (в карго — груша/яблоко) поднимает горку-штаны и горку-куртку с пола. Ожидается: новая одежда надевается в слоты Legs/Body, а карго переносится.";
+		return "Тест «Лут (смена одежды)». Бот в Exploration стоит на месте (не обходит здания) и честным выбором (pickUpItemSelect) поднимает горку-штаны и горку-куртку с пола. Ожидается: новая одежда надевается в слоты Legs/Body, а карго (груша/яблоко) переносится.";
 	}
 
 	override float GetDuration() { return 200.0; }
@@ -1215,25 +1218,15 @@ class dmBotTest_LootingChange : dmTestSuite_TestCase
 				return "FAIL: не удалось заспавнить GorkaPants_Autumn";
 			m_Phase = 1;
 			m_PhaseTime = elapsed;
-			return "горка-штаны заспавнены на полу";
+			return "горка-штаны заспавнены на полу, жду честного подбора";
 		}
 
 		if (m_Phase == 1)
 		{
-			if (elapsed - m_PhaseTime < 5.0)
-				return "";
-			CreatePickUpIntent(m_Item);
-			m_Phase = 2;
-			m_PhaseTime = elapsed;
-			return "интент PickUp на горку-штаны";
-		}
-
-		if (m_Phase == 2)
-		{
 			worn = GetWorn("Legs");
 			if (worn && worn.GetType() == "GorkaPants_Autumn")
 			{
-				m_Phase = 3;
+				m_Phase = 2;
 				m_PhaseTime = elapsed;
 				return "бот надел горку-штаны (Legs)";
 			}
@@ -1242,34 +1235,24 @@ class dmBotTest_LootingChange : dmTestSuite_TestCase
 			return "";
 		}
 
-		if (m_Phase == 3)
+		if (m_Phase == 2)
 		{
 			if (elapsed - m_PhaseTime < 5.0)
 				return "";
 			m_Item = SpawnItemNearBot("GorkaEJacket_Autumn");
 			if (!m_Item)
 				return "FAIL: не удалось заспавнить GorkaEJacket_Autumn";
-			m_Phase = 4;
+			m_Phase = 3;
 			m_PhaseTime = elapsed;
-			return "горка-куртка заспавнена на полу";
+			return "горка-куртка заспавнена на полу, жду честного подбора";
 		}
 
-		if (m_Phase == 4)
-		{
-			if (elapsed - m_PhaseTime < 5.0)
-				return "";
-			CreatePickUpIntent(m_Item);
-			m_Phase = 5;
-			m_PhaseTime = elapsed;
-			return "интент PickUp на горку-куртку";
-		}
-
-		if (m_Phase == 5)
+		if (m_Phase == 3)
 		{
 			worn = GetWorn("Body");
 			if (worn && worn.GetType() == "GorkaEJacket_Autumn")
 			{
-				m_Phase = 6;
+				m_Phase = 4;
 				m_PhaseTime = elapsed;
 				return "бот надел горку-куртку (Body)";
 			}
@@ -1278,7 +1261,7 @@ class dmBotTest_LootingChange : dmTestSuite_TestCase
 			return "";
 		}
 
-		//! m_Phase == 6: финальная проверка слотов и перенесённого карго.
+		//! m_Phase == 4: финальная проверка слотов и перенесённого карго.
 		ItemBase legs = GetWorn("Legs");
 		ItemBase body = GetWorn("Body");
 

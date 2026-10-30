@@ -337,17 +337,51 @@ Expansion `eAIBase.c:10094-10102`). E2E: `Melee spin`=0, 3/3 зомби убит
 Действует пока: используется нативный `StartCommand_Melee2`; урон наносится нашим
 `EvaluateHit`/`ProcessMeleeHitName` (цель держит `dmBotMeleeCombat`, не поглощённый `m_MeleeTarget`).
 
-### body: дроп из рук — clone+delete, а не RemoteObjectTree-re-sync (v3.302)
-Решение: дроп предмета из рук ИИ-бота делает clone+delete — `SetGroundPosByOwner` →
-`CreateObjectEx(ECE_OBJECT_SWAP)` на землю → `TransferItemProperties`+`TransferInventory` →
-`ObjectDelete` оригинала. НЕ `LocalDropEntity` + `RemoteObjectTreeDelete/Create`.
-Почему: `LocalDropEntity` (LOCAL-режим) уходит в deferred `HandEventDrop`, а re-sync через
-`RemoteObjectTreeDelete/Create` синкает позицию ПРЕДМЕТА, но не очищает слот РУКИ на клиенте
-(клиент видел `inHands=Machete`, сервер — `inHands=none`). Полный `ObjectDelete` оригинала чистит
-руку и на клиенте, и на сервере (эталон Expansion `Expansion_CloneItemToLocation`, eAIBase.c:6000).
-Действует пока: дроп из HANDS у `AI_SERVER`-бота; для CARGO/ATTACHMENT→GROUND остаётся синхронный
-`LocalTakeToDst` + re-sync (не руки). Следствие: лут-флоу `Ignore(item)` ключится по ссылке →
-после clone+delete клон не игнорится (см. techdebt).
+### body: дроп из рук — clone+delete — ОТМЕНЕНО (v3.403)
+> **ОТМЕНЕНО.** clone+delete ЗАПРЕЩЁН глобально (см. `docs/codeguide.md` «ЖЁСТКОЕ ПРАВИЛО» и
+> запись ниже). `DropItemToGround` (HANDS→GROUND) и `FreeHands` (HANDS→слот) переписаны на обёртку
+> `RemoteObjectTreeDelete`/`Create` + `LocalDropEntity`/`LocalTakeToDst` + отложенный `CallLater(ReCreateTree)`.
+Решение (историческое, отменено): дроп из рук делал clone+delete (`CreateObjectEx` →
+`TransferItemProperties`+`TransferInventory` → `ObjectDelete`).
+Почему было принято: `LocalDropEntity` (LOCAL) уходит в deferred `HandEventDrop`, re-sync сразу
+синкал предмет на прежнем месте (клиент видел `inHands=Machete`). `ObjectDelete` чистил руку.
+Почему отменено: clone+delete меняет сущность → ломает `Ignore`/re-collect/возврат оружия по ссылке.
+Вместо этого — обёртка `RemoteObjectTreeDelete` ДО мува + **отложенный** `RemoteObjectTreeCreate`
+(`CallLater`, после фактического `HandEventDrop`) — та же сущность, рука чистится, клиент синкается.
+Действует пока: (отменено — см. `item-move-sync.md` и код `DropItemToGround`/`FreeHands`).
+
+### body: мув предмета — НИКОГДА clone+delete, только Tree(Delete/Create) (v3.403)
+Решение: мув ТОЙ ЖЕ сущности делается обёрткой `RemoteObjectTreeDelete(item)` ДО мува +
+`LocalTakeToDst`/`LocalDropEntity` + `RemoteObjectTreeCreate(item)` ПОСЛЕ. Из рук (deferred
+`HandEvent`) create откладывается `CallLater` (`deferred_delete_create`). clone+delete запрещён.
+Почему: clone+delete (`CreateObjectEx`+`ObjectDelete`) меняет `EntityAI` — `Ignore`/re-collect/
+`SetDroppedWeapon` (возврат оружия) ключатся по ссылке и ломаются на клоне. Обёртка `RemoteObjectTreeDelete`
+«unregisters» сетевую репрезентацию (не удаляет сущность), `Create` — пере-регистрирует: та же сущность,
+клиент видит правильную позицию/слот.
+Действует пока: любой мув предмета у ИИ-бота (HANDS→слот/земля, GROUND↔CARGO/ATTACHMENT). Исключений нет.
+
+### body: дроп не-рук (репак) — ванильный LocalDropEntity, а не RemoteObjectTreeDelete/Create (v3.393)
+Решение: CARGO/ATTACHMENT → GROUND делает ванильный `Man.LocalDropEntity(item)`
+(`SetGroundPosByOwner` + `TakeToDst(LOCAL)`), **БЕЗ** обёртки `RemoteObjectTreeDelete/Create`;
+из HANDS — по-прежнему clone+delete (запись выше).
+Почему: обёртка `RemoteObjectTreeDelete + LocalTakeToDst + RemoteObjectTreeCreate` ломала синхронное
+освобождение слота карго — эмпирика: 20 дропов вернули `ok=true`, но `FindDestination` всё ещё видел
+«нет места» (вернулся 1 патрон из 20, консерва 2×2 не влезла, осцилляция). `LocalDropEntity` освобождает
+слот немедленно И синкает дроп клиенту (E2E фаза 2: клиентский `scanobj` видит предмет на земле
+`onGround=true`). Сущность остаётся той же → `Ignore`/re-collect работают по одной ссылке.
+Действует пока: дроп не-рук предмета у `AI_SERVER`-бота; из HANDS `LocalDropEntity` уходит в deferred
+`HandEvent` (нужен clone+delete). «Видимый физический дроп» (падение с velocity) — отдельно (body-drop.md §2).
+
+### arsenal: Unregister — по игнор-листу (`Discard`), а не по дропу (v3.394)
+Решение: `DropItem` — тихий (НЕ трогает арсенал); постоянная отбраковка предмета — единая точка
+`dmAISurvivor.Discard(item)` = `GetWishlist().Ignore(item)` + `GetArsenal().Unregister(item)`, синхронно.
+Почему: дроп в репаке транзиентный (выложил → собрал обратно), `Unregister` на дропе дрейфовал арсенал —
+патроны «терялись» до периодического рескана (7–10 мин), боевые `CanShoot`/`SelectFirearmForRange` читали
+заниженный счёт. Инвариант «Unregister по игнор-листу» = «арсенал отражает закоммиченный инвентарь, а не
+транзиентное состояние репака». `dmWishlist` — чистый домен (без ссылки на арсенал), поэтому `Unregister`
+в хелпере `Discard` на `dmAISurvivor`, а не внутри `Wishlist.Ignore`.
+Действует пока: вся постоянная отбраковка идёт через `Wishlist.Ignore` (теперь `Discard`). Нокаут/смерть-дроп
+из рук — clone+delete и вне этой семантики (stale-ref баг оригинала в арсенале — отдельный follow-up, techdebt).
 
 ### test: логи `/car repair` — за `DM_BOT_DEBUG_CAR`, БЕЗ включения в дефолтные defines
 Решение: debug-логи команды `/car repair` гейтятся `#ifdef DM_BOT_DEBUG_CAR` (существующий
@@ -470,3 +504,16 @@ hold «замораживает» текущий выбор на 45 с, но п�
 это; гейт входа остаётся прежним предикатом (не разводим вторую «истину» без надобности — см. techdebt T).
 Действует пока: семантика «знаю позицию» = `m_LastPosition != Zero` (шум тоже даёт позицию — это договорённость);
 если понадобится различать «видел» vs «слышал» — ввести явный флаг, а не выводить из позиции.
+
+### nav: спин после спуска с лестницы — mask-снап heading в HeadingModel (эталон Expansion)
+Решение: в `HeadingModel`-override на `COMMANDID_MOVE` гасить heading каждый кадр
+(`heading = orientation = GetOrientation()`), на `COMMANDID_FALL` — `orientation = heading` + `SetOrientation`;
+на `LADDER`/`CLIMB` — `return false` (натив владеет углами). Это mask, а не cure.
+Почему: нативный `HumanCommandLadder` на спуске (dir=-1) оставляет `m_fHeadingAngle` повёрнутым на +162.26°
+(незавершённая нативная фаза); ванильный `RotateOrient` вечно его догоняет → равномерный спин корпуса. После
+успешного спуска на землю бот идёт `LADDER → MOVE` напрямую (без `FALL`, т.к. `PhysicsIsFalling=false`), поэтому
+ключевой именно MOVE-снап (перебивает накрутку каждый кадр), FALL — на случай краткого падения. MOVE-снап
+сознательно берёт владение heading и глушит `RotateOrient` на ходу (источник спина — именно он). Тот же паттерн
+Expansion (`eAIBase.c:10047-10065`, комментарий «Needed to prevent AI from spinning in place after going down ladder»).
+Действует пока: натив оставляет heading-остаток на спуске и нет способа закрыть фазу; если найдём закрытие
+(явный `hcl.Exit()`/`OnCommandLadderFinish` до `!IsClimbingLadder()`) — mask можно заменить на cure (см. techdebt).

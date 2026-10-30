@@ -14,6 +14,23 @@
 лишь похож на C-подобные языки; он поддерживает очень немного. Сомневаешься —
 ищи аналогичный код в ванильных/Expansion скриптах и делай так же.
 
+## ЖЁСТКОЕ ПРАВИЛО: НИКОГДА clone+delete, только Tree(Delete/Create)
+
+**Запрещено** переносить предмет «клонированием» (`CreateObjectEx`/`LocationCreateEntity` +
+`TransferItemProperties`/`TransferInventory` + `ObjectDelete` оригинал). Это создаёт НОВУЮ сущность
+и удаляет старую → ломается ссылка (`Ignore`/re-collect/возврат оружия), теряется идентичность.
+
+Мув ТОЙ ЖЕ сущности — только обёртка над сетевым представлением:
+```c
+GetGame().RemoteObjectTreeDelete(item);   // Tree delete (сетевая репрезентация, НЕ EntityAI)
+bool ok = pawn.LocalTakeToDst(src, dst);  // или LocalDropEntity(item) — на землю
+GetGame().RemoteObjectTreeCreate(item);   // Tree create
+```
+Из рук `LocalTakeToDst`/`LocalDropEntity` уходит в deferred `HandEvent` — поэтому `RemoteObjectTreeCreate`
+откладывать `CallLater` (вариант `deferred_delete_create`, см. `docs/research/item-move-sync.md`).
+
+Полный рецепт и таблица вариантов — `docs/research/item-move-sync.md`.
+
 ## Что НЕ поддерживается (запрещено)
 
 1. **Тернарный оператор** `cond ? a : b` — не поддерживается.

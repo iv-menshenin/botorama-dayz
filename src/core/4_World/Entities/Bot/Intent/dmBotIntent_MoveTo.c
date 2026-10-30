@@ -606,6 +606,23 @@ class dmBotIntent_MoveTo : dmBotIntent
 		float moveAngle = dmAISurvivor.AngleDiff(subYaw, bodyYaw);
 		m_PathYaw = subYaw;
 
+		#ifdef DM_BOT_DEBUG_LADDER
+		//! Временный per-frame диагностический лог (баг «бесконечное кручение после
+		//! лестницы»): почему вращается subYaw — бот реально крутится, dir≈0 (мусор
+		//! VectorToAngles от нулевого вектора) или дрейфует якорь FollowTo.
+		int pc = 0;
+		if (m_Path)
+			pc = m_Path.Count();
+		dmBotLog.Debug("[LADDER] MV: subGoal=" + subGoal + " pos=" + pos + " dir=" + dir + " dist=" + dist);
+		dmBotLog.Debug("[LADDER] MV: subYaw=" + subYaw + " bodyYaw=" + bodyYaw + " moveAngle=" + moveAngle);
+		dmBotLog.Debug("[LADDER] MV: goal=" + m_Goal + " hasPath=" + m_HasPath + " pathIdx=" + m_PathIdx + " pathCnt=" + pc + " reached=" + reached);
+		dmAISurvivorBase ladderPawn = bot.GetPawn();
+		vector ladderVel = vector.Zero;
+		if (ladderPawn)
+			ladderVel = GetVelocity(ladderPawn);
+		dmBotLog.Debug("[LADDER] MV: laddering=" + m_Laddering + " vel=" + ladderVel);
+		#endif
+
 		//! Оракул: командуем вперёд, а фактическая скорость имеет боковую составляющую —
 		//! значит бот зацепил круглое дерево и его снесло по касательной.
 		if (Math.AbsFloat(moveAngle) < DM_TREE_COLLISION_MOVE_ANGLE && GetGame().GetTickTime() > m_TreeCollisionCooldown && GetGame().GetTickTime() > m_VeerGraceUntil)

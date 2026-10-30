@@ -1,0 +1,16 @@
+{
+  "Name": "diag-m65-riders-path",
+  "Timeout": 90,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [4117.0, 0.0, 10827.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "loadout", "Who": "A", "Loadout": "E2E_JacketBody" },
+    { "Op": "spawnobj", "Who": "j1", "ClassName": "M65Jacket_Black", "Pos": [4110.5, 0.0, 10853.5] },
+    { "Op": "spawnobj", "Who": "j2", "ClassName": "M65Jacket_Black", "Pos": [4104.0, 0.0, 10880.0] },
+    { "Op": "sleep", "Timeout": 20 },
+    { "Op": "invdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "clearall" }
+  ]
+}

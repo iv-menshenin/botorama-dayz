@@ -1,0 +1,13 @@
+{
+  "Name": "ladder-spin-001",
+  "Timeout": 180,
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [13736.6, 0.0, 12965.4], "Yaw": 0.0 },
+    { "Op": "moveto", "Who": "A", "Pos": [13731.02, 209.34, 12969.2] },
+    { "Op": "sleep", "Timeout": 25 },
+    { "Op": "moveto", "Who": "A", "Pos": [13744.38, 0.0, 12961.35] },
+    { "Op": "sleep", "Timeout": 40 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

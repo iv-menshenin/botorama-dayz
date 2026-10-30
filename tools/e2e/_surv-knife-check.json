@@ -1,0 +1,11 @@
+{
+  "Name": "_surv-knife-check",
+  "Timeout": 40,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawnobj", "Who": "knife", "ClassName": "CombatKnife", "Pos": [4117.0, 0.0, 10827.0] },
+    { "Op": "spawnobj", "Who": "machete", "ClassName": "Machete", "Pos": [4119.0, 0.0, 10827.0] },
+    { "Op": "snapshot" },
+    { "Op": "clearobj", "Obj": "*" }
+  ]
+}

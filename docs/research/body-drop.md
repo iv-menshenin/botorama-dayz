@@ -231,6 +231,12 @@ deferred-дроп с задержкой ≥1 кадра не пересечёт�
 
 ## 4. Рецепт для `dayz-dev`
 
+> **⚠ ОТМЕНЕНО (v3.403).** «Вариант B» (clone+delete) ниже — ЗАПРЕЩЁН (см. `docs/codeguide.md`
+> «ЖЁСТКОЕ ПРАВИЛО: НИКОГДА clone+delete»). Рабочий рецепт — обёртка `RemoteObjectTreeDelete(item)` ДО
+> + `LocalDropEntity(item)`/`LocalTakeToDst` + **отложенный** `RemoteObjectTreeCreate` (`CallLater`, после
+> фактического `HandEventDrop`) — та же сущность, без клона. См. `docs/research/item-move-sync.md`
+> (вариант `deferred_delete_create`). Текст ниже — историческая трасса.
+
 ### Вариант A — минимальный (правка текущего `DropItem`): deferred re-sync
 
 Меняем `DropItem` так, чтобы `RemoteObjectTreeDelete/Create` выполнялись **после** фактического

@@ -31,17 +31,22 @@ RT="/home/devalio/.local/share/Steam/steamapps/common/SteamLinuxRuntime_4/_v2-en
 PROTON="/home/devalio/.local/share/Steam/steamapps/common/Proton Hotfix/proton"
 GAME="/home/devalio/.local/share/Steam/steamapps/common/DayZ"
 
+# Порт тест-сервера: 2302 по умолчанию; свой e2e-сервер на 2312 → PORT=2312.
+PORT="${PORT:-2302}"
+
 # Мод клиенту нужен, чтобы совпасть с -mod=@Botorama на сервере. Берём ту же папку
 # мода (Z:-путь, как в crash-логе клиента: Z:\...\DayZServer\@OneShot), без копии.
+# Готча: nasdara — ВСТРОЕННЫЕ файлы игры (карта/террейн), их НЕ подключать со стороны
+# клиента в -mod= (иначе map mismatch). Клиенту нужен ТОЛЬКО @Botorama.
 MOD='Z:\mnt\deep-space\Steam\steamapps\common\DayZServer\@Botorama'
 
-echo "=== launching DayZ observer client (connect 127.0.0.1:2302) ==="
+echo "=== launching DayZ observer client (connect 127.0.0.1:$PORT) ==="
 # 1500s (25 min): клиент может грузиться до 15 мин (Fossilize/стриминг мира);
 # прежний timeout 600 убивал клиента раньше входа в игру.
 timeout 1500 "$RT" --verb=waitforexitandrun -- \
     "$PROTON" waitforexitandrun \
     "$GAME/DayZ_x64.exe" \
-    "-connect=127.0.0.1:2302" \
+    "-connect=127.0.0.1:$PORT" \
     "-name=e2e-observer" \
     "-mod=$MOD" \
     -window -noPause -nosplash -skipIntro

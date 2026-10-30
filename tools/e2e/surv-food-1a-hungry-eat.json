@@ -1,0 +1,18 @@
+{
+  "Name": "surv-food-1a-hungry-eat",
+  "Timeout": 90,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [4117.0, 0.0, 10827.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "healbot", "Who": "A" },
+    { "Op": "setstat", "Who": "A", "Stat": "energy", "Value": "200" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "spawnonroute", "Who": "A", "ClassName": "TacticalBaconCan", "Obj": "f1" },
+    { "Op": "sleep", "Timeout": 20 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "invdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "clearall" }
+  ]
+}

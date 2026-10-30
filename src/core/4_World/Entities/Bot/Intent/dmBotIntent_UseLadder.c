@@ -163,14 +163,21 @@ class dmBotIntent_UseLadder : dmBotIntent
 
 		if (!pawn.IsClimbingLadder())
 		{
+			#ifdef DM_BOT_DEBUG_LADDER
+			dmBotLog.Debug("[LADDER] UseLadder.detach orient=" + bot.GetOrientation()[0] + " bodyYaw=" + pawn.GetOrientation()[0]);
+			#endif
 			Finish();
 			return;
 		}
 
-		if ( m_Direction < 0 )
+		//! Подъём/спуск: кормим направление движения — нативный HumanCommandLadder
+		//! читает его из инпут-контроллера (вперёд = вверх, назад = вниз).
+		if (m_Direction < 0)
 		{
 			bot.IntentMove(180.0, 3.0);
-		} else {
+		}
+		else
+		{
 			bot.IntentMove(0.0, 3.0);
 		}
 
@@ -179,6 +186,9 @@ class dmBotIntent_UseLadder : dmBotIntent
 		{
 			#ifdef DM_BOT_DEBUG_FSM
 			dmBotLog.Debug("[Ladder] UseLadder: exit pos=" + bot.GetPosition() + " orient=" + bot.GetOrientation()[0]);
+			#endif
+			#ifdef DM_BOT_DEBUG_LADDER
+			dmBotLog.Debug("[LADDER] UseLadder.exit orient=" + bot.GetOrientation()[0] + " bodyYaw=" + pawn.GetOrientation()[0]);
 			#endif
 			hcl.Exit();
 			return;

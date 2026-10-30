@@ -629,6 +629,59 @@ class dmAISurvivorBase : PlayerBase
 		return false;
 	}
 
+	//! Prevent the AI from spinning in place after going DOWN a ladder: vanilla
+	//! HumanCommandLadder leaves m_fHeadingAngle rotated ~+162° from the
+	//! orientation and RotateOrient keeps turning the body forever. On MOVE snap
+	//! heading to the body each frame (kills the residual offset; a successful
+	//! descent to ground goes LADDER→MOVE directly, no FALL), on FALL snap body to
+	//! heading; LADDER/CLIMB stay untouched (native owns the angles). Эталон
+	//! Expansion eAIBase.c:10047-10065 (MOVE) и :10093-10101 (FALL).
+	override bool HeadingModel(float pDt, SDayZPlayerHeadingModel pModel)
+	{
+		#ifdef DM_BOT_DEBUG_LADDER
+		dmBotLog.Debug("[LADDER] RAW: heading=" + (pModel.m_fHeadingAngle * Math.RAD2DEG) + " orient=" + (pModel.m_fOrientationAngle * Math.RAD2DEG));
+		#endif
+
+		GetMovementState(m_MovementState);
+
+		switch (m_MovementState.m_CommandTypeId)
+		{
+			//! Vanilla: on ladder/climb do nothing (native command owns the angles).
+			case DayZPlayerConstants.COMMANDID_LADDER:
+			case DayZPlayerConstants.COMMANDID_CLIMB:
+				m_fLastHeadingDiff = 0;
+				return false;
+
+			case DayZPlayerConstants.COMMANDID_MOVE:
+			{
+				HumanCommandMove hcm = GetCommand_Move();
+				if (hcm && hcm.IsStandingFromBack())
+				{
+					m_fLastHeadingDiff = 0;
+					return false;
+				}
+				//! Snap heading to body while moving — prevents AI spinning in place
+				//! after going down a ladder (residual +162° heading offset is killed).
+				float moveAngle = GetOrientation()[0] * Math.DEG2RAD;
+				pModel.m_fHeadingAngle = moveAngle;
+				pModel.m_fOrientationAngle = moveAngle;
+				m_fLastHeadingDiff = 0;
+				return true;
+			}
+
+			//! Needed to prevent AI from spinning in place after going down ladder
+			//! (эталон Expansion eAIBase.c:10093): snap body to heading at the FALL
+			//! transition right after the ladder, killing the residual +162° offset.
+			case DayZPlayerConstants.COMMANDID_FALL:
+				pModel.m_fOrientationAngle = pModel.m_fHeadingAngle;
+				SetOrientation(Vector(pModel.m_fHeadingAngle * Math.RAD2DEG, 0, 0));
+				m_fLastHeadingDiff = 0;
+				return false;
+		}
+
+		return super.HeadingModel(pDt, pModel);
+	}
+
 	//! Tick the raise timer and push the raised flag into the animation graph.
 	//! The raise ANIMATION is driven by the custom dmAI_Raised graph variable (bound
 	//! in BindLookVars), NOT by a raised stance — the vanilla "Raised" var is
@@ -1173,6 +1226,16 @@ class dmAISurvivorBase : PlayerBase
 			return;
 		}
 
+		#ifdef DM_BOT_DEBUG_LADDER
+		//! Временный per-frame диагностический лог (баг «бесконечное кручение после
+		//! лестницы»). Разбит на 4 строки — codeguide «Formula too complex».
+		GetMovementState(m_MovementState);
+		dmBotLog.Debug("[LADDER] onLadder=" + IsClimbingLadder() + " cmd=" + m_MovementState.m_CommandTypeId);
+		dmBotLog.Debug("[LADDER] headingDiff=" + m_fLastHeadingDiff + " targetYaw=" + m_TargetBodyYaw + " bodyYaw=" + GetOrientation()[0]);
+		dmBotLog.Debug("[LADDER] turnState=" + m_TurnState + " moving=" + m_IsMoving);
+		dmBotLog.Debug("[LADDER] vel=" + GetVelocity(this) + " desiredA=" + m_DesiredMoveAngle + " desiredS=" + m_DesiredSpeed + " actualS=" + m_ActualSpeed + " turnSharp=" + m_TurnSharp);
+		#endif
+
 		bool onLadder = IsClimbingLadder();
 
 		ApplyWeaponADS();
@@ -1300,8 +1363,9 @@ class dmAISurvivorBase : PlayerBase
 					brain.SetWasInCombatAtKnockout(brain.IsInCombat());
 
 				//! Дроп предмета из рук отложенно (ваниль дропает только на CLIENT-ветке).
-				//! Clone+delete выполняется в DropItemInHandsDeferred (CallLater 34 мс),
-				//! чтобы не трогать предмет в том же кадре, что и StartCommand_Unconscious.
+				//! Синхронный мув через item.LocalTakeToDst выполняется в
+				//! DropItemInHandsDeferred (CallLater 34 мс), чтобы не трогать предмет в
+				//! том же кадре, что и StartCommand_Unconscious.
 				EntityAI inHands = GetItemInHands();
 				if (inHands)
 				{
@@ -1427,8 +1491,9 @@ class dmAISurvivorBase : PlayerBase
 
 		//! Дроп предмета из рук ПЕРЕД super.EEKilled: предмет должен лежать на земле к
 		//! моменту регистрации трупа (InsertCorpse внутри super). DropItem делает
-		//! clone+delete (клон на земле + ObjectDelete оригинала), состояние смерти
-		//! сущности не трогает. Напрямую (без defer) — смерть не StartCommand_Unconscious.
+		//! синхронный мув через item.LocalTakeToDst + RemoteObjectTreeDelete/Create
+		//! (та же сущность, НЕ клон), состояние смерти сущности не трогает. Напрямую
+		//! (без defer) — смерть не StartCommand_Unconscious.
 		EntityAI inHands = GetItemInHands();
 		if (inHands)
 		{
@@ -2382,91 +2447,130 @@ class dmAISurvivorBase : PlayerBase
 		return false;
 	}
 
-	//! Сбросить item на землю так, чтобы КЛИЕНТ увидел пустую руку + предмет на
-	//! земле. Это ОВЕРРАЙД ванильного PlayerBase.DropItem(ItemBase) — ванильный
-	//! вызывать нельзя (PredictiveDropEntity валит сервер, см. docs/research/loot.md).
-	//! Возвращает true при успехе. Вызывающий сам выбирает предмет (GetDiscardOrder)
-	//! и помечает его Ignore, чтобы не подобрать заново.
+	//! Сбросить item на землю так, чтобы КЛИЕНТ увидел предмет на земле и освобождённый
+	//! слот. Это ОВЕРРАЙД ванильного PlayerBase.DropItem(ItemBase) — ванильный вызывать
+	//! нельзя (PredictiveDropEntity валит сервер, см. docs/research/loot.md).
+	//! Возвращает true при успехе. Дроп ТИХИЙ: арсенал НЕ трогает (никакого Unregister).
+	//! Постоянная отбраковка предмета — только через игнор-лист (dmAISurvivor.Discard,
+	//! который синхронно зовёт Wishlist.Ignore + Arsenal.Unregister).
 	//!
-	//! Реализация — clone+delete (эталон Expansion eAIBase.Expansion_CloneItemToLocation,
-	//! eAIBase.c:6000-6075): сетевой клон на земле (CreateObjectEx ECE_OBJECT_SWAP) +
-	//! полный ObjectDelete оригинала — рука пустеет и на клиенте, и на сервере, без
-	//! deferred HandEventDrop-тайминга (см. docs/research/body-drop.md, Вариант B).
+	//! Реализация ветвится по источнику (эталон Expansion eAI_DropItemImpl,
+	//! eAIBase.c:10256/10268):
+	//!  - HANDS (нокаут/смерть) — обёртка (DropItemToGround): синхронный мув через
+	//!    item.LocalTakeToDst (EntityAI-перегруз → GameInventory.TakeToDst(LOCAL),
+	//!    минуя HandEvent) внутри RemoteObjectTreeDelete/Create; работает на мёртвом/
+	//!    нокаутированном (Man.LocalDropEntity там уходит в deferred HandEventDrop и
+	//!    не срабатывает). Та же сущность, НЕ клон.
+	//!  - CARGO/ATTACHMENT (в т.ч. репак) — ванильный дроп (DropItemToGroundLocal):
+	//!    сущность ОСТАЁТСЯ ТОЙ ЖЕ (мув, не клон), чтобы Ignore/re-collect работали по
+	//!    одной ссылке (docs/research/drop-to-ground.md). Для земли — LocalDropEntity
+	//!    ВНУТРИ обёртки RemoteObjectTreeDelete/Create (обязательна для синка клиенту —
+	//!    см. метод ниже).
 	override bool DropItem(ItemBase item)
 	{
-		dmAISurvivor brain = dmAISurvivor.Find(this);
-		if (brain)
-			brain.GetArsenal().Unregister(item);
-		EntityAI clone = DropItemToGround(item);
-		return clone != null;
+		if (!item)
+			return false;
+		if (item == GetItemInHands())
+			return DropItemToGround(item) != null;      // HANDS → обёртка (НЕ трогать)
+		return DropItemToGroundLocal(item) != null;     // не-руки → локальный мув (тихий)
 	}
 
-	//! Клон+delete дроп предмета на землю. Возвращает клон на земле (null при
-	//! неудаче) — вызывающий использует его как «выпавшее оружие» (m_DroppedWeapon),
-	//! т.к. оригинал удалён полным сетевым ObjectDelete.
+	//! Ванильный дроп предмета НЕ-из-рук на землю (CARGO/ATTACHMENT → GROUND).
+	//! Для земли — LocalDropEntity(item) (man.c:140), для слота/карго — LocalTakeToDst,
+	//! оба ВНУТРИ обёртки RemoteObjectTreeDelete/Create, обязательной для синка клиенту
+	//! (иначе «призрак»: клиент держит старую картину). Сущность ОСТАЁТСЯ ТОЙ ЖЕ (мув, не
+	//! клон) — Ignore/re-collect работают по одной ссылке. Возвращает ТУ ЖЕ сущность или
+	//! null при неудаче. Только для не-рук: из HANDS дроп уходит в deferred HandEvent
+	//! (body-drop.md) — там используется DropItemToGround (обёртка, та же сущность).
+	EntityAI DropItemToGroundLocal(ItemBase item)
+	{
+		if (!item)
+			return null;
+
+		WeaponManager wm = GetWeaponManager();
+		if (wm && wm.IsRunning())
+			wm.OnWeaponActionEnd();
+
+		GetGame().RemoteObjectTreeDelete(item);
+		bool ok = LocalDropEntity(item);
+		GetGame().RemoteObjectTreeCreate(item);
+
+		#ifdef DM_BOT_DEBUG_BODY
+		dmBotLog.Debug("[Body] DropItemToGroundLocal: " + item.GetType() + " на земле ok=" + ok + " (та же сущность)");
+		#endif
+
+		if (ok)
+			return item;
+		return null;
+	}
+
+	//! Дроп предмета из РУК на землю (HANDS/нокаут/смерть). СИНХРОННЫЙ мув через
+	//! item.LocalTakeToDst (EntityAI-перегруз → GameInventory.TakeToDst(LOCAL) →
+	//! LocationSyncMoveEntity), а НЕ LocalDropEntity (Man) — тот из рук уходит в
+	//! deferred HandEventDrop, который на мёртвом/нокаутированном боте не срабатывает
+	//! вовремя (клиент не видит дроп). EntityAI-перегруз минует HumanInventory/HandEvent,
+	//! поэтому RemoteObjectTreeCreate делается СРАЗУ (мув синхронный, без CallLater).
+	//! Сущность ОСТАЁТСЯ ТОЙ ЖЕ (мув, НЕ клон) — возвращается она же (null при неудаче),
+	//! вызывающий использует её как «выпавшее оружие» (m_DroppedWeapon).
 	EntityAI DropItemToGround(ItemBase item)
 	{
 		if (!item)
 			return null;
 
-		//! 1. Точка на земле рядом с ботом.
-		InventoryLocation il_dst = new InventoryLocation();
-		GameInventory.SetGroundPosByOwner(this, item, il_dst);
-
-		//! 2. Стоп WM, чтобы не остаться в running (эталон eAIBase.c:6011-6012).
+		//! 1. Стоп WM, чтобы не остаться в running (эталон eAIBase.c:6011-6012).
 		WeaponManager wm = GetWeaponManager();
 		if (wm && wm.IsRunning())
 			wm.OnWeaponActionEnd();
 
-		//! 3. Новая сущность на земле (сетевой spawn → клиент видит).
-		EntityAI clone = EntityAI.Cast(g_Game.CreateObjectEx(item.GetType(), il_dst.GetPos(), ECE_OBJECT_SWAP));
-		if (!clone)
-		{
-			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[Body] DropItemToGround: клон не создан для " + item.GetType());
-			#endif
+		//! 2. Точка на земле + синхронный мув ТОЙ ЖЕ сущности (минуя HandEvent):
+		//!    RemoteObjectTreeDelete → item.LocalTakeToDst(EntityAI-перегруз) → Create сразу.
+		InventoryLocation src = new InventoryLocation();
+		if (!item.GetInventory().GetCurrentInventoryLocation(src))
 			return null;
-		}
 
-		//! 4. Скопировать состояние (health+variables+agents; внутри для оружия —
-		//! CopyWeaponStateFrom, для магазина — ServerSetAmmoCount) + перенести children
-		//! (магазин/attachments/cargo).
-		MiscGameplayFunctions.TransferItemProperties(item, clone);
-		MiscGameplayFunctions.TransferInventory(item, clone, this);
+		InventoryLocation dst = new InventoryLocation();
+		GameInventory.SetGroundPosByOwner(this, item, dst);
 
-		//! 5. Удалить оригинал — снимает предмет с клиента И из руки на сервере.
-		g_Game.ObjectDelete(item);
+		GetGame().RemoteObjectTreeDelete(item);
+		bool ok = item.LocalTakeToDst(src, dst);
+		GetGame().RemoteObjectTreeCreate(item);
 
 		#ifdef DM_BOT_DEBUG_BODY
-		dmBotLog.Debug("[Body] DropItemToGround: клон " + clone.GetType() + " на земле");
+		dmBotLog.Debug("[Body] DropItemToGround: " + item.GetType() + " на земле ok=" + ok + " (та же сущность, синхронно)");
 		#endif
 
-		return clone;
+		if (ok)
+			return item;    //! ТА ЖЕ сущность, НЕ клон
+		return null;
 	}
 
 	//! Задержка отложенного дропа при нокауте (эталон Expansion
-	//! CallLater(eAI_Recreate, 34, false)): ~34 мс ≈ 2 тика — буфер, чтобы clone+delete
-	//! не выполнялся в том же кадре, что и StartCommand_Unconscious (см. body-drop.md §3).
+	//! CallLater(eAI_Recreate, 34, false)): ~34 мс ≈ 2 тика — буфер, чтобы дроп не
+	//! выполнялся в том же кадре, что и StartCommand_Unconscious (см. body-drop.md §3).
 	static const int DM_BOT_KNOCKOUT_DROP_DELAY_MS = 34;
 
-	//! Отложенный дроп предмета из рук при нокауте: clone+delete (DropItemToGround) +
-	//! запоминание клона как «выпавшее оружие» (SetDroppedWeapon) для возврата при
-	//! пробуждении. Вызывается CallLater-ом из UpdateUnconsciousBridge.
+	//! Отложенный дроп предмета ИЗ РУК при нокауте (только HANDS): DropItemToGround
+	//! (синхронный мув через item.LocalTakeToDst + RemoteObjectTreeDelete/Create —
+	//! ТА ЖЕ сущность, НЕ клон) + запоминание выпавшей сущности как «выпавшее оружие»
+	//! (SetDroppedWeapon) для возврата при пробуждении. SetDroppedWeapon по той же
+	//! ссылке — возврат при пробуждении без клон-рассинхрона. Вызывается CallLater-ом
+	//! из UpdateUnconsciousBridge (отложенность — буфер от StartCommand_Unconscious,
+	//! а не от deferred HandEvent: сам мув синхронный).
 	private void DropItemInHandsDeferred(ItemBase item)
 	{
 		if (!item)
 			return;
 
-		EntityAI clone = DropItemToGround(item);
-		if (!clone)
+		EntityAI dropped = DropItemToGround(item);
+		if (!dropped)
 			return;
 
 		dmAISurvivor brain = dmAISurvivor.Find(this);
 		if (brain)
-			brain.SetDroppedWeapon(clone);
+			brain.SetDroppedWeapon(dropped);
 
 		#ifdef DM_BOT_DEBUG_BODY
-		dmBotLog.Debug("[Body] DropItemInHandsDeferred: клон " + clone.GetType() + " на земле");
+		dmBotLog.Debug("[Body] DropItemInHandsDeferred: " + dropped.GetType() + " на земле (та же сущность)");
 		#endif
 	}
 

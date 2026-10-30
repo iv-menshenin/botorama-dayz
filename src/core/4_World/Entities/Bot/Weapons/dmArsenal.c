@@ -151,6 +151,15 @@ class dmArsenal
 		}
 	}
 
+	//! Принудительная полная актуализация (для e2e: после loadout-выдачи, которая
+	//! создаёт предметы мимо Register). То же, что периодический рескан, но сразу.
+	//! BeginRescan очищает списки и ставит m_RescanQueue; Tick продолжит
+	//! ProcessRescanFrame пофреймово (рескан асинхронный, не мгновенный).
+	void ForceRescan()
+	{
+		BeginRescan();
+	}
+
 	//! Начать полный рескан: очистить списки и зафиксировать очередь вещей инвентаря.
 	private void BeginRescan()
 	{
@@ -210,6 +219,23 @@ class dmArsenal
 		if (caliber == "")
 			return 0;
 		return GetCaliberCount(caliber);
+	}
+
+	//! Есть ли среди зарегистрированного огнестрела оружие под калибр (имя пули CfgAmmo).
+	bool HasWeaponForCaliber(string bulletType)
+	{
+		if (bulletType == "")
+			return false;
+		int i;
+		for (i = 0; i < m_Weapons.Count(); i++)
+		{
+			Weapon_Base w = Weapon_Base.Cast(m_Weapons[i]);
+			if (!w)
+				continue;
+			if (dmWeaponRange.GetCaliber(w) == bulletType)
+				return true;
+		}
+		return false;
 	}
 
 	//! Самое удобное мили: в руках мили, иначе первое не сломанное в списке.

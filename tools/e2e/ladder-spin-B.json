@@ -1,0 +1,17 @@
+{
+  "Name": "ladder-spin-B",
+  "Timeout": 180,
+  "Steps": [
+    { "Op": "spawn", "Who": "A", "Pos": [13736.6, 0.0, 12965.4], "Yaw": 0.0 },
+    { "Op": "moveto", "Who": "A", "Pos": [13735.26, 209.12, 12967.29] },
+    { "Op": "sleep", "Timeout": 15 },
+    { "Op": "moveto", "Who": "A", "Pos": [13744.38, 0.0, 12961.35] },
+    { "Op": "sleep", "Timeout": 25 },
+    { "Op": "moveto", "Who": "A", "Pos": [13735.26, 209.12, 12967.29] },
+    { "Op": "sleep", "Timeout": 15 },
+    { "Op": "moveto", "Who": "A", "Pos": [13744.38, 0.0, 12961.35] },
+    { "Op": "sleep", "Timeout": 25 },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

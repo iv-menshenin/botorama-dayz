@@ -1,0 +1,17 @@
+{
+  "Name": "surv-water-2b-empty",
+  "Timeout": 90,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [4117.0, 0.0, 10827.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "healbot", "Who": "A" },
+    { "Op": "setstat", "Who": "A", "Stat": "water", "Value": "200" },
+    { "Op": "givebottle", "Who": "A", "Value": "0" },
+    { "Op": "sleep", "Timeout": 15 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "invdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "clearall" }
+  ]
+}

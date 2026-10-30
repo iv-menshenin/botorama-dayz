@@ -33,6 +33,10 @@
 //!   DM_BOT_DEBUG_PAWN    — pawn/animation (variable binding, look sync).
 //!   DM_BOT_DEBUG_BODY    — body mechanics (CE profile, corpse registration, blood/
 //!                          shock/unconscious bridge, periodic body stats).
+//!   DM_BOT_DEBUG_LADDER  — ВРЕМЕННЫЙ per-frame диагностический лог вокруг лестницы
+//!                          (onLadder/cmd/headingDiff/bodyYaw/turnState в CommandHandler
+//!                          + UseLadder exit). Удалить после починки бага «кручение
+//!                          после лестницы».
 //!   DM_BOT_DEBUG_FIGHT   — мили-бой (Fighting-состояние, HitTo, RequestMeleeAttack/EvaluateHit).
 //!   DM_BOT_DEBUG_DAMAGE  — трассировка цепочки урона мили (EvaluateHit → ProcessMeleeHit → EEOnDamageCalculated → EEHitBy).
 //!   DM_BOT_DEBUG_LOADOUT — loadout application (dmLoadoutApplier).
@@ -66,6 +70,8 @@
 //!   PER-FRAME-домены (спам на каждый кадр) — НЕ входят в `--test`, включаются точечно
 //!   только если сценарий их проверяет:
 //!     DM_BOT_DEBUG_PERFRAME_MOVING_LOG, DM_BOT_TRACE_LOOK.
+//!     DM_BOT_DEBUG_LADDER — ВРЕМЕННО в `--test` (исключение на время отладки бага
+//!     «кручение после лестницы»); после починки вернуть в per-frame-правило.
 //!
 //! Gating is done at the CALL SITE, not inside dmBotLog:
 //!

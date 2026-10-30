@@ -168,6 +168,18 @@ class dmAISurvivor
 
 	private bool m_IsInCombat= false;
 
+	//! Таймер держания предмета в руках вне боя (с): по истечении
+	//! DM_HOLD_IN_HANDS_TIMEOUT руки освобождаются (dmLoot.FreeHands — в слот/рюкзак,
+	//! НЕ дроп). Сбрасывается при смене предмета в руках и в бою.
+	private float m_InHandsHoldTime = 0.0;
+
+	//! Предмет в руках на прошлом тике (детект смены → сброс m_InHandsHoldTime).
+	private EntityAI m_PrevInHandsItem;
+
+	//! Тестовый флаг: в Exploration бот НЕ обходит здания (EnsureExplore), стоит на
+	//! месте, но оппортунистический подбор (EnsurePickUp → pickUpItemSelect) работает.
+	bool m_ExplorationStandStill = false;
+
 	void dmAISurvivor()
 	{
 		m_FSMIntents = new dmBotIntentPool();
@@ -471,6 +483,31 @@ class dmAISurvivor
 		if (m_Pawn.IsUnconscious())
 			return;
 
+		//! Таймер держания предмета в руках вне боя: по истечении освободить руки
+		//! (dmLoot.FreeHands кладёт предмет в слот/рюкзак, НЕ дропает). Пауза в бою.
+		EntityAI inHands = m_Pawn.GetItemInHands();
+		if (inHands != m_PrevInHandsItem)
+		{
+			m_PrevInHandsItem = inHands;
+			m_InHandsHoldTime = 0.0;
+		}
+		if (inHands && !IsInCombat())
+		{
+			m_InHandsHoldTime += pDt;
+			if (m_InHandsHoldTime > DM_HOLD_IN_HANDS_TIMEOUT)
+			{
+				#ifdef DM_BOT_DEBUG_BODY
+				dmBotLog.Debug("[Body] таймаут держания " + inHands.GetType() + " — FreeHands");
+				#endif
+				dmLoot.FreeHands(m_Pawn);
+				m_InHandsHoldTime = 0.0;
+			}
+		}
+		else
+		{
+			m_InHandsHoldTime = 0.0;
+		}
+
 		//! Детект перехода в связанное состояние: только что связали.
 		bool restrained = m_Pawn.IsRestrained();
 		if (restrained && !m_WasRestrained)
@@ -596,6 +633,15 @@ class dmAISurvivor
 	dmWishlist GetWishlist()
 	{
 		return m_Wishlist;
+	}
+
+	//! Постоянная отбраковка предмета: внести в игнор-лист (не подбирать заново)
+	//! И синхронно вычесть из арсенала (не держим более). Универсальная точка
+	//! «бот больше не владеет этой вещью».
+	void Discard(EntityAI item)
+	{
+		GetWishlist().Ignore(item);
+		GetArsenal().Unregister(item);
 	}
 
 	dmRequirements GetRequirements()
@@ -1291,6 +1337,20 @@ class dmAISurvivor
 				return true;
 		}
 		return false;
+	}
+
+	//------------------------------------------------------------------
+	// Exploration stand-still (test flag)
+	//------------------------------------------------------------------
+
+	void SetExplorationStandStill(bool v)
+	{
+		m_ExplorationStandStill = v;
+	}
+
+	bool IsExplorationStandStill()
+	{
+		return m_ExplorationStandStill;
 	}
 
 	//------------------------------------------------------------------
@@ -2021,8 +2081,8 @@ class dmAISurvivor
 		dmBotSpan _span = dmBotProfiler.Start("Intents");
 		#endif
 
-		// Clear before fair arbitration
-		m_Winner.Set(dmBotIntentsChannel.NONE, null);
+		// Clear before fair arbitration. NONE-канал не ходит через m_Winner —
+		// его разбирает IntentsArbitrationNone (ротация с залипанием).
 		m_Winner.Set(dmBotIntentsChannel.LOOK, null);
 		m_Winner.Set(dmBotIntentsChannel.MOVE, null);
 		m_Winner.Set(dmBotIntentsChannel.STANCE, null);
@@ -2060,6 +2120,7 @@ class dmAISurvivor
 	{
 		if (IntentsArbitrationConcurrency(intents, priority, dmBotIntentConcurrency.EXCLUSIVE, pDt)) return true;
 		IntentsArbitrationConcurrency(intents, priority, dmBotIntentConcurrency.PARALLEL, pDt);
+		IntentsArbitrationNone(intents, priority, pDt);
 		return false;
 	}
 
@@ -2075,7 +2136,8 @@ class dmAISurvivor
 			if (intent.IsExpired()) continue;
 			if (!intent.IsActive()) continue;
 			if (intent.m_Concurrency != concurrency) continue;
-			
+			if (intent.m_Manage == dmBotIntentsChannel.NONE) continue;
+
 			dmBotIntent winner = m_Winner.Get(intent.m_Manage);
 			if ( winner && winner != intent )
 			{
@@ -2088,6 +2150,58 @@ class dmAISurvivor
 			if (concurrency == dmBotIntentConcurrency.EXCLUSIVE) return true;
 		}
 		return false;
+	}
+
+	//! NONE-канал: ротация с залипанием. NONE-интенты (EatDrink/TidyInventory) не пишут
+	//! канал тела и не конкурируют «кто первый» — побеждает тот, кто дольше не применялся
+	//! (m_LastRun минимален). Занятый интент (IsBusy) держит канал, пока не закончит текущую
+	//! работу: его m_LastRun не обновляется, он остаётся минимумом и продолжает выигрывать.
+	//! Как только работа завершена (IsBusy == false) — m_LastRun = now, интент уступает
+	//! следующему (100% перебор всех конкурентов).
+	private void IntentsArbitrationNone(array<ref dmBotIntent> intents, dmBotIntentPriority priority, float pDt)
+	{
+		dmBotIntent chosen;
+		dmBotIntent intent;
+		float now = GetGame().GetTickTime();
+		int i;
+
+		for (i = 0; i < intents.Count(); i++)
+		{
+			intent = intents[i];
+			if (intent.m_Manage != dmBotIntentsChannel.NONE) continue;
+			if (intent.m_Priority != priority) continue;
+			if (intent.m_Concurrency != dmBotIntentConcurrency.PARALLEL) continue;
+			if (intent.IsFinished()) continue;
+			if (intent.IsFailed()) continue;
+			if (intent.IsExpired()) continue;
+			if (!intent.IsActive()) continue;
+
+			if (!chosen || intent.m_LastRun < chosen.m_LastRun)
+				chosen = intent;
+		}
+
+		if (!chosen)
+			return;
+
+		chosen.OnUpdate(this, pDt);
+
+		if (!chosen.IsBusy())
+			chosen.m_LastRun = now;
+
+		for (i = 0; i < intents.Count(); i++)
+		{
+			intent = intents[i];
+			if (intent == chosen) continue;
+			if (intent.m_Manage != dmBotIntentsChannel.NONE) continue;
+			if (intent.m_Priority != priority) continue;
+			if (intent.m_Concurrency != dmBotIntentConcurrency.PARALLEL) continue;
+			if (intent.IsFinished()) continue;
+			if (intent.IsFailed()) continue;
+			if (intent.IsExpired()) continue;
+			if (!intent.IsActive()) continue;
+
+			intent.OnSkip(this, pDt);
+		}
 	}
 
 	private void IntentsTickAges(dmBotIntentPool pool, float pDt)
@@ -2153,7 +2267,14 @@ class dmAISurvivor
 		{
 			pawn.SetLookYaw(m_CurLookYaw);
 			pawn.SetLookPitch(m_TargetLookPitch);
+			#ifdef DM_BOT_DEBUG_LADDER
+			float cby = ComputeBodyYaw(headTarget);
+			dmBotLog.Debug("[LADDER] LOOK: mode=" + (int)m_LookTurnMode + " moveYaw=" + m_MoveYaw + " isMoving=" + m_IsMoving);
+			dmBotLog.Debug("[LADDER] LOOK: lookYawAbs=" + m_TargetLookYawAbs + " headTarget=" + headTarget + " cby=" + cby + " bodyYaw=" + bodyYaw);
+			pawn.SetTargetBodyYaw(cby);
+			#else
 			pawn.SetTargetBodyYaw(ComputeBodyYaw(headTarget));
+			#endif
 		}
 
 		if (Math.AbsFloat(applyYaw) > 0.1)
@@ -2284,9 +2405,16 @@ class dmAISurvivor
 
 	float CalcDesired(ItemBase item)
 	{
-		if (m_Wishlist.IsIgnored(item)) return 0.0;
+		bool ignored = m_Wishlist.IsIgnored(item);
+		bool clothing = item.IsClothing();
 
-		if ( item.IsClothing() )
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] Desired: item=" + item.GetType() + " ignored=" + ignored + " clothing=" + clothing);
+		#endif
+
+		if (ignored) return 0.0;
+
+		if (clothing)
 		{
 			if ( IsBetterClothing(item) ) return 1.0;
 			return 0.0;   // не лучше надетого — не берём
@@ -2332,29 +2460,101 @@ class dmAISurvivor
 
 			ItemBase current = ItemBase.Cast(inv.FindAttachment(slotId));
 			if (!current)
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] BetterClothes: verdict=true reason=empty-slot");
+				#endif
 				return true;
+			}
 
 			int itemCargo = CargoCapacity(item);
 			int currentCargo = CargoCapacity(current);
+
+			#ifdef DM_BOT_DEBUG_LOOTING
+			string candType = item.GetType();
+			string wornType = "none";
+			if (current)
+				wornType = current.GetType();
+			string candCargoStr = "null";
+			CargoBase candCargo = item.GetInventory().GetCargo();
+			if (candCargo)
+				candCargoStr = "" + candCargo.GetWidth() + "x" + candCargo.GetHeight();
+			string wornCargoStr = "null";
+			CargoBase wornCargo = current.GetInventory().GetCargo();
+			if (wornCargo)
+				wornCargoStr = "" + wornCargo.GetWidth() + "x" + wornCargo.GetHeight();
+			float candHeat = item.GetHeatIsolation();
+			float wornHeat = current.GetHeatIsolation();
+			float candHp = item.GetHealth();
+			float wornHp = current.GetHealth();
+
+			dmBotLog.Debug("[Loot] BetterClothes: cand=" + candType + " slot=" + slotNames[i] + " worn=" + wornType);
+			dmBotLog.Debug("[Loot] BetterClothes: candCargo=" + candCargoStr + " wornCargo=" + wornCargoStr + " itemCargo=" + itemCargo + " currentCargo=" + currentCargo);
+			dmBotLog.Debug("[Loot] BetterClothes: heat cand=" + candHeat + " worn=" + wornHeat + " hp cand=" + candHp + " worn=" + wornHp);
+			#endif
+
 			if (itemCargo > currentCargo)
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] BetterClothes: verdict=true reason=cargo-more");
+				#endif
 				return true;
+			}
 			if (itemCargo < currentCargo)
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] BetterClothes: verdict=false reason=cargo-less");
+				#endif
 				return false;
+			}
 
 			if (item.GetHeatIsolation() > current.GetHeatIsolation())
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] BetterClothes: verdict=true reason=heat-more");
+				#endif
 				return true;
+			}
 			if (item.GetHeatIsolation() < current.GetHeatIsolation())
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] BetterClothes: verdict=false reason=heat-less");
+				#endif
 				return false;
+			}
 
 			if (item.GetHealth() > current.GetHealth())
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] BetterClothes: verdict=true reason=health-more");
+				#endif
 				return true;
+			}
 			if (item.GetHealth() < current.GetHealth())
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] BetterClothes: verdict=false reason=health-less");
+				#endif
 				return false;
+			}
 
 			if (item.GetMaxHealth() > current.GetMaxHealth())
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] BetterClothes: verdict=true reason=maxhp-more");
+				#endif
 				return true;
+			}
+
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] BetterClothes: verdict=false reason=equal");
+			#endif
 			return false;
 		}
+
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] BetterClothes: verdict=false reason=no-slot");
+		#endif
 		return false;
 	}
 
@@ -2371,34 +2571,10 @@ class dmAISurvivor
 	{
 		if (!item || !item.IsAmmoPile())
 			return false;
-		if (!m_Pawn)
+		string bullet = dmWeaponRange.GetBulletFromMagazine(item.GetType());
+		if (bullet == "")
 			return false;
-		Magazine ammo = Magazine.Cast(item);
-		if (!ammo)
-			return false;
-
-		array<EntityAI> items = new array<EntityAI>();
-		m_Pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
-
-		int i;
-		for (i = 0; i < items.Count(); i++)
-		{
-			Weapon_Base w = Weapon_Base.Cast(items[i]);
-			if (!w || EntityIsMelee(w))
-				continue;
-			int mi;
-			for (mi = 0; mi < w.GetMuzzleCount(); mi++)
-			{
-				if (w.CanChamberFromMag(mi, ammo))
-				{
-					#ifdef DM_BOT_DEBUG_LOOTING
-					dmBotLog.Debug("[Loot] IsSuitableAmmo: " + item.GetType() + " подходит к " + w.GetType());
-					#endif
-					return true;
-				}
-			}
-		}
-		return false;
+		return m_Arsenal.HasWeaponForCaliber(bullet);
 	}
 
 	bool IsSuitableMagazine(ItemBase item)

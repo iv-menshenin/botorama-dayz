@@ -49,7 +49,8 @@ class dmBotState_Exploration : dmBotState
 
 		if (!EnsurePickUp(bot, pawn))
 		{
-			EnsureExplore(bot, pawn);
+			if (!bot.IsExplorationStandStill())
+				EnsureExplore(bot, pawn);
 		}
 
 		TickRoute(pawn);
@@ -100,7 +101,7 @@ class dmBotState_Exploration : dmBotState
 			#ifdef DM_BOT_DEBUG_LOOTING
 			dmBotLog.Debug("[Loot] Выбрасываю: " + item.GetType());
 			#endif
-			bot.GetWishlist().Ignore(item);
+			bot.Discard(item);
 		}
 	}
 
@@ -128,6 +129,8 @@ class dmBotState_Exploration : dmBotState
 		return false;
 	}
 
+	//! Выбор лучшего предмета рядом по desire. «Оценил не нужно» → Ignore с TTL,
+	//! чтобы не пере-сканировать и не пере-оценивать тот же предмет каждый тик.
 	EntityAI pickUpItemSelect(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
 		array<EntityAI> items = dmLoot.ScanNearbyItems(pawn, DM_EXPLORE_PICKUP_RADIUS);
@@ -150,7 +153,10 @@ class dmBotState_Exploration : dmBotState
 
 			float desire = bot.CalcDesired(item);
 			if (desire <= DM_EXPLORE_PICKUP_THRESHOLD)
+			{
+				bot.GetWishlist().Ignore(item);   // оценил «не нужно» → игнор (TTL), не пере-сканировать каждый тик
 				continue;
+			}
 
 			if (desire > bestDesire)
 			{
@@ -171,7 +177,7 @@ class dmBotState_Exploration : dmBotState
 		dmLoot.ClearWeaponRatingCache();
 		if (!EnsureCarry(bot, pawn, best, bestDesire))
 		{
-			bot.GetWishlist().Ignore(best);   // НЕ пересоревноваться за ту же вещь
+			bot.Discard(best);   // НЕ пересоревноваться за ту же вещь
 			#ifdef DM_BOT_DEBUG_LOOTING
 			dmBotLog.Debug("[Loot] Не могу это нести: " + best.GetType() + " pos=" + best.GetPosition());
 			#endif
@@ -206,17 +212,19 @@ class dmBotState_Exploration : dmBotState
 		if (item.IsInherited(Weapon_Base) && !item.IsInherited(Pistol_Base))
 			return CompeteFirearm(bot, pawn, item);
 
-		//! Одежда — конкуренция «кандидат vs надетое в ТОМ ЖЕ слоте».
+		//! Одежда — подтвердить замену в том же слоте (слот валиден → надеть поверх);
+		//! сам сброс старого + перенос карго делает InventoryChangeClothes.
 		if (cat == dmLootCategory.CLOTHING)
 			return CompeteClothing(bot, pawn, item);
 
-		//! Прочее — эвакуация (выбросить наименее ценное, если желание это оправдывает).
+		//! Прочее — эвакуация (полный репак, если желание это оправдывает).
 		return EvacuateForItem(bot, pawn, item, desire);
 	}
 
-	//! Эвакуация под «прочий» предмет: выбросить наименее ценное по необходимости
-	//! (GetDiscardOrder) и повторить CanCarry. Выбрасываются ТОЛЬКО карго-предметы —
-	//! надетое из слота (Body/Feet/Legs/...) эвакуацией не трогается.
+	//! Эвакуация под «прочий» предмет (food/ammo/magazine/medical/repair/other):
+	//! при отсутствии места и достаточном желании вернуть true — сам предмет не
+	//! выбрасываем, полный репак (drop-all → собрать с конца по рангу) делает
+	//! dmBotIntent_PickUp.Evacuate через inventory-frames.
 	bool EvacuateForItem(dmAISurvivor bot, dmAISurvivorBase pawn, ItemBase item, float desire)
 	{
 		dmRequirements req = bot.GetRequirements();
@@ -227,40 +235,7 @@ class dmBotState_Exploration : dmBotState
 			return false;
 		if (!req.WorthEvacuating(desire))
 			return false;
-
-		EntityAI drop = null;
-		InventoryLocation loc = new InventoryLocation();
-		int i;
-		for (i = 0; i < order.Count(); i++)
-		{
-			EntityAI candidate = order[i];
-			if (!candidate)
-				continue;
-			if (candidate.GetInventory().GetCurrentInventoryLocation(loc))
-			{
-				if (loc.GetType() == InventoryLocationType.CARGO)
-				{
-					drop = candidate;
-					break;
-				}
-			}
-		}
-
-		if (!drop)
-		{
-			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] эвакуировать нечего (нет карго-кандидата) ради " + item.GetType());
-			#endif
-			return false;
-		}
-
-		if (!DropAndIgnore(bot, pawn, drop))
-			return false;
-
-		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] эвакуирую " + drop.GetType() + " ради " + item.GetType());
-		#endif
-		return dmLoot.CanCarry(pawn, item);
+		return true;   // полный репак делает PickUp.Evacuate у предмета (через inventory-frames)
 	}
 
 	//! Выбросить предмет и внести его в игнор (чтобы не подбирать выброшенное заново).
@@ -268,7 +243,7 @@ class dmBotState_Exploration : dmBotState
 	{
 		if (!item || !pawn.DropItem(ItemBase.Cast(item)))
 			return false;
-		bot.GetWishlist().Ignore(item);
+		bot.Discard(item);
 		return true;
 	}
 
@@ -317,26 +292,14 @@ class dmBotState_Exploration : dmBotState
 		return dmLoot.CanCarry(pawn, item);
 	}
 
-	//! Конкуренция одежды «кандидат vs надетое в ТОМ ЖЕ слоте»: слот пуст → нести;
-	//! занят → выбросить надетое (IsBetterClothing уже прогейтил CalcDesired) и
-	//! повторить CanCarry. Носимое выкидывается только своей конкуренцией в том же слоте.
+	//! Одежда: замена в ТОМ ЖЕ слоте. Старое НЕ выбрасываем здесь — смену с переносом
+	//! карго делает InventoryChangeClothes внутри dmBotIntent_PickUp (сброс старого →
+	//! надеть новое → перенести карго). Раньше старое выбрасывалось заранее (DropAndIgnore),
+	//! в момент смены слот был уже пуст → InventoryChangeClothes не строила цепочку
+	//! переноса карго → лут оставался в сброшенной одежде (bugreport #72).
 	bool CompeteClothing(dmAISurvivor bot, dmAISurvivorBase pawn, ItemBase item)
 	{
-		GameInventory inv = pawn.GetInventory();
-		if (!inv)
-			return false;
-		int slotId = dmLoot.GetClothingSlotId(pawn, item);
-		if (slotId == InventorySlots.INVALID)
-			return false;
-		ItemBase worn = ItemBase.Cast(inv.FindAttachment(slotId));
-		if (!worn)
-			return dmLoot.CanCarry(pawn, item);
-		if (!DropAndIgnore(bot, pawn, worn))
-			return false;
-		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] одежда вытесняет " + worn.GetType() + " ради " + item.GetType());
-		#endif
-		return dmLoot.CanCarry(pawn, item);
+		return dmLoot.GetClothingSlotId(pawn, item) != InventorySlots.INVALID;
 	}
 
 	//! Лимит мили: если уже >= DM_LOOT_MELEE_MAX мили — выбросить слабейшее мили В КАРГО.
@@ -472,6 +435,10 @@ class dmBotState_Exploration : dmBotState
 	//! SetNothingToDo(true) и возврат true (OnUpdate вернёт EXIT).
 	bool CheckExits(dmAISurvivor bot)
 	{
+		//! Тестовый флаг «стоять на месте»: не выгоняем из Exploration по времени/локации.
+		if (bot.IsExplorationStandStill())
+			return false;
+
 		dmExplorer explorer = bot.GetExplorer();
 		dmExplorationConfig cfg = dmLootingSettings.Get().GetExploration();
 		if (!cfg)

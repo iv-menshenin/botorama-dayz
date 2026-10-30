@@ -83,7 +83,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 				m_Evacuating = true;
 				return;
 			}
-			bot.GetWishlist().Ignore(m_Item);
+			bot.Discard(m_Item);
 			#ifdef DM_BOT_DEBUG_LOOTING
 			dmBotLog.Debug("[Loot] PickUp: нет места и репак невозможен, игнор " + m_Item.GetType());
 			#endif
@@ -149,7 +149,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 		{
 			o = m_EvacOrder[i];
 			if (o && o.GetHierarchyRootPlayer() == null)
-				bot.GetWishlist().Ignore(o);
+				bot.Discard(o);
 		}
 		m_EvacOrder = null;
 	}
@@ -180,7 +180,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 				Finish();
 				return;
 			}
-			bot.GetWishlist().Ignore(m_Item);
+			bot.Discard(m_Item);
 			#ifdef DM_BOT_DEBUG_LOOTING
 			dmBotLog.Debug("[Loot] Evacuate: репак завершён, вещь не легла — игнор " + m_Item.GetType());
 			#endif
@@ -193,7 +193,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 
 		if (m_PickupQueued && pawn && pawn.GetInventoryFrames().IsEmpty())
 		{
-			bot.GetWishlist().Ignore(m_Item);
+			bot.Discard(m_Item);
 			#ifdef DM_BOT_DEBUG_LOOTING
 			dmBotLog.Debug("[Loot] PickUp: очередь пуста, вещь не легла — игнор " + m_Item.GetType());
 			#endif

@@ -48,6 +48,7 @@ class dmBotIntent
 	bool m_Finished = false;
 	bool m_Failed = false;
 	bool m_Active = true;
+	float m_LastRun = 0.0;     // GetGame().GetTickTime() последнего применения (NONE-ротация)
 
 	string GetIntentName()
 	{
@@ -126,6 +127,13 @@ class dmBotIntent
 	bool IsActive()
 	{
 		return m_Active;
+	}
+
+	//! Занят ли интент текущей работой (для NONE-ротации с залипанием). Занятый
+	//! интент держит канал, пока не закончит; по умолчанию не занят.
+	bool IsBusy()
+	{
+		return false;
 	}
 
 	dmBotIntentPriority GetPriority()

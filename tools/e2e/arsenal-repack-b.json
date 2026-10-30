@@ -1,0 +1,22 @@
+{
+  "Name": "arsenal-repack-b",
+  "Timeout": 180,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [4117.0, 0.0, 10827.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "loadout", "Who": "A", "Loadout": "E2E_Mosin" },
+    { "Op": "givecargo", "Who": "A", "ClassName": "Ammo_762x54", "Count": 25 },
+    { "Op": "rescanarsenal", "Who": "A" },
+    { "Op": "sleep", "Timeout": 6 },
+    { "Op": "spawnonroute", "Who": "A", "ClassName": "Ammo_762x54", "Obj": "f1" },
+    { "Op": "sleep", "Timeout": 35 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "invdump", "Who": "A" },
+    { "Op": "reqdump", "Who": "A" },
+    { "Op": "rescanarsenal", "Who": "A" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "snapshot" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "clearall" }
+  ]
+}

@@ -23,6 +23,13 @@ class dmBotIntent_EatDrink : dmBotIntent
 		return "EatDrink";
 	}
 
+	//! Занят, пока идёт открытие (фаза 1) или потребление (фаза 2) — держит NONE-канал,
+	//! чтобы TidyInventory не перехватил арбитраж посреди еды.
+	override bool IsBusy()
+	{
+		return m_Phase != 0;
+	}
+
 	override void OnUpdate(dmAISurvivor bot, float pDt)
 	{
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
@@ -166,7 +173,9 @@ class dmBotIntent_EatDrink : dmBotIntent
 
 		if (!m_Item || m_Item.GetQuantity() <= 0.0)
 		{
-			StopAnim(pawn);
+			StopAnim(pawn);                 // сначала погасить анимацию
+			if (m_Item)
+				m_Item.SetQuantity(0);      // потом удалить еду / обнулить бутылку
 			m_Item = null;
 			m_Phase = 0;
 			m_Cooldown = DM_EAT_DRINK_SCAN_INTERVAL;

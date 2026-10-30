@@ -509,7 +509,14 @@ class dmBotState_Fighting : dmBotState
 		if (inHands && inHands != melee)
 		{
 			ItemBase current = ItemBase.Cast(inHands);
-			if (current.IsRuined())
+			//! Предпочтительный путь: положить предмет из рук в слот (FreeHands —
+			//! MELEE/SHOULDER/Backpack_1), НЕ дропать. Синхронно освобождает руки;
+			//! дроп (PLACEONGROUND) — только фолбэк, если свободного места нет.
+			if (!current.IsRuined() && dmLoot.FreeHands(pawn))
+			{
+				root = equip;      // руки свободны — осталось экипировать мили
+			}
+			else if (current.IsRuined())
 			{
 				root = dmInventoryFrame.Make(dmInventoryDoing.PLACEONGROUND, current);
 				root.m_OnSuccess = equip;

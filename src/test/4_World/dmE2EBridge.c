@@ -6,10 +6,10 @@
 //! exists, so there is zero overhead when no agent is driving.
 //!
 //! Ops: ping | spawn | moveto | follow | patrol | speed | loadout | look | say |
-//! shock | healplayer | restrain | give | givebayonet | wait | assert | snapshot | clearall (named bots)
+//! shock | healplayer | setstat | bleed | infect | healbot | givebottle | restrain | give | givebayonet | givecargo | cargoto | wait | assert | snapshot | clearall (named bots)
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
-//! bot vs zombies) and the world/physics probe ops spawnobj | raycast | scanbox |
-//! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | strike | evade | orient | raiseweapon | getpos | setpos | clearobj (named objects), the car ops spawncar |
+//! bot vs zombies) and the world/physics probe ops spawnobj | spawnonroute | raycast | scanbox |
+//! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | invdump | wearprobe | dropprobe | enumdump | reqdump | rescanarsenal | strike | evade | orient | raiseweapon | getpos | setpos | clearobj (named objects), the car ops spawncar |
 //! driveto | drive | cardump | carstate | cardamage | carrepair | griddump, and observe (teleport a connected player). `wait`, `sleep`
 //! and `drivetest` are the deferred ops: they tick across frames (wait until a
 //! condition is met or its timeout expires; sleep until its timeout; drivetest
@@ -38,9 +38,13 @@ class dmE2EStep
 	string Loadout;   // loadout name
 	string Cond;      // wait/assert condition: state|reached|distance|alive|moving|carpos|carspeed|enginestate|carspeedavg|driver|intent
 	string Value;     // condition value (state name / "true"/"false" / lineId for say)
+	string Stat;      // vitals stat name for setstat (energy|water|health|blood|shock)
 	float Tolerance;  // reached/distance tolerance (meters)
 	float Timeout;    // wait timeout / sleep duration (seconds)
 	string ClassName; // CfgVehicles class (spawnobj, spawncar)
+	string Variant;    // wearprobe/dropprobe sync variant (bare|syncdirty|tree|create_only|deferred_create|deferred_delete_create|server / bare|tree|deferred_create)
+	string ParentSlot; // bot slot holding the parent item (attach)
+	string SlotName;   // target slot on the parent (attach)
 	string Wheel;     // wheel CfgVehicles class (spawncar)
 	vector From;      // raycast start point (world)
 	vector To;        // raycast end point (world)
@@ -737,6 +741,26 @@ class dmE2EBridge
 		{
 			RunHealPlayer(step, r);
 		}
+		else if (step.Op == "setstat")
+		{
+			RunSetStat(step, r);
+		}
+		else if (step.Op == "bleed")
+		{
+			RunBleed(step, r);
+		}
+		else if (step.Op == "infect")
+		{
+			RunInfect(step, r);
+		}
+		else if (step.Op == "healbot")
+		{
+			RunHealBot(step, r);
+		}
+		else if (step.Op == "givebottle")
+		{
+			RunGiveBottle(step, r);
+		}
 		else if (step.Op == "restrain")
 		{
 			RunRestrain(step, r);
@@ -748,6 +772,18 @@ class dmE2EBridge
 		else if (step.Op == "givebayonet")
 		{
 			RunGiveBayonet(step, r);
+		}
+		else if (step.Op == "givecargo")
+		{
+			RunGiveCargo(step, r);
+		}
+		else if (step.Op == "attach")
+		{
+			RunAttach(step, r);
+		}
+		else if (step.Op == "cargoto")
+		{
+			RunCargoTo(step, r);
 		}
 		else if (step.Op == "assert")
 		{
@@ -785,6 +821,10 @@ class dmE2EBridge
 		{
 			RunSpawnObj(step, r);
 		}
+		else if (step.Op == "spawnonroute")
+		{
+			RunSpawnOnRoute(step, r);
+		}
 		else if (step.Op == "raycast")
 		{
 			RunRaycast(step, r);
@@ -820,6 +860,30 @@ class dmE2EBridge
 		else if (step.Op == "botdump")
 		{
 			RunBotDump(step, r);
+		}
+		else if (step.Op == "invdump")
+		{
+			RunInvDump(step, r);
+		}
+		else if (step.Op == "wearprobe")
+		{
+			RunWearProbe(step, r);
+		}
+		else if (step.Op == "dropprobe")
+		{
+			RunDropProbe(step, r);
+		}
+		else if (step.Op == "enumdump")
+		{
+			RunEnumDump(step, r);
+		}
+		else if (step.Op == "reqdump")
+		{
+			RunReqDump(step, r);
+		}
+		else if (step.Op == "rescanarsenal")
+		{
+			RunRescanArsenal(step, r);
 		}
 		else if (step.Op == "strike")
 		{
@@ -1258,9 +1322,220 @@ class dmE2EBridge
 		r.Reason = "shock set";
 	}
 
+	//! "setstat" — set one vital stat of the bot. Stat ∈ {energy, water, health,
+	//! blood, shock}; Value = number-string. energy/water go through the PlayerStat
+	//! (clamped to [0, 5000]), health/blood/shock through SetHealth.
+	private void RunSetStat(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		float value = step.Value.ToFloat();
+
+		if (step.Stat == "energy")
+		{
+			pawn.GetStatEnergy().Set(value);
+		}
+		else if (step.Stat == "water")
+		{
+			pawn.GetStatWater().Set(value);
+		}
+		else if (step.Stat == "health")
+		{
+			pawn.SetHealth("", "Health", value);
+		}
+		else if (step.Stat == "blood")
+		{
+			pawn.SetHealth("", "Blood", value);
+		}
+		else if (step.Stat == "shock")
+		{
+			pawn.SetHealth("", "Shock", value);
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "unknown stat";
+			return;
+		}
+
+		r.Ok = true;
+		r.Reason = "stat " + step.Stat + " set";
+	}
+
+	//! "bleed" — force a bleeding source (Pelvis) onto the bot. Dumps the resulting
+	//! bleeding state so a scenario can verify IsBleeding()==true immediately.
+	private void RunBleed(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		bool result = pawn.GetBleedingManagerServer().AttemptAddBleedingSourceBySelection("Pelvis");
+
+		string line = "bleeding=" + pawn.IsBleeding();
+		AppendDump(r, line);
+
+		string reason = "bleed failed";
+		if (result)
+			reason = "bleed ok";
+		r.Ok = true;
+		r.Reason = reason;
+	}
+
+	//! "infect" — force a disease onto the bot. Value ∈ {influenza, salmonella}.
+	//! Each agent needs BOTH InsertAgent (so the modifier's DeactivateCondition does
+	//! not instantly kill it) and ActivateModifier. Dumps the applied modifier state
+	//! and its agent count. "cold" (MDF_COMMON_COLD) has no eAgents entry, so it is
+	//! intentionally unsupported here.
+	private void RunInfect(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		if (step.Value == "influenza")
+		{
+			pawn.InsertAgent(eAgents.INFLUENZA, 600.0);
+			pawn.GetModifiersManager().ActivateModifier(eModifiers.MDF_INFLUENZA);
+			AppendDump(r, "influenzaModifier=" + pawn.GetModifiersManager().IsModifierActive(eModifiers.MDF_INFLUENZA));
+			AppendDump(r, "influenzaAgent=" + pawn.GetSingleAgentCount(eAgents.INFLUENZA));
+			r.Ok = true;
+			r.Reason = "infected influenza";
+			return;
+		}
+
+		if (step.Value == "salmonella")
+		{
+			pawn.InsertAgent(eAgents.SALMONELLA, 60.0);
+			pawn.GetModifiersManager().ActivateModifier(eModifiers.MDF_SALMONELLA);
+			AppendDump(r, "salmonellaModifier=" + pawn.GetModifiersManager().IsModifierActive(eModifiers.MDF_SALMONELLA));
+			AppendDump(r, "salmonellaAgent=" + pawn.GetSingleAgentCount(eAgents.SALMONELLA));
+			r.Ok = true;
+			r.Reason = "infected salmonella";
+			return;
+		}
+
+		r.Ok = false;
+		r.Reason = "unknown agent";
+	}
+
+	//! "healbot" — refill every vital of the bot to full (health/blood/shock/energy/water).
+	private void RunHealBot(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		pawn.SetHealth("", "Health", 100.0);
+		pawn.SetHealth("", "Blood", 5000.0);
+		pawn.SetHealth("", "Shock", 100.0);
+		pawn.GetStatEnergy().Set(5000.0);
+		pawn.GetStatWater().Set(5000.0);
+
+		r.Ok = true;
+		r.Reason = "bot healed";
+	}
+
+	//! "givebottle" — place a WaterBottle in the bot's inventory. Value = water
+	//! amount in ml (0 = empty); >0 also sets the liquid type to water. Dumps the
+	//! resulting quantity.
+	private void RunGiveBottle(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		ItemBase bottle = ItemBase.Cast(pawn.GetInventory().CreateInInventory("WaterBottle"));
+		if (!bottle)
+		{
+			r.Ok = false;
+			r.Reason = "bottle create failed";
+			return;
+		}
+
+		float ml = step.Value.ToFloat();
+		if (ml > 0.0)
+		{
+			bottle.SetLiquidType(LIQUID_WATER);
+			bottle.SetQuantity(ml);
+		}
+		else
+		{
+			bottle.SetQuantity(0.0);
+		}
+
+		AppendDump(r, "bottle=" + bottle.GetQuantity());
+
+		r.Ok = true;
+		r.Reason = "bottle given";
+	}
+
 	//! "healplayer" — refill the HUMAN observer's vitals (health/shock/water/
-	//! energy) so a long test doesn't kill it — a dead player cannot be revived
-	//! programmatically. AI survivors (dmAISurvivorBase) pollute the player
+	//! energy) and clear its diseases so a long test doesn't kill it — a dead
+	//! player cannot be revived programmatically, and a sick/beaten observer may
+	//! faint mid-check. AI survivors (dmAISurvivorBase) pollute the player
 	//! registry, so they must be skipped (same filter as observe).
 	private void RunHealPlayer(dmE2EStep step, dmE2EStepResult r)
 	{
@@ -1297,6 +1572,22 @@ class dmE2EBridge
 				energyVal = energy.Get();
 			}
 
+			int removed = 0;
+			ModifiersManager mm = p.GetModifiersManager();
+			if (mm)
+			{
+				if (mm.IsModifierActive(eModifiers.MDF_INFLUENZA)) { mm.DeactivateModifier(eModifiers.MDF_INFLUENZA); removed = removed + 1; }
+				if (mm.IsModifierActive(eModifiers.MDF_COMMON_COLD)) { mm.DeactivateModifier(eModifiers.MDF_COMMON_COLD); removed = removed + 1; }
+				if (mm.IsModifierActive(eModifiers.MDF_SALMONELLA)) { mm.DeactivateModifier(eModifiers.MDF_SALMONELLA); removed = removed + 1; }
+				if (mm.IsModifierActive(eModifiers.MDF_CHOLERA)) { mm.DeactivateModifier(eModifiers.MDF_CHOLERA); removed = removed + 1; }
+				if (mm.IsModifierActive(eModifiers.MDF_BRAIN)) { mm.DeactivateModifier(eModifiers.MDF_BRAIN); removed = removed + 1; }
+				if (mm.IsModifierActive(eModifiers.MDF_WOUND_INFECTION)) { mm.DeactivateModifier(eModifiers.MDF_WOUND_INFECTION); removed = removed + 1; }
+				if (mm.IsModifierActive(eModifiers.MDF_WOUND_INFECTION1)) { mm.DeactivateModifier(eModifiers.MDF_WOUND_INFECTION1); removed = removed + 1; }
+				if (mm.IsModifierActive(eModifiers.MDF_WOUND_INFECTION2)) { mm.DeactivateModifier(eModifiers.MDF_WOUND_INFECTION2); removed = removed + 1; }
+				if (mm.IsModifierActive(eModifiers.MDF_HEMOLYTIC_REACTION)) { mm.DeactivateModifier(eModifiers.MDF_HEMOLYTIC_REACTION); removed = removed + 1; }
+				if (mm.IsModifierActive(eModifiers.MDF_PNEUMONIA)) { mm.DeactivateModifier(eModifiers.MDF_PNEUMONIA); removed = removed + 1; }
+			}
+
 			string name = "unknown";
 			if (p.GetIdentity())
 				name = p.GetIdentity().GetName();
@@ -1306,6 +1597,8 @@ class dmE2EBridge
 			string line = "healplayer health=" + p.GetHealth("", "Health") + " shock=" + p.GetHealth("", "Shock");
 			AppendDump(r, line);
 			line = "healplayer water=" + waterVal + " energy=" + energyVal;
+			AppendDump(r, line);
+			line = "healplayer diseasesRemoved=" + removed;
 			AppendDump(r, line);
 			return;
 		}
@@ -1408,6 +1701,184 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "gave bayonet rifle";
+	}
+
+	//! "givecargo" — place Count items of ClassName into the bot's cargo inventory
+	//! (ammo/food for survivability tests). CreateInInventory returns null when
+	//! there is no room, so Ok stays true and the dump reports the created count.
+	private void RunGiveCargo(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		int count = step.Count;
+		if (count <= 0)
+			count = 1;
+
+		int created = 0;
+		int i;
+		for (i = 0; i < count; i++)
+		{
+			EntityAI item = pawn.GetInventory().CreateInInventory(step.ClassName);
+			if (item)
+				created = created + 1;
+		}
+
+		AppendDump(r, "gavecargo=" + step.ClassName + " x" + created);
+
+		r.Ok = true;
+		r.Reason = "gave " + created + " x " + step.ClassName;
+	}
+
+	//! "attach" — create an item and attach it into a slot of another equipped
+	//! item (e.g. SmershBag into the VestBackpack slot of a worn SmershVest), so
+	//! a recursive cargo-enumeration scenario can build nested containers.
+	private void RunAttach(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		int parentSlot = InventorySlots.GetSlotIdFromString(step.ParentSlot);
+		if (parentSlot == InventorySlots.INVALID)
+		{
+			r.Ok = false;
+			r.Reason = "bad parent slot";
+			return;
+		}
+
+		EntityAI parent = pawn.GetInventory().FindAttachment(parentSlot);
+		if (!parent)
+		{
+			r.Ok = false;
+			r.Reason = "no parent in slot";
+			return;
+		}
+
+		int slot = InventorySlots.GetSlotIdFromString(step.SlotName);
+		if (slot == InventorySlots.INVALID)
+		{
+			r.Ok = false;
+			r.Reason = "bad slot";
+			return;
+		}
+
+		EntityAI item = parent.GetInventory().CreateAttachmentEx(step.ClassName, slot);
+		if (!item)
+		{
+			r.Ok = false;
+			r.Reason = "attach failed";
+			return;
+		}
+
+		AppendDump(r, "attach=" + step.ClassName + "@" + step.SlotName);
+
+		r.Ok = true;
+		r.Reason = "attached " + step.ClassName + " to " + step.SlotName;
+	}
+
+	//! "cargoto" — create items in the CARGO of a nested container resolved via
+	//! ParentSlot → SlotName (e.g. SmershBag attached into the VestBackpack slot
+	//! of a worn SmershVest), so a recursive cargo-enumeration scenario can fill a
+	//! nested pouch. SetHealth01 works around the "health 0" defect of
+	//! CreateInInventory on a non-pawn item.
+	private void RunCargoTo(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		int parentSlot = InventorySlots.GetSlotIdFromString(step.ParentSlot);
+		if (parentSlot == InventorySlots.INVALID)
+		{
+			r.Ok = false;
+			r.Reason = "bad parent slot";
+			return;
+		}
+
+		EntityAI parent = pawn.GetInventory().FindAttachment(parentSlot);
+		if (!parent)
+		{
+			r.Ok = false;
+			r.Reason = "no parent in slot";
+			return;
+		}
+
+		int slot = InventorySlots.GetSlotIdFromString(step.SlotName);
+		if (slot == InventorySlots.INVALID)
+		{
+			r.Ok = false;
+			r.Reason = "bad slot";
+			return;
+		}
+
+		EntityAI container = parent.GetInventory().FindAttachment(slot);
+		if (!container)
+		{
+			r.Ok = false;
+			r.Reason = "no container in slot";
+			return;
+		}
+
+		int count = step.Count;
+		if (count <= 0)
+			count = 1;
+
+		int created = 0;
+		int i;
+		for (i = 0; i < count; i++)
+		{
+			EntityAI it = container.GetInventory().CreateInInventory(step.ClassName);
+			if (it)
+			{
+				created = created + 1;
+				ItemBase itemBase = ItemBase.Cast(it);
+				if (itemBase)
+					itemBase.SetHealth01("", "Health", 1.0);
+			}
+		}
+
+		AppendDump(r, "cargoto=" + step.ClassName + " x" + created + "@" + step.SlotName);
+
+		r.Ok = true;
+		r.Reason = "filled " + created + " x " + step.ClassName + " into " + step.SlotName;
 	}
 
 	//! "assert" — instantaneous condition check; Ok = condition result.
@@ -1950,6 +2421,54 @@ class dmE2EBridge
 			r.Ok = false;
 			r.Reason = "spawn failed";
 		}
+	}
+
+	//! "spawnonroute" — spawn an arbitrary CfgVehicles object onto the named bot's
+	//! active MoveTo goal (the final waypoint of its route), falling back to the
+	//! bot's position when there is no live MoveTo intent. Deterministic route
+	//! placement without guessing terrain coordinates. The object is registered
+	//! under step.Obj (in m_Objects) only when Obj is non-empty.
+	private void RunSpawnOnRoute(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		vector target = bot.GetPosition();
+		dmBotIntentPool pool = bot.GetFSMIntents();
+		if (pool)
+		{
+			ref array<ref dmBotIntent> intents = pool.GetIntents();
+			int i;
+			for (i = 0; i < intents.Count(); i++)
+			{
+				dmBotIntent_MoveTo move = dmBotIntent_MoveTo.Cast(intents[i]);
+				if (!move)
+					continue;
+				if (move.IsFinished() || move.IsExpired())
+					continue;
+				target = move.m_Goal;
+				break;
+			}
+		}
+
+		Object obj = GetGame().CreateObject(step.ClassName, SnapToGroundExactly(target), false);
+		if (obj)
+		{
+			EntityAI entity = EntityAI.Cast(obj);
+			if (entity)
+				SetProbeLifetime(entity);
+			if (step.Obj != "")
+				m_Objects.Insert(step.Obj, obj);
+		}
+
+		r.Ok = true;
+		r.Reason = "spawned on route " + target;
+		AppendDump(r, "routeGoal=" + target + " item=" + step.ClassName);
 	}
 
 	//! Append a dump line to the step result and echo it to RPT (gated).
@@ -2570,6 +3089,17 @@ class dmE2EBridge
 		line = "health=" + pawn.GetHealth01() + " blood=" + pawn.GetHealth("", "Blood") + " shock=" + pawn.GetHealth("", "Shock");
 		AppendDump(r, line);
 
+		PlayerStat<float> energyStat = pawn.GetStatEnergy();
+		PlayerStat<float> waterStat = pawn.GetStatWater();
+		float energyVal = -1.0;
+		float waterVal = -1.0;
+		if (energyStat)
+			energyVal = energyStat.Get();
+		if (waterStat)
+			waterVal = waterStat.Get();
+		line = "energy=" + energyVal + " water=" + waterVal;
+		AppendDump(r, line);
+
 		line = "healthRaw=" + pawn.GetHealth("", "Health");
 		AppendDump(r, line);
 
@@ -2644,6 +3174,566 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "dumped";
+	}
+
+	//! "invdump" — dump the named bot's equipped clothing/attachments and their
+	//! cargo, plus the hands. Loot-transfer observation probe (bugreport #72):
+	//! one "slot=<name> item=<type>" line per occupied attachment slot, followed
+	//! by "cargo=<t1>,<t2>,..." (or "cargo=none"), then a "hands=<type|none>" line.
+	private void RunInvDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		GameInventory inv = pawn.GetInventory();
+		if (!inv)
+		{
+			r.Ok = false;
+			r.Reason = "no inventory";
+			return;
+		}
+
+		array<int> slots = {
+			InventorySlots.BODY,
+			InventorySlots.LEGS,
+			InventorySlots.BACK,
+			InventorySlots.VEST,
+			InventorySlots.HIPS,
+			InventorySlots.FEET,
+			InventorySlots.HEADGEAR,
+			InventorySlots.MASK,
+			InventorySlots.EYEWEAR,
+			InventorySlots.GLOVES,
+			InventorySlots.ARMBAND,
+			InventorySlots.SHOULDER,
+			InventorySlots.MELEE
+		};
+
+		int i;
+		for (i = 0; i < slots.Count(); i++)
+		{
+			int slotId = slots[i];
+			if (!inv.HasAttachmentSlot(slotId))
+				continue;
+			EntityAI att = inv.FindAttachment(slotId);
+			if (!att)
+				continue;
+
+			string line = "slot=" + InventorySlots.GetSlotName(slotId) + " item=" + att.GetType();
+			AppendDump(r, line);
+
+			string cargoLine = "cargo=none";
+			CargoBase cargo = att.GetInventory().GetCargo();
+			if (cargo)
+			{
+				int count = cargo.GetItemCount();
+				if (count > 0)
+				{
+					cargoLine = "cargo=";
+					int ci;
+					for (ci = 0; ci < count; ci++)
+					{
+						EntityAI cargoItem = cargo.GetItem(ci);
+						if (ci > 0)
+							cargoLine = cargoLine + ",";
+						if (cargoItem)
+							cargoLine = cargoLine + cargoItem.GetType();
+					}
+				}
+			}
+			AppendDump(r, cargoLine);
+		}
+
+		string handsLine = "hands=none";
+		EntityAI inHands = pawn.GetItemInHands();
+		if (inHands)
+			handsLine = "hands=" + inHands.GetType();
+		AppendDump(r, handsLine);
+
+		r.Ok = true;
+		r.Reason = "dumped";
+	}
+
+	//! "wearprobe" — эмпирический проб синка «надеть одежду на бота». Спавнит одежду
+	//! ClassName на земле рядом с ботом и выполняет один из Variant-вариантов переноса
+	//! GROUND→слот (BODY или inventorySlot одежды). ДО/ПОСЛЕ печатает FindAttachment,
+	//! GetHierarchyRootPlayer, IsSetForDeletion, позицию. Варианты:
+	//!   bare                    — только LocalTakeToDst
+	//!   syncdirty               — LocalTakeToDst + SetSynchDirty
+	//!   tree                    — RemoteObjectTreeDelete + LocalTakeToDst + RemoteObjectTreeCreate
+	//!   create_only             — LocalTakeToDst + RemoteObjectTreeCreate (без delete)
+	//!   deferred_create         — LocalTakeToDst + CallLater(RemoteObjectTreeCreate)
+	//!   deferred_delete_create  — RemoteObjectTreeDelete + LocalTakeToDst + CallLater(RemoteObjectTreeCreate)
+	//!   server                  — GetInventory().TakeToDst(SERVER) (может кинуть #return)
+	private void RunWearProbe(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		GameInventory inv = pawn.GetInventory();
+		if (!inv)
+		{
+			r.Ok = false;
+			r.Reason = "no inventory";
+			return;
+		}
+
+		vector botPos = bot.GetPosition();
+		vector spawnPos = SnapToGroundExactly(botPos + Vector(1.5, 0.0, 0.0));
+		Object spawned = GetGame().CreateObject(step.ClassName, spawnPos, false);
+		if (!spawned)
+		{
+			r.Ok = false;
+			r.Reason = "create failed: " + step.ClassName;
+			return;
+		}
+
+		EntityAI item = EntityAI.Cast(spawned);
+		if (!item)
+		{
+			r.Ok = false;
+			r.Reason = "not an EntityAI: " + step.ClassName;
+			return;
+		}
+		SetProbeLifetime(item);
+
+		int slotId = ResolveClothingSlot(item);
+
+		InventoryLocation src = new InventoryLocation();
+		if (!item.GetInventory().GetCurrentInventoryLocation(src))
+		{
+			r.Ok = false;
+			r.Reason = "no src location";
+			return;
+		}
+
+		InventoryLocation dst = new InventoryLocation();
+		dst.SetAttachment(pawn, item, slotId);
+
+		string variant = step.Variant;
+		if (variant == "")
+			variant = "bare";
+
+		LogSyncState("wearprobe", variant, "pre", pawn, item, slotId, r);
+
+		int srcType = src.GetType();
+		int dstType = dst.GetType();
+		string srcLabel = LocationLabel(srcType);
+		string dstLabel = LocationLabel(dstType);
+
+		bool ok = false;
+
+		if (variant == "bare")
+		{
+			ok = pawn.LocalTakeToDst(src, dst);
+		}
+		else if (variant == "syncdirty")
+		{
+			ok = pawn.LocalTakeToDst(src, dst);
+			item.SetSynchDirty();
+		}
+		else if (variant == "tree")
+		{
+			GetGame().RemoteObjectTreeDelete(item);
+			ok = pawn.LocalTakeToDst(src, dst);
+			GetGame().RemoteObjectTreeCreate(item);
+		}
+		else if (variant == "create_only")
+		{
+			ok = pawn.LocalTakeToDst(src, dst);
+			GetGame().RemoteObjectTreeCreate(item);
+		}
+		else if (variant == "deferred_create")
+		{
+			ok = pawn.LocalTakeToDst(src, dst);
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(DeferredTreeCreate, 0, false, item);
+		}
+		else if (variant == "deferred_delete_create")
+		{
+			GetGame().RemoteObjectTreeDelete(item);
+			ok = pawn.LocalTakeToDst(src, dst);
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(DeferredTreeCreate, 0, false, item);
+		}
+		else if (variant == "server")
+		{
+			AppendDump(r, "[wearprobe] server: about to call TakeToDst(SERVER) — may throw #return");
+			ok = inv.TakeToDst(InventoryMode.SERVER, src, dst);
+			AppendDump(r, "[wearprobe] server: TakeToDst(SERVER) returned ok=" + ok);
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "unknown variant: " + variant;
+			return;
+		}
+
+		string resultLine = "[wearprobe] " + variant + " src=" + srcLabel;
+		resultLine = resultLine + " dst=" + dstLabel + " ok=" + ok;
+		AppendDump(r, resultLine);
+
+		LogSyncState("wearprobe", variant, "post", pawn, item, slotId, r);
+
+		r.Ok = true;
+		r.Reason = variant + " ok=" + ok;
+	}
+
+	//! "dropprobe" — эмпирический проб синка «снять надетое → на землю». Находит надетую
+	//! вещь (ClassName непустой → слот с вещью этого типа; пустой → первый занятый слот
+	//! одежды) и выполняет Variant-вариант дропа:
+	//!   bare             — LocalDropEntity
+	//!   tree             — RemoteObjectTreeDelete + LocalDropEntity + RemoteObjectTreeCreate
+	//!   deferred_create  — LocalDropEntity + CallLater(RemoteObjectTreeCreate)
+	private void RunDropProbe(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		int slotId;
+		EntityAI item = FindWornItem(pawn, step.ClassName, slotId);
+		if (!item)
+		{
+			r.Ok = false;
+			r.Reason = "no worn item";
+			return;
+		}
+
+		string variant = step.Variant;
+		if (variant == "")
+			variant = "bare";
+
+		LogSyncState("dropprobe", variant, "pre", pawn, item, slotId, r);
+
+		bool ok = false;
+
+		if (variant == "bare")
+		{
+			ok = pawn.LocalDropEntity(item);
+		}
+		else if (variant == "tree")
+		{
+			GetGame().RemoteObjectTreeDelete(item);
+			ok = pawn.LocalDropEntity(item);
+			GetGame().RemoteObjectTreeCreate(item);
+		}
+		else if (variant == "deferred_create")
+		{
+			ok = pawn.LocalDropEntity(item);
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(DeferredTreeCreate, 0, false, item);
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "unknown variant: " + variant;
+			return;
+		}
+
+		string resultLine = "[dropprobe] " + variant + " ok=" + ok;
+		AppendDump(r, resultLine);
+
+		LogSyncState("dropprobe", variant, "post", pawn, item, slotId, r);
+
+		r.Ok = true;
+		r.Reason = variant + " ok=" + ok;
+	}
+
+	//! Дамп состояния синка предмета (общий для wearprobe/dropprobe): надет ли в слот
+	//! (FindAttachment), корневой игрок иерархии, IsSetForDeletion, позиция предмета.
+	private void LogSyncState(string op, string variant, string phase, PlayerBase pawn, EntityAI item, int slotId, dmE2EStepResult r)
+	{
+		EntityAI att = pawn.GetInventory().FindAttachment(slotId);
+		string attName = "none";
+		if (att)
+			attName = att.GetType();
+
+		Man root = item.GetHierarchyRootPlayer();
+		string rootName = "none";
+		if (root)
+			rootName = root.GetType();
+
+		string line = "[" + op + "] " + variant;
+		line = line + " phase=" + phase;
+		line = line + " slot=" + InventorySlots.GetSlotName(slotId);
+		line = line + " findAttachment=" + attName;
+		line = line + " rootPlayer=" + rootName;
+		line = line + " isSetForDeletion=" + item.IsSetForDeletion();
+		line = line + " itemPos=" + item.GetPosition();
+		AppendDump(r, line);
+	}
+
+	//! Слот одежды из конфига inventorySlot[0]; BODY если конфиг не задан/слот не найден.
+	private int ResolveClothingSlot(EntityAI item)
+	{
+		int slotId = InventorySlots.BODY;
+		array<string> slotNames = new array<string>();
+		item.ConfigGetTextArray("inventorySlot", slotNames);
+		if (slotNames.Count() > 0)
+		{
+			int cfgSlot = InventorySlots.GetSlotIdFromString(slotNames[0]);
+			if (cfgSlot != InventorySlots.INVALID)
+				slotId = cfgSlot;
+		}
+		return slotId;
+	}
+
+	//! Найти надетую вещь: ClassName непустой → слот с вещью этого типа; пустой → первый
+	//! занятый слот из списка одежды. Возвращает EntityAI и заполняет slotId (out);
+	//! null + INVALID если ничего не надето.
+	private EntityAI FindWornItem(PlayerBase pawn, string className, out int slotId)
+	{
+		slotId = InventorySlots.INVALID;
+
+		array<int> slots = {
+			InventorySlots.BODY,
+			InventorySlots.LEGS,
+			InventorySlots.BACK,
+			InventorySlots.VEST,
+			InventorySlots.HIPS,
+			InventorySlots.FEET,
+			InventorySlots.HEADGEAR,
+			InventorySlots.MASK,
+			InventorySlots.EYEWEAR,
+			InventorySlots.GLOVES,
+			InventorySlots.ARMBAND,
+			InventorySlots.SHOULDER,
+			InventorySlots.MELEE
+		};
+
+		int i;
+		for (i = 0; i < slots.Count(); i++)
+		{
+			int s = slots[i];
+			if (!pawn.GetInventory().HasAttachmentSlot(s))
+				continue;
+			EntityAI att = pawn.GetInventory().FindAttachment(s);
+			if (!att)
+				continue;
+			if (className == "" || att.GetType() == className)
+			{
+				slotId = s;
+				return att;
+			}
+		}
+		return null;
+	}
+
+	//! CallLater-цель: отложенный RemoteObjectTreeCreate (варианты deferred_create /
+	//! deferred_delete_create — ре-регистрация сетевого дерева в следующем тике).
+	private void DeferredTreeCreate(EntityAI item)
+	{
+		if (item)
+			GetGame().RemoteObjectTreeCreate(item);
+	}
+
+	//! "enumdump" — dump the raw LEVELORDER inventory enumeration with per-item
+	//! location types, plus a comparison of the two cargo-enumeration strategies
+	//! from dmLoot (A: EnumerateInventory+filter, B: manual recursion). Probe for
+	//! the loot/clothing cargo-transfer investigation: are A and B equal (same
+	//! types, same order) on a live bot?
+	private void RunEnumDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		GameInventory inv = pawn.GetInventory();
+		if (!inv)
+		{
+			r.Ok = false;
+			r.Reason = "no inventory";
+			return;
+		}
+
+		array<EntityAI> raw = new array<EntityAI>();
+		inv.EnumerateInventory(InventoryTraversalType.LEVELORDER, raw);
+
+		int rawCount = raw.Count();
+		int cargoCount = 0;
+		int attachmentCount = 0;
+		int otherCount = 0;
+
+		int i;
+		for (i = 0; i < rawCount; i++)
+		{
+			EntityAI item = raw[i];
+			int locType = InventoryLocationType.UNKNOWN;
+			string label = "?";
+			InventoryLocation loc = new InventoryLocation();
+			if (item.GetInventory().GetCurrentInventoryLocation(loc))
+			{
+				locType = loc.GetType();
+				label = LocationLabel(locType);
+			}
+			if (locType == InventoryLocationType.CARGO)
+				cargoCount = cargoCount + 1;
+			else if (locType == InventoryLocationType.ATTACHMENT)
+				attachmentCount = attachmentCount + 1;
+			else
+				otherCount = otherCount + 1;
+			AppendDump(r, "raw[" + i + "]=" + item.GetType() + " loc=" + label);
+		}
+
+		AppendDump(r, "rawCount=" + rawCount + " cargo=" + cargoCount + " attachment=" + attachmentCount + " other=" + otherCount);
+
+		array<EntityAI> filteredA = dmLoot.CollectCargoFiltered(pawn);
+		AppendDump(r, "filteredA=" + filteredA.Count() + ": " + TypeList(filteredA));
+
+		array<EntityAI> recursiveB = dmLoot.CollectCargoRecursive(pawn);
+		AppendDump(r, "recursiveB=" + recursiveB.Count() + ": " + TypeList(recursiveB));
+
+		AppendDump(r, "match=" + MatchTypes(filteredA, recursiveB));
+
+		r.Ok = true;
+		r.Reason = "dumped";
+	}
+
+	//! "reqdump" — dump the current ranked discard order (ascending index) as
+	//! "type=index" lines via dmRequirements.DebugRankDump. Baseline
+	//! characterization of the inventory ranking before rewriting the loot rank.
+	private void RunReqDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmRequirements req = bot.GetRequirements();
+		if (!req)
+		{
+			r.Ok = false;
+			r.Reason = "no requirements";
+			return;
+		}
+
+		array<string> lines = req.DebugRankDump();
+		int i;
+		for (i = 0; i < lines.Count(); i++)
+			AppendDump(r, lines[i]);
+
+		r.Ok = true;
+		r.Reason = "" + lines.Count() + " ranked items";
+	}
+
+	//! "rescanarsenal" — force a full arsenal rescan for a named bot (Who = bot name).
+	//! ForceRescan clears the lists and queues a per-frame refill (ProcessRescanFrame
+	//! in Tick), so the rescan is asynchronous — the result is "queued", not "done".
+	private void RunRescanArsenal(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		bot.GetArsenal().ForceRescan();
+
+		r.Ok = true;
+		r.Reason = "arsenal rescan queued";
+	}
+
+	//! Text label for an InventoryLocationType value (CARGO/ATTACHMENT/...).
+	private string LocationLabel(int locType)
+	{
+		if (locType == InventoryLocationType.CARGO)
+			return "CARGO";
+		if (locType == InventoryLocationType.ATTACHMENT)
+			return "ATTACHMENT";
+		if (locType == InventoryLocationType.HANDS)
+			return "HANDS";
+		if (locType == InventoryLocationType.GROUND)
+			return "GROUND";
+		if (locType == InventoryLocationType.PROXYCARGO)
+			return "PROXYCARGO";
+		if (locType == InventoryLocationType.VEHICLE)
+			return "VEHICLE";
+		if (locType == InventoryLocationType.TEMP)
+			return "TEMP";
+		if (locType == InventoryLocationType.UNKNOWN)
+			return "UNKNOWN";
+		return "OTHER";
+	}
+
+	//! Comma-separated list of item types (empty string when empty).
+	private string TypeList(array<EntityAI> items)
+	{
+		string result = "";
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			if (i > 0)
+				result = result + ",";
+			result = result + items[i].GetType();
+		}
+		return result;
+	}
+
+	//! True when two item lists hold the same types in the same order.
+	private bool MatchTypes(array<EntityAI> a, array<EntityAI> b)
+	{
+		if (a.Count() != b.Count())
+			return false;
+		int i;
+		for (i = 0; i < a.Count(); i++)
+		{
+			if (a[i].GetType() != b[i].GetType())
+				return false;
+		}
+		return true;
 	}
 
 	//! "strike" — request one melee strike against a target bot by calling the pawn

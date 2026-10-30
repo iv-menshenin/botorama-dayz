@@ -6,28 +6,35 @@
 # сценария для тестировщика/агента (ручной цикл из docs/ai-testing-guide.md).
 #
 # Использование:
-#   tools/run-scenario.sh <имя|путь.json> [--timeout <s>] [--poll <s>]
+#   tools/run-scenario.sh <имя|путь.json> [--timeout <s>] [--poll <s>] [--profiles <dir>]
 #   tools/run-scenario.sh movement-smoke --timeout 180
+#   tools/run-scenario.sh movement-smoke --profiles profiles-e2e2312
+#
+# --profiles выбирает профиль сервера (дефолт profiles-nasdara, порт 2302); свой
+# e2e-сервер на 2312 живёт в profiles-e2e2312. E2E_DIR и RPT_DIR выводятся из профиля.
 #
 # Предполагает: сервер запущен, мост включён (файл e2e/enabled существует).
 set -euo pipefail
 
-E2E_DIR="/mnt/deep-space/Steam/steamapps/common/DayZServer/profiles-nasdara/dmBotorama/e2e"
+SERVER_DIR="/mnt/deep-space/Steam/steamapps/common/DayZServer"
+PROFILE="profiles-nasdara"
+E2E_DIR="$SERVER_DIR/$PROFILE/dmBotorama/e2e"
 SCENARIOS="/home/devalio/dayz/Work/botorama/tools/e2e"
-RPT_DIR="/mnt/deep-space/Steam/steamapps/common/DayZServer/profiles-nasdara"
+RPT_DIR="$SERVER_DIR/$PROFILE"
 
 TIMEOUT=120
 POLL=1
 
-usage() { echo "usage: $(basename "$0") <name|path.json> [--timeout <s>] [--poll <s>]" >&2; exit 2; }
+usage() { echo "usage: $(basename "$0") <name|path.json> [--timeout <s>] [--poll <s>] [--profiles <dir>]" >&2; exit 2; }
 
 [ $# -ge 1 ] || usage
 SCEN="$1"; shift
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --timeout) TIMEOUT="$2"; shift 2 ;;
-    --poll)    POLL="$2";    shift 2 ;;
+    --timeout)  TIMEOUT="$2"; shift 2 ;;
+    --poll)     POLL="$2";    shift 2 ;;
+    --profiles) PROFILE="$2"; E2E_DIR="$SERVER_DIR/$PROFILE/dmBotorama/e2e"; RPT_DIR="$SERVER_DIR/$PROFILE"; shift 2 ;;
     *) usage ;;
   esac
 done
