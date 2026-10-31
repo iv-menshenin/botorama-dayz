@@ -854,3 +854,27 @@
   `dmAI_TurnAmount`): скорость = root-motion анимация, единственный рычаг —
   `DebugOverrideAnimationSpeed` (Debug-натив). Для фазы TURN обошли гибридом (слайд поверх
   foot-step). Если понадобится чистое ускорение анимации — отдельная задача.
+- **низкий** — `RunFillCargo` (E2E-ручка `fillcargo`, dmE2EBridge.c) дублирует тело `RunCargoTo`
+  почти целиком (нормализация `count<=0→1`, цикл `CreateInInventory` + `SetHealth01("", "Health", 1.0)`,
+  подсчёт `created`). Различаются только резолв контейнера (named-object vs bot-slot) и open/close.
+  Вынести общий `CreateCountIn(EntityAI container, string className, int count, out int created)`.
+- **низкий** — `dmLoot.StripCorpse` дублирует счёт: `int`-return + `outDropped` (вызывающий использует
+  только `dropped.Count()`). Оставить один канал.
+- **низкий** — `dmLoot.CollectCorpseItems` вставляет руки (`GetEntityInHands`), но `StripCorpse` всегда их
+  скипает (`item == inHands`) — мёртвая вставка. Убрать вставку рук из перечня (руки сознательно не стрипаются).
+- **низкий** — двойной `Human.Cast(corpse)` в `StripCorpse` и внутри `CollectCorpseItems`. Один раз определить `human`.
+- **низкий** — прерывание обхода здания ради трупа (`m_Move.Finish()` в `EnsureCorpse`) теряет in-flight точку
+  маршрута (планировщик уже вынул её из `m_Ready`) → одна интерьер-точка молча пропускается. Вернуть точку в
+  очередь планировщика при прерывании (или не вынимать до достижения).
+- **низкий** — `dmBotState_Exploration.IsWreck` повторно зовёт `dmBuildingInteriorMap.Get().GetType(...)`,
+  хотя врек уже классифицирован в `ChooseNextBuilding` через `GetNearest(MILITARY_WRECK)` (тот внутри делает тот же
+  `GetType`-сравнение). Можно нести `bool m_CurrentIsWreck` при выборе; выигрыш мизерный (отметка раз на здание).
+- **низкий** — `dmExplorer.CleanVisitedWrecks` для статических вреков де-факто no-op (`!b.IsAlive()` не срабатывает:
+  вреки живы всегда). Оставить как защиту, пометить комментарием «для статических вреков no-op».
+- **низкий (harness)** — e2e-сервер крутит карту **nasdara** (156 POI), а координаты тест-сценариев и
+  `data/map/world_poi.json` — **chernarusplus** (306 POI, «Бор»). Бот спавнится вне nasdara-POI → сравнение
+  «идёт к вреку ВМЕСТО обычного дома» не прогнано (нет зданий локации рядом). Решить: перегенерировать координаты
+  сценариев под nasdara-POI (обычные дома + врек в 1500 м), либо поднять chernarusplus-сервер.
+- **низкий (test-knowledge)** — пресет `dmBotPreset_Nomad` НЕ выставляет виталы: бот спавнится с ~600 energy/water
+  (дефолт DayZ), что ниже гейта `DM_PRIORITY_EVENT_MIN_* = 2500`. Для позитивного теста приоритета событий нужен явный
+  `setstat energy/water 5000` в сценарии (иначе бот молча не идёт к вреку).

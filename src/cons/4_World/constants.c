@@ -927,6 +927,37 @@ static const float DM_PICKUP_REACH = 1.0;
 
 //! Loot exploration: radius (meters) to scan for items to pick up.
 static const float DM_EXPLORE_PICKUP_RADIUS = 3.0;
+//! Loot exploration: radius (meters) to scan for loot containers (бочка/ящик/сундук),
+//! чьё содержимое подаётся в выбор лута. Больше pickup-радиуса: контейнеры бот замечает
+//! издали и ИДЁТ к ним (m_Goal = позиция контейнера), тогда как лужный предмет подбирает
+//! только вплотную. ~12 м — компромисс между «увидеть ящик за углом» и лишними
+//! бокс-сканами большого объёма.
+static const float DM_EXPLORE_CONTAINER_SCAN_RADIUS = 12.0;
+//! Loot exploration: интервал (секунды) пересканирования контейнеров. Контейнерный
+//! 12-м бокс-скан дороже лужного (3 м), поэтому троттлится до ~1 Гц, а результат
+//! кэшируется между тиками (m_ContainerItems в dmBotState_Exploration).
+static const float DM_EXPLORE_CONTAINER_SCAN_INTERVAL = 1.0;
+//! Loot exploration: радиус (метры) дискавери трупов (игрок/зомби) — «только если
+//! ближе 25 м». Трупы статичны, скан дорогой — троттлится (DM_EXPLORE_CORPSE_SCAN_INTERVAL).
+static const float DM_EXPLORE_CORPSE_RADIUS = 25.0;
+//! Loot exploration: интервал (секунды) пересканирования трупов.
+static const float DM_EXPLORE_CORPSE_SCAN_INTERVAL = 2.0;
+//! Loot exploration: дистанция (метры) до трупа, на которой бот его стрипит.
+static const float DM_EXPLORE_CORPSE_REACH = 2.0;
+//! Loot exploration: макс. число остриженных трупов в m_StrippedCorpses (по достижении
+//! старейший вытесняется — ограничивает рост списка; линейный lookup при малом N ок).
+static const int DM_EXPLORE_CORPSE_STRIPPED_MAX = 16;
+//! Loot exploration: радиус (метры) дискавери приоритетных событий (вреков). «Не дальше
+//! 1500 м» — предел, до которого событие стоит детура (research loot-sources §4.2).
+static const float DM_EXPLORE_WRECK_RADIUS = 1500.0;
+//! Loot exploration: интервал (секунды) пересканирования событий (дорогой registry-запрос
+//! по большому радиусу — троттлим).
+static const float DM_EXPLORE_WRECK_SCAN_INTERVAL = 10.0;
+//! Loot exploration: гейт «достаточно энергии» для приоритетного похода к событию
+//! (>= 2500 = сыт, может отвлечься на детур).
+static const float DM_PRIORITY_EVENT_MIN_ENERGY = 2500.0;
+//! Loot exploration: гейт «достаточно воды» для приоритетного похода к событию.
+static const float DM_PRIORITY_EVENT_MIN_WATER = 2500.0;
 //! Loot exploration: min CalcDesired to pick up an item.
 static const float DM_EXPLORE_PICKUP_THRESHOLD = 0.5;
 //! Loot exploration: radius (meters) to search for an unvisited building.

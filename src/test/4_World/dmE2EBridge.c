@@ -785,6 +785,10 @@ class dmE2EBridge
 		{
 			RunCargoTo(step, r);
 		}
+		else if (step.Op == "fillcargo")
+		{
+			RunFillCargo(step, r);
+		}
 		else if (step.Op == "assert")
 		{
 			RunAssert(step, r);
@@ -832,6 +836,10 @@ class dmE2EBridge
 		else if (step.Op == "scanbox")
 		{
 			RunScanBox(step, r);
+		}
+		else if (step.Op == "corpsedump")
+		{
+			RunCorpseDump(step, r);
 		}
 		else if (step.Op == "surfprobe")
 		{
@@ -1881,6 +1889,71 @@ class dmE2EBridge
 		r.Reason = "filled " + created + " x " + step.ClassName + " into " + step.SlotName;
 	}
 
+	//! "fillcargo" — create Count items of ClassName in the CARGO of a named
+	//! ground container (spawnobj name in m_Objects, e.g. a Barrel_Green). Opens a
+	//! closed container first (a closed barrel blocks CreateInInventory via
+	//! CanReceiveItemIntoCargo → IsOpen). Variant=="close" closes it back afterwards
+	//! (для теста «бот открывает закрытую бочку»). SetHealth01 works around the
+	//! "health 0" defect of CreateInInventory on a non-pawn item (как в cargoto).
+	private void RunFillCargo(dmE2EStep step, dmE2EStepResult r)
+	{
+		Object obj;
+		if (!m_Objects.Find(step.Who, obj) || !obj)
+		{
+			r.Ok = false;
+			r.Reason = "no such object";
+			return;
+		}
+
+		EntityAI container = EntityAI.Cast(obj);
+		if (!container)
+		{
+			r.Ok = false;
+			r.Reason = "not an EntityAI";
+			return;
+		}
+
+		ItemBase containerItem = ItemBase.Cast(container);
+		if (!containerItem)
+		{
+			r.Ok = false;
+			r.Reason = "not an ItemBase";
+			return;
+		}
+
+		if (!containerItem.IsOpen())
+			containerItem.Open();
+
+		int count = step.Count;
+		if (count <= 0)
+			count = 1;
+
+		int created = 0;
+		int i;
+		for (i = 0; i < count; i++)
+		{
+			EntityAI it = container.GetInventory().CreateInInventory(step.ClassName);
+			if (it)
+			{
+				created = created + 1;
+				ItemBase itemBase = ItemBase.Cast(it);
+				if (itemBase)
+					itemBase.SetHealth01("", "Health", 1.0);
+			}
+		}
+
+		if (step.Variant == "close")
+		{
+			if (containerItem.IsOpen())
+				containerItem.Close();
+		}
+
+		AppendDump(r, "fillcargo=" + step.ClassName + " x" + created + " variant=" + step.Variant);
+
+		r.Ok = true;
+		r.Reason = "filled " + created + " x " + step.ClassName;
+	}
+
 	//! "assert" — instantaneous condition check; Ok = condition result.
 	private void RunAssert(dmE2EStep step, dmE2EStepResult r)
 	{
@@ -2606,6 +2679,78 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = (dynamics.Count() + statics.Count()).ToString() + " entities";
+	}
+
+	//! "corpsedump" — dump every dead humanoid (PlayerBase/ZombieBase with
+	//! IsAlive()==false) in a world box plus its inventory items. Research probe for
+	//! the corpse system: is a player corpse still PlayerBase (not transformed), is
+	//! IsAlive() false, is zombie loot in the corpse inventory or loose on the ground,
+	//! and what GetHierarchyRootPlayer() returns for an item on a corpse.
+	private void RunCorpseDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		array<EntityAI> entities = new array<EntityAI>();
+		DayZPlayerUtils.SceneGetEntitiesInBox(ResolveWorldPos(step.Min), ResolveWorldPos(step.Max), entities, QueryFlags.DYNAMIC);
+
+		int corpses = 0;
+		int i;
+		int j;
+		string line;
+		EntityAI e;
+		PlayerBase player;
+		ZombieBase zombie;
+		GameInventory inv;
+		array<EntityAI> items;
+		EntityAI item;
+		Man rootPlayer;
+		string root;
+
+		for (i = 0; i < entities.Count(); i++)
+		{
+			e = entities[i];
+			if (!e)
+				continue;
+			player = PlayerBase.Cast(e);
+			zombie = ZombieBase.Cast(e);
+			if (!player && !zombie)
+				continue;
+			if (e.IsAlive())
+				continue;
+
+			corpses = corpses + 1;
+
+			line = "corpse type=" + e.GetType() + " alive=" + e.IsAlive();
+			line += " player=" + (player != null);
+			line += " zombie=" + (zombie != null);
+			line += " pos=" + e.GetPosition();
+			AppendDump(r, line);
+
+			inv = e.GetInventory();
+			if (!inv)
+				continue;
+
+			items = new array<EntityAI>();
+			inv.EnumerateInventory(InventoryTraversalType.LEVELORDER, items);
+			if (items.Count() == 0)
+			{
+				AppendDump(r, "corpseEmpty type=" + e.GetType());
+				continue;
+			}
+
+			for (j = 0; j < items.Count(); j++)
+			{
+				item = items[j];
+				if (!item)
+					continue;
+				root = "null";
+				rootPlayer = item.GetHierarchyRootPlayer();
+				if (rootPlayer)
+					root = rootPlayer.GetType() + " alive=" + rootPlayer.IsAlive();
+				AppendDump(r, "corpseItem i=" + j + " type=" + item.GetType() + " rootPlayer=" + root);
+			}
+		}
+
+		r.Ok = true;
+		r.Reason = corpses.ToString() + " corpses";
 	}
 
 	//! "surfprobe" — dump raw surface-sensor readings on a 29-point cross around

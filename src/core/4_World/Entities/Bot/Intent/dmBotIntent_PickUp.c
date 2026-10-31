@@ -11,6 +11,8 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 	bool m_PickupQueued = false;
 	bool m_Evacuating = false;
 	bool m_TakeToHands = false;
+	bool m_InLootContainer = false;   // предмет в карго ЛУТ-контейнера (бочка/ящик/сундук)
+	vector m_ContainerPos;            // позиция контейнера-владельца (якорь цели)
 	ref array<EntityAI> m_EvacOrder;
 
 	void dmBotIntent_PickUp()
@@ -27,17 +29,34 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 
 	override void OnStart(dmAISurvivor bot)
 	{
+		m_InLootContainer = false;
 		if (m_Item)
+		{
 			m_Goal = m_Item.GetPosition();
+			InventoryLocation loc = new InventoryLocation();
+			if (m_Item.GetInventory().GetCurrentInventoryLocation(loc) && loc.GetType() == InventoryLocationType.CARGO)
+			{
+				ItemBase parent = ItemBase.Cast(loc.GetParent());
+				if (dmLoot.IsLootContainer(parent))
+				{
+					m_InLootContainer = true;
+					m_ContainerPos = parent.GetPosition();
+					m_Goal = m_ContainerPos;
+				}
+			}
+		}
 		super.OnStart(bot);
 
 		m_ReachDistance = DM_PICKUP_REACH;
 	}
 
 	//! Цель = позиция предмета (предмет статичен, но обновляем на случай сдвига).
+	//! Для предмета в лут-контейнере — якорь m_ContainerPos, резолвится ОДИН раз в
+	//! OnStart (GetPosition() предмета внутри карго ненадёжен — research §3.5); здесь
+	//! обновляем m_Goal только для лужного случая (дёшево, без per-tick аллокации).
 	override void UpdateGoal(dmAISurvivor bot, float pDt)
 	{
-		if (m_Item)
+		if (m_Item && !m_InLootContainer)
 			m_Goal = m_Item.GetPosition();
 	}
 

@@ -1,0 +1,16 @@
+{
+  "Name": "explore-container-notpicked",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [3316.0, 0.0, 4070.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "sleep", "Timeout": 6 },
+    { "Op": "spawnobj", "Who": "b1", "ClassName": "Barrel_Green", "Pos": [3317.5, 0.0, 4070.0] },
+    { "Op": "sleep", "Timeout": 15 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "invdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "clearall" }
+  ]
+}

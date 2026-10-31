@@ -1,0 +1,18 @@
+{
+  "Name": "explore-wreck-priority-gate",
+  "Timeout": 120,
+  "Comment": "Atom 3 (гейт энергии/воды): бот A с НИЗКОЙ energy/water (200 < 2500) НЕ идёт к вреку Wreck_UH1Y (~200 м) — приоритет не срабатывает, бот обходит обычное здание (serverLog НЕ содержит 'Нашёл событие/врек'). Свежий номад без еды → энергия не восстановится.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [3316.0, 0.0, 4070.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "sleep", "Timeout": 6 },
+    { "Op": "setstat", "Who": "A", "Stat": "energy", "Value": "200" },
+    { "Op": "setstat", "Who": "A", "Stat": "water", "Value": "200" },
+    { "Op": "spawnobj", "Who": "w1", "ClassName": "Wreck_UH1Y", "Pos": [3516.0, 0.0, 4070.0] },
+    { "Op": "sleep", "Timeout": 30 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "clearall" }
+  ]
+}

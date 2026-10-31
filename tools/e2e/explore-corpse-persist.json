@@ -1,0 +1,20 @@
+{
+  "Name": "explore-corpse-persist",
+  "Timeout": 140,
+  "Comment": "Atom 2 supplement: single corpse B persists after strip (corpsedump/scanbox see corpse alive=false) AND A picks up B's distinct clothing (Body/Feet via SurvivorLoadout). Fresh offset of the good location to avoid stale corpses.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [3346.0, 0.0, 4070.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "sleep", "Timeout": 6 },
+    { "Op": "spawn", "Who": "B", "Pos": [3351.0, 0.0, 4070.0], "Yaw": 0.0, "Preset": "survivor" },
+    { "Op": "loadout", "Who": "B", "Loadout": "SurvivorLoadout" },
+    { "Op": "sleep", "Timeout": 3 },
+    { "Op": "setstat", "Who": "B", "Stat": "health", "Value": "0" },
+    { "Op": "sleep", "Timeout": 40 },
+    { "Op": "corpsedump", "Min": [3330.0, 430.0, 4050.0], "Max": [3370.0, 500.0, 4090.0] },
+    { "Op": "scanbox", "Min": [3330.0, 430.0, 4050.0], "Max": [3370.0, 500.0, 4090.0] },
+    { "Op": "invdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

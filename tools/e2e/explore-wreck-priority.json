@@ -1,0 +1,18 @@
+{
+  "Name": "explore-wreck-priority",
+  "Timeout": 180,
+  "Comment": "Atom 3: приоритет событий (вреков). Бот A (номад, полный energy/water=5000) находит врек Wreck_UH1Y (~200 м) и идёт к нему ПЕРВЫМ вместо ближайшего обычного дома (serverLog: 'Нашёл событие/врек: Wreck_UH1Y — приоритет, иду'). Врек регистрируется modded House через CallLater — sleep 6 даёт ему зарегистрироваться до первого скана.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [3316.0, 0.0, 4070.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "setstat", "Who": "A", "Stat": "energy", "Value": "5000" },
+    { "Op": "setstat", "Who": "A", "Stat": "water", "Value": "5000" },
+    { "Op": "sleep", "Timeout": 6 },
+    { "Op": "spawnobj", "Who": "w1", "ClassName": "Wreck_UH1Y", "Pos": [3516.0, 0.0, 4070.0] },
+    { "Op": "sleep", "Timeout": 40 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "clearall" }
+  ]
+}

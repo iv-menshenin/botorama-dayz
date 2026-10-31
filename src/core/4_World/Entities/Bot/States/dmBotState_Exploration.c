@@ -7,6 +7,13 @@ class dmBotState_Exploration : dmBotState
 	ref dmBuildingRoutePlanner m_Planner; // жадный планировщик обхода интерьера (переиспользуется)
 	float m_DropCooldown;
 	float m_BuildingTime;               // сколько времени бот возится с текущим зданием
+	float m_ContainerScanCooldown;      // троттлинг контейнерного скана (~1 Гц)
+	ref array<EntityAI> m_ContainerItems; // кэш результата контейнерного скана между тиками
+	float m_CorpseScanCooldown;         // троттлинг скана трупов (~0.5 Гц)
+	EntityAI m_Corpse;                  // текущий труп-цель (стрип)
+	ref dmBotIntent_MoveTo m_CorpseMove; // маршрут к трупу (DESIRABLE)
+	ref array<EntityAI> m_StrippedCorpses; // уже остриженные трупы (не ре-стрипать)
+	float m_WreckScanCooldown;          // троттлинг скана приоритетных событий (~0.1 Гц)
 
 	override dmBotStateKind GetKind()
 	{
@@ -27,6 +34,13 @@ class dmBotState_Exploration : dmBotState
 		m_Planner = new dmBuildingRoutePlanner();
 		m_DropCooldown = 0.0;
 		m_BuildingTime = 0.0;
+		m_ContainerScanCooldown = 0.0;
+		m_ContainerItems = null;
+		m_CorpseScanCooldown = 0.0;
+		m_Corpse = null;
+		m_CorpseMove = null;
+		m_StrippedCorpses = new array<EntityAI>();
+		m_WreckScanCooldown = 0.0;
 
 		dmAISurvivor bot = GetOwner();
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
@@ -47,9 +61,14 @@ class dmBotState_Exploration : dmBotState
 
 		MaybeDrop(bot, pawn, pDt);
 
+		m_ContainerScanCooldown -= pDt;
+		m_CorpseScanCooldown -= pDt;
+		m_WreckScanCooldown -= pDt;
+
 		if (!EnsurePickUp(bot, pawn))
 		{
-			if (!bot.IsExplorationStandStill())
+			EnsureCorpse(bot, pawn);
+			if (!m_CorpseMove && !bot.IsExplorationStandStill())
 				EnsureExplore(bot, pawn);
 		}
 
@@ -133,19 +152,44 @@ class dmBotState_Exploration : dmBotState
 	//! чтобы не пере-сканировать и не пере-оценивать тот же предмет каждый тик.
 	EntityAI pickUpItemSelect(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
+		//! Контейнеры троттлим ~1 Гц (12-м бокс дороже 3-м лужного), результат кэшируем
+		//! в m_ContainerItems. Лужный скан — per-tick (дёшев).
+		if (m_ContainerScanCooldown <= 0.0)
+		{
+			m_ContainerScanCooldown = DM_EXPLORE_CONTAINER_SCAN_INTERVAL;
+			m_ContainerItems = dmLoot.ScanContainerItems(pawn, DM_EXPLORE_CONTAINER_SCAN_RADIUS);
+		}
+
 		array<EntityAI> items = dmLoot.ScanNearbyItems(pawn, DM_EXPLORE_PICKUP_RADIUS);
+		int groundCount = items.Count();
+		int containerCount = 0;
+		int i;
+		if (m_ContainerItems)
+		{
+			containerCount = m_ContainerItems.Count();
+			for (i = 0; i < containerCount; i++)
+				items.Insert(m_ContainerItems[i]);
+		}
+
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Рядом " + items.Count() + " вещей, выбираю, что подобрать");
+		dmBotLog.Debug("[Loot] Рядом " + groundCount + " на земле + " + containerCount + " в контейнерах, выбираю, что подобрать");
 		#endif
 
 		//! Чистый выбор по desire — БЕЗ CanCarry/выброса: мутация только для победителя.
 		ItemBase best = null;
 		float bestDesire = 0.0;
-		int i;
 		for (i = 0; i < items.Count(); i++)
 		{
 			ItemBase item = ItemBase.Cast(items[i]);
 			if (!item) continue;
+
+			//! Уже в чьей-то иерархии (кэш контейнеров мог устареть на тик) — пропуск.
+			if (item.GetHierarchyRootPlayer())
+				continue;
+
+			//! Контейнер сам не подбираем (берём только его содержимое).
+			if (dmLoot.IsLootContainer(item))
+				continue;
 
 			//! Ruined — не подбираем (дёшево: только здоровье, без рейтинга/переборки).
 			if (item.IsDamageDestroyed() || item.GetHealth01() <= 0.0)
@@ -352,20 +396,29 @@ class dmBotState_Exploration : dmBotState
 
 	//! Обход здания: планировщик (жадный коммивояжёр) упорядочивает интерьер-точки,
 	//! бот идёт по готовому маршруту; по опустошении — здание помечается посещённым.
+	//! Следующее здание выбирается с приоритетом вреков (см. ChooseNextBuilding).
 	void EnsureExplore(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
-		dmExplorer explorer = bot.GetExplorer();
-
 		if (m_CurrentBuilding && m_BuildingTime > DM_EXPLORE_BUILDING_TIMEOUT)
 		{
 			if (m_Move) { m_Move.Finish(); m_Move = null; }
 			dmBotLog.Error("[Loot] Explore: здание слишком долго, пропускаю " + m_CurrentBuilding.GetType());
-			explorer.MarkLocationBuildingVisited(m_CurrentBuilding);
+			MarkBuildingVisited(bot, m_CurrentBuilding);
 			ResetBuilding();
 		}
 
 		if (m_Move && (m_Move.IsFinished() || m_Move.IsExpired() || m_Move.IsFailed()))
+		{
+			if (m_Move.IsFailed() && m_CurrentBuilding && IsWreck(m_CurrentBuilding))
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] Врек недостижим, пропускаю: " + m_CurrentBuilding.GetType());
+				#endif
+				MarkBuildingVisited(bot, m_CurrentBuilding);
+				ResetBuilding();
+			}
 			m_Move = null;
+		}
 
 		if (!m_Move && m_CurrentBuilding)
 		{
@@ -379,14 +432,14 @@ class dmBotState_Exploration : dmBotState
 				#ifdef DM_BOT_DEBUG_LOOTING
 				dmBotLog.Debug("[Loot] Explore: здание обойдено " + m_CurrentBuilding.GetType());
 				#endif
-				explorer.MarkLocationBuildingVisited(m_CurrentBuilding);
+				MarkBuildingVisited(bot, m_CurrentBuilding);
 				ResetBuilding();
 			}
 		}
 
 		if (!m_CurrentBuilding)
 		{
-			Building b = explorer.GetNextUnvisitedBuilding(bot);
+			Building b = ChooseNextBuilding(bot, pawn);
 			if (!b)
 				return;
 			m_CurrentBuilding = b;
@@ -398,6 +451,167 @@ class dmBotState_Exploration : dmBotState
 
 			m_Planner.Init(pawn.GetPosition(), m_InteriorPoints);
 		}
+	}
+
+	//! Пометить здание посещённым: локация + (если врек) отдельная врек-отметка.
+	void MarkBuildingVisited(dmAISurvivor bot, Building b)
+	{
+		if (!b)
+			return;
+		dmExplorer explorer = bot.GetExplorer();
+		explorer.MarkLocationBuildingVisited(b);
+		if (IsWreck(b))
+			explorer.MarkWreckVisited(b);
+	}
+
+	//! Здание — приоритетное событие (врек MILITARY_WRECK)?
+	bool IsWreck(Building b)
+	{
+		return b && dmBuildingInteriorMap.Get().GetType(b.GetType()) == dmWorldPOIType.MILITARY_WRECK;
+	}
+
+	//! Достаточно ли энергии/воды для приоритетного похода к событию.
+	bool HasEnergyForPriorityEvent(dmAISurvivorBase pawn)
+	{
+		return pawn.GetStatEnergy().Get() >= DM_PRIORITY_EVENT_MIN_ENERGY && pawn.GetStatWater().Get() >= DM_PRIORITY_EVENT_MIN_WATER;
+	}
+
+	//! Выбор следующего здания: сначала приоритетный врек (в радиусе + гейт энергии/воды),
+	//! иначе ближайшее непосещённое здание локации. Скан вреков троттлится.
+	Building ChooseNextBuilding(dmAISurvivor bot, dmAISurvivorBase pawn)
+	{
+		dmExplorer explorer = bot.GetExplorer();
+		if (m_WreckScanCooldown <= 0.0)
+		{
+			m_WreckScanCooldown = DM_EXPLORE_WRECK_SCAN_INTERVAL;
+			if (HasEnergyForPriorityEvent(pawn))
+			{
+				Building wreck = explorer.GetNearestUnvisitedWreck(bot, DM_EXPLORE_WRECK_RADIUS);
+				if (wreck)
+				{
+					#ifdef DM_BOT_DEBUG_LOOTING
+					dmBotLog.Debug("[Loot] Нашёл событие/врек: " + wreck.GetType() + " — приоритет, иду");
+					#endif
+					return wreck;
+				}
+			}
+		}
+		return explorer.GetNextUnvisitedBuilding(bot);
+	}
+
+	//! Труп-лут: обнаружить труп → идти к нему (DESIRABLE) → стрип на землю. Выпавшее
+	//! подберётся штатным EnsurePickUp следующим тиком. Не конфликтует с EnsureExplore:
+	//! у трупа свой маршрут m_CorpseMove, обход здания не идёт параллельно (прерываем
+	//! m_Move при старте подхода к трупу).
+	void EnsureCorpse(dmAISurvivor bot, dmAISurvivorBase pawn)
+	{
+		// Завершился маршрут к трупу.
+		if (m_CorpseMove && (m_CorpseMove.IsFinished() || m_CorpseMove.IsExpired() || m_CorpseMove.IsFailed()))
+			m_CorpseMove = null;
+
+		// Труп-цель удалён (деспавн).
+		if (m_Corpse && m_Corpse.IsSetForDeletion())
+		{
+			m_Corpse = null;
+			m_CorpseMove = null;
+		}
+
+		// Бот у трупа и не идёт — стрип.
+		if (m_Corpse && !m_CorpseMove)
+		{
+			vector pos = pawn.GetPosition();
+			vector cpos = m_Corpse.GetPosition();
+			if (vector.Distance(pos, cpos) <= DM_EXPLORE_CORPSE_REACH)
+			{
+				array<EntityAI> dropped = new array<EntityAI>();
+				dmLoot.StripCorpse(m_Corpse, dropped);
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] Острижен труп: " + m_Corpse.GetType() + " вещей " + dropped.Count());
+				#endif
+				m_StrippedCorpses.Insert(m_Corpse);
+				if (m_StrippedCorpses.Count() > DM_EXPLORE_CORPSE_STRIPPED_MAX)
+					m_StrippedCorpses.Remove(0);   // старейший вытесняется (лимит роста)
+				m_Corpse = null;
+			}
+		}
+
+		// Идём к трупу — не пере-создавать.
+		if (m_CorpseMove)
+			return;
+
+		// Нет цели — троттл-скан ближайшего не-остриженного трупа.
+		if (!m_Corpse && m_CorpseScanCooldown <= 0.0)
+		{
+			m_CorpseScanCooldown = DM_EXPLORE_CORPSE_SCAN_INTERVAL;
+			CleanStrippedCorpses();
+			m_Corpse = FindNearestCorpse(pawn);
+			#ifdef DM_BOT_DEBUG_LOOTING
+			if (m_Corpse)
+				dmBotLog.Debug("[Loot] Нашёл труп: " + m_Corpse.GetType() + " на " + vector.Distance(pawn.GetPosition(), m_Corpse.GetPosition()) + " м");
+			#endif
+		}
+
+		// Есть цель, нет маршрута — идти к трупу (прервав обход здания).
+		if (m_Corpse && !m_CorpseMove)
+		{
+			if (m_Move) { m_Move.Finish(); m_Move = null; }
+			m_CorpseMove = new dmBotIntent_MoveTo();
+			m_CorpseMove.m_Goal = m_Corpse.GetPosition();
+			m_CorpseMove.m_ReachDistance = DM_EXPLORE_CORPSE_REACH;
+			m_CorpseMove.m_Priority = dmBotIntentPriority.DESIRABLE;
+			bot.AddFSMIntent(m_CorpseMove);
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Иду к трупу: " + m_Corpse.GetType());
+			#endif
+		}
+	}
+
+	//! Лениво выкинуть из m_StrippedCorpses удалённые (деспавн) трупы.
+	void CleanStrippedCorpses()
+	{
+		int i;
+		for (i = m_StrippedCorpses.Count() - 1; i >= 0; i--)
+		{
+			EntityAI c = m_StrippedCorpses[i];
+			if (!c || c.IsSetForDeletion())
+				m_StrippedCorpses.Remove(i);
+		}
+	}
+
+	//! Ближайший НЕ-остриженный труп в DM_EXPLORE_CORPSE_RADIUS (по 2D-квадрату
+	//! дистанции, Y игнорируется — труп этажом выше не должен «выигрывать»).
+	EntityAI FindNearestCorpse(dmAISurvivorBase pawn)
+	{
+		array<EntityAI> corpses = dmLoot.ScanCorpses(pawn, DM_EXPLORE_CORPSE_RADIUS);
+		EntityAI nearest = null;
+		float best = DM_EXPLORE_CORPSE_RADIUS * DM_EXPLORE_CORPSE_RADIUS;
+		vector pos = pawn.GetPosition();
+		int i;
+		for (i = 0; i < corpses.Count(); i++)
+		{
+			EntityAI c = corpses[i];
+			if (!c || IsCorpseStripped(c))
+				continue;
+			float d = dmMath.DistSq2D(pos, c.GetPosition());
+			if (d < best)
+			{
+				best = d;
+				nearest = c;
+			}
+		}
+		return nearest;
+	}
+
+	//! Уже острижен ли труп (по ссылке в m_StrippedCorpses).
+	bool IsCorpseStripped(EntityAI corpse)
+	{
+		int i;
+		for (i = 0; i < m_StrippedCorpses.Count(); i++)
+		{
+			if (m_StrippedCorpses[i] == corpse)
+				return true;
+		}
+		return false;
 	}
 
 	//! Пер-тик сопровождение маршрута: шаг планировщика + проксимити-скип «увидел
@@ -477,6 +691,7 @@ class dmBotState_Exploration : dmBotState
 	override void OnExit(dmBotState to)
 	{
 		if (m_Move) { m_Move.Finish(); m_Move = null; }
+		if (m_CorpseMove) { m_CorpseMove.Finish(); m_CorpseMove = null; }
 		if (m_PickUp) { m_PickUp.Finish(); m_PickUp = null; }
 	}
 };

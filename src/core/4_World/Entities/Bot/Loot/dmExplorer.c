@@ -21,6 +21,7 @@ class dmExplorer
 	ref dmWorldPoiLocation m_CurrentLocation;                // текущая локация (null = вне)
 	ref dmWorldPoiLocation m_Destination;                    // назначение кочёвки (веха E)
 	ref array<ref dmExploredBuilding> m_LocationBuildings;   // здания текущей локации
+	ref array<Building> m_VisitedWrecks;                     // посещённые вреки (анти-повтор)
 	bool m_NothingToDo;                                      // «делать больше нечего» (веха D)
 	bool m_InTransit;                                        // «переход в локацию» (веха E)
 	float m_TimeInLocation;                                  // время в текущей локации (веха D)
@@ -30,6 +31,7 @@ class dmExplorer
 	{
 		m_VisitedLocations = new array<int>();
 		m_LocationBuildings = new array<ref dmExploredBuilding>();
+		m_VisitedWrecks = new array<Building>();
 		m_CurrentLocation = null;
 		m_Destination = null;
 		m_NothingToDo = false;
@@ -71,7 +73,7 @@ class dmExplorer
 		{
 			dmExploredBuilding eb = new dmExploredBuilding();
 			eb.m_Building = buildings[i];
-			eb.m_Visited = false;
+			eb.m_Visited = HasVisitedWreck(eb.m_Building);   // врек, посещённый приоритетно, не пере-обходить
 			m_LocationBuildings.Insert(eb);
 		}
 
@@ -100,7 +102,7 @@ class dmExplorer
 		{
 			dmExploredBuilding eb = new dmExploredBuilding();
 			eb.m_Building = buildings[i];
-			eb.m_Visited = false;
+			eb.m_Visited = HasVisitedWreck(eb.m_Building);   // врек, посещённый приоритетно, не пере-обходить
 			m_LocationBuildings.Insert(eb);
 		}
 	}
@@ -146,6 +148,53 @@ class dmExplorer
 				eb.m_Visited = true;
 				return;
 			}
+		}
+	}
+
+	//! Ближайший НЕпосещённый врек (MILITARY_WRECK) в radius от бота, или null.
+	//! Registry-запрос сам фильтрует по типу и «живости»; m_VisitedWrecks — exclude,
+	//! чтобы ближайший ПОСЕЩЁННЫЙ врек не затенял дальний непосещённый.
+	Building GetNearestUnvisitedWreck(dmAISurvivor bot, float radius)
+	{
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+			return null;
+		CleanVisitedWrecks();
+		return dmLiveBuildingRegistry.Get().GetNearestExcluding(dmWorldPOIType.MILITARY_WRECK, pawn.GetPosition(), radius, m_VisitedWrecks);
+	}
+
+	//! Пометить врек посещённым (идемпотентно) — чтобы не пере-ходить к нему.
+	void MarkWreckVisited(Building b)
+	{
+		if (!b || HasVisitedWreck(b))
+			return;
+		m_VisitedWrecks.Insert(b);
+	}
+
+	//! Посещался ли врек (с ленивой чисткой деспавненных).
+	bool HasVisitedWreck(Building b)
+	{
+		if (!b)
+			return false;
+		CleanVisitedWrecks();
+		int i;
+		for (i = 0; i < m_VisitedWrecks.Count(); i++)
+		{
+			if (m_VisitedWrecks[i] == b)
+				return true;
+		}
+		return false;
+	}
+
+	//! Лениво выкинуть из m_VisitedWrecks мёртвые/деспавненные (как GetBuildingsForLocation).
+	void CleanVisitedWrecks()
+	{
+		int i;
+		for (i = m_VisitedWrecks.Count() - 1; i >= 0; i--)
+		{
+			Building b = m_VisitedWrecks[i];
+			if (!b || !b.IsAlive())
+				m_VisitedWrecks.Remove(i);
 		}
 	}
 

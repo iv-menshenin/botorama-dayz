@@ -183,6 +183,12 @@ class dmLiveBuildingRegistry
 
 	Building GetNearest(dmWorldPOIType type, vector pos, float radius)
 	{
+		return GetNearestExcluding(type, pos, radius, null);
+	}
+
+	//! Как GetNearest, но пропускает здания из exclude (по ссылке).
+	Building GetNearestExcluding(dmWorldPOIType type, vector pos, float radius, array<Building> exclude)
+	{
 		Building nearest;
 		float nearestSq = 0.0;
 		vector pos2D = pos;
@@ -201,6 +207,9 @@ class dmLiveBuildingRegistry
 				continue;
 
 			if (dmBuildingInteriorMap.Get().GetType(b.GetType()) != type)
+				continue;
+
+			if (exclude && exclude.Find(b) >= 0)
 				continue;
 
 			bPos = b.GetPosition();

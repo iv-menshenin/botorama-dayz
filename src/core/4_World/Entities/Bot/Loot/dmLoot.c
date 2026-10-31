@@ -269,6 +269,15 @@ class dmLoot
 		return false;
 	}
 
+	//! Бокс-скан DYNAMIC вокруг пешки (radius) в переданный массив entities.
+	static void ScanBoxDynamics(PlayerBase pawn, float radius, out array<EntityAI> entities)
+	{
+		vector botPos = pawn.GetPosition();
+		vector minPos = botPos - Vector(radius, radius, radius);
+		vector maxPos = botPos + Vector(radius, radius, radius);
+		DayZPlayerUtils.SceneGetEntitiesInBox(minPos, maxPos, entities, QueryFlags.DYNAMIC);
+	}
+
 	//! Предметы-на-земле (ItemBase вне чьего-либо инвентаря) в кубе radius вокруг пешки.
 	static array<EntityAI> ScanNearbyItems(PlayerBase pawn, float radius)
 	{
@@ -276,12 +285,8 @@ class dmLoot
 		if (!pawn)
 			return result;
 
-		vector botPos = pawn.GetPosition();
-		vector minPos = botPos - Vector(radius, radius, radius);
-		vector maxPos = botPos + Vector(radius, radius, radius);
-
 		array<EntityAI> entities = new array<EntityAI>();
-		DayZPlayerUtils.SceneGetEntitiesInBox(minPos, maxPos, entities, QueryFlags.DYNAMIC);
+		ScanBoxDynamics(pawn, radius, entities);
 
 		int i;
 		for (i = 0; i < entities.Count(); i++)
@@ -289,6 +294,126 @@ class dmLoot
 			ItemBase item = ItemBase.Cast(entities[i]);
 			if (item && !item.GetHierarchyRootPlayer() && !item.IsDamageDestroyed())
 				result.Insert(item);
+		}
+		return result;
+	}
+
+	//! Предикат «лут-контейнер»: ровно бочка/ящик/сундук. Контейнер сам НЕ поднимается —
+	//! берём только его содержимое. IsInherited работает для предметов (см. codeguide).
+	static bool IsLootContainer(ItemBase item)
+	{
+		if (!item)
+			return false;
+		if (item.IsInherited(Barrel_ColorBase))
+			return true;
+		if (item.IsInherited(WoodenCrate))
+			return true;
+		if (item.IsInherited(SeaChest))
+			return true;
+		return false;
+	}
+
+	//! Открыть контейнер, если закрыт. Бочка блокирует извлечение через CanReleaseCargo →
+	//! IsOpen(), поэтому её нужно открыть до LocalTakeToDst (ровно как ванильный ActionOpen).
+	//! SeaChest/WoodenCrate всегда IsOpen()==true → Open() для них не вызовется.
+	static void OpenContainer(ItemBase container)
+	{
+		if (!container)
+			return;
+		if (!container.IsOpen())
+		{
+			container.Open();
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] Открыл контейнер " + container.GetType());
+			#endif
+		}
+	}
+
+	//! Открыть контейнер-источник в точке извлечения: если src — карго ЛУТ-контейнера
+	//! (бочка/ящик/сундук на земле), открыть его, чтобы LocalTakeToDst не блокировался
+	//! (CanReleaseCargo → IsOpen). Резолвит владельца через src.GetParent().
+	static void EnsureContainerOpen(InventoryLocation src)
+	{
+		if (!src)
+			return;
+		if (src.GetType() != InventoryLocationType.CARGO)
+			return;
+		ItemBase container = ItemBase.Cast(src.GetParent());
+		if (!IsLootContainer(container))
+			return;
+		OpenContainer(container);
+	}
+
+	//! Содержимое близких лут-контейнеров (бочка/ящик/сундук на земле) как «потенциальный
+	//! лут». ЧИСТЫЙ read-only перечень карго: контейнеры НЕ открываем (открытие — в точке
+	//! извлечения, EnsureContainerOpen). Вложенные контейнеры не рекурсируем (вне скоупа) —
+	//! вложенный контейнер, если встретится, отсеется IsLootContainer в выборе.
+	static array<EntityAI> ScanContainerItems(PlayerBase pawn, float radius)
+	{
+		array<EntityAI> result = new array<EntityAI>();
+		if (!pawn)
+			return result;
+
+		array<EntityAI> entities = new array<EntityAI>();
+		ScanBoxDynamics(pawn, radius, entities);
+
+		int i;
+		int j;
+		for (i = 0; i < entities.Count(); i++)
+		{
+			ItemBase container = ItemBase.Cast(entities[i]);
+			if (!container)
+				continue;
+			if (!IsLootContainer(container))
+				continue;
+			if (container.GetHierarchyRootPlayer())
+				continue;
+
+			CargoBase cargo = container.GetInventory().GetCargo();
+			if (!cargo)
+				continue;
+			for (j = 0; j < cargo.GetItemCount(); j++)
+			{
+				EntityAI it = cargo.GetItem(j);
+				if (it)
+					result.Insert(it);
+			}
+		}
+		return result;
+	}
+
+	//! Предикат «труп»: мёртвый ИГРОК (PlayerBase, IsAlive()==false). Зомби — НЕ труп:
+	//! его лут loose на земле (уже ловится ScanNearbyItems), а bare-зомби GetInventory()==null.
+	//! Детект по Cast, НЕ IsInherited (тот даёт false для зомби без ИИ).
+	static bool IsCorpse(EntityAI e)
+	{
+		if (!e || e.IsAlive())
+			return false;
+		if (PlayerBase.Cast(e))
+			return true;
+		return false;
+	}
+
+	//! Мёртвые игроки (PlayerBase) вокруг пешки, НЕ в чьей-то иерархии (loose на земле).
+	//! Трупы статичны — скан троттлится снаружи.
+	static array<EntityAI> ScanCorpses(PlayerBase pawn, float radius)
+	{
+		array<EntityAI> result = new array<EntityAI>();
+		if (!pawn)
+			return result;
+
+		array<EntityAI> entities = new array<EntityAI>();
+		ScanBoxDynamics(pawn, radius, entities);
+
+		int i;
+		for (i = 0; i < entities.Count(); i++)
+		{
+			EntityAI e = entities[i];
+			if (!IsCorpse(e))
+				continue;
+			if (e.GetHierarchyParent())
+				continue;
+			result.Insert(e);
 		}
 		return result;
 	}
@@ -321,13 +446,14 @@ class dmLoot
 		array<EntityAI> result = new array<EntityAI>();
 		if (!pawn)
 			return result;
-		CollectCargoRecursiveEntity(pawn, result);
+		CollectDropableRecursive(pawn, result, false);
 		return result;
 	}
 
-	//! Рекурсивный спуск (вариант B): карго сущности — дропаемое (вставка + спуск),
-	//! слоты-аттачи — только спуск (магазин/оптика/GPS сами НЕ дропаются).
-	private static void CollectCargoRecursiveEntity(EntityAI ent, array<EntityAI> outItems)
+	//! Рекурсивный спуск по инвентарю (вариант B): карго — дропаемое (вставка + спуск);
+	//! аттач-слоты — спуск всегда, а САМ аттач вставляется только при dropAttachments
+	//! (труп: одежда/оружие дропаются; репак: аттач сам НЕ дропается — только его карго).
+	private static void CollectDropableRecursive(EntityAI ent, array<EntityAI> outItems, bool dropAttachments)
 	{
 		GameInventory inv = ent.GetInventory();
 		if (!inv)
@@ -340,17 +466,84 @@ class dmLoot
 			for (i = 0; i < cargo.GetItemCount(); i++)
 			{
 				EntityAI it = cargo.GetItem(i);
+				if (!it)
+					continue;
 				outItems.Insert(it);
-				CollectCargoRecursiveEntity(it, outItems);
+				CollectDropableRecursive(it, outItems, dropAttachments);
 			}
 		}
 
 		for (i = 0; i < inv.GetAttachmentSlotsCount(); i++)
 		{
 			EntityAI att = inv.FindAttachment(inv.GetAttachmentSlotId(i));
-			if (att)
-				CollectCargoRecursiveEntity(att, outItems);
+			if (!att)
+				continue;
+			if (dropAttachments)
+				outItems.Insert(att);
+			CollectDropableRecursive(att, outItems, dropAttachments);
 		}
+	}
+
+	//! Всё дропаемое с трупа: аттачменты (одежда/оружие/рюкзак — САМИ предметы) + их
+	//! карго (рекурсивно) + предмет в руках. Ручная рекурсия (вариант B), НЕ
+	//! EnumerateInventory(LEVELORDER) — тот даёт null-записи для вложенного карго.
+	static void CollectCorpseItems(EntityAI corpse, out array<EntityAI> outItems)
+	{
+		if (!corpse)
+			return;
+		CollectDropableRecursive(corpse, outItems, true);
+
+		Human human = Human.Cast(corpse);
+		if (!human)
+			return;
+		EntityAI inHands = human.GetHumanInventory().GetEntityInHands();
+		if (inHands)
+			outItems.Insert(inHands);
+	}
+
+	//! Стрип трупа: выложить всё с трупа на землю ванильным LocalDropEntity ВНУТРИ
+	//! обёртки RemoteObjectTreeDelete/Create (эталон DropItemToGroundLocal, v3.403:
+	//! мув ТОЙ ЖЕ сущности, не клон; обёртка обязательна для синка клиенту). Руки НЕ
+	//! трогаем (LocalDropEntity из рук мёртвого уходит в deferred HandEventDrop и не
+	//! срабатывает). Возвращает число выпавших предметов.
+	static int StripCorpse(EntityAI corpse, out array<EntityAI> outDropped)
+	{
+		int dropped = 0;
+		if (!corpse || corpse.IsAlive())
+			return dropped;
+
+		Human human = Human.Cast(corpse);
+		if (!human)
+			return dropped;
+
+		array<EntityAI> items = new array<EntityAI>();
+		CollectCorpseItems(corpse, items);
+
+		EntityAI inHands = human.GetHumanInventory().GetEntityInHands();
+
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			EntityAI item = items[i];
+			if (!item || item.IsSetForDeletion())
+				continue;
+			if (item == inHands)
+				continue;   // руки не стрипаем (см. выше)
+			GetGame().RemoteObjectTreeDelete(item);
+			bool ok = human.LocalDropEntity(item);
+			GetGame().RemoteObjectTreeCreate(item);
+			if (ok)
+			{
+				outDropped.Insert(item);
+				dropped = dropped + 1;
+			}
+		}
+
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] Стрип трупа: выложено " + dropped + " вещей");
+		#endif
+
+		return dropped;
 	}
 
 	static void RemoveNearbyItem(PlayerBase pawn, EntityAI item, float radius)
@@ -572,6 +765,7 @@ class dmLoot
 		InventoryLocation src = new InventoryLocation();
 		if (!item.GetInventory().GetCurrentInventoryLocation(src))
 			return false;
+		EnsureContainerOpen(src);
 
 		InventoryLocation dst = new InventoryLocation();
 		dst.SetHands(pawn, item);
@@ -594,6 +788,7 @@ class dmLoot
 		InventoryLocation src = new InventoryLocation();
 		if (!item.GetInventory().GetCurrentInventoryLocation(src))
 			return false;
+		EnsureContainerOpen(src);
 
 		InventoryLocation dst = new InventoryLocation();
 		if (to)
@@ -629,6 +824,7 @@ class dmLoot
 			#endif
 			return false;
 		}
+		EnsureContainerOpen(src);
 
 		InventoryLocation dst = new InventoryLocation();
 		dst.SetAttachment(pawn, item, slotId);
@@ -648,6 +844,7 @@ class dmLoot
 		InventoryLocation src = new InventoryLocation();
 		if (!item.GetInventory().GetCurrentInventoryLocation(src))
 			return false;
+		EnsureContainerOpen(src);
 
 		GetGame().RemoteObjectTreeDelete(item);
 		bool ok = pawn.LocalTakeToDst(src, dst);

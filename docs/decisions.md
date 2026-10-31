@@ -361,6 +361,10 @@ Expansion `eAIBase.c:10094-10102`). E2E: `Melee spin`=0, 3/3 зомби убит
 Действует пока: любой мув предмета у ИИ-бота (HANDS→слот/земля, GROUND↔CARGO/ATTACHMENT). Исключений нет.
 
 ### body: дроп не-рук (репак) — ванильный LocalDropEntity, а не RemoteObjectTreeDelete/Create (v3.393)
+> **УСТАРЕЛО (v3.403).** Эта запись говорила «`LocalDropEntity` БЕЗ обёртки» — см. запись v3.403 ниже:
+> актуальное правило — `LocalDropEntity` **внутри** `RemoteObjectTreeDelete`/`RemoteObjectTreeCreate`
+> (эталон `DropItemToGroundLocal`, dmAISurvivorBase.c:2485). Цитировать «БЕЗ обёртки» нельзя — это
+> привело к багу синка в стрипе трупа (Атом 2, v3.407).
 Решение: CARGO/ATTACHMENT → GROUND делает ванильный `Man.LocalDropEntity(item)`
 (`SetGroundPosByOwner` + `TakeToDst(LOCAL)`), **БЕЗ** обёртки `RemoteObjectTreeDelete/Create`;
 из HANDS — по-прежнему clone+delete (запись выше).
@@ -517,3 +521,33 @@ hold «замораживает» текущий выбор на 45 с, но п�
 Expansion (`eAIBase.c:10047-10065`, комментарий «Needed to prevent AI from spinning in place after going down ladder»).
 Действует пока: натив оставляет heading-остаток на спуске и нет способа закрыть фазу; если найдём закрытие
 (явный `hcl.Exit()`/`OnCommandLadderFinish` до `!IsClimbingLadder()`) — mask можно заменить на cure (см. techdebt).
+
+### loot: контейнеры — открывать в точке извлечения, а НЕ в скане
+Решение: `ScanContainerItems` — чистый read-only перечень карго (бочка/ящик/сундук); открытие контейнера
+(`if (!IsOpen()) Open()`) вынесено в `dmLoot.EnsureContainerOpen(src)`, который зовётся в take-примитивах
+(`TakeIntoCargo`/`TakeIntoDestination`/`TakeToHands`/`TakeToAttachmentSlot`) сразу после резолва `src`, до `LocalTakeToDst`.
+Почему: бочка блокирует извлечение через `CanReleaseCargo → IsOpen()`, но «открывать» в скане — это мутация мира
+в read-функции (все бочки в радиусе, включая пустые, остаются открытыми + `SetTakeable(false)`). Открывать ровно ту
+бочку, из которой реально достаём (см. review-guide смелл «read-функция с мутацией мира»). SeaChest/WoodenCrate
+всегда `IsOpen()==true` → `Open()` для них не вызывается.
+Действует пока: открытие контейнера = `ItemBase.Open()` без анимации/условий; не появится контейнер с нестандартным
+open/close, где `Open()` требует action-manager.
+
+### loot: трупы — сначала стрип на землю, потом штатный выбор лута
+Решение: бот лутает труп (игрок/зомби) так — подойти → СНЯТЬ ВСЁ с трупа на землю (`LocalDropEntity`/дроп предметов
+трупа) → дальше штатный лужный выбор (`ScanNearbyItems` → `CalcDesired` → `PickUp`) решает, что брать.
+Почему: (1) человек так и делает — выкладывает и разбирает, а не копается выборочно; (2) снимает готчу
+`GetHierarchyRootPlayer()` (у предмета на трупе корень = мёртвый Man, не null → `ScanNearbyItems` его не видит,
+а `PickUp` ложно завершается); после стрипа предметы на земле → `GetHierarchyRootPlayer()==null` → весь штатный
+путь работает без спецкейсов. (3) переиспользует готовый выбор `CalcDesired`/`Wishlist.Ignore` без нового кода.
+Действует пока: стрип трупа дёшев и не требует ванильного action-manager (дроп = `LocalDropEntity`/примитивы дропа).
+
+### loot: трупы — только игроки; зомби-труп исключён (loose-лут уже покрыт)
+Решение: `IsCorpse`/`ScanCorpses` покрывают только мёртвого `PlayerBase`; труп зомби НЕ в дискавери-стрипе.
+Почему: (1) у bare-спавненного зомби `GetInventory()==null`, а `ZombieBase` не наследник `Human` →
+`LocalDropEntity`/стрип для него невозможен (no-op); (2) лут зомби — loose-предметы на земле (research §2.4),
+уже ловятся `ScanNearbyItems`. Включать зомби в скан = впустую ходить к цели, которую стрип не обработает
+(см. review-guide смелл #24).
+Действует пока: CE-спавненный зомби с инвентарём не подтверждён (`[нужно подтвердить]` в loot-sources.md);
+если подтвердится, что у зомби есть стрипаемый инвентарь — вернуть зомби в скан и стрипить рекурсией по `EntityAI`
+(не `Human`).
