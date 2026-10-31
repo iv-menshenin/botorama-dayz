@@ -397,6 +397,14 @@ static const string DM_MAP_BUILDINGS_FILE = "$profile:dmBotorama/map/buildings_i
 static const string DM_MAP_WORLD_POI_FILE = "$profile:dmBotorama/map/world_poi.json";
 //! Spawn distribution file (schema dmSpawnConfig). Created with defaults on first run.
 static const string DM_MAP_SPAWN_FILE = "$profile:dmBotorama/map/spawn.json";
+//! Имена ботов (schema dmNamesConfig). Пользователь кладёт копию names-long.json сюда.
+static const string DM_NAMES_FILE = "$profile:dmBotorama/names-long.json";
+//! Каталог бинарников персистенции settlement-ботов.
+static const string DM_PERSIST_DIR = "$profile:dmBotorama/settlement";
+//! Интервал автосохранения персистентного бота (сек).
+static const float DM_PERSIST_INTERVAL = 30.0;
+//! Версия формата бинарника персистенции (наш заголовок).
+static const int DM_PERSIST_FORMAT_VERSION = 1;
 //! Spawn manager tick interval (seconds) — how often Tick checks/replenishes population.
 static const float DM_SPAWN_TICK_INTERVAL = 5.0;
 //! Random offset (meters, ±) of a bot's spawn point from its settlement center.

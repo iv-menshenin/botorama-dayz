@@ -6,7 +6,7 @@
 //! exists, so there is zero overhead when no agent is driving.
 //!
 //! Ops: ping | spawn | moveto | follow | patrol | speed | loadout | look | say |
-//! shock | healplayer | setstat | bleed | infect | healbot | givebottle | restrain | give | givebayonet | givecargo | cargoto | wait | assert | snapshot | clearall (named bots)
+//! shock | healplayer | setstat | bleed | infect | healbot | givebottle | restrain | give | givebayonet | givecargo | cargoto | wait | assert | snapshot | clearall | killall (named bots)
 //! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | spawnonroute | raycast | scanbox |
 //! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | invdump | wearprobe | dropprobe | enumdump | reqdump | rescanarsenal | strike | evade | orient | raiseweapon | getpos | setpos | clearobj (named objects), the car ops spawncar |
@@ -800,6 +800,10 @@ class dmE2EBridge
 		else if (step.Op == "clearall")
 		{
 			RunClearAll(step, r);
+		}
+		else if (step.Op == "killall")
+		{
+			RunKillAll(step, r);
 		}
 		else if (step.Op == "prof")
 		{
@@ -2021,6 +2025,17 @@ class dmE2EBridge
 		m_Named.Clear();
 		r.Ok = true;
 		r.Reason = "cleared " + cleared;
+	}
+
+	//! "killall" — kill every spawned bot (Health=0, including persistent settlement
+	//! bots) and empty the named registry. Death resolves on the next tick via
+	//! OnDeath → for persistent bots dmBotPersistence.Delete.
+	private void RunKillAll(dmE2EStep step, dmE2EStepResult r)
+	{
+		int killed = dmAISurvivor.KillAll();
+		m_Named.Clear();
+		r.Ok = true;
+		r.Reason = "killed " + killed;
 	}
 
 	//! "prof" — control the profiler via Value: start | stop | clear | dump.

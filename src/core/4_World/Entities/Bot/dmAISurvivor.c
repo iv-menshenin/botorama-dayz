@@ -25,6 +25,18 @@ class dmAISurvivor
 	//! Survivor model class (e.g. "dmAI_SurvivorM_Denis").
 	private string m_Model = DM_DEFAULT_MODEL;
 
+	//! Сгенерированное имя бота (для settlement-спавна).
+	private string m_Name;
+
+	//! Имя поселения (для персистенции, "" если нет).
+	private string m_Settlement;
+
+	//! true = бот персистится (автосохранение + удаление файла по смерти).
+	private bool m_Persistent;
+
+	//! Аккумулятор автосохранения (с).
+	private float m_SaveAccum;
+
 	//! The pawn (visual/physical body) in the world. null until Spawn().
 	private dmAISurvivorBase m_Pawn;
 	
@@ -208,6 +220,28 @@ class dmAISurvivor
 		return m_Model;
 	}
 
+	void SetName(string name)
+	{
+		m_Name = name;
+	}
+
+	string GetName()
+	{
+		return m_Name;
+	}
+
+	//! Имя поселения, к которому привязан бот (для персистенции; "" — не settlement-бот).
+	void SetSettlement(string settlement)
+	{
+		m_Settlement = settlement;
+	}
+
+	//! Пометить бота персистентным (автосохранение + удаление файла по смерти).
+	void SetPersistent(bool persistent)
+	{
+		m_Persistent = persistent;
+	}
+
 	//! Materialize the bot in the world.
 	//! @param position    body position in world space.
 	//! @param orientation body orientation (Euler angles in degrees, yaw = [0]).
@@ -289,6 +323,15 @@ class dmAISurvivor
 	{
 		#ifdef DM_BOT_DEBUG_SPAWN
 		dmBotLog.Debug("OnDeath() pawn=" + m_Pawn + " — мозг снимается, труп остаётся");
+		#endif
+
+		//! Персистентный бот: удалить бинарник (по имени, пока m_Name доступен).
+		#ifdef SERVER
+		if (m_Persistent)
+		{
+			dmBotPersistence.Delete(dmBotPersistence.PathFor(m_Name));
+			dmNameGenerator.ReleaseName(m_Name);
+		}
 		#endif
 
 		if (m_Pawn)
@@ -471,6 +514,19 @@ class dmAISurvivor
 			OnDeath();
 			return;
 		}
+
+		//! Автосохранение персистентного бота раз в DM_PERSIST_INTERVAL.
+		#ifdef SERVER
+		if (m_Persistent)
+		{
+			m_SaveAccum = m_SaveAccum + pDt;
+			if (m_SaveAccum >= DM_PERSIST_INTERVAL)
+			{
+				m_SaveAccum = 0.0;
+				dmBotPersistence.Save(this, m_Settlement);
+			}
+		}
+		#endif
 
 		//! Tick the strike cooldown (bot-level, read by Fighting systems).
 		if ( m_MeleeCooldown > 0.0 ) m_MeleeCooldown -= pDt;
