@@ -1009,6 +1009,15 @@ static const float DM_EAT_DRINK_OPEN_TIMEOUT  = 3.0;
 //! EatDrink: интервал (секунды) пересканирования, когда есть/пить нечего.
 static const float DM_EAT_DRINK_SCAN_INTERVAL = 2.0;
 
+//! GetWater (наполнение пустой бутылки): радиус поиска источника воды (метры).
+static const float DM_GET_WATER_SEARCH_RADIUS = 500.0;
+//! GetWater: дистанция до источника (метры), на которой бот считается «дошёл».
+static const float DM_GET_WATER_REACH         = 2.0;
+//! GetWater: длительность анимации набора (секунды) перед наполнением.
+static const float DM_GET_WATER_FILL_TIME     = 3.0;
+//! GetWater: cooldown повторного входа (секунды) после неудачи (источник недостижим/удалился).
+static const float DM_GET_WATER_RETRY_COOLDOWN = 3.0;
+
 //! Арсенал: задержка (сек) после спавна до стартового полного рескана инвентаря.
 //! Ловит спавн-лоадаут, применённый после первого тика; рескан идёт по одной
 //! вещи за фрейм (без спайка кадра).

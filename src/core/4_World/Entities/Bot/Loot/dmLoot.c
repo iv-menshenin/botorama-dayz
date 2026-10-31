@@ -126,6 +126,28 @@ class dmLoot
 		return null;
 	}
 
+	//! Первая пустая бутылка (Bottle_Base с GetQuantity() <= 0) в инвентаре пешки
+	//! (INORDER), пропуская разрушенные/мёртвые. null — нет.
+	static ItemBase FindEmptyBottle(PlayerBase pawn)
+	{
+		if (!pawn)
+			return null;
+		array<EntityAI> items = new array<EntityAI>();
+		pawn.GetInventory().EnumerateInventory(InventoryTraversalType.INORDER, items);
+		int i;
+		for (i = 0; i < items.Count(); i++)
+		{
+			ItemBase item = ItemBase.Cast(items[i]);
+			if (!item)
+				continue;
+			if (item.IsDamageDestroyed() || item.GetHealth01() <= 0.0)
+				continue;
+			if (item.IsInherited(Bottle_Base) && item.GetQuantity() <= 0.0)
+				return item;
+		}
+		return null;
+	}
+
 	//! Перевязочное: бинт, тряпка или бандана (ванильное наследование).
 	static bool IsBandage(ItemBase item)
 	{

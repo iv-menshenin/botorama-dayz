@@ -229,6 +229,51 @@ class dmLiveBuildingRegistry
 		return nearest;
 	}
 
+	//! Ближайшее живое здание-источник воды (GetWaterSourceObjectType() != NONE:
+	//! колодец WELL / корыто THROUGH / цистерна-водовоз) в радиусе radius, пропуская
+	//! здания из exclude (по ссылке). 2D-дистанция (XZ-квадрат), живые. null — нет.
+	Building GetNearestWaterSource(vector pos, float radius, array<Building> exclude = null)
+	{
+		Building nearest;
+		float nearestSq = 0.0;
+		vector pos2D = pos;
+		pos2D[1] = 0.0;
+		vector bPos;
+		float dx;
+		float dz;
+		float dSq;
+		float radiusSq = radius * radius;
+		int i;
+
+		for (i = 0; i < m_Buildings.Count(); i++)
+		{
+			Building b = m_Buildings[i].m_Building;
+			if (!b || !b.IsAlive())
+				continue;
+
+			if (b.GetWaterSourceObjectType() == EWaterSourceObjectType.NONE)
+				continue;
+
+			if (exclude && exclude.Find(b) >= 0)
+				continue;
+
+			bPos = b.GetPosition();
+			dx = bPos[0] - pos2D[0];
+			dz = bPos[2] - pos2D[2];
+			dSq = dx * dx + dz * dz;
+			if (dSq > radiusSq)
+				continue;
+
+			if (!nearest || dSq < nearestSq)
+			{
+				nearest = b;
+				nearestSq = dSq;
+			}
+		}
+
+		return nearest;
+	}
+
 	int CountLootableNear(vector pos, float radius)
 	{
 		int count;

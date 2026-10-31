@@ -837,6 +837,10 @@ class dmE2EBridge
 		{
 			RunScanBox(step, r);
 		}
+		else if (step.Op == "waterdump")
+		{
+			RunWaterDump(step, r);
+		}
 		else if (step.Op == "corpsedump")
 		{
 			RunCorpseDump(step, r);
@@ -2679,6 +2683,134 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = (dynamics.Count() + statics.Count()).ToString() + " entities";
+	}
+
+	//! "waterdump" — dump the water interface of a target object (well / through /
+	//! underground reservoir / wreck) to empirically verify which sources actually
+	//! yield water. Target: step.Who names a spawnobj object, else the nearest
+	//! step.ClassName within step.Radius (default 50 m) via a static + dynamic
+	//! scene box query.
+	private void RunWaterDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		Object obj = null;
+
+		if (step.Who != "")
+		{
+			if (!m_Objects.Find(step.Who, obj) || !obj)
+			{
+				r.Ok = false;
+				r.Reason = "no object";
+				return;
+			}
+		}
+		else
+		{
+			float radius = step.Radius;
+			if (radius <= 0.0)
+				radius = 50.0;
+			obj = FindNearestWaterObject(step.ClassName, ResolveWorldPos(step.Pos), radius);
+			if (!obj)
+			{
+				r.Ok = false;
+				r.Reason = "no object";
+				return;
+			}
+		}
+
+		int wsType = obj.GetWaterSourceObjectType();
+		int liqType = obj.GetLiquidSourceType();
+		int poiType = dmBuildingInteriorMap.Get().GetType(obj.GetType());
+
+		string liqLine = "liquidSourceType=" + liqType;
+		string liqName = LiquidSourceTypeName(liqType);
+		if (liqName != "")
+			liqLine = liqLine + " " + liqName;
+
+		AppendDump(r, "type=" + obj.GetType());
+		AppendDump(r, "isBuilding=" + obj.IsBuilding());
+		AppendDump(r, "isWell=" + obj.IsWell());
+		AppendDump(r, "waterSourceObjectType=" + wsType + " " + WaterSourceTypeName(wsType));
+		AppendDump(r, liqLine);
+		AppendDump(r, "poiType=" + poiType);
+
+		r.Ok = true;
+		r.Reason = "waterdump";
+	}
+
+	//! Nearest entity whose config class matches className within radius around
+	//! center, searched over static and dynamic scene entities (two queries, one
+	//! flag each). Returns null when no match.
+	private Object FindNearestWaterObject(string className, vector center, float radius)
+	{
+		vector min = Vector(center[0] - radius, center[1] - radius, center[2] - radius);
+		vector max = Vector(center[0] + radius, center[1] + radius, center[2] + radius);
+
+		array<EntityAI> dynamics = new array<EntityAI>();
+		DayZPlayerUtils.SceneGetEntitiesInBox(min, max, dynamics, QueryFlags.DYNAMIC);
+
+		array<EntityAI> statics = new array<EntityAI>();
+		DayZPlayerUtils.SceneGetEntitiesInBox(min, max, statics, QueryFlags.STATIC);
+
+		Object best = null;
+		float bestDistSq = 0.0;
+		float distSq;
+		int i;
+
+		for (i = 0; i < dynamics.Count(); i++)
+		{
+			if (dynamics[i].GetType() != className)
+				continue;
+			distSq = vector.DistanceSq(center, dynamics[i].GetPosition());
+			if (!best || distSq < bestDistSq)
+			{
+				best = dynamics[i];
+				bestDistSq = distSq;
+			}
+		}
+		for (i = 0; i < statics.Count(); i++)
+		{
+			if (statics[i].GetType() != className)
+				continue;
+			distSq = vector.DistanceSq(center, statics[i].GetPosition());
+			if (!best || distSq < bestDistSq)
+			{
+				best = statics[i];
+				bestDistSq = distSq;
+			}
+		}
+
+		return best;
+	}
+
+	//! Name of an EWaterSourceObjectType value (NONE=-1, WELL=0, THROUGH=1).
+	private string WaterSourceTypeName(int value)
+	{
+		if (value == 0)
+			return "WELL";
+		if (value == 1)
+			return "THROUGH";
+		return "NONE";
+	}
+
+	//! Name of a LIQUID_* source type; unknown values return "" (caller prints
+	//! the raw int only).
+	private string LiquidSourceTypeName(int value)
+	{
+		if (value == 0)
+			return "LIQUID_NONE";
+		if (value == 512)
+			return "LIQUID_WATER";
+		if (value == 1024)
+			return "LIQUID_RIVERWATER";
+		if (value == 262144)
+			return "LIQUID_SALTWATER";
+		if (value == 524288)
+			return "LIQUID_FRESHWATER";
+		if (value == 1048576)
+			return "LIQUID_STILLWATER";
+		if (value == 4194304)
+			return "LIQUID_CLEANWATER";
+		return "";
 	}
 
 	//! "corpsedump" — dump every dead humanoid (PlayerBase/ZombieBase with

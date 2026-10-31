@@ -15,6 +15,7 @@ class dmBotPreset_Survivor
 		dmBotState explore = new dmBotState_Exploration();
 		dmBotState stealth = new dmBotState_Stealth();
 		dmBotState medical = new dmBotState_MedicalCare();
+		dmBotState getwater = new dmBotState_GetWater();
 
 		fsm.AddState(idle, "Idle");
 		fsm.AddState(fight, "Fighting");
@@ -25,6 +26,7 @@ class dmBotPreset_Survivor
 		fsm.AddState(explore, "Exploration");
 		fsm.AddState(stealth, "Stealth");
 		fsm.AddState(medical, "MedicalCare");
+		fsm.AddState(getwater, "GetWater");
 
 		idle.AddTransition(explore, 1.0);
 		idle.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShootVisible()));
@@ -33,6 +35,7 @@ class dmBotPreset_Survivor
 		idle.AddTransition(rushing, 2.0).Require(dmBotConditions.Rushing());
 		idle.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		idle.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+		idle.AddTransition(getwater, 2.0).Require(dmBotConditions.NeedsWater());
 
 		shoot.AddTransition(idle, 0.1);
 		shoot.AddTransition(explore, 1.0);
@@ -67,8 +70,10 @@ class dmBotPreset_Survivor
 		explore.AddTransition(rushing, 2.0).Require(dmBotConditions.Rushing());
 		explore.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		explore.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+		explore.AddTransition(getwater, 2.0).Require(dmBotConditions.NeedsWater());
 
 		stealth.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+		stealth.AddTransition(getwater, 2.0).Require(dmBotConditions.NeedsWater());
 		
 		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShootVisible()));
 		medical.AddTransition(flank, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.Flanking()));

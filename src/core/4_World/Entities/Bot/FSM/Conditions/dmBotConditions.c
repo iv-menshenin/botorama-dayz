@@ -65,6 +65,11 @@ class dmBotConditions
 		return new dmBotCondition_MedicalCare();
 	}
 
+	static dmBotCondition NeedsWater()
+	{
+		return new dmBotCondition_NeedsWater();
+	}
+
 	static dmBotCondition HasImminentThreat()
 	{
 		return new dmBotCondition_ImminentThreat();

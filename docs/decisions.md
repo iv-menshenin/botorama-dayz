@@ -551,3 +551,46 @@ open/close, где `Open()` требует action-manager.
 Действует пока: CE-спавненный зомби с инвентарём не подтверждён (`[нужно подтвердить]` в loot-sources.md);
 если подтвердится, что у зомби есть стрипаемый инвентарь — вернуть зомби в скан и стрипить рекурсией по `EntityAI`
 (не `Human`).
+
+### water: детект источника воды — `GetWaterSourceObjectType() != NONE`, НЕ `poiType`
+Решение: признак «набирается водой» = `Object.GetWaterSourceObjectType() != EWaterSourceObjectType.NONE`
+(WELL=0/THROUGH=1); `poiType` из реестра НЕ использовать как предикат.
+Почему: probe `waterdump` (v3.408, nasdara) показал, что `poiType` ненадёжен — корыто (`Land_Misc_Through_Static`,
+THROUGH+FRESHWATER) = `NONE`(0), цистерна-водовоз (`Land_Wreck_Truck01_Aban*_Cistern_DE`, WELL+CLEANWATER) =
+`GENERIC`(10), только колодец = `WATER`(1). Все три питьевые, но по `poiType` неотличимы от декора.
+`GetWaterSourceObjectType()`/`GetLiquidSourceType()` — виртуальные методы на `Object`, единообразно покрывают
+колодец+корыто+цистерну.
+Действует пока: источники воды задаются override'ами `GetWaterSourceObjectType()`; резервуар/water-plane/MTVR-wreck
+возвращают NONE (декоративны) — см. след. запись.
+
+### water: «водовоз» nasdara = цистерна `Land_Wreck_Truck01_Aban1/2_Cistern_DE`; MTVR-wreck и резервуар — декор
+Решение: реальный грузовик-водовоз на nasdara — событие `StaticWaterTruck`, спавнящее цистерны
+`Land_Wreck_Truck01_Aban1/2_Cistern_DE` (WELL+LIQUID_CLEANWATER). `StaticObj_Wreck_MTVR_Water[_DE]` и
+`Land_Underground_WaterReservoir` (и его `_Water`-plane) — НЕ источники (NONE/LIQUID_NONE, декоративные).
+Почему: probe `waterdump` — MTVR-wreck и резервуар дают `GetWaterSourceObjectType()==NONE`; а событие
+`StaticWaterTruck` в `db/events.xml` спавнит именно `Land_Wreck_Truck01_Aban*_Cistern_DE`. Классические
+колодцы/корыта в CE-расстановке nasdara ОТСУТСТВУЮТ (только loot-таблицы в `mapgroupproto.xml`) — реальные
+питьевые источники на nasdara = цистерны-водовозы.
+Действует пока: карта nasdara; на chernarus источники = колодцы (`Land_Misc_Well_Pump_*`, 79 шт).
+
+### water: наполнение бота — всегда чистая вода, без агентов/температуры
+Решение: при наполнении бутылки бота использовать чистую воду — `Liquid.FillContainer(bottle, LIQUID_CLEANWATER,
+amount)` (или `SetLiquidType(LIQUID_WATER)` + `SetQuantityMax()`), НЕ `FillContainerEnviro` (впрыскивает агенты
+холеры/температуру из источника).
+Почему: по требованию заказчика агенты/температура не важны; `FillContainer` — серверный статик (не client-driven
+`ActionFillBottleBase`), работает на `AI_SERVER`-боте без action.
+Действует пока: требование «чистая вода всегда»; если нужна холера из пруда — перейти на `FillContainerEnviro`.
+
+### water: поиск источника — через реестр зданий (`GetNearestWaterSource`), гейт 500 м + пустая бутылка
+Решение: водоисточник НЕ сканится боксом в состоянии `FillWater`, а запрашивается у дискавери — новый метод
+`dmLiveBuildingRegistry.GetNearestWaterSource(pos, radius)` (итерация по `m_Buildings` с фильтром
+`GetWaterSourceObjectType() != NONE`). Guard `NeedsWater()` = жажда + нет питья + есть пустая бутылка +
+`GetNearestWaterSource(botPos, DM_GET_WATER_SEARCH_RADIUS=500) != null`. Состояние при входе забирает тот же
+источник и ставит его целью навигации.
+Почему: (1) архитектурная модель заказчика «дискавери возвращает здание-источник»; (2) водоисточники
+(колодец/корыто/цистерна) — это `House` (`typedef House BuildingSuper`, см. `game/super/building.c:92`) → уже
+зарегистрированы в `dmLiveBuildingRegistry` через `modded class House`, отдельный скан не нужен; (3) гейт по
+дистанции (500 м) решается самим `GetNearestWaterSource` (вернул null → источник дальше 500 м → состояние не
+стартует), а не отдельным измерением в состоянии.
+Действует пока: водоисточники остаются `House`-подклассами в `m_Buildings`; если появится источник вне
+иерархии `House` — добавить отдельный реестр/скан.

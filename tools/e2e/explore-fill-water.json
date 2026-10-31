@@ -1,0 +1,19 @@
+{
+  "Name": "explore-fill-water",
+  "Timeout": 120,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "A", "Pos": [4117.0, 0.0, 10827.0], "Yaw": 0.0, "Preset": "nomad" },
+    { "Op": "healbot", "Who": "A" },
+    { "Op": "spawnobj", "Who": "well", "ClassName": "Land_Misc_Well_Pump_Blue", "Pos": [4127.0, 0.0, 10827.0] },
+    { "Op": "waterdump", "Who": "well" },
+    { "Op": "givebottle", "Who": "A", "Value": "0" },
+    { "Op": "setstat", "Who": "A", "Stat": "water", "Value": "0" },
+    { "Op": "sleep", "Timeout": 45 },
+    { "Op": "botdump", "Who": "A" },
+    { "Op": "invdump", "Who": "A" },
+    { "Op": "snapshot" },
+    { "Op": "clearobj", "Obj": "*" },
+    { "Op": "clearall" }
+  ]
+}
