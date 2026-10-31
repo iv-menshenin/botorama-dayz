@@ -133,6 +133,11 @@ class dmBotSpawnManager
 	{
 		ref dmAISurvivor bot = new dmAISurvivor();
 		bot.SetModel(dmSurvivor.GetRandom());
+		string name = dmNameGenerator.Get().GenerateName(bot.GetModel());
+		bot.SetName(name);
+		#ifdef DM_BOT_DEBUG_SPAWN
+		dmBotLog.Debug("[SpawnManager] generated name=" + name + " model=" + bot.GetModel());
+		#endif
 		PlayerBase pawn = bot.Spawn(entry.m_Position, Vector(Math.RandomFloat(0.0, 360.0), 0.0, 0.0));
 		if (!pawn)
 		{

@@ -25,6 +25,9 @@ class dmAISurvivor
 	//! Survivor model class (e.g. "dmAI_SurvivorM_Denis").
 	private string m_Model = DM_DEFAULT_MODEL;
 
+	//! Сгенерированное имя бота (для settlement-спавна).
+	private string m_Name;
+
 	//! The pawn (visual/physical body) in the world. null until Spawn().
 	private dmAISurvivorBase m_Pawn;
 	
@@ -206,6 +209,16 @@ class dmAISurvivor
 	string GetModel()
 	{
 		return m_Model;
+	}
+
+	void SetName(string name)
+	{
+		m_Name = name;
+	}
+
+	string GetName()
+	{
+		return m_Name;
 	}
 
 	//! Materialize the bot in the world.
