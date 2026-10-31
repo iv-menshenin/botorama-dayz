@@ -146,6 +146,16 @@ class dmBotSpawnManager
 		if (cfg)
 			dmLoadoutApplier.Apply(pawn, cfg);
 
+		if (m_Config.StartWater > 0.0)
+			pawn.GetStatWater().Set(m_Config.StartWater);
+		if (m_Config.StartEnergy > 0.0)
+			pawn.GetStatEnergy().Set(m_Config.StartEnergy);
+
+		#ifdef DM_BOT_DEBUG_SPAWN
+		if (m_Config.StartWater > 0.0 || m_Config.StartEnergy > 0.0)
+			dmBotLog.Debug("[SpawnManager] start vitals: water=" + m_Config.StartWater + " energy=" + m_Config.StartEnergy);
+		#endif
+
 		bot.SetFSM(dmBotPreset_Nomad.Create(bot));
 		entry.m_Survivor = bot;
 

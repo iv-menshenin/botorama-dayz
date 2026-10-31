@@ -21,6 +21,8 @@ class dmSpawnConfig : dmJsonConfigBase
 	int MaxBots;
 	string SpawnLoadout;
 	float RespawnDelay;
+	float StartWater;   // стартовый уровень жажды (0..5000, 0 = не менять дефолт спавна)
+	float StartEnergy;  // стартовый уровень сытости (0..5000, 0 = не менять дефолт спавна)
 	ref array<ref dmSpawnSettlement> Settlements;
 
 	override void Defaults()
@@ -31,6 +33,8 @@ class dmSpawnConfig : dmJsonConfigBase
 		MaxBots = 40;
 		SpawnLoadout = "SurvivorLoadout";
 		RespawnDelay = 300.0;
+		StartWater = 0.0;
+		StartEnergy = 0.0;
 		Settlements = new array<ref dmSpawnSettlement>();
 	}
 }

@@ -5,5 +5,7 @@
     "MaxBots": 40,
     "SpawnLoadout": "SurvivorLoadout",
     "RespawnDelay": 300.0,
+    "StartWater": 0,
+    "StartEnergy": 0,
     "Settlements": []
 }
