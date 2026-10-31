@@ -645,6 +645,14 @@ class dmLoot
 				#endif
 				return true;
 			}
+			if (inv.CanAddAttachmentEx(item, InventorySlots.MELEE) && !inv.FindAttachment(InventorySlots.MELEE))
+			{
+				slotId = InventorySlots.MELEE;
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
+				#endif
+				return true;
+			}
 			return false;
 		}
 		if (cat == dmLootCategory.MELEE)
@@ -875,12 +883,11 @@ class dmLoot
 	}
 
 	//! Освободить руки: переместить предмет из рук в первое свободное место
-	//! (MELEE → SHOULDER → Backpack_1 рюкзака). false — рука пуста либо места нет.
-	//! Мув ТОЙ ЖЕ сущности (НЕ clone+delete): RemoteObjectTreeDelete → LocalTakeToDst
-	//! → отложенный RemoteObjectTreeCreate (CallLater). Из HANDS LocalTakeToDst уходит
-	//! в deferred HandEvent (мув следующим тиком, item-move-sync.md), поэтому create
-	//! откладывается — синхронный create пере-зарегистрировал бы предмет на прежнем
-	//! месте (HANDS). При неудаче мува create делается сразу (вернуть предмет клиенту).
+	//! (категорийно: слот → карго всего одетого инвентаря, через FindDestination).
+	//! false — рука пуста либо места нет. Мув ТОЙ ЖЕ сущности (НЕ clone+delete):
+	//! TakeFromHands делает RemoteObjectTreeDelete → LocalTakeToDst → отложенный
+	//! RemoteObjectTreeCreate (CallLater), т.к. из HANDS мув уходит в deferred
+	//! HandEvent (item-move-sync.md).
 	static bool FreeHands(PlayerBase pawn)
 	{
 		if (!pawn)
@@ -890,39 +897,85 @@ class dmLoot
 		if (!item)
 			return false;
 
-		GameInventory inv = pawn.GetInventory();
-		if (!inv)
+		InventoryLocation dst = new InventoryLocation();
+		if (!FindDestination(pawn, item, dst))
+			return false;   // слот → карго (FindDestination сам логирует слот/карго/нет места)
+
+		return TakeFromHands(pawn, item, dst);   // корректный HANDS-мув
+	}
+
+	//! Освободить руки с репаком: сначала обычный FreeHands (слот → карго); при
+	//! неудаче — конкурировать предмет в руках с предметами из ОБОИХ слотов
+	//! MELEE+SHOULDER (мили и огнестрел взаимозаменяемы в этих слотах): сбросить
+	//! слабейшее, если оно слабее предмета в руках, и повторить FreeHands. Возвращает
+	//! true, если руки освобождены. Анти-цикл: при полной неудаче возвращает false,
+	//! вызывающий сбрасывает таймер держания.
+	static bool FreeHandsWithRepack(dmAISurvivor bot)
+	{
+		if (!bot)
+			return false;
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
 			return false;
 
-		InventoryLocation dst = new InventoryLocation();
+		if (FreeHands(pawn))
+			return true;
 
-		int slotId = InventorySlots.INVALID;
-		if (inv.CanAddAttachmentEx(item, InventorySlots.MELEE) && !inv.FindAttachment(InventorySlots.MELEE))
-			slotId = InventorySlots.MELEE;
-		else if (inv.CanAddAttachmentEx(item, InventorySlots.SHOULDER) && !inv.FindAttachment(InventorySlots.SHOULDER))
-			slotId = InventorySlots.SHOULDER;
+		EntityAI item = pawn.GetItemInHands();
+		if (!item)
+			return false;
 
-		if (slotId != InventorySlots.INVALID)
+		if (!DropWeakestSlot(pawn, bot, item))
 		{
-			dst.SetAttachment(pawn, item, slotId);
-			return TakeFromHands(pawn, item, dst);
-		}
-
-		EntityAI bag = inv.FindAttachment(InventorySlots.BACK);
-		if (bag)
-		{
-			int backSlotId = InventorySlots.GetSlotIdFromString("Backpack_1");
-			if (bag.GetInventory().CanAddAttachmentEx(item, backSlotId) && !bag.GetInventory().FindAttachment(backSlotId))
-			{
-				dst.SetAttachment(bag, item, backSlotId);
-				return TakeFromHands(pawn, item, dst);
-			}
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug("[Loot] FreeHandsWithRepack: репак невозможен для " + item.GetType());
+			#endif
+			return false;
 		}
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] FreeHands: нет свободного места для " + item.GetType());
+		dmBotLog.Debug("[Loot] FreeHandsWithRepack: слот освобождён, повторный FreeHands для " + item.GetType());
 		#endif
-		return false;
+		return FreeHands(pawn);
+	}
+
+	//! Сбросить слабейшее из слотов MELEE/SHOULDER (мили и огнестрел взаимозаменяемы
+	//! в этих слотах, фильтра по типу НЕТ). Дропаем только если слабейшее по боевой
+	//! ценности (RateWeapon) слабее предмета в руках; сброшенное вносим в игнор
+	//! (bot.Discard), чтобы не подбирать заново. true — слот освобождён.
+	private static bool DropWeakestSlot(PlayerBase pawn, dmAISurvivor bot, EntityAI item)
+	{
+		dmAISurvivorBase survivor = dmAISurvivorBase.Cast(pawn);
+		if (!survivor)
+			return false;
+
+		GameInventory inv = survivor.GetInventory();
+		if (!inv)
+			return false;
+
+		array<EntityAI> slotted = new array<EntityAI>();
+		EntityAI inMelee = inv.FindAttachment(InventorySlots.MELEE);
+		if (inMelee)
+			slotted.Insert(inMelee);
+		EntityAI inShoulder = inv.FindAttachment(InventorySlots.SHOULDER);
+		if (inShoulder)
+			slotted.Insert(inShoulder);
+
+		EntityAI weakest = FindWeakest(slotted, bot);
+		if (!weakest)
+			return false;
+
+		if (RateWeapon(ItemBase.Cast(weakest), bot) >= RateWeapon(ItemBase.Cast(item), bot))
+			return false;   // слабейшее в слоте НЕ слабее предмета в руках — не репакать
+
+		if (!survivor.DropItem(ItemBase.Cast(weakest)))
+			return false;
+		bot.Discard(weakest);
+
+		#ifdef DM_BOT_DEBUG_LOOTING
+		dmBotLog.Debug("[Loot] FreeHands: выбросил " + weakest.GetType() + " из слота ради " + item.GetType());
+		#endif
+		return true;
 	}
 
 	//! Мув ТОЙ ЖЕ сущности из рук в слот dst: RemoteObjectTreeDelete → LocalTakeToDst
@@ -967,8 +1020,9 @@ class dmLoot
 	//! Рейтинг оружия — БОЕВАЯ ЦЕННОСТЬ. Ось, ОТЛИЧНАЯ от dmRequirements.GetBaseIndex
 	//! (та — «необходимость категории» для порядка выброса при переполнении:
 	//! GetDiscardOrder/MaybeDrop). RateWeapon отвечает «какое оружие ценнее в бою»
-	//! для конкуренции SHOULDER/MELEE: мили = 0.1 × здоровье, огнестрел = патроны ×
-	//! (initSpeed / 1000) × здоровье. Эти две системы НЕ смешиваются: GetBaseIndex
+	//! для конкуренции SHOULDER/MELEE: мили = 0.1 × здоровье, огнестрел = (патроны + 1) ×
+	//! (initSpeed / 1000) × здоровье (базис «1 патрон» — огнестрел всегда ценнее мили).
+	//! Эти две системы НЕ смешиваются: GetBaseIndex
 	//! никогда не участвует в конкуренции оружия, а RateWeapon — в порядке выброса.
 	//! -------------------------------------------------------------------------
 
@@ -985,8 +1039,8 @@ class dmLoot
 	}
 
 	//! Рейтинг оружия (выше = нужнее в бою): ruined → -1 (выбросить немедленно),
-	//! мили → 0.1 × здоровье, огнестрел (не пистолет) → ammoCount × (initSpeed / 1000) ×
-	//! здоровье, пистолет → 0 (не участвует в конкуренции SHOULDER/MELEE в Фазе 1).
+	//! мили → 0.1 × здоровье, огнестрел (не пистолет) → (ammoCount + 1) × (initSpeed / 1000) ×
+	//! здоровье (базис «1 патрон» — огнестрел всегда ценнее мили), пистолет → 0.
 	//! ammoCount — патроны подходящего калибра в инвентаре пешки; initSpeed — из CfgAmmo.
 	static float RateWeapon(ItemBase item, dmAISurvivor bot)
 	{
@@ -1028,7 +1082,7 @@ class dmLoot
 
 			float ammo = GetFirearmAmmoCount(bot, bulletType);
 			float speed = GetFirearmInitSpeed(bulletType);
-			rate = ammo * (speed / DM_LOOT_FIREARM_SPEED_DIV) * hp;
+			rate = (ammo + 1.0) * (speed / DM_LOOT_FIREARM_SPEED_DIV) * hp;
 			#ifdef DM_BOT_DEBUG_LOOTING
 			dmBotLog.Debug("[Loot] rate " + item.GetType() + " = " + rate);
 			dmBotLog.Debug("[Loot] rate: ammo=" + ammo + " speed=" + speed + " hp=" + hp);

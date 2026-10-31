@@ -907,6 +907,21 @@
   (dmLoot.c:884) пробует только 3 слота (MELEE/SHOULDER/Backpack_1), НЕ карго, и `dmAISurvivor.c:502`
   игнорирует `false` (нет репака). Фикс: `FreeHands` → `FindDestination` (слот → карго одежды/рюкзака)
   + `TakeFromHands`; при `false` — репак (расширить `Evacuate` на слоты: своп/сброс низкоприоритетного мили).
+  **РЕШЕНО (v3.412)**: `FreeHands` → `FindDestination` (слот→карго); `FreeHandsWithRepack` → `DropWeakestSlot`
+  (собирает MELEE+SHOULDER, сбрасывает слабейшее по `RateWeapon` при `RateWeapon(weakest) < RateWeapon(item)`);
+  `RateWeapon` огнестрел → `(ammo+1)×speed/DIV×hp` (огнестрел > мили); `FindAttachmentSlot` WEAPON → SHOULDER→MELEE
+  фолбэк. E2E PASS (кейс SKS+R12+Axe → Axe выброшен, SKS→MELEE, R12 остаётся). NB: слоты MELEE/SHOULDER
+  взаимозаменяемы для мили и огнестрела (`MeleeWeapon_Base.inventorySlot[]={"Shoulder","Melee"}`, и `CanAddAttachmentEx(SKS,MELEE)=true`).
+- **низкий** — дублирование операции «собрать занятые SHOULDER/MELEE + вытеснить слабейшее» между
+  `dmLoot.DropWeakestMeleeSlot` (репак hold-timeout) и `dmBotState_Exploration.CompeteFirearm`/`DropAndIgnore`
+  (смелл #5; источник критичной находки — потерянного guard'а). Вынести общий хелпер «вытеснить слабейшее из слота
+  под кандидата» (с guard `RateWeapon(weaker) < RateWeapon(candidate)`) и использовать из обоих мест.
+- **низкий** — репак hold-timeout гейтится `IsMelee(item)`: огнестрел в руках при занятом SHOULDER + полном карго
+  остаётся в руках (осознанный вне-скоуп). Расширить репак на огнестрел, когда понадобится.
+- **низкий** — комментарий `dmAISurvivorBase.c:2479-2480` `DropItemToGroundLocal` противоречит коду и
+  `research/drop-to-ground.md §3.2` («на землю» = `LocalDropEntity`, а не `LocalTakeToDst`). Поправить комментарий.
+- **низкий** — `dmLoot.c:945` фильтр `IsMelee(inMeleeSlot)` на MELEE-слоте почти избыточен (слот не держит огнестрел);
+  лог-ветка «нет мили в слотах» почти недостижима.
 - **важно — бот не приоритизирует helicrash.** Гейт `HasEnergyForPriorityEvent` = `energy>=2500 && water>=2500`
   (константы `DM_PRIORITY_EVENT_MIN_*=2500`) слишком жёсткий: бот спавнится ~600, статы растут постепенно →
   почти не достигает 2500. Фикс (градация по дистанции): <500 м → 800, <1000 м → 1000, иначе → 1500.

@@ -497,10 +497,10 @@ class dmAISurvivor
 			if (m_InHandsHoldTime > DM_HOLD_IN_HANDS_TIMEOUT)
 			{
 				#ifdef DM_BOT_DEBUG_BODY
-				dmBotLog.Debug("[Body] таймаут держания " + inHands.GetType() + " — FreeHands");
+				dmBotLog.Debug("[Body] таймаут держания " + inHands.GetType() + " — FreeHands(+репак)");
 				#endif
-				dmLoot.FreeHands(m_Pawn);
-				m_InHandsHoldTime = 0.0;
+				dmLoot.FreeHandsWithRepack(this);
+				m_InHandsHoldTime = 0.0;   // и при неудаче репака — анти-цикл, не дёргать каждый тик
 			}
 		}
 		else

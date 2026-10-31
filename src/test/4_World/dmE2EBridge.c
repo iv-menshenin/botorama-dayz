@@ -913,6 +913,10 @@ class dmE2EBridge
 		{
 			RunRaiseWeapon(step, r);
 		}
+		else if (step.Op == "standstill")
+		{
+			RunStandStill(step, r);
+		}
 		else if (step.Op == "move")
 		{
 			RunMove(step, r);
@@ -4177,6 +4181,36 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "raise=" + state;
+	}
+
+	//! "standstill" — включить/выключить режим «стоит на месте» в Exploration
+	//! (dmAISurvivor.SetExplorationStandStill): бот не блуждает и не лутит, пока
+	//! режим включён. Value = "off"/"false" → выключить; пусто/"0"/иное → включить.
+	private void RunStandStill(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		bool standStill = true;
+		if (step.Value == "off" || step.Value == "false")
+			standStill = false;
+
+		bot.SetExplorationStandStill(standStill);
+
+		string state = "on";
+		if (!standStill)
+			state = "off";
+
+		string line = "standstill=" + state;
+		AppendDump(r, line);
+
+		r.Ok = true;
+		r.Reason = "standstill " + step.Who + " = " + state;
 	}
 
 	//! "move" — set the named bot's desired movement by calling the pawn directly
