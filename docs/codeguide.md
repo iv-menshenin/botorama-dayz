@@ -31,6 +31,12 @@ GetGame().RemoteObjectTreeCreate(item);   // Tree create
 
 Полный рецепт и таблица вариантов — `docs/research/item-move-sync.md`.
 
+> **Не для HANDS:** `dmLoot.TakeIntoCargo` делает НЕмедленный `RemoteObjectTreeCreate` → для источника «из рук»
+> даёт рассинхрон («исчезновение» предмета на клиенте). Убрать из рук в слот/карго — только `dmLoot.FreeHands`
+> (→ `TakeFromHands`, отложенный create).
+> **`SetQuantity(0)`** (дефолт `destroy_config=true`) удаляет предмет при `varQuantityDestroyOnMin=true`;
+> «опустошить без удаления» — `SetQuantity(0, false)`.
+
 ## Что НЕ поддерживается (запрещено)
 
 1. **Тернарный оператор** `cond ? a : b` — не поддерживается.

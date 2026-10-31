@@ -7,7 +7,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 {
 	float m_Cooldown = 0.0;
 	float m_AnimTimer = 0.0;
-	int m_Phase = 0;              // 0 = check, 1 = open, 2 = eat
+	int m_Phase = 0;              // 0 = check, 1 = open, 2 = eat, 3 = stop
 	ItemBase m_Item;
 	HumanCommandActionCallback m_ActionCB;
 
@@ -54,6 +54,12 @@ class dmBotIntent_EatDrink : dmBotIntent
 		if (m_Phase == 2)
 		{
 			PhaseEat(pawn, pDt);
+			return;
+		}
+
+		if (m_Phase == 3)
+		{
+			PhaseStop(pawn, pDt);
 			return;
 		}
 
@@ -165,8 +171,9 @@ class dmBotIntent_EatDrink : dmBotIntent
 	{
 		m_AnimTimer += pDt;
 
-		if (!pawn.GetCommandModifier_Action())
-			StartAnim(pawn);
+		#ifdef DM_BOT_DEBUG_BODY
+		dmBotLog.Debug("[EatDrink] PhaseEat: ре-адд? " + (pawn.GetCommandModifier_Action() == null));
+		#endif
 
 		float portion = m_Item.GetQuantityMax() / DM_EAT_DRINK_FULL_TIME * pDt;
 		pawn.Consume(m_Item, portion, EConsumeType.ITEM_CONTINUOUS);
@@ -175,14 +182,35 @@ class dmBotIntent_EatDrink : dmBotIntent
 		{
 			StopAnim(pawn);                 // сначала погасить анимацию
 			if (m_Item)
-				m_Item.SetQuantity(0);      // потом удалить еду / обнулить бутылку
-			m_Item = null;
-			m_Phase = 0;
-			m_Cooldown = DM_EAT_DRINK_SCAN_INTERVAL;
+				m_Item.SetQuantity(0, false);   // опустошить БЕЗ удаления (destroy_config=false — не удалять предмет)
+			m_Phase = 3;                    // ждём полной остановки анимации
+			m_AnimTimer = 0.0;
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[EatDrink] item consumed");
+			dmBotLog.Debug("[EatDrink] item consumed — жду остановки анимации");
 			#endif
 		}
+	}
+
+	//! Фаза 3: ждём полной остановки анимации питья, затем убираем бутылку в инвентарь.
+	void PhaseStop(dmAISurvivorBase pawn, float pDt)
+	{
+		m_AnimTimer += pDt;
+
+		//! Анимация ещё играет — ждём (страховка от вечного ожидания — таймаут).
+		if (pawn.GetCommandModifier_Action() || m_AnimTimer < DM_EAT_DRINK_STOP_TIMEOUT)
+			return;
+
+		#ifdef DM_BOT_DEBUG_BODY
+		dmBotLog.Debug("[EatDrink] анимация остановлена, возврат бутылки в инвентарь");
+		#endif
+
+		//! Вернуть бутылку в инвентарь (корректный HANDS-мув через FreeHands). При
+		//! неудаче бутылка остаётся в руках — её потом уберёт hold-таймер.
+		dmLoot.FreeHands(pawn);
+
+		m_Item = null;
+		m_Phase = 0;
+		m_Cooldown = DM_EAT_DRINK_SCAN_INTERVAL;
 	}
 
 	//! Выбросить плохую еду (сырое мясо/труп/сгоревшее/гнилое) и разморозить съедобное.
@@ -222,22 +250,39 @@ class dmBotIntent_EatDrink : dmBotIntent
 
 	void StartAnim(dmAISurvivorBase pawn)
 	{
+		int cmd = DayZPlayerConstants.CMD_ACTIONMOD_EAT;
+		string cmdName = "EAT";
+		if (dmLoot.IsDrink(m_Item))
+		{
+			cmd = DayZPlayerConstants.CMD_ACTIONMOD_DRINK;
+			cmdName = "DRINK";
+		}
+
+		#ifdef DM_BOT_DEBUG_BODY
+		bool alreadyActive = pawn.GetCommandModifier_Action() != null;
+		dmBotLog.Debug("[EatDrink] StartAnim cmd=" + cmdName + " уже-активен=" + alreadyActive);
+		#endif
+
 		if (pawn.GetCommandModifier_Action())
 			return;
-		int cmd = DayZPlayerConstants.CMD_ACTIONMOD_EAT;
-		if (dmLoot.IsDrink(m_Item))
-			cmd = DayZPlayerConstants.CMD_ACTIONMOD_DRINK;
 		m_ActionCB = pawn.AddCommandModifier_Action(cmd, dmBotActionAnimCB);
 	}
 
 	void StopAnim(dmAISurvivorBase pawn)
 	{
+		#ifdef DM_BOT_DEBUG_BODY
+		string cbState = "null";
+		if (m_ActionCB)
+			cbState = "non-null";
+		string modState = "null";
+		if (pawn.GetCommandModifier_Action())
+			modState = "non-null";
+		dmBotLog.Debug("[EatDrink] StopAnim m_ActionCB=" + cbState + " текущий-модификатор=" + modState);
+		#endif
+
 		if (!m_ActionCB)
 			return;
-		if (pawn.GetCommandModifier_Action() == m_ActionCB)
-			pawn.DeleteCommandModifier_Action(m_ActionCB);
-		else
-			m_ActionCB.Cancel();
+		m_ActionCB.Cancel();
 		m_ActionCB = null;
 	}
 

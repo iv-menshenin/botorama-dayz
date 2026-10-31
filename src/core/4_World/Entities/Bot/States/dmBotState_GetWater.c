@@ -140,10 +140,11 @@ class dmBotState_GetWater : dmBotState
 
 		StopAnim(pawn);
 
-		//! Вернуть бутылку из рук в карго, если она всё ещё в руках.
+		//! Вернуть бутылку из рук в инвентарь, если она всё ещё в руках.
+		//! FreeHands — отложенный create (TakeFromHands), НЕ TakeIntoCargo (немедленный create ломает HANDS-синк).
 		EntityAI inHands = pawn.GetHumanInventory().GetEntityInHands();
 		if (inHands == m_Bottle)
-			dmLoot.TakeIntoCargo(pawn, m_Bottle);
+			dmLoot.FreeHands(pawn);
 	}
 
 	//! Взять бутылку в руки и проиграть анимацию набора (гейт: если уже есть команда).
@@ -161,7 +162,7 @@ class dmBotState_GetWater : dmBotState
 		return true;
 	}
 
-	//! Залить чистую воду в бутылку, погасить анимацию, вернуть бутылку в карго.
+	//! Залить чистую воду в бутылку, погасить анимацию, вернуть бутылку в инвентарь.
 	void FillBottle(dmAISurvivorBase pawn)
 	{
 		StopAnim(pawn);
@@ -174,8 +175,9 @@ class dmBotState_GetWater : dmBotState
 		if (m_Bottle)
 			dmBotLog.Debug("[GetWater] наполнил " + m_Bottle.GetType());
 		#endif
+		//! FreeHands — отложенный create (TakeFromHands), НЕ TakeIntoCargo (немедленный create ломает HANDS-синк).
 		if (m_Bottle)
-			dmLoot.TakeIntoCargo(pawn, m_Bottle);
+			dmLoot.FreeHands(pawn);
 		m_Bottle = null;
 		m_FailedSource = null;
 	}

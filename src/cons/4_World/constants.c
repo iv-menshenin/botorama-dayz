@@ -1009,6 +1009,8 @@ static const float DM_EAT_DRINK_WATER         = 2500.0;
 static const float DM_EAT_DRINK_ENEMY_RADIUS  = 250.0;
 //! EatDrink: полный предмет съедается за это время (секунды) — portion = GetQuantityMax()/X*dt.
 static const float DM_EAT_DRINK_FULL_TIME     = 10.0;
+//! EatDrink: таймаут завершения анимации
+static const float DM_EAT_DRINK_STOP_TIMEOUT  = 2.0;
 //! EatDrink: таймаут (секунды) ожидания замены закрытой консервы на X_Opened.
 static const float DM_EAT_DRINK_OPEN_TIMEOUT  = 3.0;
 //! EatDrink: интервал (секунды) пересканирования, когда есть/пить нечего.

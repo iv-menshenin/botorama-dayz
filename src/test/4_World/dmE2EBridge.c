@@ -877,6 +877,10 @@ class dmE2EBridge
 		{
 			RunInvDump(step, r);
 		}
+		else if (step.Op == "cmddump")
+		{
+			RunCmdDump(step, r);
+		}
 		else if (step.Op == "wearprobe")
 		{
 			RunWearProbe(step, r);
@@ -4211,6 +4215,46 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "standstill " + step.Who + " = " + state;
+	}
+
+	//! "cmddump" — дамп состояния команды/анимации бота: активная full-body команда
+	//! (GetCommand_Action) и additive-модификатор (GetCommandModifier_Action), плюс
+	//! текущий command id (GetCurrentCommandID). Нужен, чтобы увидеть «залипшую»
+	//! анимацию (full-body vs additive) после питья/наполнения.
+	private void RunCmdDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		HumanCommandActionCallback action = pawn.GetCommand_Action();
+		HumanCommandActionCallback modifier = pawn.GetCommandModifier_Action();
+
+		string actionState = "null";
+		if (action)
+			actionState = "non-null";
+		string modifierState = "null";
+		if (modifier)
+			modifierState = "non-null";
+
+		AppendDump(r, "cmdAction=" + actionState);
+		AppendDump(r, "cmdModifier=" + modifierState);
+		AppendDump(r, "cmdID=" + pawn.GetCurrentCommandID());
+
+		r.Ok = true;
+		r.Reason = "cmdAction=" + actionState + " cmdModifier=" + modifierState;
 	}
 
 	//! "move" — set the named bot's desired movement by calling the pawn directly
