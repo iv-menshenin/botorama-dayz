@@ -470,30 +470,43 @@ class dmBotState_Exploration : dmBotState
 		return b && dmBuildingInteriorMap.Get().GetType(b.GetType()) == dmWorldPOIType.MILITARY_WRECK;
 	}
 
-	//! Достаточно ли энергии/воды для приоритетного похода к событию.
-	bool HasEnergyForPriorityEvent(dmAISurvivorBase pawn)
+	//! Достаточно ли энергии/воды для приоритетного похода к событию. Порог витал
+	//! градуируется по дистанции до врека: чем ближе, тем меньше нужно (см. константы).
+	bool HasEnergyForPriorityEvent(dmAISurvivorBase pawn, float dist)
 	{
-		return pawn.GetStatEnergy().Get() >= DM_PRIORITY_EVENT_MIN_ENERGY && pawn.GetStatWater().Get() >= DM_PRIORITY_EVENT_MIN_WATER;
+		float min = DM_PRIORITY_EVENT_MIN_FAR;
+		if (dist < DM_PRIORITY_EVENT_DIST_NEAR)
+			min = DM_PRIORITY_EVENT_MIN_NEAR;
+		else if (dist < DM_PRIORITY_EVENT_DIST_MID)
+			min = DM_PRIORITY_EVENT_MIN_MID;
+		return pawn.GetStatEnergy().Get() >= min && pawn.GetStatWater().Get() >= min;
 	}
 
-	//! Выбор следующего здания: сначала приоритетный врек (в радиусе + гейт энергии/воды),
-	//! иначе ближайшее непосещённое здание локации. Скан вреков троттлится.
+	//! Выбор следующего здания: сначала приоритетный врек (в радиусе + гейт энергии/воды
+	//! по дистанции до него), иначе ближайшее непосещённое здание локации. Скан вреков
+	//! троттлится.
 	Building ChooseNextBuilding(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
 		dmExplorer explorer = bot.GetExplorer();
 		if (m_WreckScanCooldown <= 0.0)
 		{
 			m_WreckScanCooldown = DM_EXPLORE_WRECK_SCAN_INTERVAL;
-			if (HasEnergyForPriorityEvent(pawn))
+			Building wreck = explorer.GetNearestUnvisitedWreck(bot, DM_EXPLORE_WRECK_RADIUS);
+			if (wreck)
 			{
-				Building wreck = explorer.GetNearestUnvisitedWreck(bot, DM_EXPLORE_WRECK_RADIUS);
-				if (wreck)
+				vector pos = pawn.GetPosition();
+				vector wpos = wreck.GetPosition();
+				float dist = Math.Sqrt(dmMath.DistSq2D(pos, wpos));
+				if (HasEnergyForPriorityEvent(pawn, dist))
 				{
 					#ifdef DM_BOT_DEBUG_LOOTING
 					dmBotLog.Debug("[Loot] Нашёл событие/врек: " + wreck.GetType() + " — приоритет, иду");
 					#endif
 					return wreck;
 				}
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug("[Loot] Врек в радиусе, но мало энергии/воды: " + wreck.GetType() + " dist=" + dist + " — пропускаю");
+				#endif
 			}
 		}
 		return explorer.GetNextUnvisitedBuilding(bot);

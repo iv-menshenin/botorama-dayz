@@ -953,11 +953,16 @@ static const float DM_EXPLORE_WRECK_RADIUS = 1500.0;
 //! Loot exploration: интервал (секунды) пересканирования событий (дорогой registry-запрос
 //! по большому радиусу — троттлим).
 static const float DM_EXPLORE_WRECK_SCAN_INTERVAL = 10.0;
-//! Loot exploration: гейт «достаточно энергии» для приоритетного похода к событию
-//! (>= 2500 = сыт, может отвлечься на детур).
-static const float DM_PRIORITY_EVENT_MIN_ENERGY = 2500.0;
-//! Loot exploration: гейт «достаточно воды» для приоритетного похода к событию.
-static const float DM_PRIORITY_EVENT_MIN_WATER = 2500.0;
+//! Loot exploration: границы дистанции до приоритетного события (врека) для градации
+//! порога витал — чем ближе событие, тем меньше энергии/воды достаточно для детура.
+static const float DM_PRIORITY_EVENT_DIST_NEAR = 500.0;   // граница «близко»
+static const float DM_PRIORITY_EVENT_DIST_MID  = 1000.0;  // граница «средне»
+//! Loot exploration: порог витал для приоритетного похода к событию — энергия И вода
+//! (один порог на оба стата). < DM_PRIORITY_EVENT_DIST_NEAR — MIN_NEAR, < DIST_MID — MIN_MID,
+//! иначе (до DM_EXPLORE_WRECK_RADIUS) — MIN_FAR.
+static const float DM_PRIORITY_EVENT_MIN_NEAR = 800.0;
+static const float DM_PRIORITY_EVENT_MIN_MID  = 1000.0;
+static const float DM_PRIORITY_EVENT_MIN_FAR  = 1500.0;
 //! Loot exploration: min CalcDesired to pick up an item.
 static const float DM_EXPLORE_PICKUP_THRESHOLD = 0.5;
 //! Loot exploration: radius (meters) to search for an unvisited building.

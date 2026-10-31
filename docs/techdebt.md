@@ -893,3 +893,23 @@
   `Consume` в `EatDrink.PhaseEat` работает верно; «восполнение» в `botdump` надо мерить с задержкой по тикам.
 - **низкий (test-gap)** — `botdump`/`invdump` не дампят `quantity` бутылки → E2E не может прямо assert
   `quantity=1000` (только косвенно через `наполнил` + повторный цикл). Добавить `quantity` в дамп инвентаря.
+
+## Дефекты (подтверждаются тестировщиком + наблюдателем, затем фикс)
+
+- **важно — анимация питья не останавливается.** `dmBotState_GetWater.StartFill` зовёт
+  `AddCommandModifier_Action(CMD_ACTIONFB_FILLBOTTLEWELL, …)` для **full-body** команды
+  (`CMD_ACTIONFB_FILLBOTTLEWELL=52`, `ActionFillBottleBase.m_FullBody=true`); additive-API — для
+  `CMD_ACTIONMOD_*`. Эталон `dmBotIntent_MedicalAction.c:143/145` + `:236-239`: full-body →
+  `StartCommand_Action(cmd, cb, STANCEMASK_CROUCH)`, стоп — `cb.Cancel()` (проверка `GetCommand_Action()==cb`);
+  additive → `AddCommandModifier_Action`, стоп `DeleteCommandModifier_Action`. Плюс подозрение на
+  `CMD_ACTIONMOD_DRINK=0` (значение 0) — проверить отдельно от наполнения.
+- **важно — предмет в руках > 60 с не убирается (Axe при занятых слотах).** `dmLoot.FreeHands`
+  (dmLoot.c:884) пробует только 3 слота (MELEE/SHOULDER/Backpack_1), НЕ карго, и `dmAISurvivor.c:502`
+  игнорирует `false` (нет репака). Фикс: `FreeHands` → `FindDestination` (слот → карго одежды/рюкзака)
+  + `TakeFromHands`; при `false` — репак (расширить `Evacuate` на слоты: своп/сброс низкоприоритетного мили).
+- **важно — бот не приоритизирует helicrash.** Гейт `HasEnergyForPriorityEvent` = `energy>=2500 && water>=2500`
+  (константы `DM_PRIORITY_EVENT_MIN_*=2500`) слишком жёсткий: бот спавнится ~600, статы растут постепенно →
+  почти не достигает 2500. Фикс (градация по дистанции): <500 м → 800, <1000 м → 1000, иначе → 1500.
+  **РЕШЕНО (v3.411)**: градация внедрена; Green подтверждён (2000→идёт, 790→не идёт, 810→идёт). Gap: полосы
+  1000/1500 не прогнаны (близкий статичный врек в Shinkalay + декей энергии мешают изоляции) — нужна локация без
+  статичных вреков в 1500 м или ручка «пометить врек посещённым».
