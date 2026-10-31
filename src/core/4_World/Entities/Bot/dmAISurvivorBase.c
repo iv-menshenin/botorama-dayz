@@ -1145,8 +1145,10 @@ class dmAISurvivorBase : PlayerBase
 		dmBotSpan _span = dmBotProfiler.Start("CommandHandler");
 		#endif
 
+		#ifdef SERVER
 		if (IsAlive())
 			TickBodySystems(pDt);
+		#endif
 
 		bool canAct = CanAct();
 		bool inVehicle = canAct && IsInVehicle();
@@ -1185,8 +1187,10 @@ class dmAISurvivorBase : PlayerBase
 		//! Transition to/from unconscious AFTER super: the vanilla command logic
 		//! (melee fight etc.) reads HumanCommandMove inside super, so starting the
 		//! unconscious command before it would null hcm and throw a VM exception.
+		#ifdef SERVER
 		if (IsAlive())
 			UpdateUnconsciousBridge();
+		#endif
 
 		if (!canAct)
 		{
