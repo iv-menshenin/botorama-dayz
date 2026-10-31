@@ -27,8 +27,10 @@ class dmBotRestoreEntry
 	vector m_Orientation;
 }
 
+#ifdef SERVER
 class dmBotSpawnManager
 {
+
 	static ref dmBotSpawnManager s_Instance;
 
 	ref dmSpawnConfig m_Config;
@@ -100,9 +102,7 @@ class dmBotSpawnManager
 		dmBotLog.Debug("[SpawnManager] init: settlements=" + settlements + " entries=" + entryCount);
 		#endif
 
-		#ifdef SERVER
 		ScanPersistDir();
-		#endif
 	}
 
 	//! Тик спавн-менеджера (троттлинг DM_SPAWN_TICK_INTERVAL). Спавнит по квоте,
@@ -118,13 +118,11 @@ class dmBotSpawnManager
 			return;
 
 		//! Восстановление из бинарников идёт раньше свежего спавна.
-		#ifdef SERVER
 		if (m_RestoreQueue.Count() > 0)
 		{
 			RestoreNext();
 			return;
 		}
-		#endif
 
 		if (dmAISurvivor.Count() >= m_Config.MaxBots)
 			return;
@@ -212,7 +210,6 @@ class dmBotSpawnManager
 	//! Просканировать каталог персистенции и поставить бинарники в очередь восстановления.
 	void ScanPersistDir()
 	{
-		#ifdef SERVER
 		dmBotPersistence.EnsureDir();   // иначе FindFile по несуществующему каталогу вернёт пусто
 		string fileName;
 		FileAttr fileAttr;
@@ -237,25 +234,21 @@ class dmBotSpawnManager
 			hasMatch = FindNextFile(handle, fileName, fileAttr);
 		}
 		CloseFindFile(handle);
-		#endif
 	}
 
 	//! Восстановить следующего бота из очереди (один за тик).
 	void RestoreNext()
 	{
-		#ifdef SERVER
 		dmBotRestoreEntry req = m_RestoreQueue[0];
 		m_RestoreQueue.Remove(0);
 		if (!req)
 			return;
 		RestoreBot(req);
-		#endif
 	}
 
 	//! Восстановить бота из бинарника: спавн + state/здоровье/инвентарь + привязка к слоту.
 	void RestoreBot(dmBotRestoreEntry req)
 	{
-		#ifdef SERVER
 		ref dmAISurvivor bot = new dmAISurvivor();
 		bot.SetModel(req.m_ModelClass);
 		bot.SetName(req.m_Name);
@@ -300,7 +293,6 @@ class dmBotSpawnManager
 
 		#ifdef DM_BOT_DEBUG_PERSIST
 		dmBotLog.Debug("[SpawnManager] restored: name=" + req.m_Name + " settlement=" + req.m_Settlement + " total=" + dmAISurvivor.Count());
-		#endif
 		#endif
 	}
 
@@ -393,3 +385,4 @@ class dmBotSpawnManager
 		}
 	}
 }
+#endif

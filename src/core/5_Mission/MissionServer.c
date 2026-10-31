@@ -1,5 +1,6 @@
 //! dmBotorama — server-side entry point.
 
+#ifdef SERVER
 modded class MissionServer
 {
 	override void OnUpdate(float timeslice)
@@ -22,3 +23,4 @@ modded class MissionServer
 		dmCampCoverFinder.Get().Tick(timeslice);
 	}
 }
+#endif

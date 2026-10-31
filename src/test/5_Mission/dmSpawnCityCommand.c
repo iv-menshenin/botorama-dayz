@@ -6,10 +6,12 @@ class dmSpawnCityCommand : dmCommandModule
 		return DM_CHAT_SPAWNCITY;
 	}
 
+#ifdef SERVER
 	override bool Handle(PlayerBase player, array<string> parts)
 	{
 		dmBotSpawnManager.Get().SpawnAll();
 		dmCommandManager.ChatToPlayer(player, "Спавн запущен. Всего ботов: " + dmAISurvivor.Count());
 		return true;
 	}
+#endif
 }
