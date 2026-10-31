@@ -122,6 +122,14 @@
 «жажда → колодец». Осталось на будущее: голод/оружие → POI, «поселение исчерпано → следующее»,
 динамические военные wrecks (события CE), пруды.
 
+### Выживание — вода (v3.409–v3.410)
+- **Наполнение бутылки** (v3.409): `dmBotState_GetWater` (PREEMPTIVE) + `dmBotCondition_NeedsWater`
+  + `dmLiveBuildingRegistry.GetNearestWaterSource` — при жажде/пустой бутылке бот идёт к ближайшему
+  источнику (колодец/корыто/цистерна-водовоз, `GetWaterSourceObjectType()!=NONE`) в 500 м и наполняет
+  чистой водой. Детали — `docs/research/water-sources.md`, решения — `docs/decisions.md` (`water:*`).
+- **Стартовые виталы** (v3.410): `spawn.json` ключи `StartWater`/`StartEnergy` (0 = дефолт) — settlement-ботам
+  можно задать начальную сытость/жажду.
+
 ---
 
 ## Статус боевого блока (v3.36–v3.44)

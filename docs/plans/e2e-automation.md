@@ -24,16 +24,17 @@
 ```
 $profile:dmBotorama/e2e/
   enabled                 # маркер: мост активен, только если файл существует
-  in/                     # агент кладёт сценарии <job>.json
+  in/                     # агент кладёт сценарий (ФИКСИРОВАННОЕ имя job.json)
   done/                   # обработанные входы (история)
-  out/                    # мост пишет <job>.result.json
+  out/                    # мост пишет <Name>.result.json
 ```
 
-Атомарность: агент пишет `in/<job>.json.tmp` → `rename` в `in/<job>.json`; мост
-сканирует **только `*.json`** (не `.tmp`). Мост пишет результат в `out/<job>.json.tmp`
-→ `rename`.
+Атомарность: агент пишет `in/job.json.tmp` → `rename` в `in/job.json`; мост читает
+**фиксированное имя `in/job.json`** (не сканирует каталог по маске — см. `dmE2EBridge.Tick`).
+Идентификатор сценария — поле `Name` ВНУТРИ JSON; мост пишет результат в `out/<Name>.result.json`
+(атомарно: `.tmp` → `rename`) и переносит вход в `done/`.
 
-## Сценарий (вход) — `in/<job>.json`
+## Сценарий (вход) — `in/job.json`
 
 ```json
 {
@@ -53,7 +54,7 @@ $profile:dmBotorama/e2e/
 ```c
 class dmE2EJob
 {
-    string Name;                          // id сценария (= имя файла)
+    string Name;                          // id сценария (= имя результата out/<Name>.result.json)
     float Timeout;                        // общий таймаут, секунды
     autoptr array<ref dmE2EStep> Steps;
 }
@@ -161,7 +162,7 @@ class dmE2EStep
   «с наблюдателем»; по умолчанию тесты headless. `no player connected` = клиент ещё
   не зашёл — повторить после подключения.
 
-## Результат (выход) — `out/<job>.result.json`
+## Результат (выход) — `out/<Name>.result.json`
 
 ```json
 {
@@ -204,12 +205,12 @@ class dmE2ESnapshot  { string Name; bool Alive; vector Pos; string State; bool M
 
 - Тикается из `test/5_Mission/MissionServer.c` `OnUpdate` (моддед-патч).
 - Гейт: если нет файла `e2e/enabled` → сразу выход (нулевой оверхед).
-- Сканирует `in/*.json` (`FindFile` + `FindNextFile`) раз в `DM_E2E_SCAN_INTERVAL`.
+- Сканирует **фиксированное имя** `in/job.json` раз в `DM_E2E_SCAN_INTERVAL` (не по маске).
 - Исполняет **один** сценарий за раз (очередь, детерминированность): пошаговый
   автомат `m_StepIndex` + таймер для `wait`/`assert`.
 - `map<string, ref dmAISurvivor> m_Named` — именование ботов на время сценария;
   чистка после.
-- По завершении: пишет `out/<job>.result.json`, переносит вход в `done/`.
+- По завершении: пишет `out/<Name>.result.json` (Name из JSON), переносит вход в `done/`.
 
 ## Размещение файлов (по конвенциям `test/`)
 
@@ -244,7 +245,7 @@ class dmE2ESnapshot  { string Name; bool Alive; vector Pos; string State; bool M
    `moveto`→`wait reached`→`assert alive`→`snapshot` — бот реально прошёл navmesh
    (PATH-лог, покадровый рост позиции), `wait` тикался ~10 с, `Moving=1`.
 4. `[x]` **Агентская обвязка** — `tools/run-scenario.sh`: «сценарий → poll результата →
-   tail RPT» (атомарный деплой в `in/`, ожидание `out/<job>.result.json`, tail RPT
+   tail RPT» (атомарный деплой в `in/job.json`, ожидание `out/<Name>.result.json`, tail RPT
    при не-ok). Один прогон сценария одной командой.
 5. `[ ]` Опционально: `watch` (таймсерия состояния), резолв локаций по
    `dmWorldPOIRegistry`.
