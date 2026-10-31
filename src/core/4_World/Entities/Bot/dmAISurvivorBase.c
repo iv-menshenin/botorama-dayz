@@ -677,6 +677,16 @@ class dmAISurvivorBase : PlayerBase
 				SetOrientation(Vector(pModel.m_fHeadingAngle * Math.RAD2DEG, 0, 0));
 				m_fLastHeadingDiff = 0;
 				return false;
+
+			//! Заморозка тела на замахе: нативный HumanCommandMelee2 доворачивает
+			//! модель к цели — снапим orientation к стартовому яу, чтобы не было
+			//! «спина» (натив↔скрипт осцилляция).
+			case DayZPlayerConstants.COMMANDID_MELEE2:
+				m_fLastHeadingDiff = 0;
+				pModel.m_fHeadingAngle = m_MeleeStrikeYaw * Math.DEG2RAD;
+				pModel.m_fOrientationAngle = m_MeleeStrikeYaw * Math.DEG2RAD;
+				SetOrientation(Vector(m_MeleeStrikeYaw, 0.0, 0.0));
+				return true;
 		}
 
 		return super.HeadingModel(pDt, pModel);
