@@ -16,12 +16,24 @@ class dmBotSpawnEntry
 	float m_RespawnTimer;        // обратный отсчёт после смерти
 }
 
+//! Одна запись восстановления: путь бинарника + данные заголовка.
+class dmBotRestoreEntry
+{
+	string m_Path;
+	string m_Name;
+	string m_ModelClass;
+	string m_Settlement;
+	vector m_Position;
+	vector m_Orientation;
+}
+
 class dmBotSpawnManager
 {
 	static ref dmBotSpawnManager s_Instance;
 
 	ref dmSpawnConfig m_Config;
 	ref array<ref dmBotSpawnEntry> m_Entries;
+	ref array<ref dmBotRestoreEntry> m_RestoreQueue;   // боты, ждущие восстановления из бинарников
 	float m_TickAccum;         // троттлинг тика
 
 	static dmBotSpawnManager Get()
@@ -37,6 +49,7 @@ class dmBotSpawnManager
 	void dmBotSpawnManager()
 	{
 		m_Entries = new array<ref dmBotSpawnEntry>();
+		m_RestoreQueue = new array<ref dmBotRestoreEntry>();
 	}
 
 	//! Загрузить spawn.json (Defaults + Save, если файла нет) и построить m_Entries
@@ -86,6 +99,10 @@ class dmBotSpawnManager
 		#ifdef DM_BOT_DEBUG_SPAWN
 		dmBotLog.Debug("[SpawnManager] init: settlements=" + settlements + " entries=" + entryCount);
 		#endif
+
+		#ifdef SERVER
+		ScanPersistDir();
+		#endif
 	}
 
 	//! Тик спавн-менеджера (троттлинг DM_SPAWN_TICK_INTERVAL). Спавнит по квоте,
@@ -99,6 +116,15 @@ class dmBotSpawnManager
 
 		if (!m_Config || !m_Config.Enabled)
 			return;
+
+		//! Восстановление из бинарников идёт раньше свежего спавна.
+		#ifdef SERVER
+		if (m_RestoreQueue.Count() > 0)
+		{
+			RestoreNext();
+			return;
+		}
+		#endif
 
 		if (dmAISurvivor.Count() >= m_Config.MaxBots)
 			return;
@@ -135,6 +161,8 @@ class dmBotSpawnManager
 		bot.SetModel(dmSurvivor.GetRandom());
 		string name = dmNameGenerator.Get().GenerateName(bot.GetModel());
 		bot.SetName(name);
+		bot.SetSettlement(entry.m_Settlement);
+		bot.SetPersistent(true);
 		#ifdef DM_BOT_DEBUG_SPAWN
 		dmBotLog.Debug("[SpawnManager] generated name=" + name + " model=" + bot.GetModel());
 		#endif
@@ -179,6 +207,108 @@ class dmBotSpawnManager
 			if (entry && !entry.m_Survivor)
 				SpawnEntry(entry);
 		}
+	}
+
+	//! Просканировать каталог персистенции и поставить бинарники в очередь восстановления.
+	void ScanPersistDir()
+	{
+		#ifdef SERVER
+		dmBotPersistence.EnsureDir();   // иначе FindFile по несуществующему каталогу вернёт пусто
+		string fileName;
+		FileAttr fileAttr;
+		FindFileHandle handle = FindFile(DM_PERSIST_DIR + "/*.bin", fileName, fileAttr, FindFileFlags.DIRECTORIES);
+		bool hasMatch = fileName != "";
+		while (hasMatch)
+		{
+			string path = DM_PERSIST_DIR + "/" + fileName;
+			dmBotRestoreEntry req = new dmBotRestoreEntry();
+			req.m_Path = path;
+			if (dmBotPersistence.ReadHeader(path, req.m_Name, req.m_ModelClass, req.m_Settlement, req.m_Position, req.m_Orientation))
+			{
+				m_RestoreQueue.Insert(req);
+				#ifdef DM_BOT_DEBUG_PERSIST
+				dmBotLog.Debug("[SpawnManager] queued restore: " + fileName + " name=" + req.m_Name);
+				#endif
+			}
+			else
+			{
+				dmBotLog.Error("[SpawnManager] restore header read failed: " + path);
+			}
+			hasMatch = FindNextFile(handle, fileName, fileAttr);
+		}
+		CloseFindFile(handle);
+		#endif
+	}
+
+	//! Восстановить следующего бота из очереди (один за тик).
+	void RestoreNext()
+	{
+		#ifdef SERVER
+		dmBotRestoreEntry req = m_RestoreQueue[0];
+		m_RestoreQueue.Remove(0);
+		if (!req)
+			return;
+		RestoreBot(req);
+		#endif
+	}
+
+	//! Восстановить бота из бинарника: спавн + state/здоровье/инвентарь + привязка к слоту.
+	void RestoreBot(dmBotRestoreEntry req)
+	{
+		#ifdef SERVER
+		ref dmAISurvivor bot = new dmAISurvivor();
+		bot.SetModel(req.m_ModelClass);
+		bot.SetName(req.m_Name);
+		bot.SetSettlement(req.m_Settlement);
+		bot.SetPersistent(true);
+
+		PlayerBase pawn = bot.Spawn(req.m_Position, req.m_Orientation);
+		if (!pawn)
+		{
+			dmBotLog.Error("[SpawnManager] restore spawn FAILED: " + req.m_Name);
+			return;
+		}
+
+		dmAISurvivorBase survivorPawn = bot.GetPawn();
+		if (survivorPawn && !dmBotPersistence.RestoreState(survivorPawn, req.m_Path))
+			dmBotLog.Error("[SpawnManager] restore state FAILED: " + req.m_Name);
+
+		bot.SetFSM(dmBotPreset_Nomad.Create(bot));
+
+		//! Привязка к свободному слоту квоты поселения (или новый слот-«кочевник»).
+		dmBotSpawnEntry entry = FindEmptyEntry(req.m_Settlement);
+		if (entry)
+		{
+			entry.m_Survivor = bot;
+			entry.m_Position = req.m_Position;
+		}
+		else
+		{
+			entry = new dmBotSpawnEntry();
+			entry.m_Settlement = req.m_Settlement;
+			entry.m_Position = req.m_Position;
+			entry.m_Survivor = bot;
+			entry.m_RespawnTimer = 0.0;
+			m_Entries.Insert(entry);
+		}
+
+		#ifdef DM_BOT_DEBUG_PERSIST
+		dmBotLog.Debug("[SpawnManager] restored: name=" + req.m_Name + " settlement=" + req.m_Settlement + " total=" + dmAISurvivor.Count());
+		#endif
+		#endif
+	}
+
+	//! Свободный слот квоты поселения (m_Survivor == null), иначе null.
+	dmBotSpawnEntry FindEmptyEntry(string settlement)
+	{
+		int i;
+		for (i = 0; i < m_Entries.Count(); i++)
+		{
+			dmBotSpawnEntry entry = m_Entries[i];
+			if (entry && !entry.m_Survivor && entry.m_Settlement == settlement)
+				return entry;
+		}
+		return null;
 	}
 
 	//! Прибить точку строго к земле (SurfaceY по x/z), игнорируя pos[1].
