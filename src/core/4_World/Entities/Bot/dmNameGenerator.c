@@ -8,6 +8,9 @@ class dmNameGenerator
 {
 	static ref dmNameGenerator s_Instance;
 
+	//! Реестр занятых имён (уникальность пути файла персистенции).
+	static ref map<string, bool> s_Taken = new map<string, bool>();
+
 	ref dmNamesConfig m_Config;
 	bool m_Loaded;
 
@@ -38,38 +41,71 @@ class dmNameGenerator
 	}
 
 	//! Сгенерировать имя "Имя Фамилия" по классу модели (dmAI_SurvivorM_Denis и т.п.).
+	//! Имя уникально: при коллизии добавляется суффикс " (n)".
 	string GenerateName(string modelClass)
 	{
 		EnsureLoaded();
 
-		if (!m_Config)
-			return "Bot" + Math.RandomInt(0, 10000);
+		string baseName = "Bot" + Math.RandomInt(0, 10000);
 
-		string prefix = "dmAI_Survivor";
-		string key = modelClass;
-		int idx = modelClass.LastIndexOf(prefix);
-		if (idx >= 0)
-			key = modelClass.Substring(idx + prefix.Length(), modelClass.Length() - idx - prefix.Length());
+		if (m_Config)
+		{
+			string prefix = "dmAI_Survivor";
+			string key = modelClass;
+			int idx = modelClass.LastIndexOf(prefix);
+			if (idx >= 0)
+				key = modelClass.Substring(idx + prefix.Length(), modelClass.Length() - idx - prefix.Length());
 
-		string nationality;
-		if (!m_Config.model_mapping.Find(key, nationality))
-			nationality = "slavic";
+			string nationality;
+			if (!m_Config.model_mapping.Find(key, nationality))
+				nationality = "slavic";
 
-		dmNameNationality nat = m_Config.nationalities.Get(nationality);
-		if (!nat)
-			return modelClass + "_Bot";
+			dmNameNationality nat = m_Config.nationalities.Get(nationality);
+			if (!nat)
+			{
+				baseName = modelClass + "_Bot";
+			}
+			else
+			{
+				array<string> firsts;
+				if (key.IndexOf("F_") == 0)
+					firsts = nat.female_first;
+				else
+					firsts = nat.male_first;
 
-		array<string> firsts;
-		if (key.IndexOf("F_") == 0)
-			firsts = nat.female_first;
-		else
-			firsts = nat.male_first;
+				if (!firsts || firsts.Count() == 0 || !nat.last || nat.last.Count() == 0)
+				{
+					baseName = modelClass + "_Bot";
+				}
+				else
+				{
+					string firstName = firsts.GetRandomElement();
+					string lastName = nat.last.GetRandomElement();
+					baseName = firstName + " " + lastName;
+				}
+			}
+		}
 
-		if (!firsts || firsts.Count() == 0 || !nat.last || nat.last.Count() == 0)
-			return modelClass + "_Bot";
+		string candidate = baseName;
+		int n = 2;
+		while (s_Taken.Contains(candidate))
+		{
+			candidate = baseName + " (" + n + ")";
+			n = n + 1;
+		}
+		s_Taken.Insert(candidate, true);
+		return candidate;
+	}
 
-		string firstName = firsts.GetRandomElement();
-		string lastName = nat.last.GetRandomElement();
-		return firstName + " " + lastName;
+	//! Зарегистрировать уже существующее имя (восстановление) — чтобы свежий спавн не коллизировал.
+	static void RegisterName(string name)
+	{
+		s_Taken.Insert(name, true);
+	}
+
+	//! Освободить имя (смерть) — имя снова доступно для нового спавна.
+	static void ReleaseName(string name)
+	{
+		s_Taken.Remove(name);
 	}
 }

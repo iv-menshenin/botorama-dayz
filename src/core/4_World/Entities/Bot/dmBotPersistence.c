@@ -129,6 +129,12 @@ class dmBotPersistence
 
 		int persistVersion;
 		bool ok = file.Read(persistVersion);
+		if (ok && persistVersion != DM_PERSIST_FORMAT_VERSION)
+		{
+			dmBotLog.Error("[Persist] unsupported format version " + persistVersion + " (expected " + DM_PERSIST_FORMAT_VERSION + ")");
+			file.Close();
+			return false;
+		}
 		if (ok)
 			ok = file.Read(name);
 		if (ok)
@@ -255,6 +261,11 @@ class dmBotPersistence
 		vector orientation;
 
 		bool ok = ctx.Read(persistVersion);
+		if (ok && persistVersion != DM_PERSIST_FORMAT_VERSION)
+		{
+			dmBotLog.Error("[Persist] SkipHeader: unsupported format version " + persistVersion);
+			return false;
+		}
 		if (ok)
 			ok = ctx.Read(name);
 		if (ok)
@@ -480,7 +491,7 @@ class dmBotPersistence
 		return true;
 	}
 
-	//! InventoryLocation cargo-предмета: type + slot + idx + row + col + flip.
+	//! InventoryLocation cargo-предмета: idx + row + col + flip.
 	private static bool StoreLocation(Serializer ctx, ItemBase item)
 	{
 		InventoryLocation loc = new InventoryLocation();
@@ -490,17 +501,11 @@ class dmBotPersistence
 			return false;
 		}
 
-		int iType = loc.GetType();
-		int iSlot = loc.GetSlot();
 		int idx = loc.GetIdx();
 		int row = loc.GetRow();
 		int col = loc.GetCol();
 		bool flip = loc.GetFlip();
 
-		if (!ctx.Write(iType))
-			return false;
-		if (!ctx.Write(iSlot))
-			return false;
 		if (!ctx.Write(idx))
 			return false;
 		if (!ctx.Write(row))
@@ -559,14 +564,6 @@ class dmBotPersistence
 		int i;
 		for (i = 0; i < itemCount; i++)
 		{
-			int locType;
-			if (!ctx.Read(locType))
-				return false;
-
-			int locSlot;
-			if (!ctx.Read(locSlot))
-				return false;
-
 			int idx;
 			if (!ctx.Read(idx))
 				return false;
@@ -613,6 +610,7 @@ class dmBotPersistence
 			if (!parent.TakeEntityToInventory(InventoryMode.SERVER, FindInventoryLocationType.CARGO, item))
 			{
 				dmBotLog.Error("[Persist] LoadCargoItem: cannot place " + className + " into cargo");
+				GetGame().ObjectDelete(item);
 				return false;
 			}
 		}

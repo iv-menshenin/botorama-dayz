@@ -236,20 +236,10 @@ class dmAISurvivor
 		m_Settlement = settlement;
 	}
 
-	string GetSettlement()
-	{
-		return m_Settlement;
-	}
-
 	//! Пометить бота персистентным (автосохранение + удаление файла по смерти).
 	void SetPersistent(bool persistent)
 	{
 		m_Persistent = persistent;
-	}
-
-	bool IsPersistent()
-	{
-		return m_Persistent;
 	}
 
 	//! Materialize the bot in the world.
@@ -338,7 +328,10 @@ class dmAISurvivor
 		//! Персистентный бот: удалить бинарник (по имени, пока m_Name доступен).
 		#ifdef SERVER
 		if (m_Persistent)
+		{
 			dmBotPersistence.Delete(dmBotPersistence.PathFor(m_Name));
+			dmNameGenerator.ReleaseName(m_Name);
+		}
 		#endif
 
 		if (m_Pawn)

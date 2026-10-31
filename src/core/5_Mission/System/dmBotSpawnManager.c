@@ -259,6 +259,7 @@ class dmBotSpawnManager
 		ref dmAISurvivor bot = new dmAISurvivor();
 		bot.SetModel(req.m_ModelClass);
 		bot.SetName(req.m_Name);
+		dmNameGenerator.RegisterName(req.m_Name);
 		bot.SetSettlement(req.m_Settlement);
 		bot.SetPersistent(true);
 
@@ -271,7 +272,12 @@ class dmBotSpawnManager
 
 		dmAISurvivorBase survivorPawn = bot.GetPawn();
 		if (survivorPawn && !dmBotPersistence.RestoreState(survivorPawn, req.m_Path))
-			dmBotLog.Error("[SpawnManager] restore state FAILED: " + req.m_Name);
+		{
+			dmBotLog.Error("[SpawnManager] restore state FAILED: " + req.m_Name + " — битый файл удалён, бот деспавнен");
+			dmBotPersistence.Delete(req.m_Path);
+			bot.Despawn();
+			return;
+		}
 
 		bot.SetFSM(dmBotPreset_Nomad.Create(bot));
 
