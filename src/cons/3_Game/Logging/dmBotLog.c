@@ -22,20 +22,43 @@ class dmBotLog
 		return hour.ToStringLen(2) + ":" + minute.ToStringLen(2) + ":" + second.ToStringLen(2);
 	}
 
+	//! "[botname] " prefix for per-bot attribution; empty when name is empty.
+	private static string BotNamePrefix(string name)
+	{
+		if (name != "")
+			return "[" + name + "] ";
+		return "";
+	}
+
+	static void Debug(string name, string msg)
+	{
+		Print(TimeStamp() + " [dmBot] " + BotNamePrefix(name) + msg);
+	}
+
+	static void Trace(string name, string msg)
+	{
+		Print(TimeStamp() + " [dmBot][trace] " + BotNamePrefix(name) + msg);
+	}
+
+	//! Always printed (not gated): error conditions worth surfacing in logs.
+	static void Error(string name, string msg)
+	{
+		Print(TimeStamp() + " [dmBot][error] " + BotNamePrefix(name) + msg);
+	}
+
 	static void Debug(string msg)
 	{
-		Print(TimeStamp() + " [dmBot] " + msg);
+		Debug("", msg);
 	}
 
 	static void Trace(string msg)
 	{
-		Print(TimeStamp() + " [dmBot][trace] " + msg);
+		Trace("", msg);
 	}
 
-	//! Always printed (not gated): error conditions worth surfacing in logs.
 	static void Error(string msg)
 	{
-		Print(TimeStamp() + " [dmBot][error] " + msg);
+		Error("", msg);
 	}
 
 	//! Log the mod version once. Always printed (not gated by any DM_BOT_DEBUG_*),
