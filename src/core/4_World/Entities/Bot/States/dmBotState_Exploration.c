@@ -99,7 +99,7 @@ class dmBotState_Exploration : dmBotState
 		#ifdef DM_BOT_DEBUG_LOOTING
 		if ( req && !req.IsFull() )
 		{
-			dmBotLog.Debug("[Loot] Полно места в инвентаре");
+			dmBotLog.Debug(GetOwner().GetName(), "[Loot] Полно места в инвентаре");
 		}
 		#endif
 		if (!req || !req.IsFull())
@@ -109,7 +109,7 @@ class dmBotState_Exploration : dmBotState
 		if (order.Count() == 0)
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Выбрасывать нечего");
+			dmBotLog.Debug(GetOwner().GetName(), "[Loot] Выбрасывать нечего");
 			#endif
 			return;
 		}
@@ -118,7 +118,7 @@ class dmBotState_Exploration : dmBotState
 		if (pawn.DropItem(ItemBase.Cast(item)))
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Выбрасываю: " + item.GetType());
+			dmBotLog.Debug(GetOwner().GetName(), "[Loot] Выбрасываю: " + item.GetType());
 			#endif
 			bot.Discard(item);
 		}
@@ -137,7 +137,7 @@ class dmBotState_Exploration : dmBotState
 		if (item)
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Собираюсь залутать " + item.GetType() + " тут " + item.GetPosition());
+			dmBotLog.Debug(GetOwner().GetName(), "[Loot] Собираюсь залутать " + item.GetType() + " тут " + item.GetPosition());
 			#endif
 			m_PickUp = new dmBotIntent_PickUp();
 			m_PickUp.m_Item = item;
@@ -172,7 +172,7 @@ class dmBotState_Exploration : dmBotState
 		}
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Рядом " + groundCount + " на земле + " + containerCount + " в контейнерах, выбираю, что подобрать");
+		dmBotLog.Debug(GetOwner().GetName(), "[Loot] Рядом " + groundCount + " на земле + " + containerCount + " в контейнерах, выбираю, что подобрать");
 		#endif
 
 		//! Чистый выбор по desire — БЕЗ CanCarry/выброса: мутация только для победителя.
@@ -212,7 +212,7 @@ class dmBotState_Exploration : dmBotState
 		if (!best)
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Все хлам");
+			dmBotLog.Debug(GetOwner().GetName(), "[Loot] Все хлам");
 			#endif
 			return null;
 		}
@@ -223,13 +223,13 @@ class dmBotState_Exploration : dmBotState
 		{
 			bot.Discard(best);   // НЕ пересоревноваться за ту же вещь
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Не могу это нести: " + best.GetType() + " pos=" + best.GetPosition());
+			dmBotLog.Debug(GetOwner().GetName(), "[Loot] Не могу это нести: " + best.GetType() + " pos=" + best.GetPosition());
 			#endif
 			return null;
 		}
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Мне нравится: " + best.GetType() + " на " + bestDesire);
+		dmBotLog.Debug(GetOwner().GetName(), "[Loot] Мне нравится: " + best.GetType() + " на " + bestDesire);
 		#endif
 		return best;
 	}
@@ -330,7 +330,7 @@ class dmBotState_Exploration : dmBotState
 		{
 			DropAndIgnore(bot, pawn, weaker);
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] огнестрел вытесняет " + weaker.GetType() + " ради " + item.GetType());
+			dmBotLog.Debug(GetOwner().GetName(), "[Loot] огнестрел вытесняет " + weaker.GetType() + " ради " + item.GetType());
 			#endif
 		}
 		return dmLoot.CanCarry(pawn, item);
@@ -379,7 +379,7 @@ class dmBotState_Exploration : dmBotState
 		if (cargoMelee.Count() == 0)
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] мили лимит: карго-мили нет — входящее отвергаю (слот не трогаю)");
+			dmBotLog.Debug(GetOwner().GetName(), "[Loot] мили лимит: карго-мили нет — входящее отвергаю (слот не трогаю)");
 			#endif
 			return false;
 		}
@@ -389,7 +389,7 @@ class dmBotState_Exploration : dmBotState
 			return false;
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] мили лимит: выбрасываю " + weakest.GetType() + " (карго)");
+		dmBotLog.Debug(GetOwner().GetName(), "[Loot] мили лимит: выбрасываю " + weakest.GetType() + " (карго)");
 		#endif
 		return true;
 	}
@@ -402,7 +402,7 @@ class dmBotState_Exploration : dmBotState
 		if (m_CurrentBuilding && m_BuildingTime > DM_EXPLORE_BUILDING_TIMEOUT)
 		{
 			if (m_Move) { m_Move.Finish(); m_Move = null; }
-			dmBotLog.Error("[Loot] Explore: здание слишком долго, пропускаю " + m_CurrentBuilding.GetType());
+			dmBotLog.Error(GetOwner().GetName(), "[Loot] Explore: здание слишком долго, пропускаю " + m_CurrentBuilding.GetType());
 			MarkBuildingVisited(bot, m_CurrentBuilding);
 			ResetBuilding();
 		}
@@ -412,7 +412,7 @@ class dmBotState_Exploration : dmBotState
 			if (m_Move.IsFailed() && m_CurrentBuilding && IsWreck(m_CurrentBuilding))
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] Врек недостижим, пропускаю: " + m_CurrentBuilding.GetType());
+				dmBotLog.Debug(GetOwner().GetName(), "[Loot] Врек недостижим, пропускаю: " + m_CurrentBuilding.GetType());
 				#endif
 				MarkBuildingVisited(bot, m_CurrentBuilding);
 				ResetBuilding();
@@ -430,7 +430,7 @@ class dmBotState_Exploration : dmBotState
 			else if (m_Planner.IsDone())
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] Explore: здание обойдено " + m_CurrentBuilding.GetType());
+				dmBotLog.Debug(GetOwner().GetName(), "[Loot] Explore: здание обойдено " + m_CurrentBuilding.GetType());
 				#endif
 				MarkBuildingVisited(bot, m_CurrentBuilding);
 				ResetBuilding();
@@ -500,12 +500,12 @@ class dmBotState_Exploration : dmBotState
 				if (HasEnergyForPriorityEvent(pawn, dist))
 				{
 					#ifdef DM_BOT_DEBUG_LOOTING
-					dmBotLog.Debug("[Loot] Нашёл событие/врек: " + wreck.GetType() + " — приоритет, иду");
+					dmBotLog.Debug(GetOwner().GetName(), "[Loot] Нашёл событие/врек: " + wreck.GetType() + " — приоритет, иду");
 					#endif
 					return wreck;
 				}
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] Врек в радиусе, но мало энергии/воды: " + wreck.GetType() + " dist=" + dist + " — пропускаю");
+				dmBotLog.Debug(GetOwner().GetName(), "[Loot] Врек в радиусе, но мало энергии/воды: " + wreck.GetType() + " dist=" + dist + " — пропускаю");
 				#endif
 			}
 		}
@@ -539,7 +539,7 @@ class dmBotState_Exploration : dmBotState
 				array<EntityAI> dropped = new array<EntityAI>();
 				dmLoot.StripCorpse(m_Corpse, dropped);
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] Острижен труп: " + m_Corpse.GetType() + " вещей " + dropped.Count());
+				dmBotLog.Debug(GetOwner().GetName(), "[Loot] Острижен труп: " + m_Corpse.GetType() + " вещей " + dropped.Count());
 				#endif
 				m_StrippedCorpses.Insert(m_Corpse);
 				if (m_StrippedCorpses.Count() > DM_EXPLORE_CORPSE_STRIPPED_MAX)
@@ -560,7 +560,7 @@ class dmBotState_Exploration : dmBotState
 			m_Corpse = FindNearestCorpse(pawn);
 			#ifdef DM_BOT_DEBUG_LOOTING
 			if (m_Corpse)
-				dmBotLog.Debug("[Loot] Нашёл труп: " + m_Corpse.GetType() + " на " + vector.Distance(pawn.GetPosition(), m_Corpse.GetPosition()) + " м");
+				dmBotLog.Debug(GetOwner().GetName(), "[Loot] Нашёл труп: " + m_Corpse.GetType() + " на " + vector.Distance(pawn.GetPosition(), m_Corpse.GetPosition()) + " м");
 			#endif
 		}
 
@@ -574,7 +574,7 @@ class dmBotState_Exploration : dmBotState
 			m_CorpseMove.m_Priority = dmBotIntentPriority.DESIRABLE;
 			bot.AddFSMIntent(m_CorpseMove);
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Иду к трупу: " + m_Corpse.GetType());
+			dmBotLog.Debug(GetOwner().GetName(), "[Loot] Иду к трупу: " + m_Corpse.GetType());
 			#endif
 		}
 	}
@@ -695,7 +695,7 @@ class dmBotState_Exploration : dmBotState
 			return false;
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Explore done: visited=" + visited + " unvisited=" + unvisited + " time=" + time);
+		dmBotLog.Debug(GetOwner().GetName(), "[Loot] Explore done: visited=" + visited + " unvisited=" + unvisited + " time=" + time);
 		#endif
 		explorer.SetNothingToDo(true);
 		return true;
