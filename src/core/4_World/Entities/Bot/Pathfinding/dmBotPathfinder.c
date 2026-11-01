@@ -108,11 +108,11 @@ class dmBotPathfinder
 		bool found = m_AIWorld.FindPath(from, to, m_Filter, waypoints);
 
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] FindPath from=" + from + " to=" + to + " found=" + found);
-		dmBotLog.Debug("[PATH] FindPath n=" + waypoints.Count());
+		dmBotLog.Debug("", "[PATH] FindPath from=" + from + " to=" + to + " found=" + found);
+		dmBotLog.Debug("", "[PATH] FindPath n=" + waypoints.Count());
 		int wi;
 		for (wi = 0; wi < waypoints.Count(); wi++)
-			dmBotLog.Debug("[PATH] FindPath wp[" + wi + "]=" + waypoints[wi]);
+			dmBotLog.Debug("", "[PATH] FindPath wp[" + wi + "]=" + waypoints[wi]);
 		#endif
 		return found;
 	}
@@ -142,16 +142,16 @@ class dmBotPathfinder
 		bool found = m_AIWorld.FindPath(sampledFrom, sampledTo, m_RoadFilter, waypoints);
 
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH-ROAD] FindRoadPath from=" + from + " to=" + to + " found=" + found);
-		dmBotLog.Debug("[PATH-ROAD] FindRoadPath sampledFrom=" + sampledFrom + " sampledTo=" + sampledTo);
-		dmBotLog.Debug("[PATH-ROAD] FindRoadPath n=" + waypoints.Count());
+		dmBotLog.Debug("", "[PATH-ROAD] FindRoadPath from=" + from + " to=" + to + " found=" + found);
+		dmBotLog.Debug("", "[PATH-ROAD] FindRoadPath sampledFrom=" + sampledFrom + " sampledTo=" + sampledTo);
+		dmBotLog.Debug("", "[PATH-ROAD] FindRoadPath n=" + waypoints.Count());
 		float lastDistToTarget = -1.0;
 		if (waypoints.Count() > 0)
 			lastDistToTarget = vector.Distance(waypoints[waypoints.Count() - 1], sampledTo);
-		dmBotLog.Debug("[PATH-ROAD] FindRoadPath lastDistToTarget=" + lastDistToTarget);
+		dmBotLog.Debug("", "[PATH-ROAD] FindRoadPath lastDistToTarget=" + lastDistToTarget);
 		int wi;
 		for (wi = 0; wi < waypoints.Count(); wi++)
-			dmBotLog.Debug("[PATH-ROAD] FindRoadPath wp[" + wi + "]=" + waypoints[wi]);
+			dmBotLog.Debug("", "[PATH-ROAD] FindRoadPath wp[" + wi + "]=" + waypoints[wi]);
 		#endif
 		return found;
 	}
@@ -164,8 +164,8 @@ class dmBotPathfinder
 
 		bool ok = m_AIWorld.SampleNavmeshPosition(pos, maxDist, m_SampleFilter, sampled);
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] SamplePosition pos=" + pos + " maxDist=" + maxDist + " ok=" + ok);
-		dmBotLog.Debug("[PATH] SamplePosition sampled=" + sampled);
+		dmBotLog.Debug("", "[PATH] SamplePosition pos=" + pos + " maxDist=" + maxDist + " ok=" + ok);
+		dmBotLog.Debug("", "[PATH] SamplePosition sampled=" + sampled);
 		#endif
 		return ok;
 	}
@@ -221,7 +221,7 @@ class dmBotPathfinder
 			dir = -1;
 
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] FindRoute gap dir=" + dir + " lastY=" + last[1] + " toY=" + sampledTo[1]);
+		dmBotLog.Debug("", "[PATH] FindRoute gap dir=" + dir + " lastY=" + last[1] + " toY=" + sampledTo[1]);
 		#endif
 
 		Building building = FindLadderBuildingAt(sampledTo, ignoreObj);
@@ -229,9 +229,9 @@ class dmBotPathfinder
 			building = FindLadderBuildingAt(from, ignoreObj);
 		#ifdef DM_BOT_DEBUG_PATHFINDER
 		if (building)
-			dmBotLog.Debug("[PATH] FindRoute building=" + building.GetType());
+			dmBotLog.Debug("", "[PATH] FindRoute building=" + building.GetType());
 		else
-			dmBotLog.Debug("[PATH] FindRoute building=NONE");
+			dmBotLog.Debug("", "[PATH] FindRoute building=NONE");
 		#endif
 		if (!building)
 			return false;
@@ -260,13 +260,13 @@ class dmBotPathfinder
 			float dTop = Math.AbsFloat(top[1] - last[1]);
 
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] FindRoute ladder i=" + ladder.m_Index + " dBottom=" + dBottom + " dTop=" + dTop);
+			dmBotLog.Debug("", "[PATH] FindRoute ladder i=" + ladder.m_Index + " dBottom=" + dBottom + " dTop=" + dTop);
 			#endif
 
 			if (Math.Min(dBottom, dTop) > DM_FALL_DANGER_DROP)
 			{
 				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] FindRoute ladder i=" + ladder.m_Index + " skip (level gate)");
+				dmBotLog.Debug("", "[PATH] FindRoute ladder i=" + ladder.m_Index + " skip (level gate)");
 				#endif
 				continue;
 			}
@@ -282,7 +282,7 @@ class dmBotPathfinder
 			}
 
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] FindRoute ladder i=" + ladder.m_Index + " near=" + near + " far=" + far + " dir=" + ladderDir);
+			dmBotLog.Debug("", "[PATH] FindRoute ladder i=" + ladder.m_Index + " near=" + near + " far=" + far + " dir=" + ladderDir);
 			#endif
 
 			visited.Set(key, true);
@@ -291,7 +291,7 @@ class dmBotPathfinder
 			if (FindRouteRecursive(far, to, ignoreObj, visited, sub, depth + 1))
 			{
 				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] FindRoute recurse far->to OK");
+				dmBotLog.Debug("", "[PATH] FindRoute recurse far->to OK");
 				#endif
 				ref array<vector> pathToNear = new array<vector>();
 				if (m_AIWorld.FindPath(from, near, m_Filter, pathToNear) && pathToNear.Count() > 0)
@@ -317,7 +317,7 @@ class dmBotPathfinder
 
 					float cost = RouteLength2D(candidate);
 					#ifdef DM_BOT_DEBUG_PATHFINDER
-					dmBotLog.Debug("[PATH] FindRoute ladder i=" + ladder.m_Index + " cost=" + cost);
+					dmBotLog.Debug("", "[PATH] FindRoute ladder i=" + ladder.m_Index + " cost=" + cost);
 					#endif
 					if (bestRoute == null || cost < bestCost)
 					{
@@ -333,7 +333,7 @@ class dmBotPathfinder
 		if (bestRoute != null)
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] FindRoute best cost=" + bestCost);
+			dmBotLog.Debug("", "[PATH] FindRoute best cost=" + bestCost);
 			#endif
 			int k;
 			for (k = 0; k < bestRoute.Count(); k++)

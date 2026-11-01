@@ -58,13 +58,13 @@ class dmE2EClientBridge
 		{
 			s_TickLogged = true;
 			#ifdef DM_BOT_DEBUG_E2E
-			dmBotLog.Debug("[E2EC] bridge tick active (CallLater)");
+			dmBotLog.Debug("", "[E2EC] bridge tick active (CallLater)");
 			#endif
 		}
 
 		#ifdef DM_BOT_DEBUG_E2E
 		if (s_TickCount % 10 == 0)
-			dmBotLog.Debug("[E2EC] tick N=" + s_TickCount);
+			dmBotLog.Debug("", "[E2EC] tick N=" + s_TickCount);
 		#endif
 
 		Tick(DM_E2E_CLIENT_TICK_DT);
@@ -78,7 +78,7 @@ class dmE2EClientBridge
 		{
 			#ifdef DM_BOT_DEBUG_E2E
 			if (s_TickCount % 10 == 0)
-				dmBotLog.Debug("[E2EC] enabled missing");
+				dmBotLog.Debug("", "[E2EC] enabled missing");
 			#endif
 			return;
 		}
@@ -117,14 +117,14 @@ class dmE2EClientBridge
 	private void RunJob(string jobPath, string fileName)
 	{
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2EC] job picked up: " + fileName);
+		dmBotLog.Debug("", "[E2EC] job picked up: " + fileName);
 		#endif
 
 		dmE2EJob job;
 		string loadError;
 		if (!JsonFileLoader<dmE2EJob>.LoadFile(jobPath, job, loadError))
 		{
-			dmBotLog.Error("[E2EC] load failed: " + fileName + ": " + loadError);
+			dmBotLog.Error("", "[E2EC] load failed: " + fileName + ": " + loadError);
 
 			dmE2EResult failResult = new dmE2EResult();
 			failResult.Steps = new array<ref dmE2EStepResult>();
@@ -172,7 +172,7 @@ class dmE2EClientBridge
 		MoveToDone(jobPath, fileName);
 
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2EC] job done: " + result.Name + " status=" + result.Status);
+		dmBotLog.Debug("", "[E2EC] job done: " + result.Name + " status=" + result.Status);
 		#endif
 	}
 
@@ -519,7 +519,7 @@ class dmE2EClientBridge
 	{
 		r.Dump.Insert(line);
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2EC] " + line);
+		dmBotLog.Debug("", "[E2EC] " + line);
 		#endif
 	}
 
@@ -527,8 +527,8 @@ class dmE2EClientBridge
 	private void LogStep(dmE2EStepResult r)
 	{
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2EC] step " + r.Index + " " + r.Op + " ok=" + r.Ok);
-		dmBotLog.Debug("[E2EC] step reason=" + r.Reason);
+		dmBotLog.Debug("", "[E2EC] step " + r.Index + " " + r.Op + " ok=" + r.Ok);
+		dmBotLog.Debug("", "[E2EC] step reason=" + r.Reason);
 		#endif
 	}
 
@@ -576,7 +576,7 @@ class dmE2EClientBridge
 		EnsureDir(outPath);
 		string saveError;
 		if (!JsonFileLoader<dmE2EResult>.SaveFile(outPath, result, saveError))
-			dmBotLog.Error("[E2EC] write result failed: " + outPath + ": " + saveError);
+			dmBotLog.Error("", "[E2EC] write result failed: " + outPath + ": " + saveError);
 	}
 
 	//! Move the processed input to e2e-client/done/ (copy then delete).

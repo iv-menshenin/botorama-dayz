@@ -98,7 +98,7 @@ modded class Weapon_Base
 		Man own = GetHierarchyRootPlayer();
 		string ot = "null";
 		if (own) ot = own.GetType();
-		dmBotLog.Debug("[Noise] OnFire SERVER muzzle=" + muzzle_index + " owner=" + ot);
+		dmBotLog.Debug("", "[Noise] OnFire SERVER muzzle=" + muzzle_index + " owner=" + ot);
 		#endif
 		#endif
 

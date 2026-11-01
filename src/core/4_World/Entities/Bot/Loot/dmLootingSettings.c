@@ -40,7 +40,7 @@ class dmLootingSettings
 		}
 		else
 		{
-			dmBotLog.Error("[LootingSettings] read error " + DM_LOOTING_SETTINGS_FILE + ": " + reader.Errors());
+			dmBotLog.Error("", "[LootingSettings] read error " + DM_LOOTING_SETTINGS_FILE + ": " + reader.Errors());
 			config = new dmLootingConfig();
 			config.Defaults();
 		}

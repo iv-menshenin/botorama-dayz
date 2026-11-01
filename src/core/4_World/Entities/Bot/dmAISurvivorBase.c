@@ -626,21 +626,21 @@ class dmAISurvivorBase : PlayerBase
 		if (!hit)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Kamping] roof: no hit pos=" + pos);
+			dmBotLog.Debug("", "[Kamping] roof: no hit pos=" + pos);
 			#endif
 			return false;
 		}
 		if (!hitObj)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Kamping] roof: hit but obj null pos=" + pos);
+			dmBotLog.Debug("", "[Kamping] roof: hit but obj null pos=" + pos);
 			#endif
 			return false;
 		}
 		bool isHouse = hitObj.IsInherited(House);
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Kamping] roof: hitType=" + hitObj.GetType() + " isHouse=" + isHouse + " pos=" + pos);
+		dmBotLog.Debug("", "[Kamping] roof: hitType=" + hitObj.GetType() + " isHouse=" + isHouse + " pos=" + pos);
 		#endif
 
 		return isHouse;

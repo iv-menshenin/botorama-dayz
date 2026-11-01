@@ -8,7 +8,7 @@ class dmBotCondition_FollowFar : dmBotCondition
 		if (!t)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] FollowFar: нет цели следования");
+			dmBotLog.Debug("", "[FSM] FollowFar: нет цели следования");
 			#endif
 			return false;
 		}
@@ -34,7 +34,7 @@ class dmBotCondition_FollowFar : dmBotCondition
 		float threshold = dmBotState_Follow.GetThresholdDistance(t);
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] FollowFar: target=" + t.GetType() + " tPos=" + targetPos + " botPos=" + botPos + " isPawn=" + (t == bot.GetPawn()) + " dist=" + dist + " threshold=" + threshold + " -> " + (dist > threshold));
+		dmBotLog.Debug("", "[FSM] FollowFar: target=" + t.GetType() + " tPos=" + targetPos + " botPos=" + botPos + " isPawn=" + (t == bot.GetPawn()) + " dist=" + dist + " threshold=" + threshold + " -> " + (dist > threshold));
 		#endif
 
 		return dist > threshold;

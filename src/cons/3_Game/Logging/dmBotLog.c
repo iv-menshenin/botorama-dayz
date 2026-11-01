@@ -46,21 +46,6 @@ class dmBotLog
 		Print(TimeStamp() + " [dmBot][error] " + BotNamePrefix(name) + msg);
 	}
 
-	static void Debug(string msg)
-	{
-		Debug("", msg);
-	}
-
-	static void Trace(string msg)
-	{
-		Trace("", msg);
-	}
-
-	static void Error(string msg)
-	{
-		Error("", msg);
-	}
-
 	//! Log the mod version once. Always printed (not gated by any DM_BOT_DEBUG_*),
 	//! so the loaded mod version is visible in both server and client logs.
 	static void LogVersion()

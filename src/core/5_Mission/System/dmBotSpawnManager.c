@@ -99,7 +99,7 @@ class dmBotSpawnManager
 		}
 
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("[SpawnManager] init: settlements=" + settlements + " entries=" + entryCount);
+		dmBotLog.Debug("", "[SpawnManager] init: settlements=" + settlements + " entries=" + entryCount);
 		#endif
 
 		ScanPersistDir();
@@ -162,13 +162,13 @@ class dmBotSpawnManager
 		bot.SetSettlement(entry.m_Settlement);
 		bot.SetPersistent(true);
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("[SpawnManager] generated name=" + name + " model=" + bot.GetModel());
+		dmBotLog.Debug("", "[SpawnManager] generated name=" + name + " model=" + bot.GetModel());
 		#endif
 		PlayerBase pawn = bot.Spawn(entry.m_Position, Vector(Math.RandomFloat(0.0, 360.0), 0.0, 0.0));
 		if (!pawn)
 		{
 			#ifdef DM_BOT_DEBUG_SPAWN
-			dmBotLog.Debug("[SpawnManager] spawn FAILED: settlement=" + entry.m_Settlement + " pos=" + entry.m_Position);
+			dmBotLog.Debug("", "[SpawnManager] spawn FAILED: settlement=" + entry.m_Settlement + " pos=" + entry.m_Position);
 			#endif
 			return;
 		}
@@ -184,14 +184,14 @@ class dmBotSpawnManager
 
 		#ifdef DM_BOT_DEBUG_SPAWN
 		if (m_Config.StartWater > 0.0 || m_Config.StartEnergy > 0.0)
-			dmBotLog.Debug("[SpawnManager] start vitals: water=" + m_Config.StartWater + " energy=" + m_Config.StartEnergy);
+			dmBotLog.Debug("", "[SpawnManager] start vitals: water=" + m_Config.StartWater + " energy=" + m_Config.StartEnergy);
 		#endif
 
 		bot.SetFSM(dmBotPreset_Nomad.Create(bot));
 		entry.m_Survivor = bot;
 
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("[SpawnManager] spawned: settlement=" + entry.m_Settlement + " pos=" + entry.m_Position + " total=" + dmAISurvivor.Count());
+		dmBotLog.Debug("", "[SpawnManager] spawned: settlement=" + entry.m_Settlement + " pos=" + entry.m_Position + " total=" + dmAISurvivor.Count());
 		#endif
 	}
 
@@ -224,12 +224,12 @@ class dmBotSpawnManager
 			{
 				m_RestoreQueue.Insert(req);
 				#ifdef DM_BOT_DEBUG_PERSIST
-				dmBotLog.Debug("[SpawnManager] queued restore: " + fileName + " name=" + req.m_Name);
+				dmBotLog.Debug("", "[SpawnManager] queued restore: " + fileName + " name=" + req.m_Name);
 				#endif
 			}
 			else
 			{
-				dmBotLog.Error("[SpawnManager] restore header read failed: " + path);
+				dmBotLog.Error("", "[SpawnManager] restore header read failed: " + path);
 			}
 			hasMatch = FindNextFile(handle, fileName, fileAttr);
 		}
@@ -259,14 +259,14 @@ class dmBotSpawnManager
 		PlayerBase pawn = bot.Spawn(req.m_Position, req.m_Orientation);
 		if (!pawn)
 		{
-			dmBotLog.Error("[SpawnManager] restore spawn FAILED: " + req.m_Name);
+			dmBotLog.Error("", "[SpawnManager] restore spawn FAILED: " + req.m_Name);
 			return;
 		}
 
 		dmAISurvivorBase survivorPawn = bot.GetPawn();
 		if (survivorPawn && !dmBotPersistence.RestoreState(survivorPawn, req.m_Path))
 		{
-			dmBotLog.Error("[SpawnManager] restore state FAILED: " + req.m_Name + " — битый файл удалён, бот деспавнен");
+			dmBotLog.Error("", "[SpawnManager] restore state FAILED: " + req.m_Name + " — битый файл удалён, бот деспавнен");
 			dmBotPersistence.Delete(req.m_Path);
 			bot.Despawn();
 			return;
@@ -292,7 +292,7 @@ class dmBotSpawnManager
 		}
 
 		#ifdef DM_BOT_DEBUG_PERSIST
-		dmBotLog.Debug("[SpawnManager] restored: name=" + req.m_Name + " settlement=" + req.m_Settlement + " total=" + dmAISurvivor.Count());
+		dmBotLog.Debug("", "[SpawnManager] restored: name=" + req.m_Name + " settlement=" + req.m_Settlement + " total=" + dmAISurvivor.Count());
 		#endif
 	}
 

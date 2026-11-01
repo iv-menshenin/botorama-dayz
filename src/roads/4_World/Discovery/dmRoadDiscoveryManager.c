@@ -87,7 +87,7 @@ class dmRoadDiscoveryManager
 		m_TileIndex = 0;
 
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[DISCOVERY] tiles=" + m_Tiles.Count() + " done=" + m_Progress.DoneTiles.Count());
+		dmBotLog.Debug("", "[DISCOVERY] tiles=" + m_Tiles.Count() + " done=" + m_Progress.DoneTiles.Count());
 		#endif
 	}
 
@@ -102,7 +102,7 @@ class dmRoadDiscoveryManager
 		string error;
 		if (!JsonFileLoader<dmRoadDiscoveryProgress>.LoadFile(DM_ROADS_PROGRESS_FILE, loaded, error))
 		{
-			dmBotLog.Error("[DISCOVERY] progress load failed: " + error);
+			dmBotLog.Error("", "[DISCOVERY] progress load failed: " + error);
 			return;
 		}
 		if (!loaded || !loaded.DoneTiles)
@@ -150,7 +150,7 @@ class dmRoadDiscoveryManager
 			m_Progress.DoneTiles.Insert(key);
 			SaveProgress();
 			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[DISCOVERY] tile " + key + " done=" + m_Progress.DoneTiles.Count() + "/" + m_Tiles.Count());
+			dmBotLog.Debug("", "[DISCOVERY] tile " + key + " done=" + m_Progress.DoneTiles.Count() + "/" + m_Tiles.Count());
 			#endif
 			m_TileIndex = m_TileIndex + 1;
 			return;
@@ -204,7 +204,7 @@ class dmRoadDiscoveryManager
 		EnsureDirectory(DM_ROADS_PROGRESS_FILE);
 		string error;
 		if (!JsonFileLoader<dmRoadDiscoveryProgress>.SaveFile(DM_ROADS_PROGRESS_FILE, m_Progress, error))
-			dmBotLog.Error("[DISCOVERY] progress save failed: " + error);
+			dmBotLog.Error("", "[DISCOVERY] progress save failed: " + error);
 	}
 
 	//! One-time final step: merge every tile graph into one, sew coincident
@@ -228,7 +228,7 @@ class dmRoadDiscoveryManager
 			string key = m_Progress.DoneTiles[k];
 			if (!JsonFileLoader<dmRoadGraph>.LoadFile(DM_ROADS_TILES_DIR + "/" + key + ".json", tile, error))
 			{
-				dmBotLog.Error("[DISCOVERY] tile load failed: " + key + ": " + error);
+				dmBotLog.Error("", "[DISCOVERY] tile load failed: " + key + ": " + error);
 				continue;
 			}
 			AppendTile(merged, tile, nodeOffset, edgeOffset);
@@ -245,7 +245,7 @@ class dmRoadDiscoveryManager
 		dmRoadGapIO.Save(gaps, DM_ROADS_GAP_FILE);
 		WriteMarker();
 
-		dmBotLog.Error("[DISCOVERY] COMPLETE nodes=" + merged.Nodes.Count() + " edges=" + merged.Edges.Count() + " gaps=" + gaps.Gaps.Count());
+		dmBotLog.Error("", "[DISCOVERY] COMPLETE nodes=" + merged.Nodes.Count() + " edges=" + merged.Edges.Count() + " gaps=" + gaps.Gaps.Count());
 	}
 
 	//! Append one tile's nodes/edges into the merged graph, renumbering their ids

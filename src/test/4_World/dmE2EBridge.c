@@ -229,13 +229,13 @@ class dmE2EBridge
 		{
 			s_TickLogged = true;
 			#ifdef DM_BOT_DEBUG_E2E
-			dmBotLog.Debug("[E2E] bridge tick active (CallLater)");
+			dmBotLog.Debug("", "[E2E] bridge tick active (CallLater)");
 			#endif
 		}
 
 		#ifdef DM_BOT_DEBUG_E2E
 		if (s_TickCount % 5 == 0)
-			dmBotLog.Debug("[E2E] tick N=" + s_TickCount);
+			dmBotLog.Debug("", "[E2E] tick N=" + s_TickCount);
 		#endif
 
 		Tick(DM_E2E_TICK_DT);
@@ -249,7 +249,7 @@ class dmE2EBridge
 		{
 			#ifdef DM_BOT_DEBUG_E2E
 			if (s_TickCount % 5 == 0)
-				dmBotLog.Debug("[E2E] enabled missing");
+				dmBotLog.Debug("", "[E2E] enabled missing");
 			#endif
 			return;
 		}
@@ -310,14 +310,14 @@ class dmE2EBridge
 	private void StartJob(string jobPath, string fileName)
 	{
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] job picked up: " + fileName);
+		dmBotLog.Debug("", "[E2E] job picked up: " + fileName);
 		#endif
 
 		dmE2EJob job;
 		string loadError;
 		if (!JsonFileLoader<dmE2EJob>.LoadFile(jobPath, job, loadError))
 		{
-			dmBotLog.Error("[E2E] load failed: " + fileName + ": " + loadError);
+			dmBotLog.Error("", "[E2E] load failed: " + fileName + ": " + loadError);
 
 			dmE2EResult failResult = new dmE2EResult();
 			failResult.Steps = new array<ref dmE2EStepResult>();
@@ -454,7 +454,7 @@ class dmE2EBridge
 		ClearNamed();
 
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] job done: " + m_Result.Name + " status=" + m_Result.Status);
+		dmBotLog.Debug("", "[E2E] job done: " + m_Result.Name + " status=" + m_Result.Status);
 		#endif
 
 		m_Job = null;
@@ -537,7 +537,7 @@ class dmE2EBridge
 			if (car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER) == pawn && !gettingIn)
 			{
 				#ifdef DM_BOT_DEBUG_E2E
-				dmBotLog.Debug("[E2E] drivetest: seated");
+				dmBotLog.Debug("", "[E2E] drivetest: seated");
 				#endif
 				m_DriveTestPhase = 1;
 				m_DriveTestTestElapsed = 0.0;
@@ -612,8 +612,8 @@ class dmE2EBridge
 		string dump = DriveTestCarDump(step);
 
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] drivetest abort: " + reason);
-		dmBotLog.Debug("[E2E] drivetest cardump: " + dump);
+		dmBotLog.Debug("", "[E2E] drivetest abort: " + reason);
+		dmBotLog.Debug("", "[E2E] drivetest cardump: " + dump);
 		#endif
 
 		dmE2EStepResult abortResult = new dmE2EStepResult();
@@ -2447,8 +2447,8 @@ class dmE2EBridge
 	private void LogStep(dmE2EStepResult r)
 	{
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] step " + r.Index + " " + r.Op + " ok=" + r.Ok);
-		dmBotLog.Debug("[E2E] step reason=" + r.Reason);
+		dmBotLog.Debug("", "[E2E] step " + r.Index + " " + r.Op + " ok=" + r.Ok);
+		dmBotLog.Debug("", "[E2E] step reason=" + r.Reason);
 		#endif
 	}
 
@@ -2576,7 +2576,7 @@ class dmE2EBridge
 	{
 		r.Dump.Insert(line);
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] " + line);
+		dmBotLog.Debug("", "[E2E] " + line);
 		#endif
 	}
 
@@ -4077,7 +4077,7 @@ class dmE2EBridge
 		pawn.RequestMeleeAttack(targetPawn);
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[E2E] strike " + step.Who + " -> " + step.Target);
+		dmBotLog.Debug("", "[E2E] strike " + step.Who + " -> " + step.Target);
 		#endif
 
 		string line = "strike requested target=" + targetPawn.GetType();
@@ -4113,7 +4113,7 @@ class dmE2EBridge
 		pawn.RequestMeleeEvade(step.Yaw);
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[E2E] evade " + step.Who + " angle=" + step.Yaw);
+		dmBotLog.Debug("", "[E2E] evade " + step.Who + " angle=" + step.Yaw);
 		#endif
 
 		string line = "evade requested angle=" + step.Yaw;
@@ -4150,7 +4150,7 @@ class dmE2EBridge
 		pawn.SetTargetBodyYaw(step.Yaw);
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[E2E] orient " + step.Who + " yaw=" + step.Yaw);
+		dmBotLog.Debug("", "[E2E] orient " + step.Who + " yaw=" + step.Yaw);
 		#endif
 
 		string line = "orient yaw=" + step.Yaw + " actual=" + bot.GetOrientation();
@@ -4192,7 +4192,7 @@ class dmE2EBridge
 			state = "off";
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[E2E] raiseweapon " + step.Who + " raise=" + state);
+		dmBotLog.Debug("", "[E2E] raiseweapon " + step.Who + " raise=" + state);
 		#endif
 
 		string line = "raise=" + state;
@@ -4298,7 +4298,7 @@ class dmE2EBridge
 		pawn.SetMove(step.Yaw, step.Speed);
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[E2E] move " + step.Who + " yaw=" + step.Yaw + " speed=" + step.Speed);
+		dmBotLog.Debug("", "[E2E] move " + step.Who + " yaw=" + step.Yaw + " speed=" + step.Speed);
 		#endif
 
 		string line = "move yaw=" + step.Yaw + " speed=" + step.Speed;
@@ -4575,7 +4575,7 @@ class dmE2EBridge
 		car.GetInventory().CreateInInventory(wheel);
 
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] spawncar wheels: present=" + car.WheelCountPresent() + " count=" + car.WheelCount());
+		dmBotLog.Debug("", "[E2E] spawncar wheels: present=" + car.WheelCountPresent() + " count=" + car.WheelCount());
 		int i;
 		EntityAI wheelEnt;
 		string wheelStatus;
@@ -4587,11 +4587,11 @@ class dmE2EBridge
 				wheelStatus = "ok";
 				if (wheelEnt.IsRuined())
 					wheelStatus = "ruined";
-				dmBotLog.Debug("[E2E] spawncar wheel[" + i + "] " + wheelStatus + " " + wheelEnt.GetType());
+				dmBotLog.Debug("", "[E2E] spawncar wheel[" + i + "] " + wheelStatus + " " + wheelEnt.GetType());
 			}
 			else
 			{
-				dmBotLog.Debug("[E2E] spawncar wheel[" + i + "] null");
+				dmBotLog.Debug("", "[E2E] spawncar wheel[" + i + "] null");
 			}
 		}
 		#endif
@@ -4985,7 +4985,7 @@ class dmE2EBridge
 			guard = guard + 1;
 			if (guard > 1000)
 			{
-				dmBotLog.Error("[E2E] griddump: NextChunk loop guard hit");
+				dmBotLog.Error("", "[E2E] griddump: NextChunk loop guard hit");
 				break;
 			}
 		}
@@ -5110,10 +5110,10 @@ class dmE2EBridge
 		string saveError;
 		bool saved = JsonFileLoader<dmGridDump>.SaveFile(dumpPath, dump, saveError);
 		if (!saved)
-			dmBotLog.Error("[E2E] griddump save failed: " + saveError);
+			dmBotLog.Error("", "[E2E] griddump save failed: " + saveError);
 
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] griddump: " + hStatus + " cells=" + cellCount + " route=" + route.Count());
+		dmBotLog.Debug("", "[E2E] griddump: " + hStatus + " cells=" + cellCount + " route=" + route.Count());
 		#endif
 
 		AppendDump(r, "buildMs=" + buildMs);
@@ -5206,10 +5206,10 @@ class dmE2EBridge
 		string saveError;
 		bool saved = JsonFileLoader<dmGridDump>.SaveFile(dumpPath, dump, saveError);
 		if (!saved)
-			dmBotLog.Error("[E2E] dumpgrid save failed: " + saveError);
+			dmBotLog.Error("", "[E2E] dumpgrid save failed: " + saveError);
 
 		#ifdef DM_BOT_DEBUG_E2E
-		dmBotLog.Debug("[E2E] dumpgrid: " + hStatus + " cells=" + cellCount + " route=" + dump.Route.Count());
+		dmBotLog.Debug("", "[E2E] dumpgrid: " + hStatus + " cells=" + cellCount + " route=" + dump.Route.Count());
 		#endif
 
 		r.Ok = saved;
@@ -5252,7 +5252,7 @@ class dmE2EBridge
 		EnsureDir(outPath);
 		string saveError;
 		if (!JsonFileLoader<dmE2EResult>.SaveFile(outPath, result, saveError))
-			dmBotLog.Error("[E2E] write result failed: " + outPath + ": " + saveError);
+			dmBotLog.Error("", "[E2E] write result failed: " + outPath + ": " + saveError);
 	}
 
 	//! Move the processed input to e2e/done/ (copy then delete).

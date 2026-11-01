@@ -77,7 +77,7 @@ class dmBotPersistence
 	{
 		if (!bot)
 		{
-			dmBotLog.Error("[Persist] Save: bot is null");
+			dmBotLog.Error("", "[Persist] Save: bot is null");
 			return false;
 		}
 
@@ -123,7 +123,7 @@ class dmBotPersistence
 		FileSerializer file = new FileSerializer();
 		if (!file.Open(path, FileMode.READ))
 		{
-			dmBotLog.Error("[Persist] ReadHeader: cannot open " + path);
+			dmBotLog.Error("", "[Persist] ReadHeader: cannot open " + path);
 			return false;
 		}
 
@@ -131,7 +131,7 @@ class dmBotPersistence
 		bool ok = file.Read(persistVersion);
 		if (ok && persistVersion != DM_PERSIST_FORMAT_VERSION)
 		{
-			dmBotLog.Error("[Persist] unsupported format version " + persistVersion + " (expected " + DM_PERSIST_FORMAT_VERSION + ")");
+			dmBotLog.Error("", "[Persist] unsupported format version " + persistVersion + " (expected " + DM_PERSIST_FORMAT_VERSION + ")");
 			file.Close();
 			return false;
 		}
@@ -150,7 +150,7 @@ class dmBotPersistence
 
 		if (!ok)
 		{
-			dmBotLog.Error("[Persist] ReadHeader: read failed for " + path);
+			dmBotLog.Error("", "[Persist] ReadHeader: read failed for " + path);
 			return false;
 		}
 		return true;
@@ -161,7 +161,7 @@ class dmBotPersistence
 	{
 		if (!pawn)
 		{
-			dmBotLog.Error("[Persist] RestoreState: pawn is null");
+			dmBotLog.Error("", "[Persist] RestoreState: pawn is null");
 			return false;
 		}
 
@@ -201,12 +201,12 @@ class dmBotPersistence
 
 		if (!DeleteFile(path))
 		{
-			dmBotLog.Error("[Persist] Delete: cannot delete " + path);
+			dmBotLog.Error("", "[Persist] Delete: cannot delete " + path);
 			return false;
 		}
 
 		#ifdef DM_BOT_DEBUG_PERSIST
-		dmBotLog.Debug("[Persist] Delete: removed " + path);
+		dmBotLog.Debug("", "[Persist] Delete: removed " + path);
 		#endif
 		return true;
 	}
@@ -263,7 +263,7 @@ class dmBotPersistence
 		bool ok = ctx.Read(persistVersion);
 		if (ok && persistVersion != DM_PERSIST_FORMAT_VERSION)
 		{
-			dmBotLog.Error("[Persist] SkipHeader: unsupported format version " + persistVersion);
+			dmBotLog.Error("", "[Persist] SkipHeader: unsupported format version " + persistVersion);
 			return false;
 		}
 		if (ok)
@@ -478,7 +478,7 @@ class dmBotPersistence
 			ItemBase cargoItem = ItemBase.Cast(cargo.GetItem(i));
 			if (!cargoItem)
 			{
-				dmBotLog.Error("[Persist] StoreCargo: null item at index " + i);
+				dmBotLog.Error("", "[Persist] StoreCargo: null item at index " + i);
 				return false;
 			}
 
@@ -497,7 +497,7 @@ class dmBotPersistence
 		InventoryLocation loc = new InventoryLocation();
 		if (!item.GetInventory().GetCurrentInventoryLocation(loc))
 		{
-			dmBotLog.Error("[Persist] StoreLocation: no InventoryLocation for " + item.GetType());
+			dmBotLog.Error("", "[Persist] StoreLocation: no InventoryLocation for " + item.GetType());
 			return false;
 		}
 
@@ -596,7 +596,7 @@ class dmBotPersistence
 		ItemBase item = ItemBase.Cast(GetGame().CreateObject(className, Vector(0, 0, 0)));
 		if (!item)
 		{
-			dmBotLog.Error("[Persist] LoadCargoItem: cannot create " + className);
+			dmBotLog.Error("", "[Persist] LoadCargoItem: cannot create " + className);
 			return false;
 		}
 
@@ -609,7 +609,7 @@ class dmBotPersistence
 		{
 			if (!parent.TakeEntityToInventory(InventoryMode.SERVER, FindInventoryLocationType.CARGO, item))
 			{
-				dmBotLog.Error("[Persist] LoadCargoItem: cannot place " + className + " into cargo");
+				dmBotLog.Error("", "[Persist] LoadCargoItem: cannot place " + className + " into cargo");
 				GetGame().ObjectDelete(item);
 				return false;
 			}
@@ -656,7 +656,7 @@ class dmBotPersistence
 		ItemBase attachment = ItemBase.Cast(inventory.CreateAttachmentEx(className, slotID));
 		if (!attachment)
 		{
-			dmBotLog.Error("[Persist] LoadAttachment: cannot create " + className + " in slot " + slotID);
+			dmBotLog.Error("", "[Persist] LoadAttachment: cannot create " + className + " in slot " + slotID);
 			return false;
 		}
 

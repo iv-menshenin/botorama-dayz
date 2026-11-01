@@ -551,7 +551,7 @@ class dmCampCoverFinder
 		if (m_DoorCache.Find(key, doors))
 		{
 			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] doors cache hit key=" + key);
+			dmBotLog.Debug("", "[Camp] doors cache hit key=" + key);
 			#endif
 			return true;
 		}
@@ -623,7 +623,7 @@ class dmCampCoverFinder
 			if (m_Jobs[i].GetKey() == job.GetKey())
 			{
 				#ifdef DM_BOT_DEBUG_CAMP
-				dmBotLog.Debug("[Camp] job dedup key=" + job.GetKey());
+				dmBotLog.Debug("", "[Camp] job dedup key=" + job.GetKey());
 				#endif
 				return;
 			}
@@ -631,7 +631,7 @@ class dmCampCoverFinder
 		m_Jobs.Insert(job);
 
 		#ifdef DM_BOT_DEBUG_CAMP
-		dmBotLog.Debug("[Camp] job enqueued key=" + job.GetKey() + " queue=" + m_Jobs.Count());
+		dmBotLog.Debug("", "[Camp] job enqueued key=" + job.GetKey() + " queue=" + m_Jobs.Count());
 		#endif
 	}
 }

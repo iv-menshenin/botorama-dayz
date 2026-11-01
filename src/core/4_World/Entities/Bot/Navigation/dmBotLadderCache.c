@@ -56,7 +56,7 @@ class dmBotLadderCache
 		m_Cache.Set(type, ladders);
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Ladder] building=" + type + " ladders=" + ladders.Count());
+		dmBotLog.Debug("", "[Ladder] building=" + type + " ladders=" + ladders.Count());
 		#endif
 
 		return ladders;
@@ -113,8 +113,8 @@ class dmBotLadderCache
 		for (i = 0; i < ladders.Count(); i++)
 		{
 			dmBotLadder lad = ladders[i];
-			dmBotLog.Debug("[Ladder] index=" + lad.m_Index + " type=" + lad.m_Type);
-			dmBotLog.Debug("[Ladder] bottom=" + lad.m_Bottom + " top=" + lad.m_Top);
+			dmBotLog.Debug("", "[Ladder] index=" + lad.m_Index + " type=" + lad.m_Type);
+			dmBotLog.Debug("", "[Ladder] bottom=" + lad.m_Bottom + " top=" + lad.m_Top);
 		}
 		#endif
 

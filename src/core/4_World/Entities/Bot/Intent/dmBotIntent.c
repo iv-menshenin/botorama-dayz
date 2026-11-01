@@ -84,7 +84,7 @@ class dmBotIntent
 	void Finish()
 	{
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".Finish");
+		dmBotLog.Debug("", "[FSM] BotIntent: " + GetIntentName() + ".Finish");
 		#endif
 		m_Finished = true;
 	}
@@ -96,7 +96,7 @@ class dmBotIntent
 	void Fail()
 	{
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".Fail");
+		dmBotLog.Debug("", "[FSM] BotIntent: " + GetIntentName() + ".Fail");
 		#endif
 		m_Failed = true;
 		m_Finished = true;

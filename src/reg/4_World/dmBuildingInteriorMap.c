@@ -35,7 +35,7 @@ class dmBuildingInteriorMap
 		dmBuildingInteriorConfig config;
 		if (!reader.Load(config))
 		{
-			dmBotLog.Error("[InteriorMap] read error " + DM_MAP_BUILDINGS_FILE + ": " + reader.Errors());
+			dmBotLog.Error("", "[InteriorMap] read error " + DM_MAP_BUILDINGS_FILE + ": " + reader.Errors());
 			return;
 		}
 		m_Config = config;
@@ -53,7 +53,7 @@ class dmBuildingInteriorMap
 		}
 
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("[InteriorMap] loaded " + m_ByClass.Count() + " building entries");
+		dmBotLog.Debug("", "[InteriorMap] loaded " + m_ByClass.Count() + " building entries");
 		#endif
 	}
 

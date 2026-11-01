@@ -120,9 +120,9 @@ class dmBallisticsBridge
 		s_DropCoef[shooter] = coef;
 		#ifdef DM_BOT_DEBUG_BALLISTICS
 		if ( hitEntity )
-			dmBotLog.Debug("[Ballistics] FEEDBACK hitEntity=" + hitEntity.GetType());
-		dmBotLog.Debug("[Ballistics] FEEDBACK targetDist=" + st.m_TargetDist + " along=" + along + " coef=" + coef);
-		dmBotLog.Debug("[Ballistics] FEEDBACK offset=" + offset + " lateral=" + lateral + " speed=" + speed);
+			dmBotLog.Debug("", "[Ballistics] FEEDBACK hitEntity=" + hitEntity.GetType());
+		dmBotLog.Debug("", "[Ballistics] FEEDBACK targetDist=" + st.m_TargetDist + " along=" + along + " coef=" + coef);
+		dmBotLog.Debug("", "[Ballistics] FEEDBACK offset=" + offset + " lateral=" + lateral + " speed=" + speed);
 		#endif
 		float lc = GetLatCorr(shooter);
 		lc = lc - DM_LAT_LEARN_RATE * missAngle;
@@ -132,7 +132,7 @@ class dmBallisticsBridge
 			lc = DM_LAT_COEF_MAX;
 		s_LatCorr[shooter] = lc;
 		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] CORR missAngle=" + missAngle + " coef=" + lc);
+		dmBotLog.Debug("", "[Ballistics] CORR missAngle=" + missAngle + " coef=" + lc);
 		#endif
 	}
 }

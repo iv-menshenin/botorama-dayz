@@ -33,7 +33,7 @@ class dmBrownZone
 		m_Zones.Insert(e);
 
 		#ifdef DM_BOT_DEBUG_COVER
-		dmBotLog.Debug("[BrownZone] add pos=" + pos + " radius=" + radius + " until=" + e.m_Until);
+		dmBotLog.Debug("", "[BrownZone] add pos=" + pos + " radius=" + radius + " until=" + e.m_Until);
 		#endif
 	}
 

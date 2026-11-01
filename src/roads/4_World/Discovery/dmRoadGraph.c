@@ -94,7 +94,7 @@ class dmRoadGraphBuilder
 			vector seed = seeds[i];
 			if (!dmRoadSensor.IsDrivable(seed[0], seed[2]))
 			{
-				dmBotLog.Error("[ROADG] seed not drivable (" + seed[0] + "," + seed[2] + ")");
+				dmBotLog.Error("", "[ROADG] seed not drivable (" + seed[0] + "," + seed[2] + ")");
 				continue;
 			}
 			int nodeId = AddNode(seed, "seed");
@@ -109,7 +109,7 @@ class dmRoadGraphBuilder
 		}
 
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[ROADG] nodes=" + m_Graph.Nodes.Count() + " edges=" + m_Graph.Edges.Count());
+		dmBotLog.Debug("", "[ROADG] nodes=" + m_Graph.Nodes.Count() + " edges=" + m_Graph.Edges.Count());
 		#endif
 
 		return m_Graph;

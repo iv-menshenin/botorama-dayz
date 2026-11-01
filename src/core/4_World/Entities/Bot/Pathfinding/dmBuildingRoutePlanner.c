@@ -133,7 +133,7 @@ class dmBuildingRoutePlanner
 		for (i = 0; i < toRemove.Count(); i++)
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Explore] route скипнута (близко) " + toRemove[i]);
+			dmBotLog.Debug("", "[Explore] route скипнута (близко) " + toRemove[i]);
 			#endif
 			RemovePoint(toRemove[i]);
 		}
@@ -176,7 +176,7 @@ class dmBuildingRoutePlanner
 			probe.m_Length = 0.0;
 			m_ProbeScanIdx = m_ProbeScanIdx + 1;
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Explore] route кандидат " + probe.m_Point + " недостижимая (нет снапа)");
+			dmBotLog.Debug("", "[Explore] route кандидат " + probe.m_Point + " недостижимая (нет снапа)");
 			#endif
 			return;
 		}
@@ -189,7 +189,7 @@ class dmBuildingRoutePlanner
 			probe.m_Length = 0.0;
 			m_ProbeScanIdx = m_ProbeScanIdx + 1;
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Explore] route кандидат " + probe.m_Point + " недостижимая");
+			dmBotLog.Debug("", "[Explore] route кандидат " + probe.m_Point + " недостижимая");
 			#endif
 			return;
 		}
@@ -198,7 +198,7 @@ class dmBuildingRoutePlanner
 		probe.m_Length = m_Pathfinder.PathLength2D(waypoints);
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Explore] route кандидат " + probe.m_Point + " сегментов=" + probe.m_Segments + " длина=" + probe.m_Length);
+		dmBotLog.Debug("", "[Explore] route кандидат " + probe.m_Point + " сегментов=" + probe.m_Segments + " длина=" + probe.m_Length);
 		#endif
 
 		m_ProbeScanIdx = m_ProbeScanIdx + 1;
@@ -230,7 +230,7 @@ class dmBuildingRoutePlanner
 			for (i = 0; i < m_Probes.Count(); i++)
 				RemoveFromQueue(m_Probes[i].m_Point);
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Explore] route все кандидаты недостижимы, пропускаю " + m_Probes.Count() + " точек");
+			dmBotLog.Debug("", "[Explore] route все кандидаты недостижимы, пропускаю " + m_Probes.Count() + " точек");
 			#endif
 			m_State = dmRoutePlannerState.PENDING;
 			return;
@@ -242,7 +242,7 @@ class dmBuildingRoutePlanner
 		m_Current = best.m_Snapped;
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Explore] route выбрана " + best.m_Point + " сегментов=" + bestSegments + " длина=" + bestLength);
+		dmBotLog.Debug("", "[Explore] route выбрана " + best.m_Point + " сегментов=" + bestSegments + " длина=" + bestLength);
 		#endif
 
 		m_State = dmRoutePlannerState.PENDING;

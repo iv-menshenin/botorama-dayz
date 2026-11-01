@@ -21,14 +21,14 @@ modded class DayZGame
 		EntityAI hitEnt = EntityAI.Cast(directHit);
 		if (hitEnt)
 			hit = hitEnt.GetType();
-		dmBotLog.Debug("[Ballistics] IMPACT time=" + GetGame().GetTime() + " source=" + src + " directHit=" + hit);
-		dmBotLog.Debug("[Ballistics] IMPACT componentIndex=" + componentIndex + " surface=" + surface);
-		dmBotLog.Debug("[Ballistics] IMPACT pos=" + pos + " surfNormal=" + surfNormal + " exitPos=" + exitPos);
-		dmBotLog.Debug("[Ballistics] IMPACT inSpeed=" + inSpeed + " outSpeed=" + outSpeed);
-		dmBotLog.Debug("[Ballistics] IMPACT isWater=" + isWater + " deflected=" + deflected + " ammoType=" + ammoType);
+		dmBotLog.Debug("", "[Ballistics] IMPACT time=" + GetGame().GetTime() + " source=" + src + " directHit=" + hit);
+		dmBotLog.Debug("", "[Ballistics] IMPACT componentIndex=" + componentIndex + " surface=" + surface);
+		dmBotLog.Debug("", "[Ballistics] IMPACT pos=" + pos + " surfNormal=" + surfNormal + " exitPos=" + exitPos);
+		dmBotLog.Debug("", "[Ballistics] IMPACT inSpeed=" + inSpeed + " outSpeed=" + outSpeed);
+		dmBotLog.Debug("", "[Ballistics] IMPACT isWater=" + isWater + " deflected=" + deflected + " ammoType=" + ammoType);
 		#endif
 		#ifdef DM_PERCEPTION_DEBUG
-		dmBotLog.Debug("[Noise] FirearmEffects: pos=" + pos);
+		dmBotLog.Debug("", "[Noise] FirearmEffects: pos=" + pos);
 		#endif
 		#endif
 	}

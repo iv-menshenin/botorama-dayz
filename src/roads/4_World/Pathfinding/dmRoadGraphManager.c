@@ -79,11 +79,11 @@ class dmRoadGraphManager
 		BuildFullCSR(full);
 		BuildCoarseCSR(coarse);
 
-		dmBotLog.Error("[ROADS] full=" + full.Nodes.Count() + "n/" + full.Edges.Count() + "e");
-		dmBotLog.Error("[ROADS] coarse=" + coarse.Nodes.Count() + "n/" + coarse.Edges.Count() + "e");
+		dmBotLog.Error("", "[ROADS] full=" + full.Nodes.Count() + "n/" + full.Edges.Count() + "e");
+		dmBotLog.Error("", "[ROADS] coarse=" + coarse.Nodes.Count() + "n/" + coarse.Edges.Count() + "e");
 
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[ROADS] CSR full adj=" + m_FullAdjTarget.Count() + " coarse adj=" + m_CoarseAdjTarget.Count());
+		dmBotLog.Debug("", "[ROADS] CSR full adj=" + m_FullAdjTarget.Count() + " coarse adj=" + m_CoarseAdjTarget.Count());
 		#endif
 	}
 
@@ -98,22 +98,22 @@ class dmRoadGraphManager
 		string error;
 		if (!JsonFileLoader<dmRoadGraph>.LoadFile(DM_ROADS_GRAPH_FILE, full, error))
 		{
-			dmBotLog.Error("[ROADS] full graph load failed: " + error);
+			dmBotLog.Error("", "[ROADS] full graph load failed: " + error);
 			return false;
 		}
 		if (!full || !full.Nodes || !full.Edges)
 		{
-			dmBotLog.Error("[ROADS] full graph empty/malformed: " + DM_ROADS_GRAPH_FILE);
+			dmBotLog.Error("", "[ROADS] full graph empty/malformed: " + DM_ROADS_GRAPH_FILE);
 			return false;
 		}
 		if (!JsonFileLoader<dmSimplifiedGraph>.LoadFile(DM_ROADS_SIMPLIFIED_FILE, coarse, error))
 		{
-			dmBotLog.Error("[ROADS] simplified graph load failed: " + error);
+			dmBotLog.Error("", "[ROADS] simplified graph load failed: " + error);
 			return false;
 		}
 		if (!coarse || !coarse.Nodes || !coarse.Edges)
 		{
-			dmBotLog.Error("[ROADS] simplified graph empty/malformed: " + DM_ROADS_SIMPLIFIED_FILE);
+			dmBotLog.Error("", "[ROADS] simplified graph empty/malformed: " + DM_ROADS_SIMPLIFIED_FILE);
 			return false;
 		}
 		return true;

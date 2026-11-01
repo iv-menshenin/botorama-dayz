@@ -51,7 +51,7 @@ class dmRoadObjectGraphBuilder
 			BuildSegment(objects[i]);
 
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[ROADNET] segments full=" + m_FullSegments + " partial=" + m_PartialSegments);
+		dmBotLog.Debug("", "[ROADNET] segments full=" + m_FullSegments + " partial=" + m_PartialSegments);
 		#endif
 
 		ConnectGraph();
@@ -61,7 +61,7 @@ class dmRoadObjectGraphBuilder
 		RenumberContiguous();
 
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[ROADNET] objects=" + objects.Count() + " nodes=" + m_Graph.Nodes.Count() + " edges=" + m_Graph.Edges.Count());
+		dmBotLog.Debug("", "[ROADNET] objects=" + objects.Count() + " nodes=" + m_Graph.Nodes.Count() + " edges=" + m_Graph.Edges.Count());
 		#endif
 
 		return m_Graph;
@@ -138,14 +138,14 @@ class dmRoadObjectGraphBuilder
 			for (z = min[2]; z <= max[2]; z = z + DM_ROAD_SCAN_STEP)
 			{
 				#ifdef DM_BOT_DEBUG_ROADS
-				dmBotLog.Debug("[ROADNET] grid (" + x + "," + z + ")");
+				dmBotLog.Debug("", "[ROADNET] grid (" + x + "," + z + ")");
 				#endif
 				terrainY = GetGame().SurfaceY(x, z);
 				objs.Clear();
 				cargos.Clear();
 				GetGame().GetObjectsAtPosition(Vector(x, terrainY, z), 12.0, objs, cargos);
 				#ifdef DM_BOT_DEBUG_ROADS
-				dmBotLog.Debug("[ROADNET] (" + x + "," + z + ") objs=" + objs.Count());
+				dmBotLog.Debug("", "[ROADNET] (" + x + "," + z + ") objs=" + objs.Count());
 				#endif
 				for (i = 0; i < objs.Count(); i++)
 				{
@@ -283,7 +283,7 @@ class dmRoadObjectGraphBuilder
 		int merged = MergeDeadends();
 		int split = SplitEdges();
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[ROADNET] connect: merged=" + merged + " split=" + split);
+		dmBotLog.Debug("", "[ROADNET] connect: merged=" + merged + " split=" + split);
 		#endif
 	}
 

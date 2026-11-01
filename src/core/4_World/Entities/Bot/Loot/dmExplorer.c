@@ -81,7 +81,7 @@ class dmExplorer
 		SetNothingToDo(false);
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Explorer: прибыл в локацию " + loc.Id + " (" + loc.Name + "), зданий " + m_LocationBuildings.Count());
+		dmBotLog.Debug("", "[Loot] Explorer: прибыл в локацию " + loc.Id + " (" + loc.Name + "), зданий " + m_LocationBuildings.Count());
 		#endif
 	}
 

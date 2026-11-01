@@ -10,7 +10,7 @@ class dmRoadGraphIO
 		string error;
 		if (!JsonFileLoader<dmRoadGraph>.SaveFile(path, graph, error))
 		{
-			dmBotLog.Error("[ROADG] save failed: " + path + ": " + error);
+			dmBotLog.Error("", "[ROADG] save failed: " + path + ": " + error);
 			return false;
 		}
 		return true;

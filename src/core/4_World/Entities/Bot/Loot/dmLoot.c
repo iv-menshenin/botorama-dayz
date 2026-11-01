@@ -346,7 +346,7 @@ class dmLoot
 		{
 			container.Open();
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Открыл контейнер " + container.GetType());
+			dmBotLog.Debug("", "[Loot] Открыл контейнер " + container.GetType());
 			#endif
 		}
 	}
@@ -562,7 +562,7 @@ class dmLoot
 		}
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Стрип трупа: выложено " + dropped + " вещей");
+		dmBotLog.Debug("", "[Loot] Стрип трупа: выложено " + dropped + " вещей");
 		#endif
 
 		return dropped;

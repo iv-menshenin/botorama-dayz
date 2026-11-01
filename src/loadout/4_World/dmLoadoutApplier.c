@@ -33,12 +33,12 @@ class dmLoadoutApplier
 		dmLoadoutConfig cfg;
 		if (!reader.Load(cfg))
 		{
-			dmBotLog.Error("Loadout read error " + path + ": " + reader.Errors());
+			dmBotLog.Error("", "Loadout read error " + path + ": " + reader.Errors());
 			return null;
 		}
 
 		#ifdef DM_BOT_DEBUG_LOADOUT
-		dmBotLog.Debug("Loadout '" + name + "' loaded (version " + cfg.GetVersion() + ")");
+		dmBotLog.Debug("", "Loadout '" + name + "' loaded (version " + cfg.GetVersion() + ")");
 		#endif
 		return cfg;
 	}
@@ -307,13 +307,13 @@ class dmLoadoutApplier
 		if (!item)
 		{
 			#ifdef DM_BOT_DEBUG_LOADOUT
-			dmBotLog.Debug("Loadout: skip " + cls + " -> cargo");
+			dmBotLog.Debug("", "Loadout: skip " + cls + " -> cargo");
 			#endif
 			return;
 		}
 
 		#ifdef DM_BOT_DEBUG_LOADOUT
-		dmBotLog.Debug("Loadout + " + cls + " -> cargo");
+		dmBotLog.Debug("", "Loadout + " + cls + " -> cargo");
 		#endif
 
 		FinishItem(item, itemCfg, preset);
@@ -330,13 +330,13 @@ class dmLoadoutApplier
 		if (!child)
 		{
 			#ifdef DM_BOT_DEBUG_LOADOUT
-			dmBotLog.Debug("Loadout: skip " + cls + " -> " + parent.GetType());
+			dmBotLog.Debug("", "Loadout: skip " + cls + " -> " + parent.GetType());
 			#endif
 			return;
 		}
 
 		#ifdef DM_BOT_DEBUG_LOADOUT
-		dmBotLog.Debug("Loadout + " + cls + " -> " + parent.GetType());
+		dmBotLog.Debug("", "Loadout + " + cls + " -> " + parent.GetType());
 		#endif
 
 		FinishItem(child, childCfg, preset);
@@ -355,7 +355,7 @@ class dmLoadoutApplier
 		if (parent.IsWeapon() && g_Game.ConfigIsExisting(CFG_MAGAZINESPATH + " " + cls))
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[LOOT] CreateChild cls=" + cls + " parent=" + parent.GetType());
+			dmBotLog.Debug("", "[LOOT] CreateChild cls=" + cls + " parent=" + parent.GetType());
 			#endif
 			if ( Class.CastTo(wep, parent) )
 			{
@@ -389,7 +389,7 @@ class dmLoadoutApplier
 	static EntityAI CreateInContainerFallback(EntityAI parent, string cls)
 	{
 		#ifdef DM_BOT_DEBUG_LOADOUT
-		dmBotLog.Debug("Loadout fallback (nested container): " + cls + " in " + parent.GetType());
+		dmBotLog.Debug("", "Loadout fallback (nested container): " + cls + " in " + parent.GetType());
 		#endif
 
 		EntityAI item = EntityAI.Cast(GetGame().CreateObject(cls, "0 0 0"));

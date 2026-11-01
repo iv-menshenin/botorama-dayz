@@ -10,7 +10,7 @@ class dmRoadGapIO
 		string error;
 		if (!JsonFileLoader<dmRoadGapList>.SaveFile(path, list, error))
 		{
-			dmBotLog.Error("[ROADGAP] save failed: " + path + ": " + error);
+			dmBotLog.Error("", "[ROADGAP] save failed: " + path + ": " + error);
 			return false;
 		}
 		return true;

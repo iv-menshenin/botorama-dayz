@@ -255,7 +255,7 @@ class dmRoadHoneycomb
 		m_State = STATE_COLORING;
 
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[GRID] Start cells=" + total + " rows=" + m_RowCount + " width=" + m_Width);
+		dmBotLog.Debug("", "[GRID] Start cells=" + total + " rows=" + m_RowCount + " width=" + m_Width);
 		#endif
 	}
 
@@ -577,9 +577,9 @@ class dmRoadHoneycomb
 				string _t = "null";
 				if (_h.obj)
 					_t = _h.obj.GetType();
-				dmBotLog.Debug("[GRID] rawHit: ray=" + from + "->" + to + " i=" + _di);
-				dmBotLog.Debug("[GRID] rawHit: obj=" + _t + " pos=" + _h.pos);
-				dmBotLog.Debug("[GRID] rawHit: comp=" + _h.component + " entry=" + _h.entry + " exit=" + _h.exit);
+				dmBotLog.Debug("", "[GRID] rawHit: ray=" + from + "->" + to + " i=" + _di);
+				dmBotLog.Debug("", "[GRID] rawHit: obj=" + _t + " pos=" + _h.pos);
+				dmBotLog.Debug("", "[GRID] rawHit: comp=" + _h.component + " entry=" + _h.entry + " exit=" + _h.exit);
 			}
 		}
 		#endif
@@ -600,7 +600,7 @@ class dmRoadHoneycomb
 				if (hit.obj.IsInherited(DeployableContainer_Base))
 					continue;
 				#ifdef DM_BOT_DEBUG_ROADS
-				dmBotLog.Debug("[GRID] blocked: pos=" + hit.pos + " obj=" + hit.obj.GetType());
+				dmBotLog.Debug("", "[GRID] blocked: pos=" + hit.pos + " obj=" + hit.obj.GetType());
 				#endif
 				return true;
 			}
@@ -933,7 +933,7 @@ class dmRoadHoneycomb
 		{
 			m_State = STATE_FAILED;
 			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] FAILED goal");
+			dmBotLog.Debug("", "[GRID] FAILED goal");
 			#endif
 			return;
 		}
@@ -941,7 +941,7 @@ class dmRoadHoneycomb
 		{
 			m_State = STATE_FAILED;
 			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] FAILED entry");
+			dmBotLog.Debug("", "[GRID] FAILED entry");
 			#endif
 			return;
 		}
@@ -949,7 +949,7 @@ class dmRoadHoneycomb
 		{
 			m_State = STATE_FAILED;
 			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] FAILED exit");
+			dmBotLog.Debug("", "[GRID] FAILED exit");
 			#endif
 			return;
 		}
@@ -981,7 +981,7 @@ class dmRoadHoneycomb
 			{
 				m_State = STATE_FAILED;
 				#ifdef DM_BOT_DEBUG_ROADS
-				dmBotLog.Debug("[GRID] FAILED corridor ended");
+				dmBotLog.Debug("", "[GRID] FAILED corridor ended");
 				#endif
 				return;
 			}
@@ -1048,7 +1048,7 @@ class dmRoadHoneycomb
 		{
 			m_State = STATE_FAILED;
 			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[GRID] FAILED no path");
+			dmBotLog.Debug("", "[GRID] FAILED no path");
 			#endif
 			return;
 		}
@@ -1130,7 +1130,7 @@ class dmRoadHoneycomb
 			stopReason = "fixed";
 		else if (m_RowCount == DM_GRID_MAX_ROWS)
 			stopReason = "cap";
-		dmBotLog.Debug("[GRID] DONE path=" + m_Waypoints.Count() + " rows=" + m_RowCount + " meters=" + meters + " buildMs=" + buildMs + " stop=" + stopReason);
+		dmBotLog.Debug("", "[GRID] DONE path=" + m_Waypoints.Count() + " rows=" + m_RowCount + " meters=" + meters + " buildMs=" + buildMs + " stop=" + stopReason);
 		#endif
 	}
 

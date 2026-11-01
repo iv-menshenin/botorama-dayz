@@ -27,7 +27,7 @@ class dmCarCommand : dmCommandModule
 		if (!car)
 		{
 			#ifdef DM_BOT_DEBUG_CAR
-			dmBotLog.Debug("[CAR] /car repair: нет машины в прицеле");
+			dmBotLog.Debug("", "[CAR] /car repair: нет машины в прицеле");
 			#endif
 			dmCommandManager.ChatToPlayer(player, "Нет машины в прицеле.");
 			return false;

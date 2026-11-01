@@ -29,7 +29,7 @@ class dmRedZone
 		s_Zones.Insert(e);
 
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[RedZone] add pos=" + pos + " radius=" + radius + " until=" + e.m_Until);
+		dmBotLog.Debug("", "[RedZone] add pos=" + pos + " radius=" + radius + " until=" + e.m_Until);
 		#endif
 	}
 

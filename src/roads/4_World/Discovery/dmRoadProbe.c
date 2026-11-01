@@ -38,7 +38,7 @@ class dmRoadProbe
 		if (!dmRoadSensor.IsDrivable(sx, sz))
 		{
 			res.Status = "norseed";
-			dmBotLog.Error("[ROAD] Walk: seed not drivable (" + sx + "," + sz + ")");
+			dmBotLog.Error("", "[ROAD] Walk: seed not drivable (" + sx + "," + sz + ")");
 			return res;
 		}
 
@@ -47,7 +47,7 @@ class dmRoadProbe
 		if (dirs.Count() == 0)
 		{
 			res.Status = "nodir";
-			dmBotLog.Error("[ROAD] Walk: no road directions at seed (" + sx + "," + sz + ")");
+			dmBotLog.Error("", "[ROAD] Walk: no road directions at seed (" + sx + "," + sz + ")");
 			return res;
 		}
 
@@ -237,8 +237,8 @@ class dmRoadProbe
 			step = step + 1;
 
 			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[ROAD] b=" + branchIndex + " step=" + step + " p=(" + p[0] + "," + p[2] + ")");
-			dmBotLog.Debug("[ROAD] w=" + width + " d=(" + dir[0] + "," + dir[2] + ") surf=" + surf);
+			dmBotLog.Debug("", "[ROAD] b=" + branchIndex + " step=" + step + " p=(" + p[0] + "," + p[2] + ")");
+			dmBotLog.Debug("", "[ROAD] w=" + width + " d=(" + dir[0] + "," + dir[2] + ") surf=" + surf);
 			#endif
 
 			if (step > DM_ROAD_MIN_CLOSE_STEPS && vector.DistanceSq(p, seed) < DM_ROAD_CLOSE_DIST * DM_ROAD_CLOSE_DIST)
@@ -471,7 +471,7 @@ class dmRoadProbe
 			step = step + 1;
 
 			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[ROAD] branch step=" + step + " p=(" + p[0] + "," + p[2] + ") surf=" + surf);
+			dmBotLog.Debug("", "[ROAD] branch step=" + step + " p=(" + p[0] + "," + p[2] + ") surf=" + surf);
 			#endif
 
 			if (step % DM_ROAD_JUNCTION_CHECK_STEP == 0 && IsJunction(p, dir, cameFrom))

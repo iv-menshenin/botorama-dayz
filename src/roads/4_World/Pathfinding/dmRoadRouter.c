@@ -371,7 +371,7 @@ class dmRoadRouter
 			if (!heap.Pop(u, poppedF))
 				break;
 			#ifdef DM_BOT_DEBUG_ROADS
-			dmBotLog.Debug("[ROUTER] AStar pop u=" + u + " f=" + poppedF);
+			dmBotLog.Debug("", "[ROUTER] AStar pop u=" + u + " f=" + poppedF);
 			#endif
 			done = false;
 			if (settled.Find(u, done) && done)
@@ -393,7 +393,7 @@ class dmRoadRouter
 					gv = DM_ROUTER_INF;
 				nd = gu + fw[j];
 				#ifdef DM_BOT_DEBUG_ROADS
-				dmBotLog.Debug("[ROUTER] AStar try v=" + v + " nd=" + nd + " gv=" + gv);
+				dmBotLog.Debug("", "[ROUTER] AStar try v=" + v + " nd=" + nd + " gv=" + gv);
 				#endif
 				if (nd < gv)
 				{
@@ -408,7 +408,7 @@ class dmRoadRouter
 
 		if (!settled.Contains(toFull))
 		{
-			dmBotLog.Error("[ROUTER] AStar no path " + fromFull + "->" + toFull);
+			dmBotLog.Error("", "[ROUTER] AStar no path " + fromFull + "->" + toFull);
 			return result;
 		}
 
@@ -431,7 +431,7 @@ class dmRoadRouter
 			result.Insert(rev[i]);
 
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[ROUTER] AStar " + fromFull + "->" + toFull + " n=" + result.Count());
+		dmBotLog.Debug("", "[ROUTER] AStar " + fromFull + "->" + toFull + " n=" + result.Count());
 		#endif
 		return result;
 	}
@@ -473,8 +473,8 @@ class dmRoadRouter
 		m_Active = true;
 
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[ROUTER] Setup startCoarse=" + m_StartCoarse + " targetCoarse=" + m_TargetCoarse + " legs=" + m_CoarseRoute.Count());
-		dmBotLog.Debug("[ROUTER] Setup startFull=" + m_StartFull + " targetFull=" + m_TargetFull);
+		dmBotLog.Debug("", "[ROUTER] Setup startCoarse=" + m_StartCoarse + " targetCoarse=" + m_TargetCoarse + " legs=" + m_CoarseRoute.Count());
+		dmBotLog.Debug("", "[ROUTER] Setup startFull=" + m_StartFull + " targetFull=" + m_TargetFull);
 		#endif
 		return true;
 	}
@@ -501,7 +501,7 @@ class dmRoadRouter
 		int emittedLegs = 0;
 
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[ROUTER] NextChunk phase=" + m_Phase + " routeIdx=" + m_RouteIdx + " lookahead=" + lookahead);
+		dmBotLog.Debug("", "[ROUTER] NextChunk phase=" + m_Phase + " routeIdx=" + m_RouteIdx + " lookahead=" + lookahead);
 		#endif
 
 		if (m_Phase == PHASE_START)

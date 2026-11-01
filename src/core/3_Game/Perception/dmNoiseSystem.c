@@ -25,7 +25,7 @@ class dmNoiseSystem
 		#ifdef DM_PERCEPTION_DEBUG
 		string src = "null";
 		if (source) src = source.GetType();
-		dmBotLog.Debug("[Noise] AddNoise type=" + type + " src=" + src + " pos=" + position + " strength=" + strength);
+		dmBotLog.Debug("", "[Noise] AddNoise type=" + type + " src=" + src + " pos=" + position + " strength=" + strength);
 		#endif
 		SI_OnNoiseAdded.Invoke(source, position, strength, type);
 	}

@@ -35,7 +35,7 @@ class dmWorldPOIRegistry
 		dmWorldPoiConfig config;
 		if (!reader.Load(config))
 		{
-			dmBotLog.Error("[POIRegistry] read error " + DM_MAP_WORLD_POI_FILE + ": " + reader.Errors());
+			dmBotLog.Error("", "[POIRegistry] read error " + DM_MAP_WORLD_POI_FILE + ": " + reader.Errors());
 			return;
 		}
 		m_Config = config;
@@ -61,7 +61,7 @@ class dmWorldPOIRegistry
 		}
 
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("[POIRegistry] loaded " + totalLocations + " locations, " + m_Settlements.Count() + " settlements");
+		dmBotLog.Debug("", "[POIRegistry] loaded " + totalLocations + " locations, " + m_Settlements.Count() + " settlements");
 		#endif
 	}
 

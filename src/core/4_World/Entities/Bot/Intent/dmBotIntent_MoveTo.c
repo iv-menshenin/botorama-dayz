@@ -1263,7 +1263,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			return;
 
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] RoundPath: count=" + m_Path.Count());
+		dmBotLog.Debug("", "[PATH] RoundPath: count=" + m_Path.Count());
 		#endif
 
 		ref array<vector> rounded = new array<vector>();
@@ -1315,7 +1315,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			}
 
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] RoundPath corner=" + wp + " turn=" + turn);
+			dmBotLog.Debug("", "[PATH] RoundPath corner=" + wp + " turn=" + turn);
 			#endif
 
 			vector extPoint = wp + dirIn * DM_PATH_ROUND_STEP;
@@ -1323,7 +1323,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			{
 				InsertRounded(rounded, extPoint, wp);
 				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] RoundPath insert ext=" + extPoint + " (from " + wp + ")");
+				dmBotLog.Debug("", "[PATH] RoundPath insert ext=" + extPoint + " (from " + wp + ")");
 				#endif
 				prev = rounded[rounded.Count() - 1];
 				continue;
@@ -1334,7 +1334,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			InsertRounded(rounded, extPoint, wp);
 			InsertRounded(rounded, sidePoint, wp);
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] RoundPath insert ext=" + extPoint + " side=" + sidePoint + " (from " + wp + ")");
+			dmBotLog.Debug("", "[PATH] RoundPath insert ext=" + extPoint + " side=" + sidePoint + " (from " + wp + ")");
 			#endif
 			prev = rounded[rounded.Count() - 1];
 		}
@@ -1467,12 +1467,12 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (!g_Game.GetWorld().GetAIWorld().SampleNavmeshPosition(point, DM_MOVE_GROUND_PROBE_RADIUS, m_PathFilter, sampled))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] SampleNavmeshPosition NOHIT point=" + point);
+			dmBotLog.Debug("", "[PATH] SampleNavmeshPosition NOHIT point=" + point);
 			#endif
 			return false;
 		}
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] SampleNavmeshPosition HIT sampled=" + sampled + " point=" + point + " diff=" + (Math.AbsFloat(point[1] - sampled[1])));
+		dmBotLog.Debug("", "[PATH] SampleNavmeshPosition HIT sampled=" + sampled + " point=" + point + " diff=" + (Math.AbsFloat(point[1] - sampled[1])));
 		#endif
 		return Math.AbsFloat(point[1] - sampled[1]) < DM_MOVE_GROUND_PROBE_Y;
     }
@@ -1512,7 +1512,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		// if ( Math.AbsFloat( curPos[1] - waypoint[1] ) > 1.8 )
 		// {
 		// 	#ifdef DM_BOT_DEBUG_PATHFINDER
-		// 	dmBotLog.Debug("[PATH] Разность высоты dH=" + Math.AbsFloat( curPos[1] - waypoint[1] ));
+		// 	dmBotLog.Debug("", "[PATH] Разность высоты dH=" + Math.AbsFloat( curPos[1] - waypoint[1] ));
 		// 	#endif
 		// 	m_LastPassedPoint = pos;
 		// 	return false;
@@ -1540,7 +1540,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (dd < 0.0001 ) {
 			float distSq = vector.DistanceSq(curPos, waypoint);
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] Вырожденный случай: lastPos и curPos совпадают distSq=" + distSq + " reachDistanceSq=" + (reachDistance * reachDistance));
+			dmBotLog.Debug("", "[PATH] Вырожденный случай: lastPos и curPos совпадают distSq=" + distSq + " reachDistanceSq=" + (reachDistance * reachDistance));
 			#endif
 			return distSq <= reachDistance * reachDistance;
 		}
@@ -1561,7 +1561,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		float dist = cross_len / seg_len;
 
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] IsWaypointReached dist=" + dist + "[" + (dist <= reachDistance) + "]");
+		dmBotLog.Debug("", "[PATH] IsWaypointReached dist=" + dist + "[" + (dist <= reachDistance) + "]");
 		#endif
 		return dist <= reachDistance;
 	}

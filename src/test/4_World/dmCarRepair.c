@@ -31,7 +31,7 @@ class dmCarRepair
 			car.Fill(CarFluid.BRAKE, car.GetFluidCapacity(CarFluid.BRAKE));
 
 		#ifdef DM_BOT_DEBUG_CAR
-		dmBotLog.Debug("[CAR] repair: " + car.GetType() + " зоны=" + zonesCount + " детали=" + attCount);
+		dmBotLog.Debug("", "[CAR] repair: " + car.GetType() + " зоны=" + zonesCount + " детали=" + attCount);
 		#endif
 	}
 }

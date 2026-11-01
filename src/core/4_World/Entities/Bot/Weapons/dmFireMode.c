@@ -51,7 +51,7 @@ class dmWeaponFireInfo
 		}
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FireMode] " + weapon.GetType() + " modes=" + modes.Count());
+		dmBotLog.Debug("", "[FireMode] " + weapon.GetType() + " modes=" + modes.Count());
 		#endif
 	}
 

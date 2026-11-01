@@ -102,12 +102,12 @@ class dmShowCommand : dmCommandModule
 		foreach(string res: res1)
 		{
 			dmCommandManager.ChatToPlayer(player, "RaycastRVProxy: " + res);
-			dmBotLog.Debug("[RAYCAST] " + beg + " to " + end + " (cf=" + cf + ") Result: " + res);
+			dmBotLog.Debug("", "[RAYCAST] " + beg + " to " + end + " (cf=" + cf + ") Result: " + res);
 		}
 
 		string res2 = HandleShowRaycastRV(player, beg, end, cf);
 		dmCommandManager.ChatToPlayer(player, "RaycastRV: " + res2);
-		dmBotLog.Debug("[RAYCAST] " + beg + " to " + end + " (cf=" + cf + ") Result: " + res2);
+		dmBotLog.Debug("", "[RAYCAST] " + beg + " to " + end + " (cf=" + cf + ") Result: " + res2);
 
 		return true;
 	}

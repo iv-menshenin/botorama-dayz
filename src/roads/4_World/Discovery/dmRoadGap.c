@@ -117,7 +117,7 @@ class dmRoadGapDetector
 		}
 
 		#ifdef DM_BOT_DEBUG_ROADS
-		dmBotLog.Debug("[ROADGAP] gaps=" + list.Gaps.Count());
+		dmBotLog.Debug("", "[ROADGAP] gaps=" + list.Gaps.Count());
 		#endif
 
 		return list;

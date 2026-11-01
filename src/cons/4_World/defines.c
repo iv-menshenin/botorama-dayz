@@ -77,7 +77,7 @@
 //! Gating is done at the CALL SITE, not inside dmBotLog:
 //!
 //!   #ifdef DM_BOT_DEBUG_SPAWN
-//!   dmBotLog.Debug("...");
+//!   dmBotLog.Debug("", "...");
 //!   #endif
 //!
 //! Enfusion does not optimize an empty function call away (unlike C++), and the

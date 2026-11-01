@@ -33,7 +33,7 @@ class dmNameGenerator
 		string error;
 		if (!JsonFileLoader<dmNamesConfig>.LoadFile(DM_NAMES_FILE, config, error))
 		{
-			dmBotLog.Error("[NameGen] names load failed: " + DM_NAMES_FILE + ": " + error);
+			dmBotLog.Error("", "[NameGen] names load failed: " + DM_NAMES_FILE + ": " + error);
 			m_Config = null;
 			return;
 		}
