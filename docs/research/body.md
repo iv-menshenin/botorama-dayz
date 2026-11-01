@@ -85,6 +85,12 @@ damage-системы). Здесь — только death-flow (труп) и н�
 
 ### Что делает мод (`dmAISurvivorBase.c:934 EEKilled`, БЕЗ `super`)
 
+> **УСТАРЕЛО (исторический снимок).** Ниже — состояние мода НА МОМЕНТ исследования
+> (ручной `EEKilled` без `super`). После фикса мод вызывает `super.EEKilled(killer)`
+> (ванильный death-flow + `InsertCorpse` + `SendDeathJuncture`), а `CharacterKill`
+> глушится через `modded DayZPlayerImplement.GetHive()→null`. См. «Итоговая рекомендация»
+> ниже — она реализована.
+
 ```c
 override void EEKilled(Object killer) {
     if (GetBleedingManagerServer()) delete GetBleedingManagerServer();
