@@ -37,6 +37,7 @@ modded class Weapon_Base
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(GetHierarchyParent());
 		if (!pawn)
 			return false;
+		string name = pawn.GetCachedName();
 		vector origin;
 		vector direction;
 		vector velocity;
@@ -48,13 +49,13 @@ modded class Weapon_Base
 		vector camPos;
 		vector camDir;
 		GetCameraPoint(muzzleIndex, camPos, camDir);
-		dmBotLog.Debug("[Weapon] dmBot_Fire: camPos=" + camPos + " camDir=" + camDir);
+		dmBotLog.Debug(name, "[Weapon] dmBot_Fire: camPos=" + camPos + " camDir=" + camDir);
 		#endif
 
 		#ifdef DM_WEAPON_DEBUG_FSM
-		dmBotLog.Debug("[Weapon] dmBot_Fire: mi=" + muzzleIndex + " origin=" + origin + " pos=" + pos);
-		dmBotLog.Debug("[Weapon] dmBot_Fire: direction=" + direction + " velocity=" + velocity + " chamberEmpty=" + IsChamberEmpty(muzzleIndex));
-		dmBotLog.Debug("[Weapon] dmBot_Fire: firedOut=" + IsChamberFiredOut(muzzleIndex) + " jammed=" + IsJammed() + " ammo=" + GetChamberedCartridgeMagazineTypeName(muzzleIndex));
+		dmBotLog.Debug(name, "[Weapon] dmBot_Fire: mi=" + muzzleIndex + " origin=" + origin + " pos=" + pos);
+		dmBotLog.Debug(name, "[Weapon] dmBot_Fire: direction=" + direction + " velocity=" + velocity + " chamberEmpty=" + IsChamberEmpty(muzzleIndex));
+		dmBotLog.Debug(name, "[Weapon] dmBot_Fire: firedOut=" + IsChamberFiredOut(muzzleIndex) + " jammed=" + IsJammed() + " ammo=" + GetChamberedCartridgeMagazineTypeName(muzzleIndex));
 		#endif
 
 		//! x != x is true only for NaN (catches NaN vector components that Length() <= 0.0 misses).
@@ -63,14 +64,14 @@ modded class Weapon_Base
 		if (dirNaN || velNaN || direction.Length() <= 0.0 || velocity.Length() <= 0.0)
 		{
 			#ifdef DM_WEAPON_DEBUG_FSM
-			dmBotLog.Debug("[Weapon] dmBot_Fire: невалидное направление/скорость (NaN/нуль), пропускаю");
+			dmBotLog.Debug(name, "[Weapon] dmBot_Fire: невалидное направление/скорость (NaN/нуль), пропускаю");
 			#endif
 			return false;
 		}
 
 		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] FIRE time=" + GetGame().GetTime() + " ammo=" + GetChamberedCartridgeMagazineTypeName(muzzleIndex));
-		dmBotLog.Debug("[Ballistics] FIRE origin=" + origin + " dir=" + direction);
+		dmBotLog.Debug(name, "[Ballistics] FIRE time=" + GetGame().GetTime() + " ammo=" + GetChamberedCartridgeMagazineTypeName(muzzleIndex));
+		dmBotLog.Debug(name, "[Ballistics] FIRE origin=" + origin + " dir=" + direction);
 		#endif
 
 		bool fired = Fire(muzzleIndex, pos, direction, velocity);

@@ -80,6 +80,11 @@ class dmLoadoutApplier
 		if (!pawn || !cfg)
 			return;
 
+		string name = "";
+		dmAISurvivorBase survivor = dmAISurvivorBase.Cast(pawn);
+		if (survivor)
+			name = survivor.GetCachedName();
+
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Loadout.Apply");
 		#endif
@@ -87,7 +92,7 @@ class dmLoadoutApplier
 		string preset = RollPreset(cfg.Presets);
 
 		#ifdef DM_BOT_DEBUG_LOADOUT
-		dmBotLog.Debug("Loadout apply to pawn=" + pawn + " preset='" + preset + "'");
+		dmBotLog.Debug(name, "Loadout apply to pawn=" + pawn + " preset='" + preset + "'");
 		#endif
 
 		int i;
@@ -107,7 +112,7 @@ class dmLoadoutApplier
 				else
 				{
 					#ifdef DM_BOT_DEBUG_LOADOUT
-					dmBotLog.Debug("Loadout: slot '" + slot.SlotName + "' - nothing picked");
+					dmBotLog.Debug(name, "Loadout: slot '" + slot.SlotName + "' - nothing picked");
 					#endif
 				}
 			}
@@ -250,6 +255,11 @@ class dmLoadoutApplier
 		if (cls == "")
 			return;
 
+		string name = "";
+		dmAISurvivorBase survivor = dmAISurvivorBase.Cast(pawn);
+		if (survivor)
+			name = survivor.GetCachedName();
+
 		string slotKey = slotName;
 		slotKey.ToLower();
 
@@ -274,13 +284,13 @@ class dmLoadoutApplier
 		if (!item)
 		{
 			#ifdef DM_BOT_DEBUG_LOADOUT
-			dmBotLog.Debug("Loadout: skip " + cls + " -> slot '" + slotName + "'");
+			dmBotLog.Debug(name, "Loadout: skip " + cls + " -> slot '" + slotName + "'");
 			#endif
 			return;
 		}
 
 		#ifdef DM_BOT_DEBUG_LOADOUT
-		dmBotLog.Debug("Loadout + " + cls + " -> slot '" + slotName + "'");
+		dmBotLog.Debug(name, "Loadout + " + cls + " -> slot '" + slotName + "'");
 		#endif
 
 		FinishItem(item, itemCfg, preset);

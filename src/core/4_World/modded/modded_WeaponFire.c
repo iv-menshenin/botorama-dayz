@@ -99,14 +99,15 @@ modded class WeaponFireMultiMuzzle
 			if (Class.CastTo(pawn, e.m_player))
 			{
 				m_dtAccumulator = 0;
+				string name = pawn.GetCachedName();
 				if (LogManager.IsWeaponLogEnable()) { wpnPrint("[wpnfsm] " + Object.GetDebugName(m_weapon) + " WeaponFire bang bang!"); }
 				int mi = m_weapon.GetCurrentMuzzle();
 				int b = m_weapon.GetCurrentModeBurstSize(mi);
 				int muzzleCount = m_weapon.GetMuzzleCount();
 
 				#ifdef DM_WEAPON_DEBUG_FSM
-				dmBotLog.Debug("[Weapon] WeaponFireMultiMuzzle: b=" + b + " muzzleCount=" + muzzleCount);
-				dmBotLog.Debug("[Weapon] WeaponFireMultiMuzzle: mi=" + mi + " mode=" + m_weapon.GetCurrentMode(mi));
+				dmBotLog.Debug(name, "[Weapon] WeaponFireMultiMuzzle: b=" + b + " muzzleCount=" + muzzleCount);
+				dmBotLog.Debug(name, "[Weapon] WeaponFireMultiMuzzle: mi=" + mi + " mode=" + m_weapon.GetCurrentMode(mi));
 				#endif
 
 				float dmg;
@@ -134,14 +135,14 @@ modded class WeaponFireMultiMuzzle
 					}
 				}
 				#ifdef DM_WEAPON_DEBUG_FSM
-				dmBotLog.Debug("[Weapon] WeaponFireMultiMuzzle after pop: ch0 empty=" + m_weapon.IsChamberEmpty(0) + " firedOut=" + m_weapon.IsChamberFiredOut(0) + " ch1 empty=" + m_weapon.IsChamberEmpty(1) + " firedOut=" + m_weapon.IsChamberFiredOut(1));
+				dmBotLog.Debug(name, "[Weapon] WeaponFireMultiMuzzle after pop: ch0 empty=" + m_weapon.IsChamberEmpty(0) + " firedOut=" + m_weapon.IsChamberFiredOut(0) + " ch1 empty=" + m_weapon.IsChamberEmpty(1) + " firedOut=" + m_weapon.IsChamberFiredOut(1));
 				#endif
 				if (mi >= m_weapon.GetMuzzleCount() - 1)
 					m_weapon.SetCurrentMuzzle(0);
 				else
 					m_weapon.SetCurrentMuzzle(mi + 1);
 				#ifdef DM_WEAPON_DEBUG_FSM
-				dmBotLog.Debug("[Weapon] WeaponFireMultiMuzzle: re-sync FSM after double fire");
+				dmBotLog.Debug(name, "[Weapon] WeaponFireMultiMuzzle: re-sync FSM after double fire");
 				#endif
 				m_weapon.RandomizeFSMState();
 				super.dmBot_Vanilla_OnEntry(e);
