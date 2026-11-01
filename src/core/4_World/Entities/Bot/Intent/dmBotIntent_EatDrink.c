@@ -107,7 +107,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 		if (!dmLoot.TakeToHands(pawn, item))
 		{
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[EatDrink] TakeToHands failed " + item.GetType());
+			dmBotLog.Debug(pawn.GetCachedName(), "[EatDrink] TakeToHands failed " + item.GetType());
 			#endif
 			m_Cooldown = DM_EAT_DRINK_SCAN_INTERVAL;
 			return;
@@ -127,7 +127,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 			m_Phase = 1;
 			m_AnimTimer = 0.0;
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[EatDrink] open " + m_Item.GetType());
+			dmBotLog.Debug(pawn.GetCachedName(), "[EatDrink] open " + m_Item.GetType());
 			#endif
 			return;
 		}
@@ -150,7 +150,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 			m_Phase = 2;
 			m_AnimTimer = 0.0;
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[EatDrink] opened " + h.GetType());
+			dmBotLog.Debug(pawn.GetCachedName(), "[EatDrink] opened " + h.GetType());
 			#endif
 			return;
 		}
@@ -161,7 +161,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 			m_Item = null;
 			m_Cooldown = DM_EAT_DRINK_SCAN_INTERVAL;
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[EatDrink] open timeout");
+			dmBotLog.Debug(pawn.GetCachedName(), "[EatDrink] open timeout");
 			#endif
 		}
 	}
@@ -172,7 +172,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 		m_AnimTimer += pDt;
 
 		#ifdef DM_BOT_DEBUG_BODY
-		dmBotLog.Debug("[EatDrink] PhaseEat: ре-адд? " + (pawn.GetCommandModifier_Action() == null));
+		dmBotLog.Debug(pawn.GetCachedName(), "[EatDrink] PhaseEat: ре-адд? " + (pawn.GetCommandModifier_Action() == null));
 		#endif
 
 		float portion = m_Item.GetQuantityMax() / DM_EAT_DRINK_FULL_TIME * pDt;
@@ -186,7 +186,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 			m_Phase = 3;                    // ждём полной остановки анимации
 			m_AnimTimer = 0.0;
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[EatDrink] item consumed — жду остановки анимации");
+			dmBotLog.Debug(pawn.GetCachedName(), "[EatDrink] item consumed — жду остановки анимации");
 			#endif
 		}
 	}
@@ -201,7 +201,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 			return;
 
 		#ifdef DM_BOT_DEBUG_BODY
-		dmBotLog.Debug("[EatDrink] анимация остановлена, возврат бутылки в инвентарь");
+		dmBotLog.Debug(pawn.GetCachedName(), "[EatDrink] анимация остановлена, возврат бутылки в инвентарь");
 		#endif
 
 		//! Вернуть бутылку в инвентарь (корректный HANDS-мув через FreeHands). При
@@ -233,7 +233,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 			{
 				edible.SetFrozen(false);
 				#ifdef DM_BOT_DEBUG_BODY
-				dmBotLog.Debug("[EatDrink] unfroze " + item.GetType());
+				dmBotLog.Debug(pawn.GetCachedName(), "[EatDrink] unfroze " + item.GetType());
 				#endif
 			}
 
@@ -242,7 +242,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 				dmInventoryFrame drop = dmInventoryFrame.Make(dmInventoryDoing.PLACEONGROUND, item);
 				pawn.GetInventoryFrames().Enqueue(drop);
 				#ifdef DM_BOT_DEBUG_BODY
-				dmBotLog.Debug("[EatDrink] drop bad food " + item.GetType());
+				dmBotLog.Debug(pawn.GetCachedName(), "[EatDrink] drop bad food " + item.GetType());
 				#endif
 			}
 		}
@@ -260,7 +260,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 
 		#ifdef DM_BOT_DEBUG_BODY
 		bool alreadyActive = pawn.GetCommandModifier_Action() != null;
-		dmBotLog.Debug("[EatDrink] StartAnim cmd=" + cmdName + " уже-активен=" + alreadyActive);
+		dmBotLog.Debug(pawn.GetCachedName(), "[EatDrink] StartAnim cmd=" + cmdName + " уже-активен=" + alreadyActive);
 		#endif
 
 		if (pawn.GetCommandModifier_Action())
@@ -277,7 +277,7 @@ class dmBotIntent_EatDrink : dmBotIntent
 		string modState = "null";
 		if (pawn.GetCommandModifier_Action())
 			modState = "non-null";
-		dmBotLog.Debug("[EatDrink] StopAnim m_ActionCB=" + cbState + " текущий-модификатор=" + modState);
+		dmBotLog.Debug(pawn.GetCachedName(), "[EatDrink] StopAnim m_ActionCB=" + cbState + " текущий-модификатор=" + modState);
 		#endif
 
 		if (!m_ActionCB)

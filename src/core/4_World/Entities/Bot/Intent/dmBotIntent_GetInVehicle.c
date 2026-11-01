@@ -94,10 +94,13 @@ class dmBotIntent_GetInVehicle : dmBotIntent_MoveTo
 			if (now - m_LastDoorLogTime >= 2.0)
 			{
 				m_LastDoorLogTime = now;
+				string name = "";
+				if (m_Pawn)
+					name = m_Pawn.GetCachedName();
 				if (open)
-					dmBotLog.Debug("[FSM] GetInVehicle: door open seat=" + m_Seat);
+					dmBotLog.Debug(name, "[FSM] GetInVehicle: door open seat=" + m_Seat);
 				else
-					dmBotLog.Debug("[FSM] GetInVehicle: door close seat=" + m_Seat);
+					dmBotLog.Debug(name, "[FSM] GetInVehicle: door close seat=" + m_Seat);
 			}
 			#endif
 		}

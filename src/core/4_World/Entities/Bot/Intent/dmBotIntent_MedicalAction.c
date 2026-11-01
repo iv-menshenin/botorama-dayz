@@ -86,7 +86,7 @@ class dmBotIntent_MedicalAction : dmBotIntent
 				if (!dmLoot.TakeToHands(pawn, m_Item))
 				{
 					#ifdef DM_BOT_DEBUG_MEDICAL
-					dmBotLog.Debug("[Medical] TakeToHands FAILED: m_Phase=" + m_Phase + " m_Item=" + m_Item.GetType() + " ACTION_SPLINT");
+					dmBotLog.Debug(pawn.GetCachedName(), "[Medical] TakeToHands FAILED: m_Phase=" + m_Phase + " m_Item=" + m_Item.GetType() + " ACTION_SPLINT");
 					#endif
 					Fail();
 					return;
@@ -98,7 +98,7 @@ class dmBotIntent_MedicalAction : dmBotIntent
 				if (!created)
 				{
 					#ifdef DM_BOT_DEBUG_MEDICAL
-					dmBotLog.Debug("[Medical] CreateInHands FAILED: m_Phase=" + m_Phase + " m_Item=Splint");
+					dmBotLog.Debug(pawn.GetCachedName(), "[Medical] CreateInHands FAILED: m_Phase=" + m_Phase + " m_Item=Splint");
 					#endif
 					Fail();
 					return;
@@ -112,7 +112,7 @@ class dmBotIntent_MedicalAction : dmBotIntent
 			if (!m_Item || !dmLoot.TakeToHands(pawn, m_Item))
 			{
 				#ifdef DM_BOT_DEBUG_MEDICAL
-				dmBotLog.Debug("[Medical] TakeToHands FAILED: m_Phase=" + m_Phase + " m_Item=" + m_Item.GetType());
+				dmBotLog.Debug(pawn.GetCachedName(), "[Medical] TakeToHands FAILED: m_Phase=" + m_Phase + " m_Item=" + m_Item.GetType());
 				#endif
 				Fail();
 				return;
@@ -122,7 +122,7 @@ class dmBotIntent_MedicalAction : dmBotIntent
 		m_Phase = 1;
 		m_PhaseTimer = 0.0;
 		#ifdef DM_BOT_DEBUG_MEDICAL
-		dmBotLog.Debug("[Medical] PhasePrepare done: m_Phase=" + m_Phase);
+		dmBotLog.Debug(pawn.GetCachedName(), "[Medical] PhasePrepare done: m_Phase=" + m_Phase);
 		#endif
 	}
 
@@ -134,7 +134,7 @@ class dmBotIntent_MedicalAction : dmBotIntent
 			m_Phase = 2;
 			m_PhaseTimer = 0.0;
 			#ifdef DM_BOT_DEBUG_MEDICAL
-			dmBotLog.Debug("[Medical] PhaseAnimate: m_Phase=" + m_Phase + " RETURN");
+			dmBotLog.Debug(pawn.GetCachedName(), "[Medical] PhaseAnimate: m_Phase=" + m_Phase + " RETURN");
 			#endif
 			return;
 		}
@@ -149,7 +149,7 @@ class dmBotIntent_MedicalAction : dmBotIntent
 		m_Phase = 2;
 		m_PhaseTimer = 0.0;
 		#ifdef DM_BOT_DEBUG_MEDICAL
-		dmBotLog.Debug("[Medical] PhaseAnimate: m_Phase=" + m_Phase);
+		dmBotLog.Debug(pawn.GetCachedName(), "[Medical] PhaseAnimate: m_Phase=" + m_Phase);
 		#endif
 	}
 
@@ -181,7 +181,7 @@ class dmBotIntent_MedicalAction : dmBotIntent
 			return;
 
 		#ifdef DM_BOT_DEBUG_MEDICAL
-		dmBotLog.Debug("[Medical] ApplyBandage: m_Phase=" + m_Phase);
+		dmBotLog.Debug(pawn.GetCachedName(), "[Medical] ApplyBandage: m_Phase=" + m_Phase);
 		#endif
 		pawn.GetBleedingManagerServer().RemoveMostSignificantBleedingSourceEx(m_Item);
 		if (m_Item.HasQuantity())
@@ -194,7 +194,7 @@ class dmBotIntent_MedicalAction : dmBotIntent
 	{
 
 		#ifdef DM_BOT_DEBUG_MEDICAL
-		dmBotLog.Debug("[Medical] ApplySplint: m_Phase=" + m_Phase);
+		dmBotLog.Debug(pawn.GetCachedName(), "[Medical] ApplySplint: m_Phase=" + m_Phase);
 		#endif
 		pawn.ApplySplint();
 		if (pawn.GetBrokenLegs() == eBrokenLegs.BROKEN_LEGS)
@@ -212,7 +212,7 @@ class dmBotIntent_MedicalAction : dmBotIntent
 			return;
 
 		#ifdef DM_BOT_DEBUG_MEDICAL
-		dmBotLog.Debug("[Medical] ApplyPill: m_Phase=" + m_Phase);
+		dmBotLog.Debug(pawn.GetCachedName(), "[Medical] ApplyPill: m_Phase=" + m_Phase);
 		#endif
 		Edible_Base edible = Edible_Base.Cast(m_Item);
 		if (edible)

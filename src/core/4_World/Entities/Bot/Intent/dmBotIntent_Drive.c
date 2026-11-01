@@ -590,7 +590,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			m_RouteExhausted = true;
 
 		#ifdef DM_BOT_DEBUG_CAR
-		dmBotLog.Debug("[CAR] Drive: refill +" + buffer.Count() + " точек, exhausted=" + m_RouteExhausted);
+		dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] Drive: refill +" + buffer.Count() + " точек, exhausted=" + m_RouteExhausted);
 		#endif
 	}
 
@@ -773,7 +773,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				m_LastWaypointDist = -1.0;
 				m_StuckCounter = 0;
 				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] KTurn: REVERSING angle=" + absAngle);
+				dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] KTurn: REVERSING angle=" + absAngle);
 				#endif
 			}
 			return;
@@ -794,7 +794,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				m_TurnTimer = 0.0;
 				m_Reverse = false;
 				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] KTurn: FORWARD angle=" + absAngle);
+				dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] KTurn: FORWARD angle=" + absAngle);
 				#endif
 			}
 			return;
@@ -809,7 +809,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			m_TurnState = K_TURN_NONE;
 			m_TurnTimer = 0.0;
 			#ifdef DM_BOT_DEBUG_CAR
-			dmBotLog.Debug("[CAR] KTurn: DONE angle=" + absAngle);
+			dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] KTurn: DONE angle=" + absAngle);
 			#endif
 		}
 	}
@@ -927,7 +927,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		if (m_Car.GetSpeedometerAbsolute() < DM_DRIVE_DETECT_MIN_SPEED)
 		{
 			#ifdef DM_BOT_DEBUG_CAR
-			dmBotLog.Debug("[CAR] Drive: detect skipped, speed too low");
+			dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] Drive: detect skipped, speed too low");
 			#endif
 			return;
 		}
@@ -996,7 +996,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			if (RaycastHits(segFrom, segTo, DM_DRIVE_OBSTACLE_RAY_RADIUS, hitPos))
 			{
 				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] Drive: obstacle ahead pos=" + hitPos + " blockIdx=" + i);
+				dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] Drive: obstacle ahead pos=" + hitPos + " blockIdx=" + i);
 				#endif
 				StartGridDetour(carPos);
 				return;
@@ -1004,7 +1004,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			if (RaycastHits(segFromLow, segToLow, DM_DRIVE_OBSTACLE_RAY_RADIUS, hitPosLow))
 			{
 				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] Drive: obstacle ahead (low) pos=" + hitPosLow + " blockIdx=" + i);
+				dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] Drive: obstacle ahead (low) pos=" + hitPosLow + " blockIdx=" + i);
 				#endif
 				StartGridDetour(carPos);
 				return;
@@ -1025,7 +1025,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			phaseName = "DRIVING";
 		else if (phase == DPH_DETOUR)
 			phaseName = "DETOUR";
-		dmBotLog.Debug("[CAR] Drive: phase=" + phaseName);
+		dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] Drive: phase=" + phaseName);
 		#endif
 	}
 
@@ -1065,7 +1065,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		SetDrivingPhase(DPH_DETOUR);
 
 		#ifdef DM_BOT_DEBUG_CAR
-		dmBotLog.Debug("[CAR] Drive: honeycomb start origin=" + honeyOrigin);
+		dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] Drive: honeycomb start origin=" + honeyOrigin);
 		#endif
 	}
 
@@ -1194,7 +1194,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			{
 				m_HoneyState = 0;
 				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] honeycomb: failed (stopped, speed=" + speedAbs + ")");
+				dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] honeycomb: failed (stopped, speed=" + speedAbs + ")");
 				#endif
 				Fail();
 			}
@@ -1212,7 +1212,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				m_LastWaypointDist = -1.0;
 				m_HoneyState = 0;
 				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] honeycomb: path " + path.Count() + " точек first=" + path[0] + " last=" + path[path.Count() - 1]);
+				dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] honeycomb: path " + path.Count() + " точек first=" + path[0] + " last=" + path[path.Count() - 1]);
 				#endif
 			}
 			else
@@ -1225,7 +1225,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				{
 					m_HoneyState = 0;
 					#ifdef DM_BOT_DEBUG_CAR
-					dmBotLog.Debug("[CAR] honeycomb: degenerate path -> fail (stopped, speed=" + speedAbs + ")");
+					dmBotLog.Debug(m_Pawn.GetCachedName(), "[CAR] honeycomb: degenerate path -> fail (stopped, speed=" + speedAbs + ")");
 					#endif
 					Fail();
 				}
@@ -1295,7 +1295,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		int routeLen = -1;
 		if (m_DriveRoute)
 			routeLen = m_DriveRoute.Count();
-		dmBotLog.Debug("[CAR] Drive: Finish speed=" + exitSpeed + " idx=" + m_DriveRouteIdx + "/" + routeLen + " exhausted=" + m_RouteExhausted);
+		string name = "";
+		if (m_Pawn)
+			name = m_Pawn.GetCachedName();
+		dmBotLog.Debug(name, "[CAR] Drive: Finish speed=" + exitSpeed + " idx=" + m_DriveRouteIdx + "/" + routeLen + " exhausted=" + m_RouteExhausted);
 		#endif
 		if (m_CommandInvoked && m_Phase == PHASE_SEATED)
 			StopCar();
@@ -1311,7 +1314,10 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		int routeLen = -1;
 		if (m_DriveRoute)
 			routeLen = m_DriveRoute.Count();
-		dmBotLog.Debug("[CAR] Drive: Fail speed=" + exitSpeed + " idx=" + m_DriveRouteIdx + "/" + routeLen + " exhausted=" + m_RouteExhausted);
+		string name = "";
+		if (m_Pawn)
+			name = m_Pawn.GetCachedName();
+		dmBotLog.Debug(name, "[CAR] Drive: Fail speed=" + exitSpeed + " idx=" + m_DriveRouteIdx + "/" + routeLen + " exhausted=" + m_RouteExhausted);
 		#endif
 		StopCar();
 		super.Fail();
