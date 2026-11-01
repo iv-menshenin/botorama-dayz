@@ -120,6 +120,27 @@ GetGame().RemoteObjectTreeCreate(item);   // Tree create
    `HasHostile().And(MyCompositeLeaf())`). Эталон — `dmBotCondition_CanShootVisible`/
    `CanShootHidden` (лист «HasLoadedFirearm + не-zombie + m_HasLOS/!m_HasLOS»).
 
+7. **Перегрузка методов (overload) — НЕ поддерживается по арности.** Одно имя метода =
+   одна сигнатура; повторное объявление того же имени с другим числом параметров
+   ЗАТИРАЕТ предыдущее (последнее определение выигрывает). Симптом: при 1-арг
+   `Debug(string)` и 2-арг `Debug(string, string)` вызов `Debug("", msg)` внутри
+   обёртки падает `Too many parameters for 'Debug' method` → `Can't compile ... script
+   module` → сервер не стартует. **AddonBuilder это НЕ ловит** (`build.sh` exit=0) —
+   ошибка только при загрузке на сервере (как и конфликт имени-типа из п.5).
+   ```c
+   // НЕЛЬЗЯ — два метода Debug
+   static void Debug(string msg) { ... }
+   static void Debug(string name, string msg) { ... }
+   // НАДО — одна сигнатура, имя (или "" для не-bot кода) первым аргументом
+   static void Debug(string name, string msg) { ... }
+   dmBotLog.Debug(bot.GetName(), "...");   // бот
+   dmBotLog.Debug("", "...");              // без бота — пустая строка
+   ```
+   Перегрузка по **типу** при одинаковой арности (напр. `SetTarget(EntityAI)` и
+   `SetTarget(dmTarget)` в `dmAiming.c`) — работает; по **арности** — нет. При
+   добавлении «варианта» метода используй либо разные имена, либо один метод с
+   дефолтом-аргументом в начале/пустой строкой, а НЕ перегрузку.
+
 ## Типы и ссылки (`ref`)
 
 - **Managed-классы** (наследуют `Managed`, напр. `EntityAI` → `PlayerBase`) — ссылки
