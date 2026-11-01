@@ -181,6 +181,13 @@ class dmAISurvivorBase : PlayerBase
 	//! arms it ("we expect a hit"), ReceivedHit() reads it without resetting.
 	private bool m_ReceivedHit = false;
 
+	//! Последний реальный источник урона (EntityAI), запомненный в
+	//! EEOnDamageCalculated. DayZ 1.20 может передать в EEKilled сам труп
+	//! (killer == this) — тогда ванильный PluginAdminLog ложно пишет "died"
+	//! вместо "killed by X". Подменяем в EEKilled (как Expansion
+	//! m_Expansion_LastDamageSource).
+	private EntityAI m_LastDamageSource;
+
 	//! One-shot melee evade request from the brain (see RequestMeleeEvade). The
 	//! fight logic consumes it and starts a native roll via StartMeleeEvadeA.
 	private bool m_MeleeEvadeRequest = false;
@@ -1447,16 +1454,20 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
-	//! Trace-only hook: fires natively right before the engine applies damage to
-	//! this entity. Logs the damage pipeline stage; forwards to super (returns
-	//! true = apply the vanilla damage), so it changes no behavior.
+	//! Fires natively right before the engine applies damage to this entity.
+	//! Logs the damage pipeline stage and remembers the last damage source
+	//! (m_LastDamageSource) for the death-cause attribution in EEKilled; forwards
+	//! to super (returns true = apply the vanilla damage).
 	override bool EEOnDamageCalculated(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
 	{
 		#ifdef DM_BOT_DEBUG_DAMAGE
 		dmBotLog.Debug(GetCachedName(), "EEOnDamageCalculated damageType=" + damageType + " ammo=" + ammo + " source=" + source);
 		#endif
 
-		return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+		bool applyDamage = super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+		if (applyDamage && source)
+			m_LastDamageSource = source;
+		return applyDamage;
 	}
 
 	//! Taking damage: register the source as a maximum threat immediately, even if
@@ -1543,6 +1554,17 @@ class dmAISurvivorBase : PlayerBase
 			#ifdef DM_BOT_DEBUG_BODY
 			dmBotLog.Debug(GetCachedName(), "EEKilled: DropItem result=" + dropped);
 			#endif
+		}
+
+		//! DayZ 1.20: ванильный EEKilled может передать в killer сам труп
+		//! (killer == this) или null — тогда PluginAdminLog ложно пишет "died".
+		//! Подменяем на последний реальный источник урона (Expansion-паттерн).
+		if (killer == this || killer == null)
+		{
+			#ifdef DM_BOT_DEBUG_DAMAGE
+			dmBotLog.Debug(GetCachedName(), "EEKilled: killer self/null, substitute m_LastDamageSource=" + m_LastDamageSource);
+			#endif
+			killer = m_LastDamageSource;
 		}
 
 		super.EEKilled(killer);
