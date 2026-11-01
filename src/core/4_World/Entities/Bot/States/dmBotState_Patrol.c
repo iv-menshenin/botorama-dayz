@@ -38,7 +38,7 @@ class dmBotState_Patrol : dmBotState
 			StartMoveToCurrent();
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] Patrol.entry routePoints=" + m_Route.Count());
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Patrol.entry routePoints=" + m_Route.Count());
 		#endif
 	}
 
@@ -55,7 +55,7 @@ class dmBotState_Patrol : dmBotState
 
 		if (m_Move.IsFailed())
 		{
-			dmBotLog.Error("[FSM] Patrol: точка " + m_Route[m_Index] + " недостижима, пропускаю");
+			dmBotLog.Error(GetOwner().GetName(), "[FSM] Patrol: точка " + m_Route[m_Index] + " недостижима, пропускаю");
 			return Advance();
 		}
 
@@ -80,7 +80,7 @@ class dmBotState_Patrol : dmBotState
 		if (m_Index >= m_Route.Count())
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] Patrol finished (all points done)");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Patrol finished (all points done)");
 			#endif
 			return EXIT;
 		}
@@ -89,7 +89,7 @@ class dmBotState_Patrol : dmBotState
 		StartMoveToCurrent();
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] Patrol -> point " + m_Index + "/" + m_Route.Count());
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Patrol -> point " + m_Index + "/" + m_Route.Count());
 		#endif
 		return CONTINUE;
 	}

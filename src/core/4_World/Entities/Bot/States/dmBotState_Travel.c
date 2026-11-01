@@ -47,7 +47,7 @@ class dmBotState_Travel : dmBotState
 		bot.AddFSMIntent(m_Move);
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] Travel.entry -> " + dest.Name + " (" + dest.Type + ") goal=" + goal);
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Travel.entry -> " + dest.Name + " (" + dest.Type + ") goal=" + goal);
 		#endif
 	}
 
@@ -70,7 +70,7 @@ class dmBotState_Travel : dmBotState
 			e.ClearDestination();
 			e.SetInTransit(false);
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] Travel.failed, give up destination");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Travel.failed, give up destination");
 			#endif
 			return EXIT;
 		}
@@ -83,7 +83,7 @@ class dmBotState_Travel : dmBotState
 			if (arrived)
 				e.ArriveAtLocation(arrived);
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] Travel.arrived");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Travel.arrived");
 			#endif
 			return EXIT;
 		}

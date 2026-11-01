@@ -48,7 +48,7 @@ class dmBotState_GetWater : dmBotState
 		if (m_Source)
 		{
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[GetWater] нашёл источник " + m_Source.GetType() + ", иду");
+			dmBotLog.Debug(GetOwner().GetName(), "[GetWater] нашёл источник " + m_Source.GetType() + ", иду");
 			#endif
 
 			m_Move = new dmBotIntent_MoveTo();
@@ -61,7 +61,7 @@ class dmBotState_GetWater : dmBotState
 		else
 		{
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[GetWater] нет источника в радиусе");
+			dmBotLog.Debug(GetOwner().GetName(), "[GetWater] нет источника в радиусе");
 			#endif
 		}
 	}
@@ -100,7 +100,7 @@ class dmBotState_GetWater : dmBotState
 				//! Не дошёл (источник недостижим) — запомнить и EXIT, анти-цикл.
 				m_FailedSource = m_Source;
 				#ifdef DM_BOT_DEBUG_BODY
-				dmBotLog.Debug("[GetWater] не дошёл до источника, выход");
+				dmBotLog.Debug(GetOwner().GetName(), "[GetWater] не дошёл до источника, выход");
 				#endif
 				m_CooldownGameTime = GetGame().GetTickTime() + DM_GET_WATER_RETRY_COOLDOWN;
 				return EXIT;
@@ -157,7 +157,7 @@ class dmBotState_GetWater : dmBotState
 			m_ActionCB = pawn.AddCommandModifier_Action(DayZPlayerConstants.CMD_ACTIONFB_FILLBOTTLEWELL, dmBotActionAnimCB);
 
 		#ifdef DM_BOT_DEBUG_BODY
-		dmBotLog.Debug("[GetWater] наполняю " + m_Bottle.GetType());
+		dmBotLog.Debug(GetOwner().GetName(), "[GetWater] наполняю " + m_Bottle.GetType());
 		#endif
 		return true;
 	}
@@ -173,7 +173,7 @@ class dmBotState_GetWater : dmBotState
 		}
 		#ifdef DM_BOT_DEBUG_BODY
 		if (m_Bottle)
-			dmBotLog.Debug("[GetWater] наполнил " + m_Bottle.GetType());
+			dmBotLog.Debug(GetOwner().GetName(), "[GetWater] наполнил " + m_Bottle.GetType());
 		#endif
 		//! FreeHands — отложенный create (TakeFromHands), НЕ TakeIntoCargo (немедленный create ломает HANDS-синк).
 		if (m_Bottle)

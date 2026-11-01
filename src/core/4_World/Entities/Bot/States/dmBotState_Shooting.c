@@ -55,21 +55,21 @@ class dmBotState_Shooting : dmBotState
 		if ( !t )
 		{
 			#ifdef DM_BOT_DEBUG_FSM_SHOOTING
-			dmBotLog.Debug("[FSM] Shooting: CanEnter=false (нет hostile-цели)");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Shooting: CanEnter=false (нет hostile-цели)");
 			#endif
 			return false;
 		}
 		if ( !t.IsValidTarget() )
 		{
 			#ifdef DM_BOT_DEBUG_FSM_SHOOTING
-			dmBotLog.Debug("[FSM] Shooting: CanEnter=false (цель без позиции)");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Shooting: CanEnter=false (цель без позиции)");
 			#endif
 			return false;
 		}
 
 		bool ok = super.CanEnter();
 		#ifdef DM_BOT_DEBUG_FSM_SHOOTING
-		dmBotLog.Debug("[FSM] Shooting: CanEnter=" + ok + " цель=" + t.m_Entity);
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Shooting: CanEnter=" + ok + " цель=" + t.m_Entity);
 		#endif
 		return ok;
 	}
@@ -84,7 +84,7 @@ class dmBotState_Shooting : dmBotState
 			if (!m_CombatHoldLogged)
 			{
 				m_CombatHoldLogged = true;
-				dmBotLog.Debug("[FSM] " + GetName() + ": hold (45s) — CanExit blocked");
+				dmBotLog.Debug(GetOwner().GetName(), "[FSM] " + GetName() + ": hold (45s) — CanExit blocked");
 			}
 			#endif
 			return false;
@@ -130,7 +130,7 @@ class dmBotState_Shooting : dmBotState
 				pawn.RaiseWeapon(true);
 
 				#ifdef DM_BOT_DEBUG_FSM_SHOOTING
-				dmBotLog.Debug("[FSM] Shooting: огнестрел " + w.GetType() + " dist=" + dist);
+				dmBotLog.Debug(GetOwner().GetName(), "[FSM] Shooting: огнестрел " + w.GetType() + " dist=" + dist);
 				#endif
 			}
 			else
@@ -138,13 +138,13 @@ class dmBotState_Shooting : dmBotState
 				m_NoFirearm = true;
 
 				#ifdef DM_BOT_DEBUG_FSM_SHOOTING
-				dmBotLog.Debug("[FSM] Shooting: нет заряженного огнестрела — EXIT");
+				dmBotLog.Debug(GetOwner().GetName(), "[FSM] Shooting: нет заряженного огнестрела — EXIT");
 				#endif
 			}
 		}
 
 		#ifdef DM_BOT_DEBUG_FSM_SHOOTING
-		dmBotLog.Debug("[FSM] Shooting.entry");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Shooting.entry");
 		#endif
 	}
 
@@ -243,7 +243,7 @@ class dmBotState_Shooting : dmBotState
 	override void OnExit(dmBotState to)
 	{
 		#ifdef DM_BOT_DEBUG_FSM_SHOOTING
-		dmBotLog.Debug("[FSM] Shooting.exit");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Shooting.exit");
 		#endif
 
 		if ( m_HitTo ) m_HitTo.Finish();
@@ -311,7 +311,7 @@ class dmBotState_Shooting : dmBotState
 			m_RetargetTimer = 0.0;
 
 			#ifdef DM_BOT_DEBUG_FSM_SHOOTING
-			dmBotLog.Debug("[FSM] Shooting: цель сменилась, интент сброшен");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Shooting: цель сменилась, интент сброшен");
 			#endif
 		}
 
@@ -320,9 +320,9 @@ class dmBotState_Shooting : dmBotState
 
 		#ifdef DM_BOT_DEBUG_FSM_SHOOTING
 		if (newEntity)
-			dmBotLog.Debug("[FSM] Shooting: ResolveTarget -> " + newEntity.GetType());
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Shooting: ResolveTarget -> " + newEntity.GetType());
 		else
-			dmBotLog.Debug("[FSM] Shooting: ResolveTarget -> null (нет hostile-цели)");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Shooting: ResolveTarget -> null (нет hostile-цели)");
 		#endif
 	}
 

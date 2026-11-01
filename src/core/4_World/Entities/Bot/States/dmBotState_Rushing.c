@@ -25,21 +25,21 @@ class dmBotState_Rushing : dmBotState_Shooting
 		if ( !t )
 		{
 			#ifdef DM_BOT_DEBUG_FSM_RUSHING
-			dmBotLog.Debug("[FSM] Rushing: CanEnter=false (нет hostile-цели)");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Rushing: CanEnter=false (нет hostile-цели)");
 			#endif
 			return false;
 		}
 		if ( !t.IsValidTarget() )
 		{
 			#ifdef DM_BOT_DEBUG_FSM_RUSHING
-			dmBotLog.Debug("[FSM] Rushing: CanEnter=false (цель без позиции)");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Rushing: CanEnter=false (цель без позиции)");
 			#endif
 			return false;
 		}
 
 		bool ok = super.CanEnter();
 		#ifdef DM_BOT_DEBUG_FSM_RUSHING
-		dmBotLog.Debug("[FSM] Rushing: CanEnter=" + ok + " цель=" + t.m_Entity);
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Rushing: CanEnter=" + ok + " цель=" + t.m_Entity);
 		#endif
 		return ok;
 	}
@@ -49,7 +49,7 @@ class dmBotState_Rushing : dmBotState_Shooting
 		super.OnEntry(from);
 
 		#ifdef DM_BOT_DEBUG_FSM_RUSHING
-		dmBotLog.Debug("[FSM] Rushing.entry");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Rushing.entry");
 		#endif
 	}
 
@@ -63,7 +63,7 @@ class dmBotState_Rushing : dmBotState_Shooting
 		if (!t)
 		{
 			#ifdef DM_BOT_DEBUG_FSM_RUSHING
-			dmBotLog.Debug("[FSM] Rushing: нет цели");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Rushing: нет цели");
 			#endif
 			//! Цель забыта (выпала из m_Targets), но сущность жива — пере-резолв.
 			ResolveTarget();
@@ -76,14 +76,14 @@ class dmBotState_Rushing : dmBotState_Shooting
 		bool inRange = bot.CanReach(t);
 
 		#ifdef DM_BOT_DEBUG_FSM_RUSHING
-		dmBotLog.Debug("[FSM] Rushing: visible=" + visible + " inRange=" + inRange);
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Rushing: visible=" + visible + " inRange=" + inRange);
 		#endif
 
 		// фаза 1: видима + в досягаемости → стрельба
 		if (visible && inRange)
 		{
 			#ifdef DM_BOT_DEBUG_FSM_RUSHING
-			dmBotLog.Debug("[FSM] Rushing: я вижу цель, делегирую super.OnUpdate");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Rushing: я вижу цель, делегирую super.OnUpdate");
 			#endif
 			if (m_Move) { m_Move.Finish(); m_Move = null; }
 			return super.OnUpdate(pDt);
@@ -96,7 +96,7 @@ class dmBotState_Rushing : dmBotState_Shooting
 		if (visible && bot.IsTargetFacingBot(t))
 		{
 			#ifdef DM_BOT_DEBUG_FSM_RUSHING
-			dmBotLog.Debug("[FSM] Rushing: я вижу цель, цель смотрит на меня");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Rushing: я вижу цель, цель смотрит на меня");
 			#endif
 
 			if (m_Move) { m_Move.Finish(); m_Move = null; }
@@ -114,7 +114,7 @@ class dmBotState_Rushing : dmBotState_Shooting
 	override void OnExit(dmBotState to)
 	{
 		#ifdef DM_BOT_DEBUG_FSM_RUSHING
-		dmBotLog.Debug("[FSM] Rushing.exit");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Rushing.exit");
 		#endif
 		if (m_Move) m_Move.Finish();
 		super.OnExit(to); // Shooting.OnExit финишит Aim/HitTo/Look
@@ -143,7 +143,7 @@ class dmBotState_Rushing : dmBotState_Shooting
 			if (delta.Length() > DM_RUSH_REPATH_DIST)
 			{
 				#ifdef DM_BOT_DEBUG_FSM_RUSHING
-				dmBotLog.Debug("[FSM] Rushing: обновляю m_Move; delta=" + delta.Length());
+				dmBotLog.Debug(GetOwner().GetName(), "[FSM] Rushing: обновляю m_Move; delta=" + delta.Length());
 				#endif
 				m_Move.m_Goal = t.ApproximatePosition();
 				m_LastKnownPosition = t.GetLivePosition();
@@ -159,7 +159,7 @@ class dmBotState_Rushing : dmBotState_Shooting
 			m_Move.m_Goal = rushGoal;
 			m_LastKnownPosition = t.GetLivePosition();
 			#ifdef DM_BOT_DEBUG_FSM_RUSHING
-			dmBotLog.Debug("[FSM] Rushing: создаю m_Move goal=" + rushGoal + " lastKnown=" + m_LastKnownPosition);
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Rushing: создаю m_Move goal=" + rushGoal + " lastKnown=" + m_LastKnownPosition);
 			#endif
 			bot.AddFSMIntent(m_Move);
 		}

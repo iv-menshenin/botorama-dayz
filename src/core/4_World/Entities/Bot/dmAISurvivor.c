@@ -251,13 +251,13 @@ class dmAISurvivor
 	PlayerBase Spawn(vector position, vector orientation)
 	{
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("Spawn() model=" + m_Model + " position=" + position + " orientation=" + orientation);
+		dmBotLog.Debug(GetName(), "Spawn() model=" + m_Model + " position=" + position + " orientation=" + orientation);
 		#endif
 
 		if (m_Model.Length() == 0)
 		{
 			#ifdef DM_BOT_DEBUG_SPAWN
-			dmBotLog.Debug("Spawn() FAILED: model is empty");
+			dmBotLog.Debug(GetName(), "Spawn() FAILED: model is empty");
 			#endif
 			return null;
 		}
@@ -267,20 +267,20 @@ class dmAISurvivor
 		//! would leave the pawn without a profile.
 		Object entity = GetGame().CreateObject(m_Model, position);
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("Spawn() CreateObject returned entity=" + entity);
+		dmBotLog.Debug(GetName(), "Spawn() CreateObject returned entity=" + entity);
 		#endif
 
 		PlayerBase pawn = PlayerBase.Cast(entity);
 		if (!pawn)
 		{
 			#ifdef DM_BOT_DEBUG_SPAWN
-			dmBotLog.Debug("Spawn() FAILED: PlayerBase.Cast(entity) returned null");
+			dmBotLog.Debug(GetName(), "Spawn() FAILED: PlayerBase.Cast(entity) returned null");
 			#endif
 			return null;
 		}
 
 		#ifdef DM_BOT_DEBUG_BODY
-		dmBotLog.Debug("Spawn() hasCEProfile=" + (pawn.GetEconomyProfile() != null) + " hasIdentity=" + (pawn.GetIdentity() != null));
+		dmBotLog.Debug(GetName(), "Spawn() hasCEProfile=" + (pawn.GetEconomyProfile() != null) + " hasIdentity=" + (pawn.GetIdentity() != null));
 		#endif
 
 		m_Pawn = pawn;
@@ -298,7 +298,7 @@ class dmAISurvivor
 		s_ByPawn.Set(m_Pawn, this);
 
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("Spawn() OK pawn=" + pawn + " position=" + m_Pawn.GetPosition() + " orientation=" + m_Pawn.GetOrientation() + " total=" + s_All.Count());
+		dmBotLog.Debug(GetName(), "Spawn() OK pawn=" + pawn + " position=" + m_Pawn.GetPosition() + " orientation=" + m_Pawn.GetOrientation() + " total=" + s_All.Count());
 		#endif
 		return m_Pawn;
 	}
@@ -308,7 +308,7 @@ class dmAISurvivor
 	void Despawn()
 	{
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("Despawn() pawn=" + m_Pawn);
+		dmBotLog.Debug(GetName(), "Despawn() pawn=" + m_Pawn);
 		#endif
 
 		if (!m_Pawn)
@@ -325,7 +325,7 @@ class dmAISurvivor
 	void OnDeath()
 	{
 		#ifdef DM_BOT_DEBUG_SPAWN
-		dmBotLog.Debug("OnDeath() pawn=" + m_Pawn + " — мозг снимается, труп остаётся");
+		dmBotLog.Debug(GetName(), "OnDeath() pawn=" + m_Pawn + " — мозг снимается, труп остаётся");
 		#endif
 
 		//! Персистентный бот: удалить бинарник (по имени, пока m_Name доступен).
@@ -378,7 +378,7 @@ class dmAISurvivor
 	void SetOrientation(vector orientation)
 	{
 		#ifdef DM_BOT_DEBUG_BRAIN
-		dmBotLog.Debug("SetOrientation() orientation=" + orientation + " pawn=" + m_Pawn);
+		dmBotLog.Debug(GetName(), "SetOrientation() orientation=" + orientation + " pawn=" + m_Pawn);
 		#endif
 		if (m_Pawn)
 			m_Pawn.SetOrientation(orientation);
@@ -389,7 +389,7 @@ class dmAISurvivor
 	void SetDirection(vector direction)
 	{
 		#ifdef DM_BOT_DEBUG_BRAIN
-		dmBotLog.Debug("SetDirection() direction=" + direction + " pawn=" + m_Pawn);
+		dmBotLog.Debug(GetName(), "SetDirection() direction=" + direction + " pawn=" + m_Pawn);
 		#endif
 		if (m_Pawn)
 		{
@@ -403,7 +403,7 @@ class dmAISurvivor
 				pawn.SetTargetBodyYaw(orientation[0]);
 
 			#ifdef DM_BOT_DEBUG_BRAIN
-			dmBotLog.Debug("SetDirection() applied orientation=" + orientation + " actual=" + m_Pawn.GetOrientation());
+			dmBotLog.Debug(GetName(), "SetDirection() applied orientation=" + orientation + " actual=" + m_Pawn.GetOrientation());
 			#endif
 		}
 	}
@@ -425,7 +425,7 @@ class dmAISurvivor
 		if (!m_Pawn)
 		{
 			#ifdef DM_BOT_DEBUG_BRAIN
-			dmBotLog.Debug("LookAtPoint() FAILED: no pawn");
+			dmBotLog.Debug(GetName(), "LookAtPoint() FAILED: no pawn");
 			#endif
 			return;
 		}
@@ -450,7 +450,7 @@ class dmAISurvivor
 		m_TargetLookPitch = pitch;
 
 		#ifdef DM_BOT_TRACE_LOOK
-		dmBotLog.Trace("LookAtPoint() dir=" + dir + " angles=" + angles + " bodyYaw=" + bodyYaw + " targetYawAbs=" + m_TargetLookYawAbs + " lookPitch=" + m_TargetLookPitch);
+		dmBotLog.Trace(GetName(), "LookAtPoint() dir=" + dir + " angles=" + angles + " bodyYaw=" + bodyYaw + " targetYawAbs=" + m_TargetLookYawAbs + " lookPitch=" + m_TargetLookPitch);
 		#endif
 	}
 
@@ -556,7 +556,7 @@ class dmAISurvivor
 			if (m_InHandsHoldTime > DM_HOLD_IN_HANDS_TIMEOUT)
 			{
 				#ifdef DM_BOT_DEBUG_BODY
-				dmBotLog.Debug("[Body] таймаут держания " + inHands.GetType() + " — FreeHands(+репак)");
+				dmBotLog.Debug(GetName(), "[Body] таймаут держания " + inHands.GetType() + " — FreeHands(+репак)");
 				#endif
 				dmLoot.FreeHandsWithRepack(this);
 				m_InHandsHoldTime = 0.0;   // и при неудаче репака — анти-цикл, не дёргать каждый тик
@@ -572,7 +572,7 @@ class dmAISurvivor
 		if (restrained && !m_WasRestrained)
 		{
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[Body] restrained: by=" + m_RestrainedBy + " wasInCombat=" + m_WasInCombatAtKnockout);
+			dmBotLog.Debug(GetName(), "[Body] restrained: by=" + m_RestrainedBy + " wasInCombat=" + m_WasInCombatAtKnockout);
 			#endif
 			if (m_RestrainedBy)
 			{
@@ -616,7 +616,7 @@ class dmAISurvivor
 		if (m_DroppedWeapon)
 		{
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[Body] OnUpdate: пробуждение, вернуть выпавшее оружие " + m_DroppedWeapon.GetType());
+			dmBotLog.Debug(GetName(), "[Body] OnUpdate: пробуждение, вернуть выпавшее оружие " + m_DroppedWeapon.GetType());
 			#endif
 			dmBotIntent_RetrieveWeapon retrieve = new dmBotIntent_RetrieveWeapon();
 			retrieve.m_Item = m_DroppedWeapon;
@@ -894,7 +894,7 @@ class dmAISurvivor
 		if (!m_Pawn)
 		{
 			#ifdef DM_BOT_DEBUG_ARSENAL
-			dmBotLog.Debug("[Arsenal] HasLoadedFirearm=false (нет пешки)");
+			dmBotLog.Debug(GetName(), "[Arsenal] HasLoadedFirearm=false (нет пешки)");
 			#endif
 			return false;
 		}
@@ -907,8 +907,8 @@ class dmAISurvivor
 			if (!w || w.IsMeleeWeapon())
 				continue;
 			#ifdef DM_BOT_DEBUG_ARSENAL
-			dmBotLog.Debug("[Arsenal] firearm=" + w.GetType() + " loaded=" + IsWeaponLoaded(w));
-			dmBotLog.Debug("[Arsenal] caliber=" + dmWeaponRange.GetCaliber(w) + " ammo=" + GetArsenal().WeaponAmmoCount(w));
+			dmBotLog.Debug(GetName(), "[Arsenal] firearm=" + w.GetType() + " loaded=" + IsWeaponLoaded(w));
+			dmBotLog.Debug(GetName(), "[Arsenal] caliber=" + dmWeaponRange.GetCaliber(w) + " ammo=" + GetArsenal().WeaponAmmoCount(w));
 			#endif
 			if (IsWeaponLoaded(w))
 				return true;
@@ -916,7 +916,7 @@ class dmAISurvivor
 				return true;
 		}
 		#ifdef DM_BOT_DEBUG_ARSENAL
-		dmBotLog.Debug("[Arsenal] HasLoadedFirearm=false (нет ствола с боеприпасом)");
+		dmBotLog.Debug(GetName(), "[Arsenal] HasLoadedFirearm=false (нет ствола с боеприпасом)");
 		#endif
 		return false;
 	}
@@ -930,7 +930,7 @@ class dmAISurvivor
 		{
 			bool result = HasLoadedFirearm();
 			#ifdef DM_BOT_DEBUG_ARSENAL
-			dmBotLog.Debug("[Arsenal] CanShoot(inHands=false)=" + result);
+			dmBotLog.Debug(GetName(), "[Arsenal] CanShoot(inHands=false)=" + result);
 			#endif
 			return result;
 		}
@@ -938,20 +938,20 @@ class dmAISurvivor
 		if (!w || w.IsMeleeWeapon())
 		{
 			#ifdef DM_BOT_DEBUG_ARSENAL
-			dmBotLog.Debug("[Arsenal] CanShoot(inHands=true)=false (нет огнестрела в руках)");
+			dmBotLog.Debug(GetName(), "[Arsenal] CanShoot(inHands=true)=false (нет огнестрела в руках)");
 			#endif
 			return false;
 		}
 		if (IsWeaponLoaded(w))
 		{
 			#ifdef DM_BOT_DEBUG_ARSENAL
-			dmBotLog.Debug("[Arsenal] CanShoot(inHands=true)=true (ствол заряжен)");
+			dmBotLog.Debug(GetName(), "[Arsenal] CanShoot(inHands=true)=true (ствол заряжен)");
 			#endif
 			return true;
 		}
 		int ammo = GetArsenal().WeaponAmmoCount(w);
 		#ifdef DM_BOT_DEBUG_ARSENAL
-		dmBotLog.Debug("[Arsenal] CanShoot(inHands=true): ствол пуст, патронов в арсенале=" + ammo);
+		dmBotLog.Debug(GetName(), "[Arsenal] CanShoot(inHands=true): ствол пуст, патронов в арсенале=" + ammo);
 		#endif
 		return ammo > 0;
 	}
@@ -1119,8 +1119,8 @@ class dmAISurvivor
 		vector sampled;
 		bool sampledOk = m_Pathfinder.SamplePosition(target, DM_PATH_SAMPLE_RADIUS, sampled);
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] FindPathTo target=" + target + " sampledOk=" + sampledOk);
-		dmBotLog.Debug("[PATH] FindPathTo sampled=" + sampled);
+		dmBotLog.Debug(GetName(), "[PATH] FindPathTo target=" + target + " sampledOk=" + sampledOk);
+		dmBotLog.Debug(GetName(), "[PATH] FindPathTo sampled=" + sampled);
 		#endif
 		if (!sampledOk)
 			return false;
@@ -1201,7 +1201,7 @@ class dmAISurvivor
 		AddPersonalityIntent(intent);
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Bot] TryOpenDoorOnPath: doorIdx=" + doorIdx + " building=" + building);
+		dmBotLog.Debug(GetName(), "[Bot] TryOpenDoorOnPath: doorIdx=" + doorIdx + " building=" + building);
 		#endif
 		return true;
 	}
@@ -1425,7 +1425,7 @@ class dmAISurvivor
 		m_BrownZone.Add(GetPosition(), DM_BROWN_BULLET_RADIUS, DM_BROWN_BULLET_TIMEOUT);
 
 		#ifdef DM_BOT_DEBUG_COVER
-		dmBotLog.Debug("[BrownZone] RegisterBulletHit pos=" + GetPosition() + " lastHit=" + m_LastBulletHitTime);
+		dmBotLog.Debug(GetName(), "[BrownZone] RegisterBulletHit pos=" + GetPosition() + " lastHit=" + m_LastBulletHitTime);
 		#endif
 	}
 
@@ -1526,21 +1526,21 @@ class dmAISurvivor
 		if ( !forced && IsInCombat() )
 		{
 			#ifdef DM_BOT_DEBUG_EVADE
-			dmBotLog.Debug("[Evade] guard: in combat");
+			dmBotLog.Debug(GetName(), "[Evade] guard: in combat");
 			#endif
 			return;
 		}
 		if (m_EvadeAimIntent && !m_EvadeAimIntent.IsFinished() && !m_EvadeAimIntent.IsExpired())
 		{
 			#ifdef DM_BOT_DEBUG_EVADE
-			dmBotLog.Debug("[Evade] guard: already evading");
+			dmBotLog.Debug(GetName(), "[Evade] guard: already evading");
 			#endif
 			return;
 		}
 		m_EvadeAimIntent = new dmBotIntent_EvadeAim();
 		m_EvadeAimIntent.m_Aggressor = aggressor;
 		#ifdef DM_BOT_DEBUG_EVADE
-		dmBotLog.Debug("[Evade] trigger " + aggressor.GetType());
+		dmBotLog.Debug(GetName(), "[Evade] trigger " + aggressor.GetType());
 		#endif
 		AddPersonalityIntent(m_EvadeAimIntent);
 		m_EvadeAimLook = new dmBotIntent_HoldLook();
@@ -1846,9 +1846,9 @@ class dmAISurvivor
 	{
 		#ifdef DM_PERCEPTION_DEBUG
 		if ( entity )
-			dmBotLog.Debug("[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness + " [" + entity.GetType() + "]");
+			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness + " [" + entity.GetType() + "]");
 		else
-			dmBotLog.Debug("[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness);
+			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness);
 		#endif
 		dmTarget t = FindTarget(entity);
 		if (t)
@@ -2314,7 +2314,7 @@ class dmAISurvivor
 
 		#ifdef DM_BOT_DEBUG_BODY
 		if (prevHold <= DM_LOOK_BODY_SETTLE_TIME && m_HeadHoldTime > DM_LOOK_BODY_SETTLE_TIME)
-			dmBotLog.Debug("[Body] Look settle: head held " + m_HeadHoldTime + "s → body turns to " + m_TargetLookYawAbs);
+			dmBotLog.Debug(GetName(), "[Body] Look settle: head held " + m_HeadHoldTime + "s → body turns to " + m_TargetLookYawAbs);
 		#endif
 
 		float dYaw = AngleDiff(headTarget, m_CurLookYaw);
@@ -2328,8 +2328,8 @@ class dmAISurvivor
 			pawn.SetLookPitch(m_TargetLookPitch);
 			#ifdef DM_BOT_DEBUG_LADDER
 			float cby = ComputeBodyYaw(headTarget);
-			dmBotLog.Debug("[LADDER] LOOK: mode=" + (int)m_LookTurnMode + " moveYaw=" + m_MoveYaw + " isMoving=" + m_IsMoving);
-			dmBotLog.Debug("[LADDER] LOOK: lookYawAbs=" + m_TargetLookYawAbs + " headTarget=" + headTarget + " cby=" + cby + " bodyYaw=" + bodyYaw);
+			dmBotLog.Debug(GetName(), "[LADDER] LOOK: mode=" + (int)m_LookTurnMode + " moveYaw=" + m_MoveYaw + " isMoving=" + m_IsMoving);
+			dmBotLog.Debug(GetName(), "[LADDER] LOOK: lookYawAbs=" + m_TargetLookYawAbs + " headTarget=" + headTarget + " cby=" + cby + " bodyYaw=" + bodyYaw);
 			pawn.SetTargetBodyYaw(cby);
 			#else
 			pawn.SetTargetBodyYaw(ComputeBodyYaw(headTarget));
@@ -2338,7 +2338,7 @@ class dmAISurvivor
 
 		if (Math.AbsFloat(applyYaw) > 0.1)
 			#ifdef DM_BOT_TRACE_LOOK
-			dmBotLog.Trace("UpdateLook() targetYawAbs=" + m_TargetLookYawAbs + " bodyYaw=" + bodyYaw + " relTarget=" + relTarget + " curYaw=" + m_CurLookYaw + " pitch=" + m_TargetLookPitch);
+			dmBotLog.Trace(GetName(), "UpdateLook() targetYawAbs=" + m_TargetLookYawAbs + " bodyYaw=" + bodyYaw + " relTarget=" + relTarget + " curYaw=" + m_CurLookYaw + " pitch=" + m_TargetLookPitch);
 			#endif
 	}
 
@@ -2468,7 +2468,7 @@ class dmAISurvivor
 		bool clothing = item.IsClothing();
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Desired: item=" + item.GetType() + " ignored=" + ignored + " clothing=" + clothing);
+		dmBotLog.Debug(GetName(), "[Loot] Desired: item=" + item.GetType() + " ignored=" + ignored + " clothing=" + clothing);
 		#endif
 
 		if (ignored) return 0.0;
@@ -2521,7 +2521,7 @@ class dmAISurvivor
 			if (!current)
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] BetterClothes: verdict=true reason=empty-slot");
+				dmBotLog.Debug(GetName(), "[Loot] BetterClothes: verdict=true reason=empty-slot");
 				#endif
 				return true;
 			}
@@ -2547,22 +2547,22 @@ class dmAISurvivor
 			float candHp = item.GetHealth();
 			float wornHp = current.GetHealth();
 
-			dmBotLog.Debug("[Loot] BetterClothes: cand=" + candType + " slot=" + slotNames[i] + " worn=" + wornType);
-			dmBotLog.Debug("[Loot] BetterClothes: candCargo=" + candCargoStr + " wornCargo=" + wornCargoStr + " itemCargo=" + itemCargo + " currentCargo=" + currentCargo);
-			dmBotLog.Debug("[Loot] BetterClothes: heat cand=" + candHeat + " worn=" + wornHeat + " hp cand=" + candHp + " worn=" + wornHp);
+			dmBotLog.Debug(GetName(), "[Loot] BetterClothes: cand=" + candType + " slot=" + slotNames[i] + " worn=" + wornType);
+			dmBotLog.Debug(GetName(), "[Loot] BetterClothes: candCargo=" + candCargoStr + " wornCargo=" + wornCargoStr + " itemCargo=" + itemCargo + " currentCargo=" + currentCargo);
+			dmBotLog.Debug(GetName(), "[Loot] BetterClothes: heat cand=" + candHeat + " worn=" + wornHeat + " hp cand=" + candHp + " worn=" + wornHp);
 			#endif
 
 			if (itemCargo > currentCargo)
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] BetterClothes: verdict=true reason=cargo-more");
+				dmBotLog.Debug(GetName(), "[Loot] BetterClothes: verdict=true reason=cargo-more");
 				#endif
 				return true;
 			}
 			if (itemCargo < currentCargo)
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] BetterClothes: verdict=false reason=cargo-less");
+				dmBotLog.Debug(GetName(), "[Loot] BetterClothes: verdict=false reason=cargo-less");
 				#endif
 				return false;
 			}
@@ -2570,14 +2570,14 @@ class dmAISurvivor
 			if (item.GetHeatIsolation() > current.GetHeatIsolation())
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] BetterClothes: verdict=true reason=heat-more");
+				dmBotLog.Debug(GetName(), "[Loot] BetterClothes: verdict=true reason=heat-more");
 				#endif
 				return true;
 			}
 			if (item.GetHeatIsolation() < current.GetHeatIsolation())
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] BetterClothes: verdict=false reason=heat-less");
+				dmBotLog.Debug(GetName(), "[Loot] BetterClothes: verdict=false reason=heat-less");
 				#endif
 				return false;
 			}
@@ -2585,14 +2585,14 @@ class dmAISurvivor
 			if (item.GetHealth() > current.GetHealth())
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] BetterClothes: verdict=true reason=health-more");
+				dmBotLog.Debug(GetName(), "[Loot] BetterClothes: verdict=true reason=health-more");
 				#endif
 				return true;
 			}
 			if (item.GetHealth() < current.GetHealth())
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] BetterClothes: verdict=false reason=health-less");
+				dmBotLog.Debug(GetName(), "[Loot] BetterClothes: verdict=false reason=health-less");
 				#endif
 				return false;
 			}
@@ -2600,19 +2600,19 @@ class dmAISurvivor
 			if (item.GetMaxHealth() > current.GetMaxHealth())
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] BetterClothes: verdict=true reason=maxhp-more");
+				dmBotLog.Debug(GetName(), "[Loot] BetterClothes: verdict=true reason=maxhp-more");
 				#endif
 				return true;
 			}
 
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] BetterClothes: verdict=false reason=equal");
+			dmBotLog.Debug(GetName(), "[Loot] BetterClothes: verdict=false reason=equal");
 			#endif
 			return false;
 		}
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] BetterClothes: verdict=false reason=no-slot");
+		dmBotLog.Debug(GetName(), "[Loot] BetterClothes: verdict=false reason=no-slot");
 		#endif
 		return false;
 	}
@@ -2662,7 +2662,7 @@ class dmAISurvivor
 			if (wm.CanAttachMagazine(w, mag) || wm.CanSwapMagazine(w, mag))
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] IsSuitableMagazine: " + item.GetType() + " подходит к " + w.GetType());
+				dmBotLog.Debug(GetName(), "[Loot] IsSuitableMagazine: " + item.GetType() + " подходит к " + w.GetType());
 				#endif
 				return true;
 			}

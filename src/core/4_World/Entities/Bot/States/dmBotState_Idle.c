@@ -29,7 +29,7 @@ class dmBotState_Idle : dmBotState
 			pawn.RefreshPreferredFireMode();
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] Idle.entry");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Idle.entry");
 		#endif
 	}
 

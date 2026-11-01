@@ -433,14 +433,14 @@ class dmAISurvivorBase : PlayerBase
 			m_VarsBound = true;
 
 			#ifdef DM_BOT_DEBUG_PAWN
-			dmBotLog.Debug("dmAISurvivorBase.BindLookVars() Look=" + m_VarLook + " LookDirX=" + m_VarLookDirX + " LookDirY=" + m_VarLookDirY + " instType=" + GetInstanceType());
-			dmBotLog.Debug("dmAISurvivorBase.BindLookVars() TurnAmount=" + m_VarTurnAmount + " CmdTurn=" + m_CmdTurn + " CmdStopTurn=" + m_CmdStopTurn);
+			dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.BindLookVars() Look=" + m_VarLook + " LookDirX=" + m_VarLookDirX + " LookDirY=" + m_VarLookDirY + " instType=" + GetInstanceType());
+			dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.BindLookVars() TurnAmount=" + m_VarTurnAmount + " CmdTurn=" + m_CmdTurn + " CmdStopTurn=" + m_CmdStopTurn);
 			#endif
 		}
 		else
 		{
 			#ifdef DM_BOT_DEBUG_PAWN
-			dmBotLog.Debug("dmAISurvivorBase.BindLookVars() GetAnimInterface() returned null instType=" + GetInstanceType());
+			dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.BindLookVars() GetAnimInterface() returned null instType=" + GetInstanceType());
 			#endif
 		}
 	}
@@ -481,7 +481,7 @@ class dmAISurvivorBase : PlayerBase
 		m_WeaponHoldUntil = GetGame().GetTickTime() + holdSeconds;
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Kamping] RaiseWeaponSticky holdSeconds=" + holdSeconds + " until=" + m_WeaponHoldUntil);
+		dmBotLog.Debug(GetCachedName(), "[Kamping] RaiseWeaponSticky holdSeconds=" + holdSeconds + " until=" + m_WeaponHoldUntil);
 		#endif
 	}
 
@@ -490,7 +490,7 @@ class dmAISurvivorBase : PlayerBase
 	{
 		#ifdef DM_BOT_DEBUG_FSM
 		if (m_WeaponHoldUntil > 0.0)
-			dmBotLog.Debug("[Kamping] ClearWeaponHold until=" + m_WeaponHoldUntil);
+			dmBotLog.Debug(GetCachedName(), "[Kamping] ClearWeaponHold until=" + m_WeaponHoldUntil);
 		#endif
 
 		m_WeaponHoldUntil = 0.0;
@@ -558,7 +558,7 @@ class dmAISurvivorBase : PlayerBase
 			if (wpn.IsChamberFiredOut(mi) || wpn.IsJammed() || wpn.IsChamberEmpty(mi))
 			{
 				#ifdef DM_WEAPON_DEBUG_FSM
-				dmBotLog.Debug("[Weapon] IsReadyToShoot: IsChamberFiredOut=" + wpn.IsChamberFiredOut(mi) + " IsJammed=" + wpn.IsJammed() + " IsChamberEmpty=" + wpn.IsChamberEmpty(mi));
+				dmBotLog.Debug(GetCachedName(), "[Weapon] IsReadyToShoot: IsChamberFiredOut=" + wpn.IsChamberFiredOut(mi) + " IsJammed=" + wpn.IsJammed() + " IsChamberEmpty=" + wpn.IsChamberEmpty(mi));
 				#endif
 				return false;
 			}
@@ -664,7 +664,7 @@ class dmAISurvivorBase : PlayerBase
 	override bool HeadingModel(float pDt, SDayZPlayerHeadingModel pModel)
 	{
 		#ifdef DM_BOT_DEBUG_LADDER
-		dmBotLog.Debug("[LADDER] RAW: heading=" + (pModel.m_fHeadingAngle * Math.RAD2DEG) + " orient=" + (pModel.m_fOrientationAngle * Math.RAD2DEG));
+		dmBotLog.Debug(GetCachedName(), "[LADDER] RAW: heading=" + (pModel.m_fHeadingAngle * Math.RAD2DEG) + " orient=" + (pModel.m_fOrientationAngle * Math.RAD2DEG));
 		#endif
 
 		GetMovementState(m_MovementState);
@@ -737,8 +737,8 @@ class dmAISurvivorBase : PlayerBase
 		if (GetGame().GetTickTime() - m_LastReadyLogTime >= 2.0)
 		{
 			m_LastReadyLogTime = GetGame().GetTickTime();
-			dmBotLog.Debug("[Aim] raised=" + m_WeaponRaised + " mode=" + m_AimMode + " readyDur=" + m_RaiseReadyDuration);
-			dmBotLog.Debug("[Aim] timer=" + m_WeaponRaisedTimer + " raising=" + IsRaising() + " ready=" + IsReadyToShoot());
+			dmBotLog.Debug(GetCachedName(), "[Aim] raised=" + m_WeaponRaised + " mode=" + m_AimMode + " readyDur=" + m_RaiseReadyDuration);
+			dmBotLog.Debug(GetCachedName(), "[Aim] timer=" + m_WeaponRaisedTimer + " raising=" + IsRaising() + " ready=" + IsReadyToShoot());
 		}
 		#endif
 	}
@@ -846,7 +846,7 @@ class dmAISurvivorBase : PlayerBase
 	{
 		vector origin = GetMuzzlePosition();
 		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] SHOTORIGIN origin=" + origin);
+		dmBotLog.Debug(GetCachedName(), "[Ballistics] SHOTORIGIN origin=" + origin);
 		#endif
 		return origin;
 	}
@@ -919,8 +919,8 @@ class dmAISurvivorBase : PlayerBase
 		}
 
 		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] DROP origin=" + origin + " dist=" + distance + " t=" + travelTime + " drop=" + drop);
-		dmBotLog.Debug("[Ballistics] DROP wind=" + GetGame().GetWeather().GetWind() + " dir=" + direction);
+		dmBotLog.Debug(GetCachedName(), "[Ballistics] DROP origin=" + origin + " dist=" + distance + " t=" + travelTime + " drop=" + drop);
+		dmBotLog.Debug(GetCachedName(), "[Ballistics] DROP wind=" + GetGame().GetWeather().GetWind() + " dir=" + direction);
 		#endif
 
 		if (drop > 0.1)
@@ -1038,8 +1038,8 @@ class dmAISurvivorBase : PlayerBase
 		if (GetGame().GetTickTime() - m_LastAimLogTime >= 2.0)
 		{
 			m_LastAimLogTime = GetGame().GetTickTime();
-			dmBotLog.Debug("[Aim] relLR=" + m_AimRelAngleLR + " relUD=" + m_AimRelAngleUD + " raised=" + m_WeaponRaised);
-			dmBotLog.Debug("[Aim] smoothLR=" + m_AimSmoothedLR + " smoothUD=" + m_AimSmoothedUD);
+			dmBotLog.Debug(GetCachedName(), "[Aim] relLR=" + m_AimRelAngleLR + " relUD=" + m_AimRelAngleUD + " raised=" + m_WeaponRaised);
+			dmBotLog.Debug(GetCachedName(), "[Aim] smoothLR=" + m_AimSmoothedLR + " smoothUD=" + m_AimSmoothedUD);
 		}
 		#endif
 	}
@@ -1061,7 +1061,7 @@ class dmAISurvivorBase : PlayerBase
 		if (GetGame().GetTickTime() - m_LastADSLogTime >= 2.0)
 		{
 			m_LastADSLogTime = GetGame().GetTickTime();
-			dmBotLog.Debug("[ADS] raised=" + m_WeaponRaised + " mode=" + m_AimMode + " hasOptic=" + (optic != null));
+			dmBotLog.Debug(GetCachedName(), "[ADS] raised=" + m_WeaponRaised + " mode=" + m_AimMode + " hasOptic=" + (optic != null));
 		}
 		#endif
 
@@ -1105,7 +1105,7 @@ class dmAISurvivorBase : PlayerBase
 			m_LastLogLookPitch = m_LookPitchDeg;
 
 			#ifdef DM_BOT_DEBUG_PAWN
-			dmBotLog.Debug("dmAISurvivorBase.OnVariablesSynchronized() lookYaw=" + m_LookYawDeg + " lookPitch=" + m_LookPitchDeg + " instType=" + GetInstanceType());
+			dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.OnVariablesSynchronized() lookYaw=" + m_LookYawDeg + " lookPitch=" + m_LookPitchDeg + " instType=" + GetInstanceType());
 			#endif
 		}
 	}
@@ -1119,14 +1119,14 @@ class dmAISurvivorBase : PlayerBase
 		string soundSet = dmBotVoice.GetSoundSetName(lineId);
 		if (soundSet == "")
 		{
-			dmBotLog.Error("dmAISurvivorBase.PlayVoiceLineClient() unknown lineId=" + lineId);
+			dmBotLog.Error(GetCachedName(), "dmAISurvivorBase.PlayVoiceLineClient() unknown lineId=" + lineId);
 			return;
 		}
 
 		SoundParams params = new SoundParams(soundSet);
 		if (!params.IsValid())
 		{
-			dmBotLog.Error("dmAISurvivorBase.PlayVoiceLineClient() SoundParams invalid: " + soundSet);
+			dmBotLog.Error(GetCachedName(), "dmAISurvivorBase.PlayVoiceLineClient() SoundParams invalid: " + soundSet);
 			return;
 		}
 
@@ -1134,7 +1134,7 @@ class dmAISurvivorBase : PlayerBase
 		SoundObject soundObject = builder.BuildSoundObject();
 		if (!soundObject)
 		{
-			dmBotLog.Error("dmAISurvivorBase.PlayVoiceLineClient() BuildSoundObject() null: " + soundSet);
+			dmBotLog.Error(GetCachedName(), "dmAISurvivorBase.PlayVoiceLineClient() BuildSoundObject() null: " + soundSet);
 			return;
 		}
 
@@ -1142,7 +1142,7 @@ class dmAISurvivorBase : PlayerBase
 		GetGame().GetSoundScene().Play3D(soundObject, builder);
 
 		#ifdef DM_BOT_DEBUG_VOICE
-		dmBotLog.Debug("dmAISurvivorBase.PlayVoiceLineClient() lineId=" + lineId + " soundSet=" + soundSet + " instType=" + GetInstanceType());
+		dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.PlayVoiceLineClient() lineId=" + lineId + " soundSet=" + soundSet + " instType=" + GetInstanceType());
 		#endif
 	}
 #endif
@@ -1257,8 +1257,8 @@ class dmAISurvivorBase : PlayerBase
 				int seat = -1;
 				if (hcv)
 					seat = hcv.GetVehicleSeat();
-				dmBotLog.Debug("[Bot] InVehicle: seat=" + seat + " motor blocked");
-				dmBotLog.Debug("[Bot] InVehicle: motor reset, head look unaffected");
+				dmBotLog.Debug(GetCachedName(), "[Bot] InVehicle: seat=" + seat + " motor blocked");
+				dmBotLog.Debug(GetCachedName(), "[Bot] InVehicle: motor reset, head look unaffected");
 			}
 			#endif
 
@@ -1269,10 +1269,10 @@ class dmAISurvivorBase : PlayerBase
 		//! Временный per-frame диагностический лог (баг «бесконечное кручение после
 		//! лестницы»). Разбит на 4 строки — codeguide «Formula too complex».
 		GetMovementState(m_MovementState);
-		dmBotLog.Debug("[LADDER] onLadder=" + IsClimbingLadder() + " cmd=" + m_MovementState.m_CommandTypeId);
-		dmBotLog.Debug("[LADDER] headingDiff=" + m_fLastHeadingDiff + " targetYaw=" + m_TargetBodyYaw + " bodyYaw=" + GetOrientation()[0]);
-		dmBotLog.Debug("[LADDER] turnState=" + m_TurnState + " moving=" + m_IsMoving);
-		dmBotLog.Debug("[LADDER] vel=" + GetVelocity(this) + " desiredA=" + m_DesiredMoveAngle + " desiredS=" + m_DesiredSpeed + " actualS=" + m_ActualSpeed + " turnSharp=" + m_TurnSharp);
+		dmBotLog.Debug(GetCachedName(), "[LADDER] onLadder=" + IsClimbingLadder() + " cmd=" + m_MovementState.m_CommandTypeId);
+		dmBotLog.Debug(GetCachedName(), "[LADDER] headingDiff=" + m_fLastHeadingDiff + " targetYaw=" + m_TargetBodyYaw + " bodyYaw=" + GetOrientation()[0]);
+		dmBotLog.Debug(GetCachedName(), "[LADDER] turnState=" + m_TurnState + " moving=" + m_IsMoving);
+		dmBotLog.Debug(GetCachedName(), "[LADDER] vel=" + GetVelocity(this) + " desiredA=" + m_DesiredMoveAngle + " desiredS=" + m_DesiredSpeed + " actualS=" + m_ActualSpeed + " turnSharp=" + m_TurnSharp);
 		#endif
 
 		bool onLadder = IsClimbingLadder();
@@ -1298,7 +1298,7 @@ class dmAISurvivorBase : PlayerBase
 			m_LastLogLookPitch = m_LookPitchDeg;
 
 			#ifdef DM_BOT_DEBUG_PAWN
-			dmBotLog.Debug("dmAISurvivorBase.CommandHandler() lookYaw=" + m_LookYawDeg + " lookPitch=" + m_LookPitchDeg + " instType=" + GetInstanceType());
+			dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.CommandHandler() lookYaw=" + m_LookYawDeg + " lookPitch=" + m_LookPitchDeg + " instType=" + GetInstanceType());
 			#endif
 		}
 	}
@@ -1347,7 +1347,7 @@ class dmAISurvivorBase : PlayerBase
 		if (m_BodyDebugAccum >= 2.0)
 		{
 			m_BodyDebugAccum = 0.0;
-			dmBotLog.Debug("Body: blood=" + GetHealth("", "Blood") + " shock=" + GetHealth("", "Shock") + " bleeding=" + IsBleeding() + " unconscious=" + IsUnconscious() + " brokenLegs=" + (GetBrokenLegs() != eBrokenLegs.NO_BROKEN_LEGS));
+			dmBotLog.Debug(GetCachedName(), "Body: blood=" + GetHealth("", "Blood") + " shock=" + GetHealth("", "Shock") + " bleeding=" + IsBleeding() + " unconscious=" + IsUnconscious() + " brokenLegs=" + (GetBrokenLegs() != eBrokenLegs.NO_BROKEN_LEGS));
 		}
 		#endif
 
@@ -1409,20 +1409,20 @@ class dmAISurvivorBase : PlayerBase
 				if (inHands)
 				{
 					#ifdef DM_BOT_DEBUG_BODY
-					dmBotLog.Debug("UnconsciousBridge: drop item=" + inHands.GetType());
+					dmBotLog.Debug(GetCachedName(), "UnconsciousBridge: drop item=" + inHands.GetType());
 					#endif
 					GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(DropItemInHandsDeferred, DM_BOT_KNOCKOUT_DROP_DELAY_MS, false, ItemBase.Cast(inHands));
 				}
 				else
 				{
 					#ifdef DM_BOT_DEBUG_BODY
-					dmBotLog.Debug("UnconsciousBridge: GetItemInHands() == null (no item to drop)");
+					dmBotLog.Debug(GetCachedName(), "UnconsciousBridge: GetItemInHands() == null (no item to drop)");
 					#endif
 				}
 
 				#ifdef DM_BOT_DEBUG_BODY
 				DebugBodyState("uncon-enter-after");
-				dmBotLog.Debug("UnconsciousBridge: shock=" + shock + " -> StartCommand_Unconscious(0)");
+				dmBotLog.Debug(GetCachedName(), "UnconsciousBridge: shock=" + shock + " -> StartCommand_Unconscious(0)");
 				#endif
 			}
 		}
@@ -1441,7 +1441,7 @@ class dmAISurvivorBase : PlayerBase
 
 				#ifdef DM_BOT_DEBUG_BODY
 				DebugBodyState("uncon-wake");
-				dmBotLog.Debug("UnconsciousBridge: shock=" + shock + " -> WakeUp");
+				dmBotLog.Debug(GetCachedName(), "UnconsciousBridge: shock=" + shock + " -> WakeUp");
 				#endif
 			}
 		}
@@ -1453,7 +1453,7 @@ class dmAISurvivorBase : PlayerBase
 	override bool EEOnDamageCalculated(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
 	{
 		#ifdef DM_BOT_DEBUG_DAMAGE
-		dmBotLog.Debug("EEOnDamageCalculated damageType=" + damageType + " ammo=" + ammo + " source=" + source);
+		dmBotLog.Debug(GetCachedName(), "EEOnDamageCalculated damageType=" + damageType + " ammo=" + ammo + " source=" + source);
 		#endif
 
 		return super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
@@ -1469,12 +1469,12 @@ class dmAISurvivorBase : PlayerBase
 		m_ReceivedHit = true;
 
 		#ifdef DM_BOT_DEBUG_DAMAGE
-		dmBotLog.Debug("EEHitBy damageType=" + damageType + " ammo=" + ammo + " dmgZone=" + dmgZone);
+		dmBotLog.Debug(GetCachedName(), "EEHitBy damageType=" + damageType + " ammo=" + ammo + " dmgZone=" + dmgZone);
 		#endif
 
 		#ifdef DM_BOT_DEBUG_BALLISTICS
-		dmBotLog.Debug("[Ballistics] HIT time=" + GetGame().GetTime() + " ammo=" + ammo);
-		dmBotLog.Debug("[Ballistics] HIT zone=" + dmgZone + " health=" + damageResult.GetDamage(dmgZone, "Health"));
+		dmBotLog.Debug(GetCachedName(), "[Ballistics] HIT time=" + GetGame().GetTime() + " ammo=" + ammo);
+		dmBotLog.Debug(GetCachedName(), "[Ballistics] HIT zone=" + dmgZone + " health=" + damageResult.GetDamage(dmgZone, "Health"));
 		#endif
 
 		//! Halve the shock dealt by zombies: vanilla already applied full shock,
@@ -1512,7 +1512,7 @@ class dmAISurvivorBase : PlayerBase
 				bot.EscapeDanger(source.GetPosition());
 
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[RedZone] fire damage at " + source.GetPosition());
+			dmBotLog.Debug(GetCachedName(), "[RedZone] fire damage at " + source.GetPosition());
 			#endif
 		}
 	}
@@ -1537,11 +1537,11 @@ class dmAISurvivorBase : PlayerBase
 		if (inHands)
 		{
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("EEKilled: drop item=" + inHands.GetType());
+			dmBotLog.Debug(GetCachedName(), "EEKilled: drop item=" + inHands.GetType());
 			#endif
 			bool dropped = DropItem(ItemBase.Cast(inHands));
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("EEKilled: DropItem result=" + dropped);
+			dmBotLog.Debug(GetCachedName(), "EEKilled: DropItem result=" + dropped);
 			#endif
 		}
 
@@ -1549,7 +1549,7 @@ class dmAISurvivorBase : PlayerBase
 
 		#ifdef DM_BOT_DEBUG_BODY
 		DebugBodyState("death-after");
-		dmBotLog.Debug("EEKilled: hasCEProfile=" + (GetEconomyProfile() != null) + " corpseProcessing=" + m_CorpseProcessing + " corpseState=" + m_CorpseState + " lifetime=" + GetLifetime());
+		dmBotLog.Debug(GetCachedName(), "EEKilled: hasCEProfile=" + (GetEconomyProfile() != null) + " corpseProcessing=" + m_CorpseProcessing + " corpseState=" + m_CorpseState + " lifetime=" + GetLifetime());
 		#endif
 	}
 
@@ -1595,9 +1595,9 @@ class dmAISurvivorBase : PlayerBase
 		if (dropped)
 			droppedType = dropped.GetType();
 
-		dmBotLog.Debug("[Body:" + ctx + "] alive=" + IsAlive() + " unconscious=" + IsUnconscious() + " stateOnly=" + IsUnconsciousStateOnly() + " mIsUnc=" + m_IsUnconscious + " shouldUnc=" + m_ShouldBeUnconscious + " restrained=" + IsRestrained() + " canAct=" + CanAct());
-		dmBotLog.Debug("[Body:" + ctx + "] shock=" + GetHealth("", "Shock") + " health=" + GetHealth("", "Health") + " hands=" + handsType + " meleeReq=" + m_MeleeAttackRequest + " fireReq=" + m_FireRequest + " meleeTgt=" + meleeType);
-		dmBotLog.Debug("[Body:" + ctx + "] cmd=" + m_MovementState.m_CommandTypeId + " speed=" + m_ActualSpeed + " dropped=" + droppedType + " inCombat=" + inCombat + " wasCombatKnockout=" + wasCombatKnockout);
+		dmBotLog.Debug(GetCachedName(), "[Body:" + ctx + "] alive=" + IsAlive() + " unconscious=" + IsUnconscious() + " stateOnly=" + IsUnconsciousStateOnly() + " mIsUnc=" + m_IsUnconscious + " shouldUnc=" + m_ShouldBeUnconscious + " restrained=" + IsRestrained() + " canAct=" + CanAct());
+		dmBotLog.Debug(GetCachedName(), "[Body:" + ctx + "] shock=" + GetHealth("", "Shock") + " health=" + GetHealth("", "Health") + " hands=" + handsType + " meleeReq=" + m_MeleeAttackRequest + " fireReq=" + m_FireRequest + " meleeTgt=" + meleeType);
+		dmBotLog.Debug(GetCachedName(), "[Body:" + ctx + "] cmd=" + m_MovementState.m_CommandTypeId + " speed=" + m_ActualSpeed + " dropped=" + droppedType + " inCombat=" + inCombat + " wasCombatKnockout=" + wasCombatKnockout);
 		#endif
 	}
 
@@ -1736,8 +1736,8 @@ class dmAISurvivorBase : PlayerBase
 		if (GetGame().GetTickTime() - m_LastTurnLogTime >= 2.0)
 		{
 			m_LastTurnLogTime = GetGame().GetTickTime();
-			dmBotLog.Debug("Turn: targetYaw=" + m_TargetBodyYaw + " bodyYaw=" + bodyYaw + " dBody=" + dBody);
-			dmBotLog.Debug("Turn: moving=" + moving + " state=" + m_TurnState + " amount=" + turnAmount);
+			dmBotLog.Debug(GetCachedName(), "Turn: targetYaw=" + m_TargetBodyYaw + " bodyYaw=" + bodyYaw + " dBody=" + dBody);
+			dmBotLog.Debug(GetCachedName(), "Turn: moving=" + moving + " state=" + m_TurnState + " amount=" + turnAmount);
 		}
 		#endif
 	}
@@ -1790,9 +1790,9 @@ class dmAISurvivorBase : PlayerBase
 
 			float bodyYaw = GetOrientation()[0];
 
-			dmBotLog.Debug("[MOV] desired=" + m_DesiredSpeed + " target=" + target + " actual=" + m_ActualSpeed + " vanilla=" + vanillaSpeed);
-			dmBotLog.Debug("[MOV] turnSharp=" + m_TurnSharp + " canSprint=" + canSprintNow + " stamina=" + canConsumeSprint + " angle=" + m_DesiredMoveAngle);
-			dmBotLog.Debug("[MOV] bodyYaw=" + bodyYaw + " targetYaw=" + m_TargetBodyYaw + " posDelta=" + posDelta);
+			dmBotLog.Debug(GetCachedName(), "[MOV] desired=" + m_DesiredSpeed + " target=" + target + " actual=" + m_ActualSpeed + " vanilla=" + vanillaSpeed);
+			dmBotLog.Debug(GetCachedName(), "[MOV] turnSharp=" + m_TurnSharp + " canSprint=" + canSprintNow + " stamina=" + canConsumeSprint + " angle=" + m_DesiredMoveAngle);
+			dmBotLog.Debug(GetCachedName(), "[MOV] bodyYaw=" + bodyYaw + " targetYaw=" + m_TargetBodyYaw + " posDelta=" + posDelta);
 		}
 		#endif
 
@@ -1803,7 +1803,7 @@ class dmAISurvivorBase : PlayerBase
 			if (m_MoveDebugAccum >= 2.0)
 			{
 				m_MoveDebugAccum = 0.0;
-				dmBotLog.Debug("Move: hic=" + (hic != null) + " angle=" + m_DesiredMoveAngle + " desired=" + m_DesiredSpeed + " actual=" + m_ActualSpeed + " turnSharp=" + m_TurnSharp + " alive=" + IsAlive() + " unconscious=" + IsUnconscious() + " restrained=" + IsRestrained());
+				dmBotLog.Debug(GetCachedName(), "Move: hic=" + (hic != null) + " angle=" + m_DesiredMoveAngle + " desired=" + m_DesiredSpeed + " actual=" + m_ActualSpeed + " turnSharp=" + m_TurnSharp + " alive=" + IsAlive() + " unconscious=" + IsUnconscious() + " restrained=" + IsRestrained());
 			}
 		}
 		#endif
@@ -1935,7 +1935,7 @@ class dmAISurvivorBase : PlayerBase
 		m_TalkDelta = 0.0;
 		SetSynchDirty();
 		#ifdef DM_BOT_DEBUG_VOICE
-		dmBotLog.Debug("dmAISurvivorBase.SpeakLine() lineId=" + lineId + " nonce=" + m_VoiceLineNonce + " instType=" + GetInstanceType());
+		dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.SpeakLine() lineId=" + lineId + " nonce=" + m_VoiceLineNonce + " instType=" + GetInstanceType());
 		#endif
 	}
 
@@ -2029,7 +2029,7 @@ class dmAISurvivorBase : PlayerBase
 		{
 			m_Striking = false;
 			if (m_MeleeTurnAccum > DM_MELEE_SPIN_THRESHOLD)
-				dmBotLog.Error("Melee spin: turn=" + m_MeleeTurnAccum + " deg");
+				dmBotLog.Error(GetCachedName(), "Melee spin: turn=" + m_MeleeTurnAccum + " deg");
 		}
 		m_LastFrameYaw = yaw;
 	}
@@ -2045,7 +2045,7 @@ class dmAISurvivorBase : PlayerBase
 		{
 			m_LastEvadeLogState = evading;
 			#ifdef DM_BOT_DEBUG_FIGHT
-			dmBotLog.Debug("[Melee] IsMeleeEvade=" + evading);
+			dmBotLog.Debug(GetCachedName(), "[Melee] IsMeleeEvade=" + evading);
 			#endif
 		}
 		bool striking = IsMeleeStriking();
@@ -2053,7 +2053,7 @@ class dmAISurvivorBase : PlayerBase
 		{
 			m_LastStrikingLogState = striking;
 			#ifdef DM_BOT_DEBUG_FIGHT
-			dmBotLog.Debug("[Melee] IsMeleeStriking=" + striking);
+			dmBotLog.Debug(GetCachedName(), "[Melee] IsMeleeStriking=" + striking);
 			#endif
 		}
 	}
@@ -2070,13 +2070,13 @@ class dmAISurvivorBase : PlayerBase
 		if (!em || !em.CanPlayEmote(emoteID))
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Bot] PlayEmote: refuse id=" + emoteID);
+			dmBotLog.Debug(GetCachedName(), "[Bot] PlayEmote: refuse id=" + emoteID);
 			#endif
 			return false;
 		}
 		em.PlayEmote(emoteID);
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Bot] PlayEmote: start id=" + emoteID);
+		dmBotLog.Debug(GetCachedName(), "[Bot] PlayEmote: start id=" + emoteID);
 		#endif
 		return true;
 	}
@@ -2094,29 +2094,29 @@ class dmAISurvivorBase : PlayerBase
 
 		int seatAnim = transport.GetSeatAnimationType(seatIndex);
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[GETIN] base seat=" + seatIndex + " seatAnim=" + seatAnim);
+		dmBotLog.Debug(GetCachedName(), "[GETIN] base seat=" + seatIndex + " seatAnim=" + seatAnim);
 		int animInst = transport.GetAnimInstance();
 		GetMovementState(m_MovementState);
 		int cmdTypeId = m_MovementState.m_CommandTypeId;
-		dmBotLog.Debug("[GETIN] base animInst=" + animInst + " preCmdType=" + cmdTypeId);
+		dmBotLog.Debug(GetCachedName(), "[GETIN] base animInst=" + animInst + " preCmdType=" + cmdTypeId);
 		#endif
 		HumanCommandVehicle cmd = StartCommand_Vehicle(transport, seatIndex, seatAnim);
 		if (!cmd)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[GETIN] base cmd=false pendingEnter=" + m_VehiclePendingEnter);
-			dmBotLog.Debug("[Bot] GetInVehicle: fail seat=" + seatIndex);
+			dmBotLog.Debug(GetCachedName(), "[GETIN] base cmd=false pendingEnter=" + m_VehiclePendingEnter);
+			dmBotLog.Debug(GetCachedName(), "[Bot] GetInVehicle: fail seat=" + seatIndex);
 			#endif
 			return false;
 		}
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Bot] GetInVehicle: seat=" + seatIndex);
+		dmBotLog.Debug(GetCachedName(), "[Bot] GetInVehicle: seat=" + seatIndex);
 		#endif
 		cmd.SetVehicleType(transport.GetAnimInstance());
 		m_VehiclePendingEnter = true;
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[GETIN] base vehicleType=" + cmd.GetVehicleType() + " seat=" + cmd.GetVehicleSeat());
-		dmBotLog.Debug("[GETIN] base cmd=true pendingEnter=" + m_VehiclePendingEnter);
+		dmBotLog.Debug(GetCachedName(), "[GETIN] base vehicleType=" + cmd.GetVehicleType() + " seat=" + cmd.GetVehicleSeat());
+		dmBotLog.Debug(GetCachedName(), "[GETIN] base cmd=true pendingEnter=" + m_VehiclePendingEnter);
 		#endif
 		return true;
 	}
@@ -2129,7 +2129,7 @@ class dmAISurvivorBase : PlayerBase
 		if (!cmd)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Bot] GetOutVehicle: not in vehicle");
+			dmBotLog.Debug(GetCachedName(), "[Bot] GetOutVehicle: not in vehicle");
 			#endif
 			return false;
 		}
@@ -2142,7 +2142,7 @@ class dmAISurvivorBase : PlayerBase
 		m_VehiclePendingExit = true;
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Bot] GetOutVehicle: start");
+		dmBotLog.Debug(GetCachedName(), "[Bot] GetOutVehicle: start");
 		#endif
 		return true;
 	}
@@ -2244,9 +2244,9 @@ class dmAISurvivorBase : PlayerBase
 		}
 
 		#ifdef DM_WEAPON_DEBUG_FSM
-		dmBotLog.Debug("[Weapon] TryFireWeapon: weapon=" + weapon + " raised=" + IsRaised() + " raiseDone=" + IsWeaponRaiseCompleted());
-		dmBotLog.Debug("[Weapon] TryFireWeapon: canFire=" + weapon.CanFire() + " wmRunning=" + wm.IsRunning());
-		dmBotLog.Debug("[Weapon] TryFireWeapon: unconscious=" + IsUnconscious() + " alive=" + IsAlive());
+		dmBotLog.Debug(GetCachedName(), "[Weapon] TryFireWeapon: weapon=" + weapon + " raised=" + IsRaised() + " raiseDone=" + IsWeaponRaiseCompleted());
+		dmBotLog.Debug(GetCachedName(), "[Weapon] TryFireWeapon: canFire=" + weapon.CanFire() + " wmRunning=" + wm.IsRunning());
+		dmBotLog.Debug(GetCachedName(), "[Weapon] TryFireWeapon: unconscious=" + IsUnconscious() + " alive=" + IsAlive());
 		#endif
 		wm.Fire(weapon);
 		m_LastFireTime = GetGame().GetTickTime();
@@ -2254,7 +2254,7 @@ class dmAISurvivorBase : PlayerBase
 		m_FireCooldown = DM_BOT_FIRE_COOLDOWN;
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Bot] TryFireWeapon: fired weapon=" + weapon);
+		dmBotLog.Debug(GetCachedName(), "[Bot] TryFireWeapon: fired weapon=" + weapon);
 		#endif
 	}
 
@@ -2420,7 +2420,7 @@ class dmAISurvivorBase : PlayerBase
 			wm.Unjam();
 
 			#ifdef DM_WEAPON_DEBUG_FSM
-			dmBotLog.Debug("[Weapon] ReloadWeaponAI: unjam weapon=" + weapon);
+			dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: unjam weapon=" + weapon);
 			#endif
 			return true;
 		}
@@ -2431,7 +2431,7 @@ class dmAISurvivorBase : PlayerBase
 			wm.EjectBullet();
 
 			#ifdef DM_WEAPON_DEBUG_FSM
-			dmBotLog.Debug("[Weapon] ReloadWeaponAI: eject bullet weapon=" + weapon);
+			dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: eject bullet weapon=" + weapon);
 			#endif
 			return true;
 		}
@@ -2445,13 +2445,13 @@ class dmAISurvivorBase : PlayerBase
 				wm.LoadMultiBullet(pile);
 
 				#ifdef DM_WEAPON_DEBUG_FSM
-				dmBotLog.Debug("[Weapon] ReloadWeaponAI: chamber-load pile=" + pile + " weapon=" + weapon);
+				dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: chamber-load pile=" + pile + " weapon=" + weapon);
 				#endif
 				return true;
 			}
 
 			#ifdef DM_WEAPON_DEBUG_FSM
-			dmBotLog.Debug("[Weapon] ReloadWeaponAI: no suitable magazine weapon=" + weapon);
+			dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: no suitable magazine weapon=" + weapon);
 			#endif
 			return false;
 		}
@@ -2460,7 +2460,7 @@ class dmAISurvivorBase : PlayerBase
 		{
 			wm.EjectBullet();
 			#ifdef DM_WEAPON_DEBUG_FSM
-			dmBotLog.Debug("[Weapon] ReloadWeaponAI: calling EjectBullet");
+			dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: calling EjectBullet");
 			#endif
 			return true;
 		}
@@ -2469,7 +2469,7 @@ class dmAISurvivorBase : PlayerBase
 			wm.AttachMagazine(mag);
 
 			#ifdef DM_WEAPON_DEBUG_FSM
-			dmBotLog.Debug("[Weapon] ReloadWeaponAI: attach mag=" + mag + " weapon=" + weapon);
+			dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: attach mag=" + mag + " weapon=" + weapon);
 			#endif
 			return true;
 		}
@@ -2478,7 +2478,7 @@ class dmAISurvivorBase : PlayerBase
 			wm.SwapMagazine(mag);
 
 			#ifdef DM_WEAPON_DEBUG_FSM
-			dmBotLog.Debug("[Weapon] ReloadWeaponAI: swap mag=" + mag + " weapon=" + weapon);
+			dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: swap mag=" + mag + " weapon=" + weapon);
 			#endif
 			return true;
 		}
@@ -2535,7 +2535,7 @@ class dmAISurvivorBase : PlayerBase
 		GetGame().RemoteObjectTreeCreate(item);
 
 		#ifdef DM_BOT_DEBUG_BODY
-		dmBotLog.Debug("[Body] DropItemToGroundLocal: " + item.GetType() + " на земле ok=" + ok + " (та же сущность)");
+		dmBotLog.Debug(GetCachedName(), "[Body] DropItemToGroundLocal: " + item.GetType() + " на земле ok=" + ok + " (та же сущность)");
 		#endif
 
 		if (ok)
@@ -2575,7 +2575,7 @@ class dmAISurvivorBase : PlayerBase
 		GetGame().RemoteObjectTreeCreate(item);
 
 		#ifdef DM_BOT_DEBUG_BODY
-		dmBotLog.Debug("[Body] DropItemToGround: " + item.GetType() + " на земле ok=" + ok + " (та же сущность, синхронно)");
+		dmBotLog.Debug(GetCachedName(), "[Body] DropItemToGround: " + item.GetType() + " на земле ok=" + ok + " (та же сущность, синхронно)");
 		#endif
 
 		if (ok)
@@ -2609,7 +2609,7 @@ class dmAISurvivorBase : PlayerBase
 			brain.SetDroppedWeapon(dropped);
 
 		#ifdef DM_BOT_DEBUG_BODY
-		dmBotLog.Debug("[Body] DropItemInHandsDeferred: " + dropped.GetType() + " на земле (та же сущность)");
+		dmBotLog.Debug(GetCachedName(), "[Body] DropItemInHandsDeferred: " + dropped.GetType() + " на земле (та же сущность)");
 		#endif
 	}
 
@@ -2703,7 +2703,7 @@ class dmAISurvivorBase : PlayerBase
 					a.CombineItems(b);
 
 					#ifdef DM_BOT_DEBUG_FSM
-					dmBotLog.Debug("[Tidy] StackAmmoAI: merged " + srcType + " into " + dstType);
+					dmBotLog.Debug(GetCachedName(), "[Tidy] StackAmmoAI: merged " + srcType + " into " + dstType);
 					#endif
 					return true;
 				}
@@ -2714,7 +2714,7 @@ class dmAISurvivorBase : PlayerBase
 					b.CombineItems(a);
 
 					#ifdef DM_BOT_DEBUG_FSM
-					dmBotLog.Debug("[Tidy] StackAmmoAI: merged " + srcType + " into " + dstType);
+					dmBotLog.Debug(GetCachedName(), "[Tidy] StackAmmoAI: merged " + srcType + " into " + dstType);
 					#endif
 					return true;
 				}
@@ -2778,7 +2778,7 @@ class dmAISurvivorBase : PlayerBase
 
 		#ifdef DM_BOT_DEBUG_FSM
 		if (moved)
-			dmBotLog.Debug("[Tidy] LoadMagazineAI: loaded " + dst.GetType());
+			dmBotLog.Debug(GetCachedName(), "[Tidy] LoadMagazineAI: loaded " + dst.GetType());
 		#endif
 		return moved;
 	}
@@ -2806,13 +2806,13 @@ class dmAISurvivorBase : PlayerBase
 		if (climbType == -1)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Bot] TryVaultClimb: height=" + res.m_fClimbHeight + " out of range, abort");
+			dmBotLog.Debug(GetCachedName(), "[Bot] TryVaultClimb: height=" + res.m_fClimbHeight + " out of range, abort");
 			#endif
 			return false;
 		}
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Bot] TryVaultClimb: height=" + res.m_fClimbHeight + " type=" + climbType + " isClimb=" + res.m_bIsClimb + " isClimbOver=" + res.m_bIsClimbOver);
+		dmBotLog.Debug(GetCachedName(), "[Bot] TryVaultClimb: height=" + res.m_fClimbHeight + " type=" + climbType + " isClimb=" + res.m_bIsClimb + " isClimbOver=" + res.m_bIsClimbOver);
 		#endif
 
 		StartCommand_Climb(res, climbType);

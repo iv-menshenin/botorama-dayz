@@ -50,7 +50,7 @@ class dmBotState_MedicalCare : dmBotState
 		}
 
 		#ifdef DM_BOT_DEBUG_MEDICAL
-		dmBotLog.Debug("[Medical] entry: steps=" + m_Queue.Count());
+		dmBotLog.Debug(GetOwner().GetName(), "[Medical] entry: steps=" + m_Queue.Count());
 		#endif
 	}
 
@@ -102,7 +102,7 @@ class dmBotState_MedicalCare : dmBotState
 			bot.SetBulletDanger(false);
 
 			#ifdef DM_BOT_DEBUG_COVER
-			dmBotLog.Debug("[Medical] cover done -> heal");
+			dmBotLog.Debug(GetOwner().GetName(), "[Medical] cover done -> heal");
 			#endif
 
 			m_SeekingCover = false;
@@ -121,7 +121,7 @@ class dmBotState_MedicalCare : dmBotState
 		if (m_QueueIdx >= m_Queue.Count())
 		{
 			#ifdef DM_BOT_DEBUG_MEDICAL
-			dmBotLog.Debug("[Medical] queue done, exit");
+			dmBotLog.Debug(GetOwner().GetName(), "[Medical] queue done, exit");
 			#endif
 			return EXIT;
 		}
@@ -133,7 +133,7 @@ class dmBotState_MedicalCare : dmBotState
 		if (!StepStillNeeded(step))
 		{
 			#ifdef DM_BOT_DEBUG_MEDICAL
-			dmBotLog.Debug("[Medical] skip step=" + step);
+			dmBotLog.Debug(GetOwner().GetName(), "[Medical] skip step=" + step);
 			#endif
 			return CONTINUE;
 		}
@@ -150,7 +150,7 @@ class dmBotState_MedicalCare : dmBotState
 		dmAISurvivor bot = GetOwner();
 
 		#ifdef DM_BOT_DEBUG_COVER
-		dmBotLog.Debug("[Medical] cover phase: enter (bullet danger)");
+		dmBotLog.Debug(GetOwner().GetName(), "[Medical] cover phase: enter (bullet danger)");
 		#endif
 
 		vector threatPoint = bot.GetPosition();
@@ -162,7 +162,7 @@ class dmBotState_MedicalCare : dmBotState
 		if (dmCoverFinder.FindSafeCover(bot, threatPoint, DM_MEDICAL_COVER_MIN_DIST, DM_MEDICAL_COVER_MAX_DIST, DM_COVER_SAFE_RADIUS, dest))
 		{
 			#ifdef DM_BOT_DEBUG_COVER
-			dmBotLog.Debug("[Medical] cover found: dest=" + dest);
+			dmBotLog.Debug(GetOwner().GetName(), "[Medical] cover found: dest=" + dest);
 			#endif
 
 			m_CoverMove = new dmBotIntent_MoveTo();
@@ -175,7 +175,7 @@ class dmBotState_MedicalCare : dmBotState
 		else
 		{
 			#ifdef DM_BOT_DEBUG_COVER
-			dmBotLog.Debug("[Medical] cover not found: heal in place");
+			dmBotLog.Debug(GetOwner().GetName(), "[Medical] cover not found: heal in place");
 			#endif
 			m_SeekingCover = false;
 			bot.SetBulletDanger(false);
@@ -292,7 +292,7 @@ class dmBotState_MedicalCare : dmBotState
 		ItemBase item = null;
 
 		#ifdef DM_BOT_DEBUG_MEDICAL
-		dmBotLog.Debug("[Medical] CreateIntent: step=" + step);
+		dmBotLog.Debug(GetOwner().GetName(), "[Medical] CreateIntent: step=" + step);
 		#endif
 
 		if (step == dmMedicalStep.STEP_BANDAGE)
@@ -339,7 +339,7 @@ class dmBotState_MedicalCare : dmBotState
 		GetOwner().AddFSMIntent(m_Intent);
 
 		#ifdef DM_BOT_DEBUG_MEDICAL
-		dmBotLog.Debug("[Medical] start step=" + step);
+		dmBotLog.Debug(GetOwner().GetName(), "[Medical] start step=" + step);
 		#endif
 	}
 }

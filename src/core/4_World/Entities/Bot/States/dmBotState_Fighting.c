@@ -53,9 +53,9 @@ class dmBotState_Fighting : dmBotState
 		bool ok = super.CanEnter();
 		#ifdef DM_BOT_DEBUG_FSM_FIGHTING
 		if (t)
-			dmBotLog.Debug("[FSM] Fighting: CanEnter=" + ok + " hostile=" + t.m_Entity);
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting: CanEnter=" + ok + " hostile=" + t.m_Entity);
 		else
-			dmBotLog.Debug("[FSM] Fighting: CanEnter=" + ok + " hostile=null");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting: CanEnter=" + ok + " hostile=null");
 		#endif
 		return ok;
 	}
@@ -93,13 +93,13 @@ class dmBotState_Fighting : dmBotState
 
 		#ifdef DM_BOT_DEBUG_FSM_FIGHTING
 		if (m_TargetEntity)
-			dmBotLog.Debug("[FSM] Fighting.entry target=" + m_TargetEntity.GetType());
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting.entry target=" + m_TargetEntity.GetType());
 		else
-			dmBotLog.Debug("[FSM] Fighting.entry (нет цели)");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting.entry (нет цели)");
 		#endif
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[FSM] Fighting.entry");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting.entry");
 		#endif
 	}
 
@@ -133,7 +133,7 @@ class dmBotState_Fighting : dmBotState
 		float yawDiff = dmAISurvivor.AngleDiff(yawToTarget, bodyYaw);
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[FSM] Fighting dist=" + dist + " reach=" + reach + " yawDiff=" + yawDiff);
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting dist=" + dist + " reach=" + reach + " yawDiff=" + yawDiff);
 		#endif
 
 		// 1) выход фазы
@@ -168,7 +168,7 @@ class dmBotState_Fighting : dmBotState
 		{
 			m_LastLoggedPhase = m_Phase;
 			#ifdef DM_BOT_DEBUG_FSM_FIGHTING
-			dmBotLog.Debug("[FSM] Fighting phase=" + PhaseName(m_Phase));
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting phase=" + PhaseName(m_Phase));
 			#endif
 		}
 		return CONTINUE;
@@ -177,11 +177,11 @@ class dmBotState_Fighting : dmBotState
 	override void OnExit(dmBotState to)
 	{
 		#ifdef DM_BOT_DEBUG_FSM_FIGHTING
-		dmBotLog.Debug("[FSM] Fighting.exit");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting.exit");
 		#endif
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[FSM] Fighting.exit");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting.exit");
 		#endif
 
 		if ( m_Approach ) m_Approach.Finish();
@@ -231,7 +231,7 @@ class dmBotState_Fighting : dmBotState
 			if (m_Evade) { m_Evade.Finish(); m_Evade = null; }
 
 			#ifdef DM_BOT_DEBUG_FIGHT
-			dmBotLog.Debug("[FSM] Fighting: цель сменилась, интенты сброшены");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting: цель сменилась, интенты сброшены");
 			#endif
 		}
 
@@ -546,7 +546,7 @@ class dmBotState_Fighting : dmBotState
 		m_EquipRoot = root;
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[FSM] Fighting: мили " + melee.GetType());
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting: мили " + melee.GetType());
 		#endif
 	}
 
@@ -562,7 +562,7 @@ class dmBotState_Fighting : dmBotState
 		}
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("[FSM] Fighting: нет dmBotMeleeCombat - fallback");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Fighting: нет dmBotMeleeCombat - fallback");
 		#endif
 		return DM_MELEE_REACH;
 	}

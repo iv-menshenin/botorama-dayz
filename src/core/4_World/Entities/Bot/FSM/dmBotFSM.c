@@ -135,9 +135,9 @@ class dmBotFSM
 
 		#ifdef DM_BOT_DEBUG_FSM
 		if (src && src != dst)
-			dmBotLog.Debug("[FSM] transition " + src.GetName() + " -> " + dst.GetName());
+			dmBotLog.Debug(m_Owner.GetName(), "[FSM] transition " + src.GetName() + " -> " + dst.GetName());
 		else
-			dmBotLog.Debug("[FSM] enter " + dst.GetName());
+			dmBotLog.Debug(m_Owner.GetName(), "[FSM] enter " + dst.GetName());
 		#endif
 	}
 
@@ -255,9 +255,9 @@ class dmBotFSM
 
 		#ifdef DM_BOT_DEBUG_FSM
 		if (eligible.Count() == 0)
-			dmBotLog.Debug("[FSM] preemptive из '" + m_CurrentState.GetName() + "': нет подходящего перехода");
+			dmBotLog.Debug(m_Owner.GetName(), "[FSM] preemptive из '" + m_CurrentState.GetName() + "': нет подходящего перехода");
 		else
-			dmBotLog.Debug("[FSM] preemptive из '" + m_CurrentState.GetName() + "': кандидатов " + eligible.Count());
+			dmBotLog.Debug(m_Owner.GetName(), "[FSM] preemptive из '" + m_CurrentState.GetName() + "': кандидатов " + eligible.Count());
 		#endif
 
 		return RollWeighted(eligible, total, dst);

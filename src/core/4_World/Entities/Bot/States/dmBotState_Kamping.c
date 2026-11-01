@@ -43,13 +43,13 @@ class dmBotState_Kamping : dmBotState_Shooting
 		if ( !t || !t.m_Entity )
 		{
 			#ifdef DM_BOT_DEBUG_FSM_KAMPING
-			dmBotLog.Debug("[FSM] Kamping: CanEnter=false (нет hostile-цели)");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Kamping: CanEnter=false (нет hostile-цели)");
 			#endif
 			return false;
 		}
 		bool ok = super.CanEnter();
 		#ifdef DM_BOT_DEBUG_FSM_KAMPING
-		dmBotLog.Debug("[FSM] Kamping: CanEnter=" + ok + " видима=" + t.IsVisible() + " цель=" + t.m_Entity);
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Kamping: CanEnter=" + ok + " видима=" + t.IsVisible() + " цель=" + t.m_Entity);
 		#endif
 		return ok;
 	}
@@ -67,7 +67,7 @@ class dmBotState_Kamping : dmBotState_Shooting
 		m_DoorLook = null;
 
 		#ifdef DM_BOT_DEBUG_FSM_KAMPING
-		dmBotLog.Debug("[FSM] Kamping.entry");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Kamping.entry");
 		#endif
 	}
 
@@ -81,7 +81,7 @@ class dmBotState_Kamping : dmBotState_Shooting
 		if (t && t.IsVisible())
 		{
 			#ifdef DM_BOT_DEBUG_FSM_KAMPING
-			dmBotLog.Debug("[FSM] Kamping: цель видна — EXIT (уступить Shooting)");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Kamping: цель видна — EXIT (уступить Shooting)");
 			#endif
 			return EXIT; // цель видна — уступить Shooting
 		}
@@ -109,12 +109,12 @@ class dmBotState_Kamping : dmBotState_Shooting
 			m_Building = dmLiveBuildingRegistry.Get().GetNearestBuildingWithDoors(m_TargetEntity.GetPosition(), DM_CAMP_BUILDING_SEARCH_RADIUS, null);
 			if (!m_Building)
 			{
-				dmBotLog.Error("[Camp] Kamping: no building near target — EXIT");
+				dmBotLog.Error(GetOwner().GetName(), "[Camp] Kamping: no building near target — EXIT");
 				return EXIT;
 			}
 
 			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] Kamping: SEARCH building=" + m_Building.GetType());
+			dmBotLog.Debug(GetOwner().GetName(), "[Camp] Kamping: SEARCH building=" + m_Building.GetType());
 			#endif
 		}
 
@@ -126,12 +126,12 @@ class dmBotState_Kamping : dmBotState_Shooting
 
 			if (m_Doors.Count() == 0)
 			{
-				dmBotLog.Error("[Camp] Kamping: no external doors — EXIT");
+				dmBotLog.Error(GetOwner().GetName(), "[Camp] Kamping: no external doors — EXIT");
 				return EXIT;
 			}
 
 			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] Kamping: doors count=" + m_Doors.Count());
+			dmBotLog.Debug(GetOwner().GetName(), "[Camp] Kamping: doors count=" + m_Doors.Count());
 			#endif
 
 			PickDoor(bot);
@@ -148,7 +148,7 @@ class dmBotState_Kamping : dmBotState_Shooting
 
 			if (m_CoverPoints.Count() == 0)
 			{
-				dmBotLog.Error("[Camp] Kamping: no cover points — EXIT");
+				dmBotLog.Error(GetOwner().GetName(), "[Camp] Kamping: no cover points — EXIT");
 				return EXIT;
 			}
 
@@ -156,7 +156,7 @@ class dmBotState_Kamping : dmBotState_Shooting
 			m_Phase = dmKampPhase.HIDE;
 
 			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] Kamping: SEARCH -> HIDE cover=" + m_CoverPoint);
+			dmBotLog.Debug(GetOwner().GetName(), "[Camp] Kamping: SEARCH -> HIDE cover=" + m_CoverPoint);
 			#endif
 		}
 
@@ -172,14 +172,14 @@ class dmBotState_Kamping : dmBotState_Shooting
 		{
 			if (m_Move.IsFailed())
 			{
-				dmBotLog.Error("[Camp] Kamping: cover unreachable — EXIT");
+				dmBotLog.Error(GetOwner().GetName(), "[Camp] Kamping: cover unreachable — EXIT");
 				return EXIT;
 			}
 			m_Move = null;
 			m_Phase = dmKampPhase.WAIT;
 
 			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] Kamping: HIDE -> WAIT");
+			dmBotLog.Debug(GetOwner().GetName(), "[Camp] Kamping: HIDE -> WAIT");
 			#endif
 			return CONTINUE;
 		}
@@ -214,7 +214,7 @@ class dmBotState_Kamping : dmBotState_Shooting
 	override void OnExit(dmBotState to)
 	{
 		#ifdef DM_BOT_DEBUG_FSM_KAMPING
-		dmBotLog.Debug("[FSM] Kamping.exit");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Kamping.exit");
 		#endif
 		if (m_Move) m_Move.Finish();
 		if (m_Stance) m_Stance.Finish();
@@ -252,7 +252,7 @@ class dmBotState_Kamping : dmBotState_Shooting
 			if (lenSq < 0.001)
 			{
 				#ifdef DM_BOT_DEBUG_CAMP
-				dmBotLog.Debug("[Camp] Kamping: door idx=" + m_Doors[i] + " degenerate outDir");
+				dmBotLog.Debug(GetOwner().GetName(), "[Camp] Kamping: door idx=" + m_Doors[i] + " degenerate outDir");
 				#endif
 				continue;
 			}
@@ -279,8 +279,8 @@ class dmBotState_Kamping : dmBotState_Shooting
 			}
 
 			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] Kamping: door idx=" + m_Doors[i] + " doorPos=" + doorPos);
-			dmBotLog.Debug("[Camp] Kamping: door botPos=<" + botPos[0] + "," + botPos[2] + "> facing=" + facing);
+			dmBotLog.Debug(GetOwner().GetName(), "[Camp] Kamping: door idx=" + m_Doors[i] + " doorPos=" + doorPos);
+			dmBotLog.Debug(GetOwner().GetName(), "[Camp] Kamping: door botPos=<" + botPos[0] + "," + botPos[2] + "> facing=" + facing);
 			#endif
 		}
 
@@ -293,7 +293,7 @@ class dmBotState_Kamping : dmBotState_Shooting
 		m_DoorPos = doorPos;
 
 		#ifdef DM_BOT_DEBUG_CAMP
-		dmBotLog.Debug("[Camp] Kamping: door chosen idx=" + m_DoorIdx + " of=" + m_Doors.Count() + " facing=" + bestScore);
+		dmBotLog.Debug(GetOwner().GetName(), "[Camp] Kamping: door chosen idx=" + m_DoorIdx + " of=" + m_Doors.Count() + " facing=" + bestScore);
 		#endif
 	}
 

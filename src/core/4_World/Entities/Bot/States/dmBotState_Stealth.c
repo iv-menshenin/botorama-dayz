@@ -43,7 +43,7 @@ class dmBotState_Stealth : dmBotState
 		GetOwner().AddFSMIntent(m_Move);
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] Stealth.entry cover=" + m_CoverPosition);
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Stealth.entry cover=" + m_CoverPosition);
 		#endif
 	}
 
@@ -53,7 +53,7 @@ class dmBotState_Stealth : dmBotState
 		{
 			if (m_Move && m_Move.IsFailed())
 			{
-				dmBotLog.Error("[FSM] Stealth: укрытие " + m_CoverPosition + " недостижимо, выхожу");
+				dmBotLog.Error(GetOwner().GetName(), "[FSM] Stealth: укрытие " + m_CoverPosition + " недостижимо, выхожу");
 				return EXIT;
 			}
 
@@ -64,7 +64,7 @@ class dmBotState_Stealth : dmBotState
 					m_StanceIntent.m_Stance = DayZPlayerConstants.STANCEIDX_PRONE;
 
 				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[FSM] Stealth reached cover, going prone");
+				dmBotLog.Debug(GetOwner().GetName(), "[FSM] Stealth reached cover, going prone");
 				#endif
 			}
 			return CONTINUE;
@@ -74,7 +74,7 @@ class dmBotState_Stealth : dmBotState
 		if (m_ProneTimer >= DM_STEALTH_PRONE_DWELL_TIME)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] Stealth exit (dwell done)");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Stealth exit (dwell done)");
 			#endif
 			return EXIT;
 		}

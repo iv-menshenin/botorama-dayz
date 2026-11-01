@@ -86,7 +86,7 @@ class dmBotState_Follow : dmBotState
 		CreateScan();
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] Follow.entry target=" + m_TargetEntity);
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Follow.entry target=" + m_TargetEntity);
 		#endif
 	}
 
@@ -266,7 +266,7 @@ class dmBotState_Follow : dmBotState
 		if (m_DebugAccum >= 1.0)
 		{
 			m_DebugAccum = 0.0;
-			dmBotLog.Debug("[FSM] Follow: dist=" + dist + " hasLOS=" + m_Target.IsVisible() + " useFollow=" + m_UseFollow);
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Follow: dist=" + dist + " hasLOS=" + m_Target.IsVisible() + " useFollow=" + m_UseFollow);
 		}
 		#endif
 
@@ -278,7 +278,7 @@ class dmBotState_Follow : dmBotState
 		if ( !player || !player.IsAlive() )
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] GetOutVehicle: player is null");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] GetOutVehicle: player is null");
 			#endif
 			if ( m_IntentGetInVehicle && !m_ExitRequested )
 			{
@@ -289,7 +289,7 @@ class dmBotState_Follow : dmBotState
 		if ( !bot || !pawn )
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] GetOutVehicle: pawn is null");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] GetOutVehicle: pawn is null");
 			#endif
 			if ( m_IntentGetInVehicle && !m_ExitRequested )
 			{
@@ -320,14 +320,14 @@ class dmBotState_Follow : dmBotState
 				bot.AddFSMIntent(m_IntentGetInVehicle);
 				m_ExitRequested = false;
 				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[FSM] GetInVehicle m_Seat=" + m_IntentGetInVehicle.m_Seat);
+				dmBotLog.Debug(GetOwner().GetName(), "[FSM] GetInVehicle m_Seat=" + m_IntentGetInVehicle.m_Seat);
 				#endif
 			}
 		}
 		if ( !playerCar && m_IntentGetInVehicle && !m_ExitRequested )
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] GetOutVehicle");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] GetOutVehicle");
 			#endif
 			m_IntentGetInVehicle.Finish();
 			m_ExitRequested = true;

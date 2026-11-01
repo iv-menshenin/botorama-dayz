@@ -42,11 +42,11 @@ class dmBotState_Hunting : dmBotState
 		ResolveTarget(bot);
 
 		#ifdef DM_BOT_DEBUG_FSM_HUNTING
-		dmBotLog.Debug("[FSM] Hunting.entry");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting.entry");
 		if (m_Target)
-			dmBotLog.Debug("[FSM] Hunting: цель " + m_Target.m_Entity + " last=" + m_Target.LastPosition() + " spread=" + m_Target.LastPositionSpread());
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting: цель " + m_Target.m_Entity + " last=" + m_Target.LastPosition() + " spread=" + m_Target.LastPositionSpread());
 		else
-			dmBotLog.Debug("[FSM] Hunting: целей для охоты нет");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting: целей для охоты нет");
 		#endif
 	}
 
@@ -57,7 +57,7 @@ class dmBotState_Hunting : dmBotState
 		if (!pawn)
 		{
 			#ifdef DM_BOT_DEBUG_FSM_HUNTING
-			dmBotLog.Debug("[FSM] Hunting нет пешки");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting нет пешки");
 			#endif
 			return EXIT;
 		}
@@ -65,7 +65,7 @@ class dmBotState_Hunting : dmBotState
 		if (!ResolveTarget(bot))
 		{
 			#ifdef DM_BOT_DEBUG_FSM_HUNTING
-			dmBotLog.Debug("[FSM] Hunting нет цели");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting нет цели");
 			#endif
 			return EXIT;
 		}
@@ -74,7 +74,7 @@ class dmBotState_Hunting : dmBotState
 		if ( hostile && hostile != m_Target )
 		{
 			#ifdef DM_BOT_DEBUG_FSM_HUNTING
-			dmBotLog.Debug("[FSM] Hunting Враг обнаружен — бой вытесняет охоту");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting Враг обнаружен — бой вытесняет охоту");
 			#endif
 			return EXIT;
 		}
@@ -83,7 +83,7 @@ class dmBotState_Hunting : dmBotState
 		if (m_Target.IsVisible())
 		{
 			#ifdef DM_BOT_DEBUG_FSM_HUNTING
-			dmBotLog.Debug("[FSM] Hunting цель видима, охота окончена");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting цель видима, охота окончена");
 			#endif
 			return EXIT;
 		}
@@ -92,7 +92,7 @@ class dmBotState_Hunting : dmBotState
 		if (m_SearchCenter != m_Target.LastPosition())
 		{
 			#ifdef DM_BOT_DEBUG_FSM_HUNTING
-			dmBotLog.Debug("[FSM] Hunting: новый шум — searchCenter сменился " + m_SearchCenter + " -> " + m_Target.LastPosition());
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting: новый шум — searchCenter сменился " + m_SearchCenter + " -> " + m_Target.LastPosition());
 			#endif
 			m_SearchCenter = m_Target.LastPosition();
 			ResetMove(bot);
@@ -113,7 +113,7 @@ class dmBotState_Hunting : dmBotState
 		m_Checked = new array<Building>();
 
 		#ifdef DM_BOT_DEBUG_FSM_HUNTING
-		dmBotLog.Debug("[FSM] Hunting.exit");
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting.exit");
 		#endif
 	}
 
@@ -132,14 +132,14 @@ class dmBotState_Hunting : dmBotState
 			if (!m_Target)
 			{
 				#ifdef DM_BOT_DEBUG_FSM_HUNTING
-				dmBotLog.Debug("[FSM] Hunting: GetHuntTarget вернул null — охотиться не на кого");
+				dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting: GetHuntTarget вернул null — охотиться не на кого");
 				#endif
 				return false;
 			}
 			m_SearchCenter = m_Target.LastPosition();
 			ResetMove(bot);
 			#ifdef DM_BOT_DEBUG_FSM_HUNTING
-			dmBotLog.Debug("[FSM] Hunting: цель для охоты " + m_Target.m_Entity + " searchCenter=" + m_SearchCenter);
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting: цель для охоты " + m_Target.m_Entity + " searchCenter=" + m_SearchCenter);
 			#endif
 		}
 		return true;
@@ -186,7 +186,7 @@ class dmBotState_Hunting : dmBotState
 				bot.AddFSMIntent(m_Move);
 
 				#ifdef DM_BOT_DEBUG_FSM_HUNTING
-				dmBotLog.Debug("[FSM] Hunting: иду к зданию " + building.GetType());
+				dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting: иду к зданию " + building.GetType());
 				#endif
 				return;
 			}
@@ -202,7 +202,7 @@ class dmBotState_Hunting : dmBotState
 		bot.AddFSMIntent(m_Move);
 
 		#ifdef DM_BOT_DEBUG_FSM_HUNTING
-		dmBotLog.Debug("[FSM] Hunting: MoveTo goal=" + goal + " searchCenter=" + m_SearchCenter);
+		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting: MoveTo goal=" + goal + " searchCenter=" + m_SearchCenter);
 		#endif
 	}
 }
