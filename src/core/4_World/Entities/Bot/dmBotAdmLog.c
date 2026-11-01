@@ -10,7 +10,7 @@
 #ifdef SERVER
 class dmBotAdmLog
 {
-	//! Journal one bot attack: a firearm shot (isFirearm=true) or a melee hit.
+	//! Journal one bot attack. Семантика события: isFirearm=true логирует КАЖДЫЙ ВЫСТРЕЛ (включая промахи и выстрел без цели → target=null); isFirearm=false — каждый НАНЕСЁННЫЙ удар (промахи отсечены в EvaluateHit ранними return).
 	static void LogAttack(dmAISurvivorBase bot, EntityAI target, EntityAI weapon, bool isFirearm, bool hasOptic)
 	{
 		string name = "";

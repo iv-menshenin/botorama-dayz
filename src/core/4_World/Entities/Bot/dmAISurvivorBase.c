@@ -266,11 +266,6 @@ class dmAISurvivorBase : PlayerBase
 		m_BotName = name;
 	}
 
-	string GetBotName()
-	{
-		return m_BotName;
-	}
-
 	//! Имя бота через ванильный механизм: если мозг пробросил имя — возвращаем
 	//! его, иначе фолбэк на super (у AI-бота identity == null → пусто).
 	override string GetCachedName()
