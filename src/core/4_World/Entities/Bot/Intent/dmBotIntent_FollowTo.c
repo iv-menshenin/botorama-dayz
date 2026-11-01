@@ -70,7 +70,7 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 		m_DoorCheckAccum = 0.0;
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] FollowTo.OnStart");
+		dmBotLog.Debug(bot.GetName(), "[FSM] FollowTo.OnStart");
 		#endif
 	}
 
@@ -167,7 +167,7 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 			if (!m_PathGoalValid || drift.Length() > DM_FOLLOW_REPATH_DIST)
 			{
 				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] FollowTo: RePath t=" + m_NoProgressTime);
+				dmBotLog.Debug(bot.GetName(), "[PATH] FollowTo: RePath t=" + m_NoProgressTime);
 				if ( bot.m_DebugPlayer )
 					GetGame().ChatMP(bot.m_DebugPlayer, "Путь следования изменен t=" + m_NoProgressTime, "colorAction");
 				#endif
@@ -182,7 +182,7 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 		if (m_AnchorDebugAccum >= 1.0)
 		{
 			m_AnchorDebugAccum = 0.0;
-			dmBotLog.Debug("[PATH] FollowTo: anchor=" + m_Goal + " distToAnchor=" + m_DistToAnchor + " targetSpeed=" + m_TargetSpeed);
+			dmBotLog.Debug(bot.GetName(), "[PATH] FollowTo: anchor=" + m_Goal + " distToAnchor=" + m_DistToAnchor + " targetSpeed=" + m_TargetSpeed);
 		}
 		#endif
 	}
@@ -206,7 +206,7 @@ class dmBotIntent_FollowTo : dmBotIntent_MoveTo
 		m_IsReached = true;
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] FollowTo.OnReachedGoal");
+		dmBotLog.Debug(bot.GetName(), "[FSM] FollowTo.OnReachedGoal");
 		#endif
 	}
 

@@ -65,7 +65,7 @@ class dmBotIntent_RetrieveWeapon : dmBotIntent
 		if (m_Angle >= 360.0)
 		{
 			#ifdef DM_BOT_DEBUG_BODY
-			dmBotLog.Debug("[Body] RetrieveWeapon: прошёл полный круг, оружие не найдено");
+			dmBotLog.Debug(bot.GetName(), "[Body] RetrieveWeapon: прошёл полный круг, оружие не найдено");
 			#endif
 			Fail();
 			return;
@@ -93,7 +93,7 @@ class dmBotIntent_RetrieveWeapon : dmBotIntent
 				if (clear)
 				{
 					#ifdef DM_BOT_DEBUG_BODY
-					dmBotLog.Debug("[Body] RetrieveWeapon: оружие видно, подбираю " + m_Item.GetType());
+					dmBotLog.Debug(bot.GetName(), "[Body] RetrieveWeapon: оружие видно, подбираю " + m_Item.GetType());
 					#endif
 					dmBotIntent_PickUp pick = new dmBotIntent_PickUp();
 					pick.m_Item = m_Item;

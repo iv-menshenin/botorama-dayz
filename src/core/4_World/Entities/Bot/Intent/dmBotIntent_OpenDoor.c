@@ -80,7 +80,7 @@ class dmBotIntent_OpenDoor : dmBotIntent
 				m_PhaseTimer = DM_DOOR_OPEN_TIMEOUT;
 
 				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[Bot] OpenDoor: open doorIdx=" + m_DoorIdx);
+				dmBotLog.Debug(bot.GetName(), "[Bot] OpenDoor: open doorIdx=" + m_DoorIdx);
 				#endif
 				return;
 			}

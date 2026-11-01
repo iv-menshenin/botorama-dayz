@@ -86,7 +86,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 			return;
 
 		#ifdef DM_BOT_DEBUG_EVADE
-		dmBotLog.Debug("[Evade] OnStart");
+		dmBotLog.Debug(bot.GetName(), "[Evade] OnStart");
 		#endif
 
 		UpdateEvadeDestination(bot);
@@ -129,9 +129,9 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 			m_LogAccum = 0.0;
 			#ifdef DM_BOT_DEBUG_EVADE
 			dmTarget evT = bot.FindTarget(m_Aggressor);
-			dmBotLog.Debug("[Evade] tick baseDir=" + m_BaseDir + " mDist=" + m_Dist + " flank=" + m_FlankAngle + " hasPath=" + m_HasPath);
+			dmBotLog.Debug(bot.GetName(), "[Evade] tick baseDir=" + m_BaseDir + " mDist=" + m_Dist + " flank=" + m_FlankAngle + " hasPath=" + m_HasPath);
 			if (evT)
-				dmBotLog.Debug("[Evade] tick los=" + evT.IsVisible() + " threat=" + evT.m_Threat);
+				dmBotLog.Debug(bot.GetName(), "[Evade] tick los=" + evT.IsVisible() + " threat=" + evT.m_Threat);
 			#endif
 		}
 
@@ -161,7 +161,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 		m_StallTimer += pDt;
 		if (m_StallTimer > DM_EVADE_AIM_STALL_TIMEOUT)
 		{
-			dmBotLog.Error("EvadeAim: stall timeout, abort");
+			dmBotLog.Error(bot.GetName(), "EvadeAim: stall timeout, abort");
 			Fail();
 			return;
 		}
@@ -197,7 +197,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 	override void OnReachedGoal(dmAISurvivor bot, vector pos)
 	{
 		#ifdef DM_BOT_DEBUG_EVADE
-		dmBotLog.Debug("[Evade] reached goal");
+		dmBotLog.Debug(bot.GetName(), "[Evade] reached goal");
 		#endif
 
 		if (CheckEndConditions(bot))
@@ -218,7 +218,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 		if (bot.IsInCombat())
 		{
 			#ifdef DM_BOT_DEBUG_EVADE
-			dmBotLog.Debug("[Evade] end: (d) combat");
+			dmBotLog.Debug(bot.GetName(), "[Evade] end: (d) combat");
 			#endif
 			return true;   // (d) бой начался
 		}
@@ -226,7 +226,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 		if (!m_Aggressor || !m_Aggressor.IsAlive())
 		{
 			#ifdef DM_BOT_DEBUG_EVADE
-			dmBotLog.Debug("[Evade] end: aggressor dead/null");
+			dmBotLog.Debug(bot.GetName(), "[Evade] end: aggressor dead/null");
 			#endif
 			return true;
 		}
@@ -235,7 +235,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 		if (!t || !t.IsVisible())
 		{
 			#ifdef DM_BOT_DEBUG_EVADE
-			dmBotLog.Debug("[Evade] end: (c) no LOS");
+			dmBotLog.Debug(bot.GetName(), "[Evade] end: (c) no LOS");
 			#endif
 			return true;   // (c) агрессор вне видимости
 		}
@@ -265,7 +265,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 			if (aimAngle > DM_EVADE_AIM_END_AIM_ANGLE)
 			{
 				#ifdef DM_BOT_DEBUG_EVADE
-				dmBotLog.Debug("[Evade] end: (a) far + aim away");
+				dmBotLog.Debug(bot.GetName(), "[Evade] end: (a) far + aim away");
 				#endif
 				return true;
 			}
@@ -280,7 +280,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 			if (headAngle > DM_EVADE_AIM_END_HEAD_ANGLE)
 			{
 				#ifdef DM_BOT_DEBUG_EVADE
-				dmBotLog.Debug("[Evade] end: (b) lowered + head away");
+				dmBotLog.Debug(bot.GetName(), "[Evade] end: (b) lowered + head away");
 				#endif
 				return true;
 			}
@@ -309,7 +309,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 		if (FindCoverCandidate(bot, 1, candidate))
 		{
 			#ifdef DM_BOT_DEBUG_EVADE
-			dmBotLog.Debug("[Evade] cover found side=R angle=" + m_FlankAngle + " cand=" + candidate);
+			dmBotLog.Debug(bot.GetName(), "[Evade] cover found side=R angle=" + m_FlankAngle + " cand=" + candidate);
 			#endif
 			m_Goal = candidate;
 			RePath(bot);
@@ -318,7 +318,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 		if (FindCoverCandidate(bot, -1, candidate))
 		{
 			#ifdef DM_BOT_DEBUG_EVADE
-			dmBotLog.Debug("[Evade] cover found side=L angle=" + m_FlankAngle + " cand=" + candidate);
+			dmBotLog.Debug(bot.GetName(), "[Evade] cover found side=L angle=" + m_FlankAngle + " cand=" + candidate);
 			#endif
 			m_Goal = candidate;
 			RePath(bot);

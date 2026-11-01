@@ -149,7 +149,7 @@ class dmBotIntent_GetInVehicle : dmBotIntent_MoveTo
 			if ( IsCarDoorAtPhase(true) || m_PhaseTimer <= 0.0 )
 			{
 				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[GETIN] open_in doorAtPhase=" + IsCarDoorAtPhase(true) + " timer=" + m_PhaseTimer);
+				dmBotLog.Debug(bot.GetName(), "[GETIN] open_in doorAtPhase=" + IsCarDoorAtPhase(true) + " timer=" + m_PhaseTimer);
 				#endif
 			if ( m_Pawn && m_Seat >= 0 )
 			{
@@ -157,7 +157,7 @@ class dmBotIntent_GetInVehicle : dmBotIntent_MoveTo
 				hasMoveCmd = (m_Pawn.GetCommand_Move() != null);
 				inVehicle = m_Pawn.IsInVehicle();
 				pos = m_Pawn.GetPosition();
-				dmBotLog.Debug("[GETIN] pre-getin hasMoveCmd=" + hasMoveCmd + " inVehicle=" + inVehicle + " pos=" + pos);
+				dmBotLog.Debug(bot.GetName(), "[GETIN] pre-getin hasMoveCmd=" + hasMoveCmd + " inVehicle=" + inVehicle + " pos=" + pos);
 				#endif
 				bool ok = m_Pawn.GetInVehicle(m_Transport, m_Seat);
 				#ifdef DM_BOT_DEBUG_FSM
@@ -165,8 +165,8 @@ class dmBotIntent_GetInVehicle : dmBotIntent_MoveTo
 				isGettingIn = (m_Pawn.GetCommand_Vehicle() != null && m_Pawn.GetCommand_Vehicle().IsGettingIn());
 				inVehicle = m_Pawn.IsInVehicle();
 				hasCmd = (m_Pawn.GetCommand_Vehicle() != null);
-				dmBotLog.Debug("[GETIN] post-getin hasMoveCmd=" + hasMoveCmd + " isGettingIn=" + isGettingIn + " inVehicle=" + inVehicle + " hasCmd=" + hasCmd);
-				dmBotLog.Debug("[GETIN] getin call ok=" + ok);
+				dmBotLog.Debug(bot.GetName(), "[GETIN] post-getin hasMoveCmd=" + hasMoveCmd + " isGettingIn=" + isGettingIn + " inVehicle=" + inVehicle + " hasCmd=" + hasCmd);
+				dmBotLog.Debug(bot.GetName(), "[GETIN] getin call ok=" + ok);
 				#endif
 				if ( ok )
 						m_CommandInvoked = true;
@@ -198,7 +198,7 @@ class dmBotIntent_GetInVehicle : dmBotIntent_MoveTo
 				isGettingIn = (cmd && cmd.IsGettingIn());
 				hasMoveCmd = (m_Pawn && m_Pawn.GetCommand_Move() != null);
 				bool crew = (m_Transport && m_Transport.CrewMember(m_Seat) == m_Pawn);
-				dmBotLog.Debug("[GETIN] entering timer=" + m_PhaseTimer + " hasCmd=" + hasCmd + " isGettingIn=" + isGettingIn + " crew=" + crew + " hasMoveCmd=" + hasMoveCmd);
+				dmBotLog.Debug(bot.GetName(), "[GETIN] entering timer=" + m_PhaseTimer + " hasCmd=" + hasCmd + " isGettingIn=" + isGettingIn + " crew=" + crew + " hasMoveCmd=" + hasMoveCmd);
 			}
 			#endif
 
@@ -262,7 +262,7 @@ class dmBotIntent_GetInVehicle : dmBotIntent_MoveTo
 		if (m_Pawn)
 			m_Pawn.RaiseWeapon(false);
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] GetInVehicle.OnReachedGoal pos=" + pos);
+		dmBotLog.Debug(bot.GetName(), "[FSM] GetInVehicle.OnReachedGoal pos=" + pos);
 		#endif
 
 		vector vehicleSitPos;
@@ -271,12 +271,12 @@ class dmBotIntent_GetInVehicle : dmBotIntent_MoveTo
 		{
 			m_Transport.CrewEntryWS(m_Seat, vehicleSitPos, vehicleSitDir);
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[GETIN] reach seat=" + m_Seat + " pawnPos=" + m_Pawn.GetPosition() + " door=" + vehicleSitPos);
+			dmBotLog.Debug(bot.GetName(), "[GETIN] reach seat=" + m_Seat + " pawnPos=" + m_Pawn.GetPosition() + " door=" + vehicleSitPos);
 			#endif
 			m_Pawn.SetPosition(vehicleSitPos);
 			m_Pawn.SetOrientation(Vector(vehicleSitDir.VectorToAngles()[0], 0.0, 0.0));
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[GETIN] teleported pawnPos=" + m_Pawn.GetPosition());
+			dmBotLog.Debug(bot.GetName(), "[GETIN] teleported pawnPos=" + m_Pawn.GetPosition());
 			#endif
 			SetCarDoorOpen(true);
 			m_Phase = PHASE_OPEN_IN;

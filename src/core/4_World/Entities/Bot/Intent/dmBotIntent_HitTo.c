@@ -49,10 +49,10 @@ class dmBotIntent_HitTo : dmBotIntent
 			if ( m_TargetEntity )
 			{
 				m_LastFail = dmHitToFail.COOLDOWN;
-				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА MeleeCooldown=" + mCd);
+				dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА MeleeCooldown=" + mCd);
 			} else {
 				m_LastFail = dmHitToFail.NOTARGET;
-				dmBotLog.Debug("[FSM] Fighting: удар по `пустому месту` НЕУДАЧА MeleeCooldown=" + mCd);
+				dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по `пустому месту` НЕУДАЧА MeleeCooldown=" + mCd);
 			}
 			#endif
 			return;
@@ -68,7 +68,7 @@ class dmBotIntent_HitTo : dmBotIntent
 		{
 			m_LastFail = dmHitToFail.TOOFAR;
 			#ifdef DM_BOT_DEBUG_FIGHT
-			dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА дистанция: " + dist + " > " + m_ReachDistance);
+			dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА дистанция: " + dist + " > " + m_ReachDistance);
 			#endif
 			return;
 		}
@@ -84,7 +84,7 @@ class dmBotIntent_HitTo : dmBotIntent
 			//! Лучшее решение - это дать пешке завершить поворот в сторону противника, поставив удар на кулдаун
 			bot.SetMeleeCooldown(0.5);
 			#ifdef DM_BOT_DEBUG_FIGHT
-			dmBotLog.Debug("[FSM] Fighting: угол " + Math.AbsFloat(ang) + " > " + DM_MELEE_FACE_ANGLE + " неудача!");
+			dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: угол " + Math.AbsFloat(ang) + " > " + DM_MELEE_FACE_ANGLE + " неудача!");
 			#endif
 			return;
 		}
@@ -96,9 +96,9 @@ class dmBotIntent_HitTo : dmBotIntent
 			#ifdef DM_BOT_DEBUG_FIGHT
 			if ( t )
 			{
-				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА видимость: " + t.IsVisible());
+				dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА видимость: " + t.IsVisible());
 			} else {
-				dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА нет цели [FindTarget]");
+				dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА нет цели [FindTarget]");
 			}
 			#endif
 			// бей вслепую!ы
@@ -111,7 +111,7 @@ class dmBotIntent_HitTo : dmBotIntent
 			bot.SetMeleeCooldown(DM_MELEE_COOLDOWN);
 
 			#ifdef DM_BOT_DEBUG_FIGHT
-			dmBotLog.Debug("[FSM] Fighting: удар по " + m_TargetEntity.GetType());
+			dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_TargetEntity.GetType());
 			#endif
 		}
 	}

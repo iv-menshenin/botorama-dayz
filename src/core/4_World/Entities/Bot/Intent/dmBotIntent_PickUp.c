@@ -104,7 +104,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 			}
 			bot.Discard(m_Item);
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] PickUp: нет места и репак невозможен, игнор " + m_Item.GetType());
+			dmBotLog.Debug(bot.GetName(), "[Loot] PickUp: нет места и репак невозможен, игнор " + m_Item.GetType());
 			#endif
 			Fail();
 			return;
@@ -150,7 +150,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 		}
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Evacuate: начинаю репак для " + item.GetType() + ", вещей=" + order.Count());
+		dmBotLog.Debug(bot.GetName(), "[Loot] Evacuate: начинаю репак для " + item.GetType() + ", вещей=" + order.Count());
 		#endif
 		return true;
 	}
@@ -180,7 +180,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 		if (m_PickupQueued && !m_Evacuating && m_Item && m_Item.GetHierarchyRootPlayer() != null)
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] PickUp: вещь легла " + m_Item.GetType());
+			dmBotLog.Debug(bot.GetName(), "[Loot] PickUp: вещь легла " + m_Item.GetType());
 			#endif
 			bot.GetArsenal().Register(m_Item);
 			Finish();
@@ -193,7 +193,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 			if (m_Item && m_Item.GetHierarchyRootPlayer() != null)
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] Evacuate: репак завершён, вещь легла " + m_Item.GetType());
+				dmBotLog.Debug(bot.GetName(), "[Loot] Evacuate: репак завершён, вещь легла " + m_Item.GetType());
 				#endif
 				bot.GetArsenal().Register(m_Item);
 				Finish();
@@ -201,7 +201,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 			}
 			bot.Discard(m_Item);
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] Evacuate: репак завершён, вещь не легла — игнор " + m_Item.GetType());
+			dmBotLog.Debug(bot.GetName(), "[Loot] Evacuate: репак завершён, вещь не легла — игнор " + m_Item.GetType());
 			#endif
 			Fail();
 			return;
@@ -214,7 +214,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 		{
 			bot.Discard(m_Item);
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] PickUp: очередь пуста, вещь не легла — игнор " + m_Item.GetType());
+			dmBotLog.Debug(bot.GetName(), "[Loot] PickUp: очередь пуста, вещь не легла — игнор " + m_Item.GetType());
 			#endif
 			Fail();
 			return;

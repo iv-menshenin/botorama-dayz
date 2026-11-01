@@ -68,7 +68,7 @@ class dmBotIntent_Aim : dmBotIntent
 		if (!pawn.IsReadyToShoot())
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] BotIntent: Aim not ReadyToShoot");
+			dmBotLog.Debug(bot.GetName(), "[FSM] BotIntent: Aim not ReadyToShoot");
 			#endif
 			return;
 		}
@@ -76,7 +76,7 @@ class dmBotIntent_Aim : dmBotIntent
 		if (!t.IsVisible())
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] BotIntent: Aim has no LOS");
+			dmBotLog.Debug(bot.GetName(), "[FSM] BotIntent: Aim has no LOS");
 			#endif
 			return;
 		}
@@ -99,7 +99,7 @@ class dmBotIntent_Aim : dmBotIntent
 		if (chance > chanceToRequest)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] BotIntent: Aim low chance to hit");
+			dmBotLog.Debug(bot.GetName(), "[FSM] BotIntent: Aim low chance to hit");
 			#endif
 			return;
 		}
@@ -134,7 +134,7 @@ class dmBotIntent_Aim : dmBotIntent
 	private void DoFire(dmAISurvivorBase pawn, dmAISurvivor bot)
 	{
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] BotIntent: Aim.RequestFire");
+		dmBotLog.Debug(bot.GetName(), "[FSM] BotIntent: Aim.RequestFire");
 		#endif
 		Weapon_Base weapon = bot.GetWeaponInHands();
 		if (m_QueuedShots <= 0 && weapon)

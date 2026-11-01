@@ -53,7 +53,7 @@ class dmBotIntent_SitByFireplace : dmBotIntent_MoveTo
 		m_Sitting = true;
 		m_SitTimer = DM_SIT_BY_FIRE_TIME;
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] SitByFireplace: sit emote=" + m_EmoteID);
+		dmBotLog.Debug(bot.GetName(), "[FSM] SitByFireplace: sit emote=" + m_EmoteID);
 		#endif
 	}
 
@@ -100,7 +100,7 @@ class dmBotIntent_SitByFireplace : dmBotIntent_MoveTo
 			modifier.Cancel();
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] SitByFireplace: stop sit");
+		dmBotLog.Debug(bot.GetName(), "[FSM] SitByFireplace: stop sit");
 		#endif
 	}
 }

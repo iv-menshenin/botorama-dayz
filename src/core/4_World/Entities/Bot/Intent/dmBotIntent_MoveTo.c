@@ -224,13 +224,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (!IsContinuous())
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] RePath #005");
+			dmBotLog.Debug(bot.GetName(), "[PATH] RePath #005");
 			#endif
 			RePath(bot);
 			if (!m_HasPath)
 			{
 				if (ShouldLogNoPath("nopath:" + m_Goal.ToString()))
-					dmBotLog.Error("MoveTo: нет пути к " + m_Goal + " (вне navmesh или недостижимо), abort");
+					dmBotLog.Error(bot.GetName(), "MoveTo: нет пути к " + m_Goal + " (вне navmesh или недостижимо), abort");
 				Fail();
 			}
 		}
@@ -268,7 +268,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			if (Math.RandomFloat(0.0, 1.0) < 0.5)
 				m_VeerDir = -DM_TREE_VEER_DIR;
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] Veer start dir=" + m_VeerDir + " speed=" + veerSpeed + " time=" + veerTime);
+			dmBotLog.Debug(bot.GetName(), "[PATH] Veer start dir=" + m_VeerDir + " speed=" + veerSpeed + " time=" + veerTime);
 			#endif
 			TickVeer(bot, pDt);
 			return;
@@ -288,7 +288,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 	void TickRecover(dmAISurvivor bot, float pDt)
 	{
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] TickRecover m_RecoverDir=" + m_RecoverDir);
+		dmBotLog.Debug(bot.GetName(), "[PATH] TickRecover m_RecoverDir=" + m_RecoverDir);
 		#endif
 		m_RecoverTimer -= pDt;
 		bot.IntentMove(m_RecoverDir, 1.0);
@@ -298,13 +298,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		m_Recovering = false;
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] RePath #003");
+		dmBotLog.Debug(bot.GetName(), "[PATH] RePath #003");
 		#endif
 		RePath(bot);
 		if (!m_HasPath && !IsContinuous())
 		{
 			if (ShouldLogNoPath("recover:" + m_Goal.ToString()))
-				dmBotLog.Error("MoveTo: восстановление не помогло, путь к " + m_Goal + " недоступен, abort");
+				dmBotLog.Error(bot.GetName(), "MoveTo: восстановление не помогло, путь к " + m_Goal + " недоступен, abort");
 			Fail();
 			return;
 		}
@@ -318,7 +318,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 	void TickDetour(dmAISurvivor bot, float pDt)
 	{
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] TickDetour m_DetourDir=" + m_DetourDir);
+		dmBotLog.Debug(bot.GetName(), "[PATH] TickDetour m_DetourDir=" + m_DetourDir);
 		#endif
 		m_DetourTimer -= pDt;
 		bot.IntentMove(m_DetourDir, 1.0);
@@ -328,13 +328,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		m_Detouring = false;
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] RePath #006");
+		dmBotLog.Debug(bot.GetName(), "[PATH] RePath #006");
 		#endif
 		RePath(bot);
 		if (!m_HasPath && !IsContinuous())
 		{
 			if (ShouldLogNoPath("detour:" + m_Goal.ToString()))
-				dmBotLog.Error("MoveTo: detour не помог, путь к " + m_Goal + " недоступен, abort");
+				dmBotLog.Error(bot.GetName(), "MoveTo: detour не помог, путь к " + m_Goal + " недоступен, abort");
 			Fail();
 			return;
 		}
@@ -400,7 +400,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 	{
 		m_VaultGrace -= pDt;
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] TickVault m_VaultGrace=" + m_VaultGrace);
+		dmBotLog.Debug(bot.GetName(), "[PATH] TickVault m_VaultGrace=" + m_VaultGrace);
 		#endif
 		if (m_VaultGrace <= 0.0)
 		{
@@ -419,12 +419,12 @@ class dmBotIntent_MoveTo : dmBotIntent
 	{
 		#ifdef DM_BOT_DEBUG_PATHFINDER
 		if ( m_UseLadder )
-			dmBotLog.Debug("[PATH] TickLadder m_Phase=" + m_UseLadder.m_Phase);
+			dmBotLog.Debug(bot.GetName(), "[PATH] TickLadder m_Phase=" + m_UseLadder.m_Phase);
 		#endif
 		if (m_UseLadder && (m_UseLadder.IsFinished() || m_UseLadder.IsExpired()))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] RePath #002");
+			dmBotLog.Debug(bot.GetName(), "[PATH] RePath #002");
 			#endif
 			m_UseLadder = null;
 			m_Laddering = false;
@@ -532,7 +532,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 				subGoal[1] = pos[1];
 
 				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] Danger shift " + dangerSubGoal + " -> " + subGoal + " fire=" + avoidCenter);
+				dmBotLog.Debug(bot.GetName(), "[PATH] Danger shift " + dangerSubGoal + " -> " + subGoal + " fire=" + avoidCenter);
 				#endif
 			}
 		}
@@ -547,7 +547,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (m_NoGroundAhead)
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] TickMove STOP m_NoGroundAhead=" + m_NoGroundAhead);
+			dmBotLog.Debug(bot.GetName(), "[PATH] TickMove STOP m_NoGroundAhead=" + m_NoGroundAhead);
 			#endif
 			return;
 		}
@@ -569,7 +569,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		}
 		bool reached = IsWaypointReachedOnce(pos, subGoal, reach * (1.0 + m_TooCloseTime / 2.0));
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] Иду к точке: subGoal=" + subGoal + " pos=" + pos + " reached=" + reached);
+		dmBotLog.Debug(bot.GetName(), "[PATH] Иду к точке: subGoal=" + subGoal + " pos=" + pos + " reached=" + reached);
 		#endif
 
 		if ( reached )
@@ -613,14 +613,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 		int pc = 0;
 		if (m_Path)
 			pc = m_Path.Count();
-		dmBotLog.Debug("[LADDER] MV: subGoal=" + subGoal + " pos=" + pos + " dir=" + dir + " dist=" + dist);
-		dmBotLog.Debug("[LADDER] MV: subYaw=" + subYaw + " bodyYaw=" + bodyYaw + " moveAngle=" + moveAngle);
-		dmBotLog.Debug("[LADDER] MV: goal=" + m_Goal + " hasPath=" + m_HasPath + " pathIdx=" + m_PathIdx + " pathCnt=" + pc + " reached=" + reached);
+		dmBotLog.Debug(bot.GetName(), "[LADDER] MV: subGoal=" + subGoal + " pos=" + pos + " dir=" + dir + " dist=" + dist);
+		dmBotLog.Debug(bot.GetName(), "[LADDER] MV: subYaw=" + subYaw + " bodyYaw=" + bodyYaw + " moveAngle=" + moveAngle);
+		dmBotLog.Debug(bot.GetName(), "[LADDER] MV: goal=" + m_Goal + " hasPath=" + m_HasPath + " pathIdx=" + m_PathIdx + " pathCnt=" + pc + " reached=" + reached);
 		dmAISurvivorBase ladderPawn = bot.GetPawn();
 		vector ladderVel = vector.Zero;
 		if (ladderPawn)
 			ladderVel = GetVelocity(ladderPawn);
-		dmBotLog.Debug("[LADDER] MV: laddering=" + m_Laddering + " vel=" + ladderVel);
+		dmBotLog.Debug(bot.GetName(), "[LADDER] MV: laddering=" + m_Laddering + " vel=" + ladderVel);
 		#endif
 
 		//! Оракул: командуем вперёд, а фактическая скорость имеет боковую составляющую —
@@ -643,7 +643,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 						float lat = Math.AbsFloat(vel[0] * dnorm[2] - vel[2] * dnorm[0]);
 						if (lat > DM_TREE_COLLISION_LATERAL)
 						{
-							dmBotLog.Error("Tree collision: pos=" + pos + " lat=" + lat);
+							dmBotLog.Error(bot.GetName(), "Tree collision: pos=" + pos + " lat=" + lat);
 							m_TreeCollisionCooldown = GetGame().GetTickTime() + 1.0;
 						}
 					}
@@ -670,8 +670,8 @@ class dmBotIntent_MoveTo : dmBotIntent
 			int pathPoints = 0;
 			if (m_Path)
 				pathPoints = m_Path.Count();
-			dmBotLog.Debug("[FSM] MoveTo: subGoal=" + subGoal + " pos=" + pos + " dist=" + dist + " reach=" + reach + " pathIdx=" + m_PathIdx + " pathPoints=" + pathPoints);
-			dmBotLog.Debug("[FSM] MoveTo: moveAngle=" + moveAngle + " speed=" + speed + " deadline=" + m_ReachDeadline);
+			dmBotLog.Debug(bot.GetName(), "[FSM] MoveTo: subGoal=" + subGoal + " pos=" + pos + " dist=" + dist + " reach=" + reach + " pathIdx=" + m_PathIdx + " pathPoints=" + pathPoints);
+			dmBotLog.Debug(bot.GetName(), "[FSM] MoveTo: moveAngle=" + moveAngle + " speed=" + speed + " deadline=" + m_ReachDeadline);
 		}
 		#endif
 
@@ -704,40 +704,40 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (TryOpenDoorAhead(bot))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] TryOpenDoorAhead pos=" + bot.GetPosition());
+			dmBotLog.Debug(bot.GetName(), "[PATH] TryOpenDoorAhead pos=" + bot.GetPosition());
 			#endif
 			return;
 		}
 		if (TryVaultOrClimb(bot))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] TryVaultOrClimb pos=" + bot.GetPosition());
+			dmBotLog.Debug(bot.GetName(), "[PATH] TryVaultOrClimb pos=" + bot.GetPosition());
 			#endif
 			return;
 		}
 		if (TryVaultFallback(bot))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] TryVaultFallback pos=" + bot.GetPosition());
+			dmBotLog.Debug(bot.GetName(), "[PATH] TryVaultFallback pos=" + bot.GetPosition());
 			#endif
 			return;
 		}
 		if (TryRecover(bot))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] TryRecover pos=" + bot.GetPosition());
+			dmBotLog.Debug(bot.GetName(), "[PATH] TryRecover pos=" + bot.GetPosition());
 			#endif
 			return;
 		}
 		if (TryDetour(bot))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] TryDetour pos=" + bot.GetPosition());
+			dmBotLog.Debug(bot.GetName(), "[PATH] TryDetour pos=" + bot.GetPosition());
 			#endif
 			return;
 		}
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] TryAbortOrRepath pos=" + bot.GetPosition());
+		dmBotLog.Debug(bot.GetName(), "[PATH] TryAbortOrRepath pos=" + bot.GetPosition());
 		#endif
 		TryAbortOrRepath(bot);
 	}
@@ -765,7 +765,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			m_FoolVaulted = true;
 		}
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] Vault по флагу зрения t=" + m_NoProgressTime);
+		dmBotLog.Debug(bot.GetName(), "[PATH] Vault по флагу зрения t=" + m_NoProgressTime);
 		if ( bot.m_DebugPlayer )
 			GetGame().ChatMP(bot.m_DebugPlayer, "Перепрыгнуть t=" + m_NoProgressTime, "colorAction");
 		#endif
@@ -790,7 +790,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_VaultFallbackUntil = now + DM_CLIMB_FLAG_COOLDOWN;
 
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] Fallback на Vault t=" + m_NoProgressTime);
+		dmBotLog.Debug(bot.GetName(), "[PATH] Fallback на Vault t=" + m_NoProgressTime);
 		if ( bot.m_DebugPlayer )
 			GetGame().ChatMP(bot.m_DebugPlayer, "Перепрыгнуть? t=" + m_NoProgressTime, "colorAction");
 		#endif
@@ -812,7 +812,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (m_RecoverCount < DM_MOVE_MAX_RECOVER)
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] Recovering я застрял, пытаюсь выбраться");
+			dmBotLog.Debug(bot.GetName(), "[PATH] Recovering я застрял, пытаюсь выбраться");
 			if ( bot.m_DebugPlayer )
 				GetGame().ChatMP(bot.m_DebugPlayer, "Я застрял t=" + m_NoProgressTime, "colorAction");
 			#endif
@@ -849,7 +849,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 				m_DetourDir = -90.0;
 
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] MoveTo: detour #" + m_DetourCount + " dir=" + m_DetourDir);
+			dmBotLog.Debug(bot.GetName(), "[PATH] MoveTo: detour #" + m_DetourCount + " dir=" + m_DetourDir);
 			if ( bot.m_DebugPlayer )
 				GetGame().ChatMP(bot.m_DebugPlayer, "Обход сбоку t=" + m_NoProgressTime, "colorAction");
 			#endif
@@ -865,7 +865,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (IsContinuous())
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] RePath #001 t=" + m_NoProgressTime);
+			dmBotLog.Debug(bot.GetName(), "[PATH] RePath #001 t=" + m_NoProgressTime);
 			if ( bot.m_DebugPlayer )
 				GetGame().ChatMP(bot.m_DebugPlayer, "Изменение пути t=" + m_NoProgressTime, "colorAction");
 			#endif
@@ -875,7 +875,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		}
 
 		if (ShouldLogNoPath("stuck:" + m_Goal.ToString()))
-			dmBotLog.Error("MoveTo: застрял на пути к " + m_Goal + ", abort");
+			dmBotLog.Error(bot.GetName(), "MoveTo: застрял на пути к " + m_Goal + ", abort");
 		Fail();
 		return false;
 	}
@@ -975,7 +975,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 				m_TreeCandidate = true;
 				m_TreeCandidateUntil = now + DM_TREE_FLAG_TIMEOUT;
 				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] Tree candidate ahead type=" + to.GetType());
+				dmBotLog.Debug(bot.GetName(), "[PATH] Tree candidate ahead type=" + to.GetType());
 				#endif
 			}
 		}
@@ -1051,21 +1051,21 @@ class dmBotIntent_MoveTo : dmBotIntent
 	void RePath(dmAISurvivor bot)
 	{
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] RePath invoked goal=" + m_Goal + " goalY=" + m_Goal[1]);
+		dmBotLog.Debug(bot.GetName(), "[PATH] RePath invoked goal=" + m_Goal + " goalY=" + m_Goal[1]);
 		DebugElevatedGoal(bot);
 		#endif
 		ref array<ref dmBotRouteSegment> route = new array<ref dmBotRouteSegment>();
 		if (bot.FindRouteTo(m_Goal, route) && route.Count() > 0)
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] FindRouteTo выполнено успешно, сегментов " + route.Count());
+			dmBotLog.Debug(bot.GetName(), "[PATH] FindRouteTo выполнено успешно, сегментов " + route.Count());
 			int si;
 			for (si = 0; si < route.Count(); si++)
 			{
 				if (route[si].m_IsLadder)
-					dmBotLog.Debug("[PATH]   seg[" + si + "] LADDER dir=" + route[si].m_Direction);
+					dmBotLog.Debug(bot.GetName(), "[PATH]   seg[" + si + "] LADDER dir=" + route[si].m_Direction);
 				else
-					dmBotLog.Debug("[PATH]   seg[" + si + "] navmesh n=" + route[si].m_Waypoints.Count());
+					dmBotLog.Debug(bot.GetName(), "[PATH]   seg[" + si + "] navmesh n=" + route[si].m_Waypoints.Count());
 			}
 			#endif
 			m_Route = route;
@@ -1083,7 +1083,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (TryLeapOfFaith(bot))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] TryLeapOfFaith выполнено - высота падения не опасна");
+			dmBotLog.Debug(bot.GetName(), "[PATH] TryLeapOfFaith выполнено - высота падения не опасна");
 			#endif
 			m_HasPath = false;
 			m_Path = null;
@@ -1095,14 +1095,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 		{
 			m_StepBackDone = true;
 			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug("[PATH] RePath: drop ahead — step back");
+			dmBotLog.Debug(bot.GetName(), "[PATH] RePath: drop ahead — step back");
 			#endif
 			StartStepBack(bot);
 			return;
 		}
 
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug("[PATH] RePath: NO PATH goal=" + m_Goal + " unreachable");
+		dmBotLog.Debug(bot.GetName(), "[PATH] RePath: NO PATH goal=" + m_Goal + " unreachable");
 		#endif
 		m_HasPath = false;
 		m_Path = null;
@@ -1122,7 +1122,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (pawn)
 			botInside = pawn.IsSoundInsideBuilding().ToString();
 
-		dmBotLog.Debug("[PATH] ElevatedGoal dY=" + dY + " goal=" + m_Goal + " botInside=" + botInside);
+		dmBotLog.Debug(bot.GetName(), "[PATH] ElevatedGoal dY=" + dY + " goal=" + m_Goal + " botInside=" + botInside);
 
 		RoofProbe(bot, m_Goal, "goal");
 		RoofProbe(bot, botPos, "bot");
@@ -1140,7 +1140,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		string hitType = "none";
 		if (DayZPhysics.RaycastRVProxy(rp, hits) && hits.Count() > 0 && hits[0].obj)
 			hitType = hits[0].obj.GetType();
-		dmBotLog.Debug("[PATH] RoofProbe " + label + " pt=" + pt + " hit=" + hitType);
+		dmBotLog.Debug(bot.GetName(), "[PATH] RoofProbe " + label + " pt=" + pt + " hit=" + hitType);
 	}
 
 	//! Комплексная отладочная диагностика «цель выше, чем достижимо» (крыша/этаж).
@@ -1156,16 +1156,16 @@ class dmBotIntent_MoveTo : dmBotIntent
 		vector exact;
 		bool exactNav = g_Game.GetWorld().GetAIWorld().SampleNavmeshPosition(m_Goal, 0.5, m_PathFilter, exact);
 		if (exactNav)
-			dmBotLog.Debug("[PATH] ProbePlatform navmesh@goal sampled=" + exact + " dY=" + Math.AbsFloat(m_Goal[1] - exact[1]));
+			dmBotLog.Debug(bot.GetName(), "[PATH] ProbePlatform navmesh@goal sampled=" + exact + " dY=" + Math.AbsFloat(m_Goal[1] - exact[1]));
 		else
-			dmBotLog.Debug("[PATH] ProbePlatform NO navmesh within 0.5m");
+			dmBotLog.Debug(bot.GetName(), "[PATH] ProbePlatform NO navmesh within 0.5m");
 
 		// 2) Обратный путь: может ли «крыша» дотянуться до земли?
 		ref array<vector> rev = new array<vector>();
 		if (g_Game.GetWorld().GetAIWorld().FindPath(m_Goal, botPos, m_PathFilter, rev) && rev.Count() > 0)
-			dmBotLog.Debug("[PATH] ProbeReverse found n=" + rev.Count() + " last=" + rev[rev.Count() - 1]);
+			dmBotLog.Debug(bot.GetName(), "[PATH] ProbeReverse found n=" + rev.Count() + " last=" + rev[rev.Count() - 1]);
 		else
-			dmBotLog.Debug("[PATH] ProbeReverse NO PATH");
+			dmBotLog.Debug(bot.GetName(), "[PATH] ProbeReverse NO PATH");
 
 		// 3) Серия высот: FindPath(bot -> цель + k метров вверх).
 		ProbeHeight(bot, 0.0);
@@ -1184,9 +1184,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 		vector probeGoal = m_Goal + Vector(0.0, up, 0.0);
 		ref array<vector> p = new array<vector>();
 		if (bot.FindPathTo(probeGoal, p) && p.Count() > 0)
-			dmBotLog.Debug("[PATH] ProbeHeight +" + up + " found n=" + p.Count() + " last=" + p[p.Count() - 1]);
+			dmBotLog.Debug(bot.GetName(), "[PATH] ProbeHeight +" + up + " found n=" + p.Count() + " last=" + p[p.Count() - 1]);
 		else
-			dmBotLog.Debug("[PATH] ProbeHeight +" + up + " NO PATH");
+			dmBotLog.Debug(bot.GetName(), "[PATH] ProbeHeight +" + up + " NO PATH");
 	}
 
 	//! Путь до нижней/верхней точек входа лестницы здания под ботом/перед ботом.
@@ -1227,7 +1227,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (!building || !ladders || ladders.Count() == 0)
 		{
-			dmBotLog.Debug("[PATH] ProbeLadders no ladder building");
+			dmBotLog.Debug(bot.GetName(), "[PATH] ProbeLadders no ladder building");
 			return;
 		}
 
@@ -1240,15 +1240,15 @@ class dmBotIntent_MoveTo : dmBotIntent
 			ref array<vector> pB = new array<vector>();
 			bool bOk = bot.FindPathTo(bottomWorld, pB);
 			if (bOk && pB.Count() > 0)
-				dmBotLog.Debug("[PATH] ProbeLadder i=" + ladder.m_Index + " bottom ok last=" + pB[pB.Count() - 1]);
+				dmBotLog.Debug(bot.GetName(), "[PATH] ProbeLadder i=" + ladder.m_Index + " bottom ok last=" + pB[pB.Count() - 1]);
 			else
-				dmBotLog.Debug("[PATH] ProbeLadder i=" + ladder.m_Index + " bottom NO PATH");
+				dmBotLog.Debug(bot.GetName(), "[PATH] ProbeLadder i=" + ladder.m_Index + " bottom NO PATH");
 			ref array<vector> pT = new array<vector>();
 			bool tOk = bot.FindPathTo(topWorld, pT);
 			if (tOk && pT.Count() > 0)
-				dmBotLog.Debug("[PATH] ProbeLadder i=" + ladder.m_Index + " top ok last=" + pT[pT.Count() - 1]);
+				dmBotLog.Debug(bot.GetName(), "[PATH] ProbeLadder i=" + ladder.m_Index + " top ok last=" + pT[pT.Count() - 1]);
 			else
-				dmBotLog.Debug("[PATH] ProbeLadder i=" + ladder.m_Index + " top NO PATH");
+				dmBotLog.Debug(bot.GetName(), "[PATH] ProbeLadder i=" + ladder.m_Index + " top NO PATH");
 		}
 	}
 #endif
@@ -1492,7 +1492,7 @@ class dmBotIntent_MoveTo : dmBotIntent
             foreach (RaycastRVResult result : results)
             {
 				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("[PATH] HasObstaclesToPoint HIT Pos=" + result.pos + " hitNormal=" + result.obj.GetType() + " comp=" + result.component);
+				dmBotLog.Debug(bot.GetName(), "[PATH] HasObstaclesToPoint HIT Pos=" + result.pos + " hitNormal=" + result.obj.GetType() + " comp=" + result.component);
 				#endif
             }
         }

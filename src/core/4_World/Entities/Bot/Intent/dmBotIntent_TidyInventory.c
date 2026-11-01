@@ -24,7 +24,7 @@ class dmBotIntent_TidyInventory : dmBotIntent
 		if ( bot.IsInCombat() )
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] TidyInventory: not appliable while fighting");
+			dmBotLog.Debug(bot.GetName(), "[FSM] TidyInventory: not appliable while fighting");
 			#endif
 			return;
 		}
@@ -43,7 +43,7 @@ class dmBotIntent_TidyInventory : dmBotIntent
 		if (pawn.StackAmmoAI())
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] TidyInventory: StackAmmoAI completed");
+			dmBotLog.Debug(bot.GetName(), "[FSM] TidyInventory: StackAmmoAI completed");
 			#endif
 			m_Cooldown = DM_TIDY_STEP_INTERVAL;
 			return;
@@ -57,7 +57,7 @@ class dmBotIntent_TidyInventory : dmBotIntent
 		if (pawn.LoadMagazineAI())
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] LoadMagazineAI: ReloadWeaponAI completed");
+			dmBotLog.Debug(bot.GetName(), "[FSM] LoadMagazineAI: ReloadWeaponAI completed");
 			#endif
 			m_Cooldown = DM_TIDY_STEP_INTERVAL;
 			return;
@@ -69,7 +69,7 @@ class dmBotIntent_TidyInventory : dmBotIntent
 			if (pawn.ReloadWeaponAI())
 			{
 				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[FSM] TidyInventory: ReloadWeaponAI completed");
+				dmBotLog.Debug(bot.GetName(), "[FSM] TidyInventory: ReloadWeaponAI completed");
 				#endif
 				m_Cooldown = DM_TIDY_STEP_INTERVAL;
 				return;

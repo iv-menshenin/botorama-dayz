@@ -48,7 +48,7 @@ class dmBotIntent_MedicalAction : dmBotIntent
 		m_ActionCB = null;
 
 		#ifdef DM_BOT_DEBUG_MEDICAL
-		dmBotLog.Debug("[Medical] OnStart: m_Phase=" + m_Phase);
+		dmBotLog.Debug(bot.GetName(), "[Medical] OnStart: m_Phase=" + m_Phase);
 		#endif
 	}
 
@@ -60,7 +60,7 @@ class dmBotIntent_MedicalAction : dmBotIntent
 		if (!pawn)
 		{
 			#ifdef DM_BOT_DEBUG_MEDICAL
-			dmBotLog.Debug("[Medical] OnUpdate: pawn is null");
+			dmBotLog.Debug(bot.GetName(), "[Medical] OnUpdate: pawn is null");
 			#endif
 			Fail();
 			return;

@@ -63,7 +63,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 		UpdateEntry();
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Ladder] UseLadder.start building=" + m_Building + " dir=" + m_Direction + " entry=" + m_Entry);
+		dmBotLog.Debug(bot.GetName(), "[Ladder] UseLadder.start building=" + m_Building + " dir=" + m_Direction + " entry=" + m_Entry);
 		#endif
 	}
 
@@ -100,7 +100,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 				if (m_ApproachTime >= DM_LADDER_APPROACH_TIME)
 				{
 					#ifdef DM_BOT_DEBUG_FSM
-					dmBotLog.Debug("[Ladder] UseLadder: approach timeout, giving up");
+					dmBotLog.Debug(bot.GetName(), "[Ladder] UseLadder: approach timeout, giving up");
 					#endif
 					Fail();
 					return;
@@ -132,8 +132,8 @@ class dmBotIntent_UseLadder : dmBotIntent
 			m_LastClimbY = pawn.GetPosition()[1];
 
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Ladder] UseLadder: attach entry=" + m_Entry + " dirPoint=" + dirPoint + " dir=" + m_Direction);
-			dmBotLog.Debug("[Ladder] UseLadder: attach orient=" + bot.GetOrientation()[0] + " index=" + m_Ladder.m_Index + " type=" + m_Ladder.m_Type);
+			dmBotLog.Debug(bot.GetName(), "[Ladder] UseLadder: attach entry=" + m_Entry + " dirPoint=" + dirPoint + " dir=" + m_Direction);
+			dmBotLog.Debug(bot.GetName(), "[Ladder] UseLadder: attach orient=" + bot.GetOrientation()[0] + " index=" + m_Ladder.m_Index + " type=" + m_Ladder.m_Type);
 			#endif
 			return;
 		}
@@ -164,7 +164,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 		if (!pawn.IsClimbingLadder())
 		{
 			#ifdef DM_BOT_DEBUG_LADDER
-			dmBotLog.Debug("[LADDER] UseLadder.detach orient=" + bot.GetOrientation()[0] + " bodyYaw=" + pawn.GetOrientation()[0]);
+			dmBotLog.Debug(bot.GetName(), "[LADDER] UseLadder.detach orient=" + bot.GetOrientation()[0] + " bodyYaw=" + pawn.GetOrientation()[0]);
 			#endif
 			Finish();
 			return;
@@ -185,10 +185,10 @@ class dmBotIntent_UseLadder : dmBotIntent
 		if (hcl && hcl.CanExit())
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Ladder] UseLadder: exit pos=" + bot.GetPosition() + " orient=" + bot.GetOrientation()[0]);
+			dmBotLog.Debug(bot.GetName(), "[Ladder] UseLadder: exit pos=" + bot.GetPosition() + " orient=" + bot.GetOrientation()[0]);
 			#endif
 			#ifdef DM_BOT_DEBUG_LADDER
-			dmBotLog.Debug("[LADDER] UseLadder.exit orient=" + bot.GetOrientation()[0] + " bodyYaw=" + pawn.GetOrientation()[0]);
+			dmBotLog.Debug(bot.GetName(), "[LADDER] UseLadder.exit orient=" + bot.GetOrientation()[0] + " bodyYaw=" + pawn.GetOrientation()[0]);
 			#endif
 			hcl.Exit();
 			return;
@@ -206,7 +206,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 				m_StuckReversals = 1;
 
 				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[Ladder] UseLadder: stuck — reversing dir=" + m_Direction);
+				dmBotLog.Debug(bot.GetName(), "[Ladder] UseLadder: stuck — reversing dir=" + m_Direction);
 				#endif
 			}
 			else
@@ -215,7 +215,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 					hcl.Exit();
 
 				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[Ladder] UseLadder: stuck again — giving up");
+				dmBotLog.Debug(bot.GetName(), "[Ladder] UseLadder: stuck again — giving up");
 				#endif
 				Fail();
 			}

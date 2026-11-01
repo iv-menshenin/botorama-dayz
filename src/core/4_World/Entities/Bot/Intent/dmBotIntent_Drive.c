@@ -301,7 +301,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		m_Car = CarScript.Cast(m_Transport);
 		if (!m_Car)
 		{
-			dmBotLog.Error("Drive: транспорт не машина (CarScript), abort");
+			dmBotLog.Error(bot.GetName(), "Drive: транспорт не машина (CarScript), abort");
 			Fail();
 			return;
 		}
@@ -315,7 +315,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		if (m_Car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER) != m_Pawn || gettingIn)
 		{
 			#ifdef DM_BOT_DEBUG_CAR
-			dmBotLog.Debug("[CAR] Drive: gate blocked — driver not seated (crew=" + (m_Car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER) != null) + " gettingIn=" + gettingIn + ")");
+			dmBotLog.Debug(bot.GetName(), "[CAR] Drive: gate blocked — driver not seated (crew=" + (m_Car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER) != null) + " gettingIn=" + gettingIn + ")");
 			#endif
 			return;
 		}
@@ -326,7 +326,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		{
 			m_LastSeatLogTime = seatNow;
 			bool driverSeated = (m_Car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER) != null);
-			dmBotLog.Debug("[CAR] Drive: driver=" + driverSeated + " phase=" + m_Phase);
+			dmBotLog.Debug(bot.GetName(), "[CAR] Drive: driver=" + driverSeated + " phase=" + m_Phase);
 		}
 		#endif
 
@@ -348,7 +348,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				m_Car.SetBrakesActivateWithoutDriver(false);
 				m_EngineStarted = true;
 				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] Drive: двигатель запущен, прогрев " + DM_DRIVE_ENGINE_WARMUP + " с");
+				dmBotLog.Debug(bot.GetName(), "[CAR] Drive: двигатель запущен, прогрев " + DM_DRIVE_ENGINE_WARMUP + " с");
 				#endif
 				return;
 			}
@@ -366,7 +366,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				m_Car.SetHandbrake(0.0);
 				m_Car.SetBrakesActivateWithoutDriver(false);
 				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] Drive: двигатель заглох — перезапуск");
+				dmBotLog.Debug(bot.GetName(), "[CAR] Drive: двигатель заглох — перезапуск");
 				#endif
 			}
 
@@ -380,7 +380,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		{
 			//! Очередь пуста И маршрут исчерпан (NextChunk ничего не дал) — не должно
 			//! случаться после успешного Setup, но страховка от пустого списка.
-			dmBotLog.Error("Drive: маршрут пуст и исчерпан, abort");
+			dmBotLog.Error(bot.GetName(), "Drive: маршрут пуст и исчерпан, abort");
 			Fail();
 			return;
 		}
@@ -413,7 +413,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 				m_HoneyState = 1;
 				SetDrivingPhase(DPH_DETOUR);
 				#ifdef DM_BOT_DEBUG_CAR
-				dmBotLog.Debug("[CAR] Drive: immediate grid origin=" + gridOrigin);
+				dmBotLog.Debug(bot.GetName(), "[CAR] Drive: immediate grid origin=" + gridOrigin);
 				#endif
 				TickHoneycomb(carPos, pDt);
 				return;
@@ -537,8 +537,8 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			float headYaw = carDir.VectorToAngles()[0];
 			vector toDirV = Vector(toDirX, 0.0, toDirZ);
 			float bearYaw = toDirV.VectorToAngles()[0];
-			dmBotLog.Debug("[DRIVE-TELE] pos=" + Vector(carPos[0], 0.0, carPos[2]) + " head=" + headYaw + " bear=" + bearYaw);
-			dmBotLog.Debug("[DRIVE-TELE] angle=" + angle + " steer=" + m_WheelSteer + " speed=" + speedAbs + " dist=" + dist + " idx=" + m_DriveRouteIdx + " last=" + isLast);
+			dmBotLog.Debug(bot.GetName(), "[DRIVE-TELE] pos=" + Vector(carPos[0], 0.0, carPos[2]) + " head=" + headYaw + " bear=" + bearYaw);
+			dmBotLog.Debug(bot.GetName(), "[DRIVE-TELE] angle=" + angle + " steer=" + m_WheelSteer + " speed=" + speedAbs + " dist=" + dist + " idx=" + m_DriveRouteIdx + " last=" + isLast);
 		}
 		#endif
 
@@ -549,9 +549,9 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 			m_LastDriveLogTime = now;
 			int curGear = m_Car.GetCurrentGear();
 			float rpm = m_Car.EngineGetRPM();
-			dmBotLog.Debug("[CAR] Drive: speed=" + speedAbs + " wp=" + target + " dist=" + dist);
-			dmBotLog.Debug("[CAR] Drive: limit=" + m_SpeedLimit + " angle=" + angle + " gear=" + curGear + " rpm=" + rpm);
-			dmBotLog.Debug("[CAR] Drive: steer=" + m_WheelSteer + " push=" + pushing + " reverse=" + m_Reverse);
+			dmBotLog.Debug(bot.GetName(), "[CAR] Drive: speed=" + speedAbs + " wp=" + target + " dist=" + dist);
+			dmBotLog.Debug(bot.GetName(), "[CAR] Drive: limit=" + m_SpeedLimit + " angle=" + angle + " gear=" + curGear + " rpm=" + rpm);
+			dmBotLog.Debug(bot.GetName(), "[CAR] Drive: steer=" + m_WheelSteer + " push=" + pushing + " reverse=" + m_Reverse);
 		}
 		#endif
 	}

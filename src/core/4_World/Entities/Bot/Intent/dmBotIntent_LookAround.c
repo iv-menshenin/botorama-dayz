@@ -44,7 +44,7 @@ class dmBotIntent_LookAround : dmBotIntent
 		m_Phase = 0;
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] LookAround.start interval=" + m_Interval + " bodyTurn=" + m_AllowBodyTurn);
+		dmBotLog.Debug(bot.GetName(), "[FSM] LookAround.start interval=" + m_Interval + " bodyTurn=" + m_AllowBodyTurn);
 		#endif
 	}
 
@@ -127,7 +127,7 @@ class dmBotIntent_LookAround : dmBotIntent
 		}
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] LookAround.event roll=" + roll + " phase=" + m_Phase + " curYaw=" + m_CurYaw + " bodyTarget=" + m_BodyTarget);
+		dmBotLog.Debug(bot.GetName(), "[FSM] LookAround.event roll=" + roll + " phase=" + m_Phase + " curYaw=" + m_CurYaw + " bodyTarget=" + m_BodyTarget);
 		#endif
 	}
 

@@ -58,7 +58,7 @@ class dmBotIntent
 	void OnStart(dmAISurvivor bot)
 	{
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".OnStart");
+		dmBotLog.Debug(bot.GetName(), "[FSM] BotIntent: " + GetIntentName() + ".OnStart");
 		#endif
 	}
 
@@ -75,7 +75,7 @@ class dmBotIntent
 	void OnCancel(dmAISurvivor bot)
 	{
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] BotIntent: " + GetIntentName() + ".OnCancel");
+		dmBotLog.Debug(bot.GetName(), "[FSM] BotIntent: " + GetIntentName() + ".OnCancel");
 		#endif
 		//! Сброс движения больше не нужен: авто-стоп в HandleOnMove.
 	}

@@ -101,9 +101,9 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 		if (m_StallTimer > DM_FLANK_STALL_TIMEOUT)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[FSM] Flank: stall timeout=" + m_StallTimer);
+			dmBotLog.Debug(bot.GetName(), "[FSM] Flank: stall timeout=" + m_StallTimer);
 			#endif
-			dmBotLog.Error("Flank: stall timeout, abort");
+			dmBotLog.Error(bot.GetName(), "Flank: stall timeout, abort");
 			Fail();
 			return;
 		}
@@ -140,7 +140,7 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 		m_Path = null;
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[FSM] Flank: достиг точки без LOS, продолжаю свип angle=" + m_FlankAngle);
+		dmBotLog.Debug(bot.GetName(), "[FSM] Flank: достиг точки без LOS, продолжаю свип angle=" + m_FlankAngle);
 		#endif
 	}
 
@@ -166,9 +166,9 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 			if ( m_Dist <= DM_FLANK_MIN_DIST * 2 )
 			{
 				#ifdef DM_BOT_DEBUG_FSM
-				dmBotLog.Debug("[FSM] Flank: свип исчерпан angle=" + m_FlankAngle);
+				dmBotLog.Debug(bot.GetName(), "[FSM] Flank: свип исчерпан angle=" + m_FlankAngle);
 				#endif
-				dmBotLog.Error("Flank: свип исчерпан, abort");
+				dmBotLog.Error(bot.GetName(), "Flank: свип исчерпан, abort");
 				Fail();
 				return;	
 			}
