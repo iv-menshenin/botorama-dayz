@@ -19,6 +19,11 @@ class dmBotWeaponManager : WeaponManager
 {
 	override bool StartAction(int action, Magazine mag, InventoryLocation il, ActionBase control_action = NULL)
 	{
+		string name = "";
+		dmAISurvivorBase survivor = dmAISurvivorBase.Cast(m_player);
+		if (survivor)
+			name = survivor.GetCachedName();
+
 		if (control_action)
 		{
 			m_ControlAction = ActionBase.Cast(control_action);
@@ -36,7 +41,7 @@ class dmBotWeaponManager : WeaponManager
 		if (!InventoryReservation(mag, il))
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug("[Weapon] StartAction: reservation failed action=" + action);
+			dmBotLog.Debug(name, "[Weapon] StartAction: reservation failed action=" + action);
 			#endif
 			return false;
 		}
@@ -48,7 +53,7 @@ class dmBotWeaponManager : WeaponManager
 		m_readyToStart = true;
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Weapon] StartAction: ready action=" + action + " mag=" + mag);
+		dmBotLog.Debug(name, "[Weapon] StartAction: ready action=" + action + " mag=" + mag);
 		#endif
 
 		return true;
@@ -115,7 +120,11 @@ class dmBotWeaponManager : WeaponManager
 		m_canEnd = false;
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Weapon] StartPendingAction: action=" + m_PendingWeaponAction + " inHands=" + m_WeaponInHand);
+		string name = "";
+		dmAISurvivorBase survivor = dmAISurvivorBase.Cast(m_player);
+		if (survivor)
+			name = survivor.GetCachedName();
+		dmBotLog.Debug(name, "[Weapon] StartPendingAction: action=" + m_PendingWeaponAction + " inHands=" + m_WeaponInHand);
 		#endif
 	}
 
@@ -134,7 +143,11 @@ class dmBotWeaponManager : WeaponManager
 		}
 
 		#ifdef DM_WEAPON_DEBUG_FSM
-		dmBotLog.Debug("[Weapon] PostWeaponEvent: pending event already posted, skip");
+		string name = "";
+		dmAISurvivorBase survivor = dmAISurvivorBase.Cast(m_player);
+		if (survivor)
+			name = survivor.GetCachedName();
+		dmBotLog.Debug(name, "[Weapon] PostWeaponEvent: pending event already posted, skip");
 		#endif
 	}
 
@@ -167,7 +180,11 @@ class dmBotWeaponManager : WeaponManager
 		m_WantContinue = true;
 
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Weapon] OnWeaponActionEnd: action done");
+		string name = "";
+		dmAISurvivorBase survivor = dmAISurvivorBase.Cast(m_player);
+		if (survivor)
+			name = survivor.GetCachedName();
+		dmBotLog.Debug(name, "[Weapon] OnWeaponActionEnd: action done");
 		#endif
 	}
 

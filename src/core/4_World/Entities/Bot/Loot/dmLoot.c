@@ -623,6 +623,11 @@ class dmLoot
 		if (!inv)
 			return false;
 
+		string name = "";
+		dmAISurvivorBase survivor = dmAISurvivorBase.Cast(pawn);
+		if (survivor)
+			name = survivor.GetCachedName();
+
 		dmLootCategory cat = GetCategory(item);
 		#ifdef DM_BOT_DEBUG_LOOTING
 		string catLabel = "прочее";
@@ -632,7 +637,7 @@ class dmLoot
 			catLabel = "мили";
 		else if (cat == dmLootCategory.CLOTHING)
 			catLabel = "одежда";
-		dmBotLog.Debug("[Loot] FindAttachmentSlot: тип=" + item.GetType() + " " + catLabel);
+		dmBotLog.Debug(name, "[Loot] FindAttachmentSlot: тип=" + item.GetType() + " " + catLabel);
 		#endif
 
 		if (cat == dmLootCategory.WEAPON)
@@ -641,7 +646,7 @@ class dmLoot
 			{
 				slotId = InventorySlots.SHOULDER;
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
+				dmBotLog.Debug(name, "[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
 				#endif
 				return true;
 			}
@@ -649,7 +654,7 @@ class dmLoot
 			{
 				slotId = InventorySlots.MELEE;
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
+				dmBotLog.Debug(name, "[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
 				#endif
 				return true;
 			}
@@ -661,7 +666,7 @@ class dmLoot
 			{
 				slotId = InventorySlots.MELEE;
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
+				dmBotLog.Debug(name, "[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
 				#endif
 				return true;
 			}
@@ -669,7 +674,7 @@ class dmLoot
 			{
 				slotId = InventorySlots.SHOULDER;
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
+				dmBotLog.Debug(name, "[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
 				#endif
 				return true;
 			}
@@ -682,7 +687,7 @@ class dmLoot
 			if (names.Count() == 0)
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] FindAttachmentSlot: " + item.GetType() + " пустой inventorySlot");
+				dmBotLog.Debug(name, "[Loot] FindAttachmentSlot: " + item.GetType() + " пустой inventorySlot");
 				#endif
 				return false;
 			}
@@ -690,26 +695,26 @@ class dmLoot
 			if (slotId == InventorySlots.INVALID)
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] FindAttachmentSlot: " + item.GetType() + " нет слота");
+				dmBotLog.Debug(name, "[Loot] FindAttachmentSlot: " + item.GetType() + " нет слота");
 				#endif
 				return false;
 			}
 			if (!inv.HasAttachmentSlot(slotId))
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] FindAttachmentSlot: " + item.GetType() + " нет слота");
+				dmBotLog.Debug(name, "[Loot] FindAttachmentSlot: " + item.GetType() + " нет слота");
 				#endif
 				return false;
 			}
 			if (!inv.FindAttachment(slotId))
 			{
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
+				dmBotLog.Debug(name, "[Loot] FindAttachmentSlot: слот " + InventorySlots.GetSlotName(slotId) + " свободен для " + item.GetType());
 				#endif
 				return true;
 			}
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] FindAttachmentSlot: " + item.GetType() + " слот занят");
+			dmBotLog.Debug(name, "[Loot] FindAttachmentSlot: " + item.GetType() + " слот занят");
 			#endif
 			return false;
 		}
@@ -745,6 +750,11 @@ class dmLoot
 		if (!pawn || !item)
 			return false;
 
+		string name = "";
+		dmAISurvivorBase survivor = dmAISurvivorBase.Cast(pawn);
+		if (survivor)
+			name = survivor.GetCachedName();
+
 		ItemBase ib = ItemBase.Cast(item);
 		if (ib)
 		{
@@ -753,7 +763,7 @@ class dmLoot
 			{
 				dst.SetAttachment(pawn, item, slotId);
 				#ifdef DM_BOT_DEBUG_LOOTING
-				dmBotLog.Debug("[Loot] FindDestination: слот " + InventorySlots.GetSlotName(slotId) + " для " + item.GetType());
+				dmBotLog.Debug(name, "[Loot] FindDestination: слот " + InventorySlots.GetSlotName(slotId) + " для " + item.GetType());
 				#endif
 				return true;
 			}
@@ -762,13 +772,13 @@ class dmLoot
 		if (FindCargo(pawn, item, dst))
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] FindDestination: карго для " + item.GetType());
+			dmBotLog.Debug(name, "[Loot] FindDestination: карго для " + item.GetType());
 			#endif
 			return true;
 		}
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] FindDestination: нет места для " + item.GetType());
+		dmBotLog.Debug(name, "[Loot] FindDestination: нет места для " + item.GetType());
 		#endif
 		return false;
 	}
@@ -846,11 +856,15 @@ class dmLoot
 	{
 		if (!pawn || !item)
 			return false;
+		string name = "";
+		dmAISurvivorBase survivor = dmAISurvivorBase.Cast(pawn);
+		if (survivor)
+			name = survivor.GetCachedName();
 		InventoryLocation src = new InventoryLocation();
 		if (!item.GetInventory().GetCurrentInventoryLocation(src))
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] TakeToAttachmentSlot: нет InventoryLocation у " + item.GetType());
+			dmBotLog.Debug(name, "[Loot] TakeToAttachmentSlot: нет InventoryLocation у " + item.GetType());
 			#endif
 			return false;
 		}
@@ -928,13 +942,13 @@ class dmLoot
 		if (!DropWeakestSlot(pawn, bot, item))
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] FreeHandsWithRepack: репак невозможен для " + item.GetType());
+			dmBotLog.Debug(bot.GetName(), "[Loot] FreeHandsWithRepack: репак невозможен для " + item.GetType());
 			#endif
 			return false;
 		}
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] FreeHandsWithRepack: слот освобождён, повторный FreeHands для " + item.GetType());
+		dmBotLog.Debug(bot.GetName(), "[Loot] FreeHandsWithRepack: слот освобождён, повторный FreeHands для " + item.GetType());
 		#endif
 		return FreeHands(pawn);
 	}
@@ -973,7 +987,7 @@ class dmLoot
 		bot.Discard(weakest);
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] FreeHands: выбросил " + weakest.GetType() + " из слота ради " + item.GetType());
+		dmBotLog.Debug(bot.GetName(), "[Loot] FreeHands: выбросил " + weakest.GetType() + " из слота ради " + item.GetType());
 		#endif
 		return true;
 	}
@@ -985,6 +999,11 @@ class dmLoot
 	//! предмет unregistered на клиенте.
 	private static bool TakeFromHands(PlayerBase pawn, EntityAI item, InventoryLocation dst)
 	{
+		string name = "";
+		dmAISurvivorBase survivor = dmAISurvivorBase.Cast(pawn);
+		if (survivor)
+			name = survivor.GetCachedName();
+
 		InventoryLocation src = new InventoryLocation();
 		if (!item.GetInventory().GetCurrentInventoryLocation(src))
 			return false;
@@ -995,14 +1014,14 @@ class dmLoot
 		{
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ReCreateTree, 0, false, item);
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] FreeHands: " + item.GetType() + " в слоте (deferred create)");
+			dmBotLog.Debug(name, "[Loot] FreeHands: " + item.GetType() + " в слоте (deferred create)");
 			#endif
 		}
 		else
 		{
 			GetGame().RemoteObjectTreeCreate(item);
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] FreeHands: мув не удался для " + item.GetType() + " (create сразу)");
+			dmBotLog.Debug(name, "[Loot] FreeHands: мув не удался для " + item.GetType() + " (create сразу)");
 			#endif
 		}
 		return ok;
@@ -1057,7 +1076,7 @@ class dmLoot
 		{
 			rate = DM_LOOT_MELEE_RATE_MULT * hp;
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] rate " + item.GetType() + " = " + rate + " hp=" + hp);
+			dmBotLog.Debug(bot.GetName(), "[Loot] rate " + item.GetType() + " = " + rate + " hp=" + hp);
 			#endif
 			return rate;
 		}
@@ -1065,7 +1084,7 @@ class dmLoot
 		if (item.IsInherited(Pistol_Base))
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] rate " + item.GetType() + " = 0.0 (пистолет)");
+			dmBotLog.Debug(bot.GetName(), "[Loot] rate " + item.GetType() + " = 0.0 (пистолет)");
 			#endif
 			return 0.0;
 		}
@@ -1084,8 +1103,8 @@ class dmLoot
 			float speed = GetFirearmInitSpeed(bulletType);
 			rate = (ammo + 1.0) * (speed / DM_LOOT_FIREARM_SPEED_DIV) * hp;
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug("[Loot] rate " + item.GetType() + " = " + rate);
-			dmBotLog.Debug("[Loot] rate: ammo=" + ammo + " speed=" + speed + " hp=" + hp);
+			dmBotLog.Debug(bot.GetName(), "[Loot] rate " + item.GetType() + " = " + rate);
+			dmBotLog.Debug(bot.GetName(), "[Loot] rate: ammo=" + ammo + " speed=" + speed + " hp=" + hp);
 			#endif
 			return rate;
 		}

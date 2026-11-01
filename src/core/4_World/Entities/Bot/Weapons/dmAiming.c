@@ -187,7 +187,7 @@ class dmAiming
 		m_DispersionLR = angLR;
 		m_DispersionUD = angUD;
 		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug("[Aim] dispersion roll lr=" + angLR + " ud=" + angUD);
+		dmBotLog.Debug(m_Unit.GetCachedName(), "[Aim] dispersion roll lr=" + angLR + " ud=" + angUD);
 		#endif
 	}
 
@@ -470,8 +470,8 @@ class dmAiming
 		if (GetGame().GetTickTime() - m_LastLogTime >= 2.0)
 		{
 			m_LastLogTime = GetGame().GetTickTime();
-			dmBotLog.Debug("[Aim] dist=" + dist + " hitProb=" + hitProbability);
-			dmBotLog.Debug("[Aim] aimPos=" + m_AimPosition + " dir=" + m_AimDirection);
+			dmBotLog.Debug(m_Unit.GetCachedName(), "[Aim] dist=" + dist + " hitProb=" + hitProbability);
+			dmBotLog.Debug(m_Unit.GetCachedName(), "[Aim] aimPos=" + m_AimPosition + " dir=" + m_AimDirection);
 		}
 		#endif
 	}

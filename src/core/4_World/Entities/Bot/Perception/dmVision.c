@@ -60,9 +60,9 @@ class dmVision
 		ScanPlayers(bot, pawn, botPos);
 
 		#ifdef DM_BOT_DEBUG_VISION
-		dmBotLog.Debug("[Vision] scan: targets=" + bot.GetTargets().Count());
-		dmBotLog.Debug("[Vision] registry: zombies=" + dmEntityRegistry.GetZombies().Count());
-		dmBotLog.Debug("[Vision] registry: players=" + dmEntityRegistry.GetPlayers().Count() + " animals=" + dmEntityRegistry.GetAnimals().Count());
+		dmBotLog.Debug(bot.GetName(), "[Vision] scan: targets=" + bot.GetTargets().Count());
+		dmBotLog.Debug(bot.GetName(), "[Vision] registry: zombies=" + dmEntityRegistry.GetZombies().Count());
+		dmBotLog.Debug(bot.GetName(), "[Vision] registry: players=" + dmEntityRegistry.GetPlayers().Count() + " animals=" + dmEntityRegistry.GetAnimals().Count());
 		#endif
 	}
 
@@ -161,7 +161,7 @@ class dmVision
 			t.m_LastDistance = toTarget.Length();
 
 			#ifdef DM_BOT_DEBUG_VISION
-			dmBotLog.Debug("[Vision] Update LOS target=" + e.GetType() + " pos=" + targetPos + " dist=" + t.m_LastDistance);
+			dmBotLog.Debug(bot.GetName(), "[Vision] Update LOS target=" + e.GetType() + " pos=" + targetPos + " dist=" + t.m_LastDistance);
 			#endif
 
 			if (t.m_LastDistance < 0.01)
@@ -172,7 +172,7 @@ class dmVision
 			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD && t.m_LastDistance > GetLOSMaxDist(t))
 			{
 				#ifdef DM_BOT_DEBUG_VISION
-				dmBotLog.Debug("[Vision] No interest " + e.GetType() + " m_Threat=" + t.m_Threat + " dist:" + t.m_LastDistance + ">" + GetLOSMaxDist(t));
+				dmBotLog.Debug(bot.GetName(), "[Vision] No interest " + e.GetType() + " m_Threat=" + t.m_Threat + " dist:" + t.m_LastDistance + ">" + GetLOSMaxDist(t));
 				#endif
 				t.m_HasLOS = false;
 				continue;
@@ -185,7 +185,7 @@ class dmVision
 			if (Math.AbsFloat(ang) > DM_PERCEPTION_FOV * 0.5)
 			{
 				#ifdef DM_BOT_DEBUG_VISION
-				dmBotLog.Debug("[Vision] Angle too big " + e.GetType() + " ang:" + Math.AbsFloat(ang) + ">" + (DM_PERCEPTION_FOV * 0.5));
+				dmBotLog.Debug(bot.GetName(), "[Vision] Angle too big " + e.GetType() + " ang:" + Math.AbsFloat(ang) + ">" + (DM_PERCEPTION_FOV * 0.5));
 				#endif
 				t.m_HasLOS = false;
 				continue;
@@ -195,7 +195,7 @@ class dmVision
 			if ( !ProbabilityOfDetection(pawn, targetPos, GetVelocity(e), t.m_LastContact) )
 			{
 				#ifdef DM_BOT_DEBUG_VISION
-				dmBotLog.Debug("[Vision] Цель " + e.GetType() + " не замечена!");
+				dmBotLog.Debug(bot.GetName(), "[Vision] Цель " + e.GetType() + " не замечена!");
 				#endif
 				t.m_HasLOS = false;
 				continue;
@@ -280,15 +280,15 @@ class dmVision
 			if (halfH < DM_AGGRO_AIM_MIN_HALF_H) halfH = DM_AGGRO_AIM_MIN_HALF_H;
 
 			#ifdef DM_BOT_DEBUG_VISION
-			dmBotLog.Debug("[Aggro] " + p.GetType() + " dist=" + dist + " yaw=" + yawDiff + " halfW=" + halfW);
-			dmBotLog.Debug("[Aggro] pitch=" + pitchDiff + " halfH=" + halfH + " threat=" + t.m_Threat);
+			dmBotLog.Debug(bot.GetName(), "[Aggro] " + p.GetType() + " dist=" + dist + " yaw=" + yawDiff + " halfW=" + halfW);
+			dmBotLog.Debug(bot.GetName(), "[Aggro] pitch=" + pitchDiff + " halfH=" + halfH + " threat=" + t.m_Threat);
 			#endif
 
 			if (yawDiff <= halfW && pitchDiff <= halfH)
 			{
 				bot.AddThreat(p, DM_AGGRO_AIM_RATE * pDt);
 				#ifdef DM_BOT_DEBUG_EVADE
-				dmBotLog.Debug("[Evade] aim detected " + p.GetType() + " dist=" + dist);
+				dmBotLog.Debug(bot.GetName(), "[Evade] aim detected " + p.GetType() + " dist=" + dist);
 				#endif
 				bot.EvadeAim(p);
 			}
@@ -466,7 +466,7 @@ class dmVision
 		}
 
 		#ifdef DM_PERCEPTION_DEBUG
-		dmBotLog.Debug("[Vision] Chance: " + ( probAng * probVel * probForg ) + " probAng=" + probAng + " probVel=" + probVel + " probForg=" + probForg + " [" + speed +"]");
+		dmBotLog.Debug(pawn.GetCachedName(), "[Vision] Chance: " + ( probAng * probVel * probForg ) + " probAng=" + probAng + " probVel=" + probVel + " probForg=" + probForg + " [" + speed +"]");
 		#endif
 
 		return Math.RandomFloat(0.0, 1.0) < ( probAng * probVel * probForg );

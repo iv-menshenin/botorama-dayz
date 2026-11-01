@@ -43,6 +43,10 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 
 		InventoryItem itemInHands = InventoryItem.Cast(pEntityInHands);
 
+		string name = "";
+		if (m_Bot)
+			name = m_Bot.GetCachedName();
+
 		//! Damage is applied on the Hit anim event. It must run every frame during
 		//! the MELEE2 command, even though the one-shot request flag is already
 		//! consumed and GetCommand_Move() is null while in MELEE2.
@@ -62,7 +66,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 
 			#ifdef DM_BOT_DEBUG_FIGHT
 			if (IsInBlock() != shouldBlock)
-				dmBotLog.Debug("dmBotMeleeFightLogic: block=" + shouldBlock + " raised=" + m_Bot.IsRaised() + " angle=" + desiredAngle);
+				dmBotLog.Debug(name, "dmBotMeleeFightLogic: block=" + shouldBlock + " raised=" + m_Bot.IsRaised() + " angle=" + desiredAngle);
 			#endif
 
 			hcm.SetMeleeBlock(shouldBlock);
@@ -80,7 +84,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 			m_Player.DepleteStamina(EStaminaModifiers.MELEE_EVADE);
 			m_Bot.ConsumeMeleeEvadeRequest();
 			#ifdef DM_BOT_DEBUG_FIGHT
-			dmBotLog.Debug("dmBotMeleeFightLogic: evade angle=" + evadeAngle);
+			dmBotLog.Debug(name, "dmBotMeleeFightLogic: evade angle=" + evadeAngle);
 			#endif
 		}
 
@@ -94,7 +98,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 			if (hmc2 && hmc2.IsInComboRange())
 			{
 				#ifdef DM_BOT_DEBUG_FIGHT
-				dmBotLog.Debug("dmBotMeleeFightLogic: combo hit");
+				dmBotLog.Debug(name, "dmBotMeleeFightLogic: combo hit");
 				#endif
 
 				return HandleComboHit(pCurrentCommandID, pInputs, itemInHands, pMovementState, pContinueAttack);
@@ -105,7 +109,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 			return false;
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("dmBotMeleeFightLogic: melee request");
+		dmBotLog.Debug(name, "dmBotMeleeFightLogic: melee request");
 		#endif
 
 		if (!hcm)
@@ -132,7 +136,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 			m_Player.DepleteStamina(EStaminaModifiers.MELEE_LIGHT);
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("dmBotMeleeFightLogic: start melee2 target=" + target);
+		dmBotLog.Debug(name, "dmBotMeleeFightLogic: start melee2 target=" + target);
 		#endif
 
 		m_Bot.ConsumeMeleeAttackRequest();
@@ -160,11 +164,15 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 
 		EntityAI target = m_MeleeCombat.GetTargetEntity();
 
+		string name = "";
+		if (m_Bot)
+			name = m_Bot.GetCachedName();
+
 		#ifdef DM_BOT_DEBUG_DAMAGE
 		if (target)
-			dmBotLog.Debug("EvaluateHit called target=" + target.GetType() + " hitZone=" + m_MeleeCombat.GetHitZoneIdx());
+			dmBotLog.Debug(name, "EvaluateHit called target=" + target.GetType() + " hitZone=" + m_MeleeCombat.GetHitZoneIdx());
 		else
-			dmBotLog.Debug("EvaluateHit called target=null");
+			dmBotLog.Debug(name, "EvaluateHit called target=null");
 		#endif
 
 		if (target)
@@ -179,7 +187,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 				if (zdist > mc.GetReach() * DM_MELEE_ZOMBIE_REACH_MULT)
 				{
 					#ifdef DM_BOT_DEBUG_DAMAGE
-					dmBotLog.Debug("EvaluateHit: zombie miss dist=" + zdist + " reach=" + mc.GetReach());
+					dmBotLog.Debug(name, "EvaluateHit: zombie miss dist=" + zdist + " reach=" + mc.GetReach());
 					#endif
 					return;
 				}
@@ -209,7 +217,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 				if (!DayZPhysics.RaycastRV(rayStart, rayEnd, hitPos, hitNormal, hitZone, hitObjects, null, m_Player, false, false, ObjIntersectIFire, 0.0, CollisionFlags.ALLOBJECTS))
 				{
 					#ifdef DM_BOT_DEBUG_DAMAGE
-					dmBotLog.Debug("EvaluateHit: raycast miss (nothing in reach)");
+					dmBotLog.Debug(name, "EvaluateHit: raycast miss (nothing in reach)");
 					#endif
 					return;
 				}
@@ -244,6 +252,10 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 		int forcedWeaponMode = -1;
 		bool forcedDummy = false;
 
+		string name = "";
+		if (m_Bot)
+			name = m_Bot.GetCachedName();
+
 		PlayerBase targetPlayer = PlayerBase.Cast(target);
 		if (targetPlayer)
 		{
@@ -268,8 +280,8 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 			}
 
 			#ifdef DM_BOT_DEBUG_DAMAGE
-			dmBotLog.Debug("EvaluateHit_Player hitAngle=" + hitAngle + " inBlock=" + inBlock);
-			dmBotLog.Debug("EvaluateHit_Player forcedDummy=" + forcedDummy + " forcedWeaponMode=" + forcedWeaponMode);
+			dmBotLog.Debug(name, "EvaluateHit_Player hitAngle=" + hitAngle + " inBlock=" + inBlock);
+			dmBotLog.Debug(name, "EvaluateHit_Player forcedDummy=" + forcedDummy + " forcedWeaponMode=" + forcedWeaponMode);
 			#endif
 		}
 
@@ -284,6 +296,10 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 
 		int weaponMode = m_MeleeCombat.GetWeaponMode();
 
+		string name = "";
+		if (m_Bot)
+			name = m_Bot.GetCachedName();
+
 		string ammoName;
 		InventoryItem weapon = InventoryItem.Cast(m_Player.GetHumanInventory().GetEntityInHands());
 		if (weapon)
@@ -292,7 +308,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 			ammoName = m_Player.GetMeleeCombatData().GetAmmoTypeName(weaponMode);
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("dmBotMeleeFightLogic: ApplyZombieExtraDamage ammo=" + ammoName + " target=" + target);
+		dmBotLog.Debug(name, "dmBotMeleeFightLogic: ApplyZombieExtraDamage ammo=" + ammoName + " target=" + target);
 		#endif
 
 		target.ProcessDirectDamage(DamageType.CLOSE_COMBAT, m_Player, target.GetDefaultHitComponent(), ammoName, target.GetDefaultHitPosition(), DM_MELEE_DAMAGE_MULT_ZOMBIE - 1.0);

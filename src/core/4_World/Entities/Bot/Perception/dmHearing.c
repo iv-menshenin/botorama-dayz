@@ -20,8 +20,8 @@ class dmHearing
 		#ifdef DM_PERCEPTION_DEBUG
 		string ssrc = "null";
 		if (source) ssrc = source.GetType();
-		dmBotLog.Debug("[Noise] OnNoise IN type=" + type + " src=" + ssrc + " pos=" + position);
-		dmBotLog.Debug("[Noise] OnNoise IN strength=" + strength + " bot=" + m_Bot.GetPosition());
+		dmBotLog.Debug(m_Bot.GetName(), "[Noise] OnNoise IN type=" + type + " src=" + ssrc + " pos=" + position);
+		dmBotLog.Debug(m_Bot.GetName(), "[Noise] OnNoise IN strength=" + strength + " bot=" + m_Bot.GetPosition());
 		#endif
 
 		vector botPos = m_Bot.GetPosition();
@@ -29,7 +29,7 @@ class dmHearing
 		if (d.LengthSq() > strength * strength)
 		{
 			#ifdef DM_PERCEPTION_DEBUG
-			dmBotLog.Debug("[Noise] OnNoise too far: noice_position=" + position + " bot_position=" + m_Bot.GetPosition() + " strength=" + strength);
+			dmBotLog.Debug(m_Bot.GetName(), "[Noise] OnNoise too far: noice_position=" + position + " bot_position=" + m_Bot.GetPosition() + " strength=" + strength);
 			#endif
 			return;
 		}
@@ -39,7 +39,7 @@ class dmHearing
 		if (!source)
 		{
 			#ifdef DM_PERCEPTION_DEBUG
-			dmBotLog.Debug("[Noise] OnNoise no target: noice_position=" + position + " bot_position=" + m_Bot.GetPosition() + " strength=" + strength);
+			dmBotLog.Debug(m_Bot.GetName(), "[Noise] OnNoise no target: noice_position=" + position + " bot_position=" + m_Bot.GetPosition() + " strength=" + strength);
 			#endif
 			return;
 		}
@@ -61,7 +61,7 @@ class dmHearing
 			attractiveness = DM_NOISE_ATTRACTIVENESS_SHOT;
 
 		#ifdef DM_PERCEPTION_DEBUG
-		dmBotLog.Debug("[Noise] OnNoise I HEAR YOU: noice_position=" + position + " bot_position=" + m_Bot.GetPosition() + " strength=" + strength);
+		dmBotLog.Debug(m_Bot.GetName(), "[Noise] OnNoise I HEAR YOU: noice_position=" + position + " bot_position=" + m_Bot.GetPosition() + " strength=" + strength);
 		#endif
 		m_Bot.HearNoise(root, position, attractiveness);
 	}

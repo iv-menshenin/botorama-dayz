@@ -131,7 +131,10 @@ class dmCampCoverJob
 		m_Owner.CacheDoors(m_Building, m_Doors);
 
 		#ifdef DM_BOT_DEBUG_CAMP
-		dmBotLog.Debug("[Camp] doors done building=" + m_Building.GetType() + " doors=" + m_Doors.Count() + "/" + m_DoorCount);
+		string name = "";
+		if (m_Bot)
+			name = m_Bot.GetName();
+		dmBotLog.Debug(name, "[Camp] doors done building=" + m_Building.GetType() + " doors=" + m_Doors.Count() + "/" + m_DoorCount);
 		#endif
 
 		if (m_DoorsOnly)
@@ -162,9 +165,12 @@ class dmCampCoverJob
 		m_PerpDir = Vector(-outDir[2], 0.0, outDir[0]);
 
 		#ifdef DM_BOT_DEBUG_CAMP
-		dmBotLog.Debug("[Camp] Kamping: prepare door=" + m_DoorIdx + " center=<" + m_Center[0] + "," + m_Center[2] + ">");
-		dmBotLog.Debug("[Camp] Kamping: prepare doorPos=<" + m_DoorPos[0] + "," + m_DoorPos[2] + ">");
-		dmBotLog.Debug("[Camp] Kamping: prepare outDir=<" + m_OutDir[0] + "," + m_OutDir[2] + ">");
+		string name = "";
+		if (m_Bot)
+			name = m_Bot.GetName();
+		dmBotLog.Debug(name, "[Camp] Kamping: prepare door=" + m_DoorIdx + " center=<" + m_Center[0] + "," + m_Center[2] + ">");
+		dmBotLog.Debug(name, "[Camp] Kamping: prepare doorPos=<" + m_DoorPos[0] + "," + m_DoorPos[2] + ">");
+		dmBotLog.Debug(name, "[Camp] Kamping: prepare outDir=<" + m_OutDir[0] + "," + m_OutDir[2] + ">");
 		#endif
 
 		m_Obstacles.Clear();
@@ -217,7 +223,10 @@ class dmCampCoverJob
 		}
 
 		#ifdef DM_BOT_DEBUG_CAMP
-		dmBotLog.Debug("[Camp] scanbox statics=" + statics.Count() + " dynamics=" + dynamics.Count() + " obstacles=" + m_Obstacles.Count());
+		string name = "";
+		if (m_Bot)
+			name = m_Bot.GetName();
+		dmBotLog.Debug(name, "[Camp] scanbox statics=" + statics.Count() + " dynamics=" + dynamics.Count() + " obstacles=" + m_Obstacles.Count());
 		#endif
 
 		m_Phase = dmCampPhase.CANDIDATES;
@@ -231,8 +240,11 @@ class dmCampCoverJob
 		bool isBush = e.IsBush();
 		bool isBld = BuildingBase.Cast(e) != null;
 		bool isItem = ItemBase.Cast(e) != null;
-		dmBotLog.Debug("[Camp] scan item type=" + e.GetType() + " isTree=" + isTree + " isBush=" + isBush + " isBld=" + isBld);
-		dmBotLog.Debug("[Camp] scan item isItem=" + isItem + " inCone=" + inCone + " isObstacle=" + isObstacle);
+		string name = "";
+		if (m_Bot)
+			name = m_Bot.GetName();
+		dmBotLog.Debug(name, "[Camp] scan item type=" + e.GetType() + " isTree=" + isTree + " isBush=" + isBush + " isBld=" + isBld);
+		dmBotLog.Debug(name, "[Camp] scan item isItem=" + isItem + " inCone=" + inCone + " isObstacle=" + isObstacle);
 		#endif
 	}
 
@@ -289,7 +301,10 @@ class dmCampCoverJob
 		}
 
 		#ifdef DM_BOT_DEBUG_CAMP
-		dmBotLog.Debug("[Camp] candidates=" + m_Candidates.Count() + " obstacles=" + m_Obstacles.Count());
+		string name = "";
+		if (m_Bot)
+			name = m_Bot.GetName();
+		dmBotLog.Debug(name, "[Camp] candidates=" + m_Candidates.Count() + " obstacles=" + m_Obstacles.Count());
 		#endif
 
 		if (m_Bot)
@@ -320,7 +335,10 @@ class dmCampCoverJob
 	{
 		if (!m_Bot || !m_Bot.IsSpawned())
 		{
-			dmBotLog.Error("[Camp] job aborted: bot gone building=" + m_Building.GetType());
+			string name = "";
+			if (m_Bot)
+				name = m_Bot.GetName();
+			dmBotLog.Error(name, "[Camp] job aborted: bot gone building=" + m_Building.GetType());
 			m_Phase = dmCampPhase.DONE;
 			return;
 		}
@@ -341,7 +359,7 @@ class dmCampCoverJob
 		if (dx * dx + dz * dz > maxDistSq)
 		{
 			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] reject dist point=" + cand.m_Point);
+			dmBotLog.Debug(m_Bot.GetName(), "[Camp] reject dist point=" + cand.m_Point);
 			#endif
 			return;
 		}
@@ -356,7 +374,7 @@ class dmCampCoverJob
 		if (!m_Bot.SampleNavmesh(cand.m_Point, sampled))
 		{
 			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] reject navmesh point=" + cand.m_Point);
+			dmBotLog.Debug(m_Bot.GetName(), "[Camp] reject navmesh point=" + cand.m_Point);
 			#endif
 			return;
 		}
@@ -366,14 +384,14 @@ class dmCampCoverJob
 		if (!m_Bot.FindPathTo(sampled, path))
 		{
 			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] reject path point=" + cand.m_Point);
+			dmBotLog.Debug(m_Bot.GetName(), "[Camp] reject path point=" + cand.m_Point);
 			#endif
 			return;
 		}
 		if (path.Count() == 0)
 		{
 			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] reject path point=" + cand.m_Point);
+			dmBotLog.Debug(m_Bot.GetName(), "[Camp] reject path point=" + cand.m_Point);
 			#endif
 			return;
 		}
@@ -381,7 +399,7 @@ class dmCampCoverJob
 		m_Results.Insert(sampled);
 
 		#ifdef DM_BOT_DEBUG_CAMP
-		dmBotLog.Debug("[Camp] valid cover point=" + sampled + " results=" + m_Results.Count());
+		dmBotLog.Debug(m_Bot.GetName(), "[Camp] valid cover point=" + sampled + " results=" + m_Results.Count());
 		#endif
 
 		if (m_Results.Count() >= DM_CAMP_MAX_RESULTS)
@@ -416,7 +434,10 @@ class dmCampCoverJob
 		string hitParent = "null";
 		if (h.parent)
 			hitParent = h.parent.GetType();
-		dmBotLog.Debug("[Camp] reject LOS point=" + cand.m_Point + " hitType=" + hitType + " hitParent=" + hitParent);
+		string name = "";
+		if (m_Bot)
+			name = m_Bot.GetName();
+		dmBotLog.Debug(name, "[Camp] reject LOS point=" + cand.m_Point + " hitType=" + hitType + " hitParent=" + hitParent);
 		#endif
 
 		return false;
@@ -429,7 +450,10 @@ class dmCampCoverJob
 		m_Owner.CacheCover(m_Building, m_DoorIdx, m_Results);
 
 		#ifdef DM_BOT_DEBUG_CAMP
-		dmBotLog.Debug("[Camp] cover done door=" + m_DoorIdx + " points=" + m_Results.Count());
+		string name = "";
+		if (m_Bot)
+			name = m_Bot.GetName();
+		dmBotLog.Debug(name, "[Camp] cover done door=" + m_DoorIdx + " points=" + m_Results.Count());
 		#endif
 
 		m_Phase = dmCampPhase.DONE;
@@ -544,7 +568,7 @@ class dmCampCoverFinder
 		if (m_CoverCache.Find(key, points))
 		{
 			#ifdef DM_BOT_DEBUG_CAMP
-			dmBotLog.Debug("[Camp] cover cache hit key=" + key + " points=" + points.Count());
+			dmBotLog.Debug(bot.GetName(), "[Camp] cover cache hit key=" + key + " points=" + points.Count());
 			#endif
 			return true;
 		}

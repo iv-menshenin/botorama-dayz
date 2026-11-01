@@ -49,7 +49,7 @@ class dmArsenal
 			{
 				m_Weapons.Insert(item);
 				#ifdef DM_BOT_DEBUG_ARSENAL
-				dmBotLog.Debug("[Arsenal] Register weapon: " + item.GetType());
+				dmBotLog.Debug(m_Owner.GetName(), "[Arsenal] Register weapon: " + item.GetType());
 				#endif
 			}
 			return;
@@ -60,7 +60,7 @@ class dmArsenal
 			{
 				m_Melee.Insert(item);
 				#ifdef DM_BOT_DEBUG_ARSENAL
-				dmBotLog.Debug("[Arsenal] Register melee: " + item.GetType());
+				dmBotLog.Debug(m_Owner.GetName(), "[Arsenal] Register melee: " + item.GetType());
 				#endif
 			}
 			return;
@@ -70,15 +70,15 @@ class dmArsenal
 			string caliber = GetItemCaliber(item);
 			if (caliber == "")
 			{
-				dmBotLog.Error("[Arsenal] Register: cannot resolve caliber for " + item.GetType());
+				dmBotLog.Error(m_Owner.GetName(), "[Arsenal] Register: cannot resolve caliber for " + item.GetType());
 				return;
 			}
 			int rounds = GetItemRounds(item);
 			int total = GetCaliberCount(caliber) + rounds;
 			m_AmmoByCaliber.Set(caliber, total);
 			#ifdef DM_BOT_DEBUG_ARSENAL
-			dmBotLog.Debug("[Arsenal] Register ammo: type=" + item.GetType() + " caliber=" + caliber);
-			dmBotLog.Debug("[Arsenal] Register ammo: rounds=" + rounds + " total=" + total);
+			dmBotLog.Debug(m_Owner.GetName(), "[Arsenal] Register ammo: type=" + item.GetType() + " caliber=" + caliber);
+			dmBotLog.Debug(m_Owner.GetName(), "[Arsenal] Register ammo: rounds=" + rounds + " total=" + total);
 			#endif
 		}
 	}
@@ -92,14 +92,14 @@ class dmArsenal
 		{
 			m_Weapons.RemoveItem(item);
 			#ifdef DM_BOT_DEBUG_ARSENAL
-			dmBotLog.Debug("[Arsenal] Unregister weapon: " + item.GetType());
+			dmBotLog.Debug(m_Owner.GetName(), "[Arsenal] Unregister weapon: " + item.GetType());
 			#endif
 		}
 		if (m_Melee.Find(item) >= 0)
 		{
 			m_Melee.RemoveItem(item);
 			#ifdef DM_BOT_DEBUG_ARSENAL
-			dmBotLog.Debug("[Arsenal] Unregister melee: " + item.GetType());
+			dmBotLog.Debug(m_Owner.GetName(), "[Arsenal] Unregister melee: " + item.GetType());
 			#endif
 		}
 		if (Magazine.Cast(item) != null)
@@ -107,7 +107,7 @@ class dmArsenal
 			string caliber = GetItemCaliber(item);
 			if (caliber == "")
 			{
-				dmBotLog.Error("[Arsenal] Unregister: cannot resolve caliber for " + item.GetType());
+				dmBotLog.Error(m_Owner.GetName(), "[Arsenal] Unregister: cannot resolve caliber for " + item.GetType());
 				return;
 			}
 			int rounds = GetItemRounds(item);
@@ -117,8 +117,8 @@ class dmArsenal
 			else
 				m_AmmoByCaliber.Set(caliber, cur);
 			#ifdef DM_BOT_DEBUG_ARSENAL
-			dmBotLog.Debug("[Arsenal] Unregister ammo: type=" + item.GetType() + " caliber=" + caliber);
-			dmBotLog.Debug("[Arsenal] Unregister ammo: rounds=" + rounds + " left=" + cur);
+			dmBotLog.Debug(m_Owner.GetName(), "[Arsenal] Unregister ammo: type=" + item.GetType() + " caliber=" + caliber);
+			dmBotLog.Debug(m_Owner.GetName(), "[Arsenal] Unregister ammo: rounds=" + rounds + " left=" + cur);
 			#endif
 		}
 	}
@@ -191,7 +191,7 @@ class dmArsenal
 			m_RescanQueue = null;
 			m_InitialRescanDone = true;
 			#ifdef DM_BOT_DEBUG_ARSENAL
-			dmBotLog.Debug("[Arsenal] Rescan done: weapons=" + m_Weapons.Count() + " melee=" + m_Melee.Count() + " calibers=" + m_AmmoByCaliber.Count());
+			dmBotLog.Debug(m_Owner.GetName(), "[Arsenal] Rescan done: weapons=" + m_Weapons.Count() + " melee=" + m_Melee.Count() + " calibers=" + m_AmmoByCaliber.Count());
 			#endif
 		}
 	}

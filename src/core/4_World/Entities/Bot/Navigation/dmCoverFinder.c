@@ -87,14 +87,14 @@ class dmCoverFinder
 		if (!bot.FindPathTo(candidate, path))
 		{
 			#ifdef DM_BOT_DEBUG_COVER
-			dmBotLog.Debug("[Cover] reject path: " + candidate);
+			dmBotLog.Debug(bot.GetName(), "[Cover] reject path: " + candidate);
 			#endif
 			return false;
 		}
 		if (path.Count() == 0)
 		{
 			#ifdef DM_BOT_DEBUG_COVER
-			dmBotLog.Debug("[Cover] reject path-empty: " + candidate);
+			dmBotLog.Debug(bot.GetName(), "[Cover] reject path-empty: " + candidate);
 			#endif
 			return false;
 		}
@@ -105,7 +105,7 @@ class dmCoverFinder
 		if (Math.AbsFloat(p[1] - groundY) > DM_COVER_MAX_SURFACE_DELTA)
 		{
 			#ifdef DM_BOT_DEBUG_COVER
-			dmBotLog.Debug("[Cover] reject surface: " + p);
+			dmBotLog.Debug(bot.GetName(), "[Cover] reject surface: " + p);
 			#endif
 			return false;
 		}
@@ -113,7 +113,7 @@ class dmCoverFinder
 		if (!HasCoverFromThreat(threat, threatPos, p, neckHeight))
 		{
 			#ifdef DM_BOT_DEBUG_COVER
-			dmBotLog.Debug("[Cover] reject no-cover: " + p);
+			dmBotLog.Debug(bot.GetName(), "[Cover] reject no-cover: " + p);
 			#endif
 			return false;
 		}
@@ -121,7 +121,7 @@ class dmCoverFinder
 		if (safeRadius > 0.0 && !IsSafeFromTargets(bot, p, safeRadius))
 		{
 			#ifdef DM_BOT_DEBUG_COVER
-			dmBotLog.Debug("[Cover] reject unsafe: " + p);
+			dmBotLog.Debug(bot.GetName(), "[Cover] reject unsafe: " + p);
 			#endif
 			return false;
 		}
@@ -129,13 +129,13 @@ class dmCoverFinder
 		if (bot.GetBrownZone().IsPointInside(p))
 		{
 			#ifdef DM_BOT_DEBUG_COVER
-			dmBotLog.Debug("[Cover] reject brown-zone: " + p);
+			dmBotLog.Debug(bot.GetName(), "[Cover] reject brown-zone: " + p);
 			#endif
 			return false;
 		}
 
 		#ifdef DM_BOT_DEBUG_COVER
-		dmBotLog.Debug("[Cover] accept: " + p);
+		dmBotLog.Debug(bot.GetName(), "[Cover] accept: " + p);
 		#endif
 		result = p;
 		return true;

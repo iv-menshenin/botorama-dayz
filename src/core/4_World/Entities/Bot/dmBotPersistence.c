@@ -84,7 +84,7 @@ class dmBotPersistence
 		dmAISurvivorBase pawn = bot.GetPawn();
 		if (!pawn)
 		{
-			dmBotLog.Error("[Persist] Save: pawn is null");
+			dmBotLog.Error(bot.GetName(), "[Persist] Save: pawn is null");
 			return false;
 		}
 
@@ -95,7 +95,7 @@ class dmBotPersistence
 		FileSerializer file = new FileSerializer();
 		if (!file.Open(path, FileMode.WRITE))
 		{
-			dmBotLog.Error("[Persist] Save: cannot open " + path);
+			dmBotLog.Error(bot.GetName(), "[Persist] Save: cannot open " + path);
 			return false;
 		}
 
@@ -107,12 +107,12 @@ class dmBotPersistence
 
 		if (!ok)
 		{
-			dmBotLog.Error("[Persist] Save: write failed for " + path);
+			dmBotLog.Error(bot.GetName(), "[Persist] Save: write failed for " + path);
 			return false;
 		}
 
 		#ifdef DM_BOT_DEBUG_PERSIST
-		dmBotLog.Debug("[Persist] Save: wrote " + path);
+		dmBotLog.Debug(bot.GetName(), "[Persist] Save: wrote " + path);
 		#endif
 		return true;
 	}
@@ -168,7 +168,7 @@ class dmBotPersistence
 		FileSerializer file = new FileSerializer();
 		if (!file.Open(path, FileMode.READ))
 		{
-			dmBotLog.Error("[Persist] RestoreState: cannot open " + path);
+			dmBotLog.Error(pawn.GetCachedName(), "[Persist] RestoreState: cannot open " + path);
 			return false;
 		}
 
@@ -180,12 +180,12 @@ class dmBotPersistence
 
 		if (!ok)
 		{
-			dmBotLog.Error("[Persist] RestoreState: read failed for " + path);
+			dmBotLog.Error(pawn.GetCachedName(), "[Persist] RestoreState: read failed for " + path);
 			return false;
 		}
 
 		#ifdef DM_BOT_DEBUG_PERSIST
-		dmBotLog.Debug("[Persist] RestoreState: restored " + path);
+		dmBotLog.Debug(pawn.GetCachedName(), "[Persist] RestoreState: restored " + path);
 		#endif
 		return true;
 	}
@@ -288,7 +288,7 @@ class dmBotPersistence
 
 		if (!pawn.OnStoreLoad(ctx, saveVersion))
 		{
-			dmBotLog.Error("[Persist] RestoreState: OnStoreLoad failed");
+			dmBotLog.Error(pawn.GetCachedName(), "[Persist] RestoreState: OnStoreLoad failed");
 			return false;
 		}
 
@@ -673,7 +673,7 @@ class dmBotPersistence
 		ItemBase item = ItemBase.Cast(pawn.GetHumanInventory().CreateInHands(className));
 		if (!item)
 		{
-			dmBotLog.Error("[Persist] LoadHands: cannot create " + className);
+			dmBotLog.Error(pawn.GetCachedName(), "[Persist] LoadHands: cannot create " + className);
 			return false;
 		}
 

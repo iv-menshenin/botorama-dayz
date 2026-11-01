@@ -231,7 +231,7 @@ class dmRequirements
 		ComputeUsedRatio(pawn);
 
 		#ifdef DM_BOT_DEBUG_LOOTING
-		dmBotLog.Debug("[Loot] Requirements: items=" + m_Items.Count() + " ruined=" + m_Ruined.Count() + " used=" + m_UsedRatio + " cap=" + m_TotalCapacity);
+		dmBotLog.Debug(bot.GetName(), "[Loot] Requirements: items=" + m_Items.Count() + " ruined=" + m_Ruined.Count() + " used=" + m_UsedRatio + " cap=" + m_TotalCapacity);
 		#endif
 	}
 

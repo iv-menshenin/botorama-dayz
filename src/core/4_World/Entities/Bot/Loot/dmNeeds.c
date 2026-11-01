@@ -36,7 +36,7 @@ class dmNeeds
 		if ( m_TickAccumDebug > 30.0 )
 		{
 			m_TickAccumDebug = 0.0;
-			dmBotLog.Debug("[Loot] WISHLIST dump " + wish.DebugString());
+			dmBotLog.Debug(bot.GetName(), "[Loot] WISHLIST dump " + wish.DebugString());
 		}
 		#endif
 

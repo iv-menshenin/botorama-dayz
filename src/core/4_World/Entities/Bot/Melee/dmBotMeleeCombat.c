@@ -66,7 +66,7 @@ class dmBotMeleeCombat : DayZPlayerImplementMeleeCombat
 		}
 
 		#ifdef DM_BOT_DEBUG_FIGHT
-		dmBotLog.Debug("dmBotMeleeCombat: TargetSelection target=" + target + " hitZone=" + hitZone);
+		dmBotLog.Debug(pawn.GetCachedName(), "dmBotMeleeCombat: TargetSelection target=" + target + " hitZone=" + hitZone);
 		#endif
 
 		SetFinisherType(-1);

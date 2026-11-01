@@ -33,7 +33,7 @@ class dmBotVoiceCenter
 		m_Bot.AddPersonalityIntent(intent);
 
 		#ifdef DM_BOT_DEBUG_VOICE
-		dmBotLog.Debug("dmBotVoiceCenter.SayCategory() cat=" + dmBotVoice.GetCategoryName(cat) + " lineId=" + lineId);
+		dmBotLog.Debug(m_Bot.GetName(), "dmBotVoiceCenter.SayCategory() cat=" + dmBotVoice.GetCategoryName(cat) + " lineId=" + lineId);
 		#endif
 
 		return lineId;
