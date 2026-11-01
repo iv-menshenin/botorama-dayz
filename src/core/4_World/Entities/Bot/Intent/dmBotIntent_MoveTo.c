@@ -109,6 +109,17 @@ class dmBotIntent_MoveTo : dmBotIntent
 	bool m_Laddering = false;
 	ref dmBotIntent_UseLadder m_UseLadder;
 
+	//! Leap-of-faith descent in progress: bot steps off a detached navmesh island
+	//! (table/rooftop) in crouch and falls a safe distance, then re-routes on
+	//! landing. Separate OnUpdate branch (like vault/ladder) so stuck detection
+	//! never runs on the descent.
+	bool m_Descending = false;
+	vector m_DescendTarget;      // точка за краем на земле — куда ведём бота
+	float m_DescendGroundY = 0.0; // уровень земли (Y) под точкой спуска — детект приземления
+	float m_DescendTimer = 0.0;   // таймаут спуска (защита от бесконечного зависания)
+	bool m_DescendWasFalling = false; // бот уже падал (для детекта «падал → приземлился»)
+	ref dmBotIntent_Stance m_DescendStance; // присед на время спуска (STANCE, CRITICAL)
+
 	void dmBotIntent_MoveTo()
 	{
 		m_Manage = dmBotIntentsChannel.MOVE;
@@ -214,6 +225,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_Laddering = false;
 		m_UseLadder = null;
 
+		m_Descending = false;
+		m_DescendTarget = vector.Zero;
+		m_DescendGroundY = 0.0;
+		m_DescendTimer = 0.0;
+		m_DescendWasFalling = false;
+		m_DescendStance = null;
+
 		m_Path = new array<vector>();
 		m_HasPath = false;
 		m_Route = new array<ref dmBotRouteSegment>();
@@ -227,7 +245,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			dmBotLog.Debug(bot.GetName(), "[PATH] RePath #005");
 			#endif
 			RePath(bot);
-			if (!m_HasPath)
+			if (!m_HasPath && !m_Descending)
 			{
 				if (ShouldLogNoPath("nopath:" + m_Goal.ToString()))
 					dmBotLog.Error(bot.GetName(), "MoveTo: нет пути к " + m_Goal + " (вне navmesh или недостижимо), abort");
@@ -279,6 +297,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (m_Vaulting)   { TickVault(bot, pDt);   return; }
 		if (m_Laddering)  { TickLadder(bot, pDt);  return; }
 		if (m_SteppingBack) { TickStepBack(bot, pDt); return; }
+		if (m_Descending) { TickDescend(bot, pDt); return; }
 
 		TickMove(bot, pDt);
 	}
@@ -596,6 +615,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 				m_Laddering = true;
 				return;
 			}
+
+			//! Бот дошёл до конца пути, но всё ещё выше цели (оторванный navmesh-остров —
+			//! стол/платформа с перепадом < DM_NAV_GAP): попробуй «прыжок веры» вниз.
+			//! TryLeapOfFaith сам вернёт false для обычного достижения цели (цель не ниже),
+			//! поэтому нормальный ground-reach не задет.
+			if (TryLeapOfFaith(bot))
+				return;
 
 			OnReachedGoal(bot, subGoal);
 			return;
@@ -985,6 +1011,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 	//! при перепаде — 3 луча вниз. Ставит m_NoGroundAhead.
 	void UpdateFallSafety(dmAISurvivor bot, float pDt)
 	{
+		//! Обход fall-safety на спуске: m_Descending намеренно ведёт бота за край —
+		//! m_NoGroundAhead не должен накапливаться и стопить бота на спуске.
+		if (m_Descending)
+		{
+			m_NoGroundAhead = false;
+			return;
+		}
+
 		m_FallCheckAccum += pDt;
 		if (m_FallCheckAccum < DM_FALL_CHECK_INTERVAL)
 			return;
@@ -1078,15 +1112,11 @@ class dmBotIntent_MoveTo : dmBotIntent
 		}
 
 		//! No navmesh path: allow a deliberate "leap of faith" drop only if the
-		//! goal is below and the fall is safe. Otherwise the target is unreachable
-		//! (m_HasPath stays false but we don't attempt to step off a drop).
+		//! goal is below and the fall is safe. Builds a real descent (reverse-path)
+		//! — m_Descending is set (лог «спуск начат» внутри StartDescend), so the
+		//! bot steps off the edge instead of aborting.
 		if (TryLeapOfFaith(bot))
 		{
-			#ifdef DM_BOT_DEBUG_PATHFINDER
-			dmBotLog.Debug(bot.GetName(), "[PATH] TryLeapOfFaith выполнено - высота падения не опасна");
-			#endif
-			m_HasPath = false;
-			m_Path = null;
 			return;
 		}
 
@@ -1365,8 +1395,11 @@ class dmBotIntent_MoveTo : dmBotIntent
 	}
 
 	//! Try to step off a ledge ("leap of faith") when there is no navmesh path
-	//! down. Only allows the drop when the goal is clearly below the bot and the
-	//! fall height (to the surface directly underneath) is safe.
+	//! down. First checks the drop is safe (goal below, fall height < LOW, not a
+	//! rooftop), then builds a real descent via a reverse FindPath(goal -> bot):
+	//! the end of the reversed path is the nearest reachable ground point past the
+	//! edge. On success m_Descending is set (and m_HasPath stays true) so the bot
+	//! walks off the edge in crouch instead of aborting.
 	bool TryLeapOfFaith(dmAISurvivor bot)
 	{
 		#ifdef DM_BOT_PROFILE
@@ -1398,7 +1431,158 @@ class dmBotIntent_MoveTo : dmBotIntent
 			return false;
 
 		float fallHeight = botPos[1] - contactPos[1];
-		return fallHeight < DM_BOT_FALL_HEIGHT_LOW;
+		if (fallHeight >= DM_BOT_FALL_HEIGHT_LOW)
+			return false;
+
+		//! Обратный путь: ближайшая к боту точка земли, достижимая navmesh (конец
+		//! обратного пути tempEnd). От неё бот «сходит с края». FindPath сам снипает
+		//! концы к навмеш и при оторванном острове возвращает частичный путь до
+		//! ближайшей достижимой точки — поэтому полагаемся только на Count() > 0.
+		ref dmBotPathfinder pf = new dmBotPathfinder();
+		ref array<vector> tempPath = new array<vector>();
+		pf.FindPath(m_Goal, botPos, tempPath);
+		if (tempPath.Count() == 0)
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug(bot.GetName(), "[PATH] LeapOfFaith: обратный путь пуст, спуска нет");
+			#endif
+			return false;
+		}
+
+		vector tempEnd = tempPath[tempPath.Count() - 1];
+
+		//! tempEnd должна быть рядом с ботом по горизонтали (иначе «остров» далёк
+		//! от земли) и НИЖЕ бота (это земля под краем, а не та же высота).
+		vector toEnd = tempEnd - botPos;
+		toEnd[1] = 0.0;
+		float horizDist = toEnd.Length();
+		if (horizDist > DM_DESCEND_LEAP_RADIUS)
+			return false;
+		if (tempEnd[1] >= botPos[1] - 0.1)
+			return false;
+
+		StartDescend(bot, tempEnd, toEnd, horizDist);
+		return true;
+	}
+
+	//! Начать спуск: вычислить точку за краем, держать присед (sub-intent Stance)
+	//! и пометить m_Descending. m_HasPath/m_Path не трогаем: при запуске из OnStart
+	//! они уже false/пустой не-null массив (OnStart не Fail по `!m_Descending`), при
+	//! запуске из TickMove они содержат валидный путь — во время спуска не читаются
+	//! (ветка TickDescend до TickMove).
+	void StartDescend(dmAISurvivor bot, vector tempEnd, vector toEnd, float horizDist)
+	{
+		//! Направление спуска — к tempEnd; если tempEnd горизонтально под ботом
+		//! (случай «под центром острова»), берём направление к цели.
+		vector descendDir = toEnd;
+		if (horizDist < 0.3)
+		{
+			vector botPos = bot.GetPosition();
+			descendDir = m_Goal - botPos;
+			descendDir[1] = 0.0;
+			if (descendDir.Length() < 0.01)
+				descendDir = Vector(1.0, 0.0, 0.0);
+		}
+		descendDir.Normalize();
+
+		//! Точка чуть дальше края (на земле) — ведём бота туда, чтобы он сошёл.
+		m_DescendTarget = tempEnd + descendDir * DM_DESCEND_EDGE_OVERSHOOT;
+		m_DescendTarget[1] = tempEnd[1];
+
+		m_DescendGroundY = tempEnd[1];
+		m_DescendTimer = DM_DESCEND_TIMEOUT;
+		m_DescendWasFalling = false;
+		m_Descending = true;
+
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug(bot.GetName(), "[PATH] LeapOfFaith: спуск начат target=" + m_DescendTarget + " groundY=" + m_DescendGroundY);
+		#endif
+
+		//! Присед на время спуска. MoveTo — канал MOVE, а стойку арбитраж сбрасывает
+		//! в ERECT каждый тик, поэтому держим присед отдельным STANCE-интентом
+		//! (CRITICAL) до приземления/очистки.
+		m_DescendStance = new dmBotIntent_Stance();
+		m_DescendStance.m_Stance = DayZPlayerConstants.STANCEIDX_CROUCH;
+		m_DescendStance.m_Priority = dmBotIntentPriority.CRITICAL;
+		m_DescendStance.m_Deadline = -1.0;
+		bot.AddFSMIntent(m_DescendStance);
+	}
+
+	//! Leap-of-faith descent: ведём бота к точке за краем, присед держится
+	//! stance-интентом, fall-safety обойдён (UpdateFallSafety не трогает
+	//! m_NoGroundAhead). Детектим приземление (Y ≈ земля или «падал → не падаю»)
+	//! и перестраиваем маршрут. Stuck-детект сюда не заходит (отдельная ветка OnUpdate).
+	void TickDescend(dmAISurvivor bot, float pDt)
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			EndDescend();
+			Fail();
+			return;
+		}
+
+		vector pos = bot.GetPosition();
+
+		if (pawn.IsFalling())
+			m_DescendWasFalling = true;
+
+		bool landed = pos[1] <= m_DescendGroundY + DM_DESCEND_LAND_EPS;
+		if (m_DescendWasFalling && !pawn.IsFalling())
+			landed = true;
+
+		if (landed)
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug(bot.GetName(), "[PATH] LeapOfFaith: приземлился y=" + pos[1] + " ground=" + m_DescendGroundY);
+			#endif
+			EndDescend();
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug(bot.GetName(), "[PATH] RePath #007");
+			#endif
+			RePath(bot);
+			return;
+		}
+
+		m_DescendTimer -= pDt;
+		if (m_DescendTimer <= 0.0)
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug(bot.GetName(), "[PATH] LeapOfFaith: timeout, не приземлился y=" + pos[1] + " ground=" + m_DescendGroundY);
+			#endif
+			EndDescend();
+			Fail();
+			return;
+		}
+
+		vector dir = m_DescendTarget - pos;
+		dir[1] = 0.0;
+		float dist = dir.Length();
+		if (dist < 0.01)
+		{
+			//! Уже у точки спуска — командуем вперёд, пока бот не сойдёт с края.
+			bot.IntentMove(0.0, 1.0);
+			return;
+		}
+
+		float subYaw = dir.VectorToAngles()[0];
+		float bodyYaw = bot.GetOrientation()[0];
+		float moveAngle = dmAISurvivor.AngleDiff(subYaw, bodyYaw);
+		bot.SetMoveYaw(subYaw);
+		if (KeepBodyTurnAtGoal())
+			bot.TurnBodyToward(subYaw, DM_MOVE_BODY_TURN_RATE, pDt);
+		bot.IntentMove(moveAngle, 1.0);
+	}
+
+	//! Снять присед-интент и сбросить флаги спуска (приземление / abort / OnCancel).
+	void EndDescend()
+	{
+		m_Descending = false;
+		if (m_DescendStance)
+		{
+			m_DescendStance.Finish();
+			m_DescendStance = null;
+		}
 	}
 
 	//! True when the surface directly below the bot is far enough down that a fall
@@ -1568,6 +1752,9 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 	override void OnCancel(dmAISurvivor bot)
 	{
+		//! Очистка спуска обязательна: снять присед-интент и сбросить флаги, чтобы
+		//! бот не остался в приседе/с обходом fall-safety после Fail/отмены.
+		EndDescend();
 		super.OnCancel(bot);
 	}
 }
