@@ -80,6 +80,7 @@ modded class Weapon_Base
 			pawn.ApplyRecoil(this);
 			vector ownerPos = pawn.GetPosition();
 			dmNoiseSystem.AddNoise(pawn, ownerPos, dmBotGunshotNoiseStrength(), dmNoiseType.SHOT);
+			dmBotAdmLog.LogAttack(pawn, pawn.GetAiming().GetTarget(), this, true, GetAttachedOptics() != null);
 		}
 		return fired;
 		#else

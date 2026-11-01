@@ -230,6 +230,10 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 
 		super.EvaluateHit(weapon);
 
+		#ifdef SERVER
+		dmBotAdmLog.LogAttack(m_Bot, target, weapon, false, false);
+		#endif
+
 		if (target && ZombieBase.Cast(target))
 		{
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ApplyZombieExtraDamage, 0, false, target);
