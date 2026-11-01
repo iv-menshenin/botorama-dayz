@@ -48,5 +48,64 @@ class dmBotAdmLog
 
 		g_Game.AdminLog(msg);
 	}
+
+	//! Journal a bot's natural death state. Called from dmAISurvivor.OnDeath() on
+	//! the first !IsAlive() frame, when modifiers are still active and the stats
+	//! are readable. Writes the OBSERVED state (not a computed "culprit" — human
+	//! model): Water/Energy/HeatComfort/Blood stats, a temperature label, the
+	//! active disease modifiers and the drowning flag. Empty segments are omitted.
+	static void LogDeathState(dmAISurvivorBase pawn)
+	{
+		if (!pawn)
+			return;
+
+		string name = pawn.GetCachedName();
+
+		float water = pawn.GetStatWater().Get();
+		float energy = pawn.GetStatEnergy().Get();
+		float heat = pawn.GetStatHeatComfort().Get();
+		float blood = pawn.GetHealth("", "Blood");
+
+		string tempLabel = "";
+		if (heat < -0.45)
+			tempLabel = "переохлаждение";
+		else if (heat > 0.45)
+			tempLabel = "перегрев";
+
+		bool drowned = pawn.GetDrowningWaterLevelCheck();
+
+		string diseases = "";
+		ModifiersManager mm = pawn.GetModifiersManager();
+		if (mm)
+		{
+			if (mm.IsModifierActive(eModifiers.MDF_CHOLERA)) diseases = AddDisease(diseases, "cholera");
+			if (mm.IsModifierActive(eModifiers.MDF_SALMONELLA)) diseases = AddDisease(diseases, "salmonella");
+			if (mm.IsModifierActive(eModifiers.MDF_POISONING)) diseases = AddDisease(diseases, "poisoning");
+			if (mm.IsModifierActive(eModifiers.MDF_INFLUENZA)) diseases = AddDisease(diseases, "influenza");
+			if (mm.IsModifierActive(eModifiers.MDF_COMMON_COLD)) diseases = AddDisease(diseases, "cold");
+			if (mm.IsModifierActive(eModifiers.MDF_PNEUMONIA)) diseases = AddDisease(diseases, "pneumonia");
+			if (mm.IsModifierActive(eModifiers.MDF_FEVER)) diseases = AddDisease(diseases, "fever");
+		}
+
+		string msg = name + " умер:";
+		if (tempLabel != "")
+			msg = msg + " " + tempLabel;
+		msg = msg + " Water=" + water;
+		msg = msg + " Energy=" + energy;
+		msg = msg + " HeatComfort=" + heat;
+		msg = msg + " Blood=" + blood;
+		if (diseases != "")
+			msg = msg + " diseases=" + diseases;
+		msg = msg + " drowned=" + drowned;
+
+		g_Game.AdminLog(msg);
+	}
+
+	private static string AddDisease(string diseases, string label)
+	{
+		if (diseases == "")
+			return label;
+		return diseases + "," + label;
+	}
 }
 #endif

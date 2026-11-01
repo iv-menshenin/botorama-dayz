@@ -1552,12 +1552,14 @@ class dmAISurvivorBase : PlayerBase
 		}
 
 		//! DayZ 1.20: ванильный EEKilled может передать в killer сам труп
-		//! (killer == this) или null — тогда PluginAdminLog ложно пишет "died".
-		//! Подменяем на последний реальный источник урона (Expansion-паттерн).
-		if (killer == this || killer == null)
+		//! (killer == this) — тогда PluginAdminLog ложно пишет "died". Подменяем на
+		//! последний реальный источник урона, ТОЛЬКО если он есть; при естественной
+		//! смерти (m_LastDamageSource == null) оставляем killer == this, чтобы
+		//! сработала ванильная ветка player==source (естественная смерть).
+		if (killer == this && m_LastDamageSource)
 		{
 			#ifdef DM_BOT_DEBUG_DAMAGE
-			dmBotLog.Debug(GetCachedName(), "EEKilled: killer self/null, substitute m_LastDamageSource=" + m_LastDamageSource);
+			dmBotLog.Debug(GetCachedName(), "EEKilled: killer self, substitute m_LastDamageSource=" + m_LastDamageSource);
 			#endif
 			killer = m_LastDamageSource;
 		}

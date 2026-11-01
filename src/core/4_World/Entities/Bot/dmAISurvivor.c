@@ -341,6 +341,13 @@ class dmAISurvivor
 			s_ByPawn.Remove(m_Pawn);
 
 		s_All.RemoveItem(this);
+
+		//! Журнал естественной смерти: снимаем состояние тела до обнуления m_Pawn.
+		#ifdef SERVER
+		if (m_Pawn)
+			dmBotAdmLog.LogDeathState(m_Pawn);
+		#endif
+
 		m_Pawn = null;
 	}
 
