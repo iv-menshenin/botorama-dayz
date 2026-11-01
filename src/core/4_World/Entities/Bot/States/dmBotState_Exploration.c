@@ -124,25 +124,34 @@ class dmBotState_Exploration : dmBotState
 		}
 	}
 
+	EntityAI m_PickUpItem;
+
 	//! Оппортунистический подбор: самый желаемый предмет рядом (порог).
 	bool EnsurePickUp(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
 		if (m_PickUp)
 		{
+			if ( m_PickUpItem )
+			{
+				#ifdef DM_BOT_DEBUG_LOOTING
+				dmBotLog.Debug(GetOwner().GetName(), "[Loot] Ну его нафиг, не могу достать " + m_PickUpItem.GetType() + " тут " + m_PickUpItem.GetPosition());
+				#endif
+				if (m_PickUp.IsExpired() || m_PickUp.IsFailed()) bot.Discard(m_PickUpItem);
+			}
 			if (m_PickUp.IsFinished() || m_PickUp.IsExpired() || m_PickUp.IsFailed()) m_PickUp = null;
 		}
 		if (m_PickUp) return true;
 
-		EntityAI item = pickUpItemSelect(bot, pawn);
-		if (item)
+		m_PickUpItem = pickUpItemSelect(bot, pawn);
+		if ( m_PickUpItem )
 		{
 			#ifdef DM_BOT_DEBUG_LOOTING
-			dmBotLog.Debug(GetOwner().GetName(), "[Loot] Собираюсь залутать " + item.GetType() + " тут " + item.GetPosition());
+			dmBotLog.Debug(GetOwner().GetName(), "[Loot] Собираюсь залутать " + m_PickUpItem.GetType() + " тут " + m_PickUpItem.GetPosition());
 			#endif
 			m_PickUp = new dmBotIntent_PickUp();
-			m_PickUp.m_Item = item;
+			m_PickUp.m_Item = m_PickUpItem;
 			bot.AddFSMIntent(m_PickUp);
-			dmLoot.RemoveNearbyItem(pawn, item, DM_EXPLORE_PICKUP_RADIUS);
+			dmLoot.RemoveNearbyItem(pawn, m_PickUpItem, DM_EXPLORE_PICKUP_RADIUS);
 			return true;
 		}
 		return false;

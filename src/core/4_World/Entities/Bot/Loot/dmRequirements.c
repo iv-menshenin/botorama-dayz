@@ -150,8 +150,15 @@ class dmRequirements
 			n = 1;
 			if (category == dmLootCategory.FOOD)
 			{
-				foodCount = foodCount + 1;
-				n = foodCount;
+				// чтобы съеденая еда была выброшена
+				if ( !item.IsInherited(Bottle_Base) && item.GetQuantityNormalized() == 0.0 )
+				{
+					item.SetHealth01("", "Health", 0.0);
+					m_Ruined.Insert(item);
+				} else {
+					foodCount = foodCount + 1;
+					n = foodCount;
+				}
 			}
 			else if (category == dmLootCategory.WEAPON)
 			{

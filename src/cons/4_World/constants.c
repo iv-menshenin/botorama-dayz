@@ -931,7 +931,7 @@ static const float DM_LOOT_DECAY_DEFAULT = 0.50;
 static const float DM_NEEDS_TICK_INTERVAL = 5.0;
 
 //! Loot: distance (meters) to an item at which the bot picks it up.
-static const float DM_PICKUP_REACH = 1.0;
+static const float DM_PICKUP_REACH = 1.5;
 
 //! Loot exploration: radius (meters) to scan for items to pick up.
 static const float DM_EXPLORE_PICKUP_RADIUS = 3.0;

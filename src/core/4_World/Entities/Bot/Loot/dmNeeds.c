@@ -67,6 +67,20 @@ class dmNeeds
 			} else {
 				wish.WishCategory(dmLootCategory.MEDICAL, 0.0);
 			}
+
+			array<EntityAI> ruined = req.GetRuined();
+			dmAISurvivorBase pawn = bot.GetPawn();
+			if ( pawn )
+			{
+				foreach(EntityAI ent: ruined)
+				{
+					if ( ent )
+					{
+						ItemBase ib = ItemBase.Cast( ent );
+						if ( ib ) pawn.DropItem(ib);
+					}
+				}
+			}
 		}
 
 		//! Нет оружия (огнестрел) → желать Weapon_Base.
