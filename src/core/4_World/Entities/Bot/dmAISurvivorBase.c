@@ -16,6 +16,11 @@ enum dmBotAimMode
 
 class dmAISurvivorBase : PlayerBase
 {
+	//! Сгенерированное имя бота (проброшено из мозга dmAISurvivor).
+	//! Возвращается через GetCachedName(), чтобы ванильный PluginAdminLog
+	//! (и наш код) писали имя бота вместо пустой строки/конфиг-имени модели.
+	private string m_BotName;
+
 	//! Head look offset (degrees, relative to the body).
 	private float m_LookYawDeg = 0.0;
 	private float m_LookPitchDeg = 0.0;
@@ -246,6 +251,26 @@ class dmAISurvivorBase : PlayerBase
 
 		m_Aiming = new dmAiming(this);
 		m_InventoryFrames = new dmInventoryFrames(this);
+	}
+
+	//! Имя бота (проброшено из мозга dmAISurvivor; пусто, пока не задано).
+	void SetBotName(string name)
+	{
+		m_BotName = name;
+	}
+
+	string GetBotName()
+	{
+		return m_BotName;
+	}
+
+	//! Имя бота через ванильный механизм: если мозг пробросил имя — возвращаем
+	//! его, иначе фолбэк на super (у AI-бота identity == null → пусто).
+	override string GetCachedName()
+	{
+		if (m_BotName != "")
+			return m_BotName;
+		return super.GetCachedName();
 	}
 
 	// GetLookDirection угол зрения (в мире)

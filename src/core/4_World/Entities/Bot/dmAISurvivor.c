@@ -223,6 +223,8 @@ class dmAISurvivor
 	void SetName(string name)
 	{
 		m_Name = name;
+		if (m_Pawn)
+			m_Pawn.SetBotName(name);
 	}
 
 	string GetName()
@@ -282,6 +284,7 @@ class dmAISurvivor
 		#endif
 
 		m_Pawn = pawn;
+		m_Pawn.SetBotName(m_Name);
 		m_Pawn.SetPosition(position);
 		m_Pawn.SetOrientation(orientation);
 
