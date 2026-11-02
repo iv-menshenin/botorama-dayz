@@ -117,6 +117,8 @@ class dmBotAdmLog
 			if (mm.IsModifierActive(eModifiers.MDF_FEVER)) diseases = AddDisease(diseases, "fever");
 		}
 
+		vector botPos = pawn.GetPosition();
+
 		string msg = "[bot:dead] " + name;
 		if (killerStr != "")
 			msg = msg + " убит " + killerStr;
@@ -126,6 +128,8 @@ class dmBotAdmLog
 			if (causeLabel != "")
 				msg = msg + " " + causeLabel;
 		}
+		msg = msg + " pos=<" + botPos[0] + ", " + botPos[1];
+		msg = msg + ", " + botPos[2] + ">";
 		msg = msg + " Water=" + water;
 		msg = msg + " Energy=" + energy;
 		msg = msg + " HeatComfort=" + heat;
