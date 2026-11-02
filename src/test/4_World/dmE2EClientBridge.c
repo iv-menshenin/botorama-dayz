@@ -212,7 +212,7 @@ class dmE2EClientBridge
 		r.Ok = true;
 		r.Reason = "pong";
 
-		PlayerBase lp = GetGame().GetPlayer();
+		PlayerBase lp = PlayerBase.Cast(GetGame().GetPlayer());
 		string line = "alive";
 		if (lp)
 			line = "alive clientPos=" + lp.GetPosition();
@@ -235,7 +235,7 @@ class dmE2EClientBridge
 			center = step.Pos;
 			if (center[0] == 0.0 && center[1] == 0.0 && center[2] == 0.0)
 			{
-				PlayerBase lp = GetGame().GetPlayer();
+				PlayerBase lp = PlayerBase.Cast(GetGame().GetPlayer());
 				if (lp)
 					center = lp.GetPosition();
 			}
@@ -339,7 +339,7 @@ class dmE2EClientBridge
 			center = step.Pos;
 			if (center[0] == 0.0 && center[1] == 0.0 && center[2] == 0.0)
 			{
-				PlayerBase lp = GetGame().GetPlayer();
+				PlayerBase lp = PlayerBase.Cast(GetGame().GetPlayer());
 				if (lp)
 					center = lp.GetPosition();
 			}

@@ -147,7 +147,7 @@ class dmJsonFile<Class T>
 			return false;
 		}
 
-		dmJsonConfigBase base = dmJsonConfigBase.Cast(config);
+		dmJsonConfigBase base = config;
 		if (base)
 		{
 			int before = base.GetVersion();

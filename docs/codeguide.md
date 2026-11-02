@@ -252,11 +252,14 @@ class CfgSoundSets
 
 - `class X<Class T>` — ограничений `<Class T : Base>` НЕТ; `T` ведёт себя как `Class`
   (object) — вызывать произвольные методы `T` нельзя.
-- Вызвать метод на `T` — каст к базовому классу:
+- Вызвать метод на `T` — присвоить к базовому классу напрямую (апкаст неявный,
+  `Cast` тут вызовет варнинг «No need to use 'Cast' for up-casting»):
   ```c
-  dmJsonConfigBase base = dmJsonConfigBase.Cast(config); // config : out T
+  dmJsonConfigBase base = config; // config : out T
   if (base) base.FixVersion();
   ```
+  `Cast` нужен только для даункаста (`Base.Cast(...)` → `Base`/`null`) или когда
+  `T` реально не гарантирует наследование целевого класса.
 - Native-API принимают `T` как объект (`JsonFileLoader<T>.LoadFile(...)`,
   `JsonSerializer.ReadFromString(...)`).
 

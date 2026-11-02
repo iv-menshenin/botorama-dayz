@@ -273,11 +273,11 @@ class dmAISurvivor
 		dmBotLog.Debug(GetName(), "Spawn() CreateObject returned entity=" + entity);
 		#endif
 
-		PlayerBase pawn = PlayerBase.Cast(entity);
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(entity);
 		if (!pawn)
 		{
 			#ifdef DM_BOT_DEBUG_SPAWN
-			dmBotLog.Debug(GetName(), "Spawn() FAILED: PlayerBase.Cast(entity) returned null");
+			dmBotLog.Debug(GetName(), "Spawn() FAILED: dmAISurvivorBase.Cast(entity) returned null");
 			#endif
 			return null;
 		}
