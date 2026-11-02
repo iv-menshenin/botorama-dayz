@@ -318,26 +318,25 @@ class dmBotSpawnManager
 		return Vector(posX, y, posZ);
 	}
 
-	//! Случайная позиция спавна в пределах ±DM_SPAWN_CITY_OFFSET от центра поселения.
+	//! Случайная безопасная позиция спавна в пределах ±DM_SPAWN_CITY_OFFSET от центра
+	//! поселения: земля → навмеш (без воды) → не под зданием. Фолбэк — прибить к земле.
 	vector RollSpawnPosition(vector settlementPos)
 	{
-		float posX = settlementPos[0];
-		float posZ = settlementPos[2];
-
-		for (int try = 0; try < 10; try++)
+		dmBotPathfinder pathfinder = new dmBotPathfinder();
+		for (int try = 0; try < DM_SPAWN_SAFE_RETRIES; try++)
 		{
-			float offX = Math.RandomFloat(-DM_SPAWN_CITY_OFFSET, DM_SPAWN_CITY_OFFSET);
-			float offZ = Math.RandomFloat(-DM_SPAWN_CITY_OFFSET, DM_SPAWN_CITY_OFFSET);
-			vector candidate = Vector(posX + offX, 0.0, posZ + offZ);
-			vector sampled;
-			dmBotPathfinder pathfinder = new dmBotPathfinder();
-			if ( pathfinder.SamplePosition(candidate, DM_PATH_SAMPLE_RADIUS, sampled) )
-			{
-				return sampled;
-			}
+			float x = settlementPos[0] + Math.RandomFloat(-DM_SPAWN_CITY_OFFSET, DM_SPAWN_CITY_OFFSET);
+			float z = settlementPos[2] + Math.RandomFloat(-DM_SPAWN_CITY_OFFSET, DM_SPAWN_CITY_OFFSET);
+			vector point;
+			if (pathfinder.FindSafeNavmeshPoint(x, z, DM_PATH_SAMPLE_RADIUS, point))
+				return point;
+
+			#ifdef DM_BOT_DEBUG_SPAWN
+			dmBotLog.Debug("", "[SpawnManager] RollSpawnPosition retry=" + try + " x=" + x + " z=" + z);
+			#endif
 		}
 
-		return settlementPos;
+		return SnapToGround(settlementPos);  // фолбэк — хотя бы строго к земле
 	}
 
 	//! Override квоты для поселения по имени (null — нет).

@@ -185,6 +185,40 @@ class dmBotPathfinder
 		return s_AIWorld.SampleNavmeshPosition(pos, maxDist, s_SampleFilter, sampled);
 	}
 
+	//! Найти безопасную точку спавна/спасения: земля по SurfaceY → навмеш (без воды,
+	//! т.к. m_SampleFilter после Атома 1 исключает SWIM/SWIM_SEA) → не под зданием
+	//! (райкаст вверх на DM_SPAWN_SAFE_PROBE_HEIGHT не должен бить Building).
+	bool FindSafeNavmeshPoint(float x, float z, float maxDist, out vector point)
+	{
+		float y = GetGame().SurfaceY(x, z);
+		if (!SamplePosition(Vector(x, y, z), maxDist, point))
+			return false;
+		return !IsPointUnderBuilding(point);
+	}
+
+	//! True, когда над точкой в пределах DM_SPAWN_SAFE_PROBE_HEIGHT стоит здание
+	//! (Building : EntityAI — базовый для всех статических структур, включая вреки
+	//! машин и бетон). Аналог IsPointUnderRoofBuilding (House), но для спавна/спасения.
+	private static bool IsPointUnderBuilding(vector pos)
+	{
+		vector from = pos;
+		vector to = pos + Vector(0.0, DM_SPAWN_SAFE_PROBE_HEIGHT, 0.0);
+		Object hitObj;
+		vector hitPos;
+		vector hitNormal;
+		float hitFrac;
+		bool hit = DayZPhysics.RayCastBullet(from, to, PhxInteractionLayers.ITEM_LARGE | PhxInteractionLayers.BUILDING | PhxInteractionLayers.VEHICLE, null, hitObj, hitPos, hitNormal, hitFrac);
+		if (!hit || !hitObj)
+			return false;
+
+		bool underBuilding = hitObj.IsInherited(Building);
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		if (underBuilding)
+			dmBotLog.Debug("", "[PATH] IsPointUnderBuilding pos=" + pos + " type=" + hitObj.GetType());
+		#endif
+		return underBuilding;
+	}
+
 	//! Ladder-aware маршрут из сегментов. Заполняет `segments` (очищает); false — нет маршрута.
 	//! `ignoreObj` — объект, который raycast поиска здания пропускает (цель сопровождения).
 	bool FindRoute(vector from, vector to, Object ignoreObj, inout array<ref dmBotRouteSegment> segments)
