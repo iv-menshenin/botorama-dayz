@@ -25,7 +25,11 @@ class dmBotAdmLog
 		vector targetPos = vector.Zero;
 		if (target)
 		{
-			targetName = target.GetDisplayName();
+			PlayerBase targetPlayer = PlayerBase.Cast(target);
+			if (targetPlayer)
+				targetName = targetPlayer.GetCachedName();
+			else
+				targetName = target.GetDisplayName();
 			targetPos = target.GetPosition();
 		}
 
@@ -37,7 +41,11 @@ class dmBotAdmLog
 		if (bot)
 			botPos = bot.GetPosition();
 
-		string msg = name + " " + kind + ": цель=" + targetName;
+		string tag = "[bot:shoot]";
+		if (!isFirearm)
+			tag = "[bot:melee]";
+
+		string msg = tag + " " + name + " " + kind + ": цель=" + targetName;
 		msg = msg + " pos=<" + targetPos[0] + ", " + targetPos[1];
 		msg = msg + ", " + targetPos[2] + ">";
 		msg = msg + " оружие=" + weaponName;
@@ -49,17 +57,36 @@ class dmBotAdmLog
 		g_Game.AdminLog(msg);
 	}
 
-	//! Journal a bot's natural death state. Called from dmAISurvivor.OnDeath() on
-	//! the first !IsAlive() frame, when modifiers are still active and the stats
-	//! are readable. Writes the OBSERVED state (not a computed "culprit" — human
-	//! model): Water/Energy/HeatComfort/Blood stats, a temperature label, the
-	//! active disease modifiers and the drowning flag. Empty segments are omitted.
+	//! Journal a bot's death. Called from dmAISurvivor.OnDeath() on the first
+	//! !IsAlive() frame, when modifiers are still active and the stats are
+	//! readable. Writes the cause + observed state: an external kill ("убит X (Y)",
+	//! killer resolved from EEKilled via GetDeathKiller) or a natural death
+	//! ("умер: переохлаждение/…"), plus Water/Energy/HeatComfort/Blood stats,
+	//! active disease modifiers and the drowning flag.
 	static void LogDeathState(dmAISurvivorBase pawn)
 	{
 		if (!pawn)
 			return;
 
 		string name = pawn.GetCachedName();
+
+		//! Внешний убийца из EEKilled (GetDeathKiller); null = естественная смерть.
+		string killerStr = "";
+		EntityAI killer = pawn.GetDeathKiller();
+		if (killer)
+		{
+			PlayerBase shooter = PlayerBase.Cast(killer.GetHierarchyRootPlayer());
+			if (shooter)
+			{
+				killerStr = shooter.GetCachedName();
+				if (killer != shooter)
+					killerStr = killerStr + " (" + killer.GetDisplayName() + ")";
+			}
+			else
+			{
+				killerStr = killer.GetDisplayName();
+			}
+		}
 
 		float water = pawn.GetStatWater().Get();
 		float energy = pawn.GetStatEnergy().Get();
@@ -87,9 +114,15 @@ class dmBotAdmLog
 			if (mm.IsModifierActive(eModifiers.MDF_FEVER)) diseases = AddDisease(diseases, "fever");
 		}
 
-		string msg = name + " умер:";
-		if (tempLabel != "")
-			msg = msg + " " + tempLabel;
+		string msg = "[bot:dead] " + name;
+		if (killerStr != "")
+			msg = msg + " убит " + killerStr;
+		else
+		{
+			msg = msg + " умер:";
+			if (tempLabel != "")
+				msg = msg + " " + tempLabel;
+		}
 		msg = msg + " Water=" + water;
 		msg = msg + " Energy=" + energy;
 		msg = msg + " HeatComfort=" + heat;

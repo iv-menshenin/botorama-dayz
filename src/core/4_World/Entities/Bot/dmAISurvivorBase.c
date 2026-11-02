@@ -188,6 +188,10 @@ class dmAISurvivorBase : PlayerBase
 	//! m_Expansion_LastDamageSource).
 	private EntityAI m_LastDamageSource;
 
+	//! Внешний убийца (оружие/игрок/зомби) для журнала смерти; null = естественная
+	//! смерть. Запоминается в EEKilled после подмены killer (см. GetDeathKiller).
+	private EntityAI m_DeathKiller;
+
 	//! One-shot melee evade request from the brain (see RequestMeleeEvade). The
 	//! fight logic consumes it and starts a native roll via StartMeleeEvadeA.
 	private bool m_MeleeEvadeRequest = false;
@@ -290,6 +294,12 @@ class dmAISurvivorBase : PlayerBase
 		if (m_BotName != "")
 			return m_BotName;
 		return super.GetCachedName();
+	}
+
+	//! Внешний убийца (оружие/игрок/зомби), запомненный в EEKilled; null = естественная смерть.
+	EntityAI GetDeathKiller()
+	{
+		return m_DeathKiller;
 	}
 
 	// GetLookDirection угол зрения (в мире)
@@ -1583,6 +1593,9 @@ class dmAISurvivorBase : PlayerBase
 			#endif
 			killer = m_LastDamageSource;
 		}
+
+		if (killer != this)
+			m_DeathKiller = EntityAI.Cast(killer);
 
 		super.EEKilled(killer);
 
