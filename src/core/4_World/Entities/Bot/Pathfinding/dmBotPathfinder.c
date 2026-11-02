@@ -6,7 +6,8 @@
 //!     + ladders (LADDER, cheap — routes between navmesh floors), no swim/crawl/
 //!     crouch. UNREACHABLE is included so A* routes over rooftops/detached navmesh
 //!     islands (as Expansion does).
-//!   - m_SampleFilter — snap a target onto the navmesh (everything except crawl/crouch).
+//!   - m_SampleFilter — snap a target onto the navmesh (everything except
+//!     crawl/crouch/swim, so a spawn/rescue point never lands on water).
 //!
 //! Deferred (see docs/plans/fsm-implementation-plan.md "Pathfinding"): swimming,
 //! attachment navmesh, string-pulling, path-cost tuning.
@@ -36,12 +37,12 @@ class dmBotPathfinder
 	ref PGFilter m_SampleFilter;
 	ref PGFilter m_RoadFilter;
 
-	//! Build the sample filter: everything except crawl/crouch (snap a point onto
-	//! the navmesh without routing through crawl/crouch-only polygons).
+	//! Build the sample filter: everything except crawl/crouch/swim (snap a point
+	//! onto the navmesh without routing through crawl/crouch-only polygons or water).
 	static PGFilter BuildSampleFilter()
 	{
 		ref PGFilter filter = new PGFilter();
-		filter.SetFlags(PGPolyFlags.ALL & ~(PGPolyFlags.CRAWL | PGPolyFlags.CROUCH), PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
+		filter.SetFlags(PGPolyFlags.ALL & ~(PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA), PGPolyFlags.CRAWL | PGPolyFlags.CROUCH | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA, PGPolyFlags.NONE);
 		return filter;
 	}
 

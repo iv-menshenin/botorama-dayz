@@ -409,6 +409,16 @@ static const int DM_PERSIST_FORMAT_VERSION = 1;
 static const float DM_SPAWN_TICK_INTERVAL = 5.0;
 //! Random offset (meters, ±) of a bot's spawn point from its settlement center.
 static const float DM_SPAWN_CITY_OFFSET = 250.0;
+//! Спавн: высота райкаста-вверх (м) — «не внутри здания» (Building).
+static const float DM_SPAWN_SAFE_PROBE_HEIGHT = 5.0;
+//! Спавн: число попыток найти безопасную точку спавна.
+static const int   DM_SPAWN_SAFE_RETRIES     = 20;
+//! Море: y ниже этого = бот «в море».
+static const float DM_SEA_RESCUE_Y           = 0.1;
+//! Море: точка спасения должна быть выше этого от y=0 (м).
+static const float DM_SEA_RESCUE_MIN_ALT     = 10.0;
+//! Море: троттлинг детекции (с).
+static const float DM_SEA_RESCUE_INTERVAL    = 1.0;
 //! Delay (ms) before a House registers itself, so the building has a valid position
 //! by the time the registry reads it (in the constructor it is still (0,0,0)).
 static const int DM_HOUSE_REGISTER_DELAY_MS = 1000;
