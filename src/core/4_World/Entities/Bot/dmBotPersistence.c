@@ -605,7 +605,8 @@ class dmBotPersistence
 
 		item.GetInventory().SetFlipCargo(flip);
 
-		if (!parent.TakeEntityToCargoEx(InventoryMode.SERVER, item, idx, row, col))
+		CargoBase cargo = parent.GetCargoFromIndex(idx);
+		if (!parent.TakeEntityToTargetCargoEx(InventoryMode.SERVER, cargo, item, row, col))
 		{
 			if (!parent.TakeEntityToInventory(InventoryMode.SERVER, FindInventoryLocationType.CARGO, item))
 			{

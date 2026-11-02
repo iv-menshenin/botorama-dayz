@@ -187,9 +187,13 @@ dedicated-сервере он не-null → не сломается. Но `[ну
   сериализации — `OneShot/ItemBase.c`: `OSD_StoreCargoTo`/`OSD_StoreAttachmentsTo`/`OSD_LoadCargoFrom`/
   `OSD_LoadAttachmentsFrom`, создание предметов через `GetGame().CreateObject(className, Vector(0,0,0))`
   для cargo, `inventory.CreateAttachmentEx(className, slotID)` для attachment,
-  `player.GetHumanInventory().CreateInHands(className)` для рук, `TakeEntityToCargoEx(InventoryMode.SERVER,
-  item, idx, row, col)`, `GetInventory().SetFlipCargo(flip)`. Здоровье предмета — `GetHealth01()`/
-  `SetHealth01("","",value)` (`itembase.c:2318/2556`), quantity — `GetQuantity()`/`SetQuantity()`.
+  `player.GetHumanInventory().CreateInHands(className)` для рук, `TakeEntityToTargetCargoEx(InventoryMode.SERVER,
+  cargo, item, row, col)` (1.30; см. готчу ниже), `GetInventory().SetFlipCargo(flip)`. Здоровье предмета —
+  `GetHealth01()`/`SetHealth01("","",value)` (`itembase.c:2318/2556`), quantity — `GetQuantity()`/`SetQuantity()`.
+- **`TakeEntityToCargoEx` устарел в 1.30** → `TakeEntityToTargetCargoEx`. Старый брал индекс карго-контейнера
+  (`idx`), новый принимает сам `CargoBase`. Связь через `GameInventory.GetCargoFromIndex(idx)`
+  (`inventory.c:139`) → `parent.TakeEntityToTargetCargoEx(InventoryMode.SERVER, cargo, item, row, col)`.
+  Варнинг `SCRIPT (W): 'TakeEntityToCargoEx' is obsolete: 1.30: Use TakeEntityToTargetCargoEx instead`.
 - **`g_Game.SaveVersion()` пишется первым в каждом уровне** (и в заголовке бота, и внутри
   item-level `OnStoreSave` — devaliada пишет `g_Game.SaveVersion()` перед каждым `OnStoreSave`).
 
