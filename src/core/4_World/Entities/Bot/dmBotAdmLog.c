@@ -93,11 +93,14 @@ class dmBotAdmLog
 		float heat = pawn.GetStatHeatComfort().Get();
 		float blood = pawn.GetHealth("", "Blood");
 
-		string tempLabel = "";
-		if (heat < -0.45)
-			tempLabel = "переохлаждение";
+		string causeLabel = "";
+		string ammo = pawn.GetLastDamageAmmo();
+		if (ammo != "" && ammo.IndexOf("FallDamage") != -1)
+			causeLabel = "упал с высоты";
+		else if (heat < -0.45)
+			causeLabel = "переохлаждение";
 		else if (heat > 0.45)
-			tempLabel = "перегрев";
+			causeLabel = "перегрев";
 
 		bool drowned = pawn.GetDrowningWaterLevelCheck();
 
@@ -120,8 +123,8 @@ class dmBotAdmLog
 		else
 		{
 			msg = msg + " умер:";
-			if (tempLabel != "")
-				msg = msg + " " + tempLabel;
+			if (causeLabel != "")
+				msg = msg + " " + causeLabel;
 		}
 		msg = msg + " Water=" + water;
 		msg = msg + " Energy=" + energy;

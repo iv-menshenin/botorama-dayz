@@ -192,6 +192,11 @@ class dmAISurvivorBase : PlayerBase
 	//! смерть. Запоминается в EEKilled после подмены killer (см. GetDeathKiller).
 	private EntityAI m_DeathKiller;
 
+	//! Ammo последнего реального урона (запомнен в EEOnDamageCalculated) — по нему
+	//! журнал смерти отличает падение с высоты ("FallDamage*") от прочих естественных
+	//! причин. Пусто, если внешнего урона не было.
+	private string m_LastDamageAmmo;
+
 	//! One-shot melee evade request from the brain (see RequestMeleeEvade). The
 	//! fight logic consumes it and starts a native roll via StartMeleeEvadeA.
 	private bool m_MeleeEvadeRequest = false;
@@ -300,6 +305,12 @@ class dmAISurvivorBase : PlayerBase
 	EntityAI GetDeathKiller()
 	{
 		return m_DeathKiller;
+	}
+
+	//! Ammo последнего урона (для детекта падения с высоты в журнале смерти).
+	string GetLastDamageAmmo()
+	{
+		return m_LastDamageAmmo;
 	}
 
 	// GetLookDirection угол зрения (в мире)
@@ -1490,8 +1501,12 @@ class dmAISurvivorBase : PlayerBase
 		#endif
 
 		bool applyDamage = super.EEOnDamageCalculated(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
-		if (applyDamage && source)
-			m_LastDamageSource = source;
+		if (applyDamage)
+		{
+			if (source)
+				m_LastDamageSource = source;
+			m_LastDamageAmmo = ammo;
+		}
 		return applyDamage;
 	}
 
