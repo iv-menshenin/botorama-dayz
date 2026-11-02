@@ -209,6 +209,18 @@ class dmAISurvivorBase : PlayerBase
 	private bool m_LastEvadeLogState = false;
 	private bool m_LastStrikingLogState = false;
 
+#ifdef DM_BOT_DEBUG_MOTION
+	//! Motion spin oracle (событийный, DM_BOT_DEBUG_MOTION): скользящее окно
+	//! суммарного |Δyaw| корпуса за DM_MOTION_SPIN_WINDOW (см. TickMotionSpinOracle).
+	//! Ловит неистовое вращение ВНЕ зависимости от melee-состояния.
+	private ref array<float> m_MotionSpinTimes;   // временные метки выборок
+	private ref array<float> m_MotionSpinDYaws;   // |Δyaw| по каждой выборке
+	private float m_MotionSpinSum = 0.0;          // сумма |Δyaw| в окне
+	private float m_MotionLastYaw = 0.0;          // yaw предыдущего кадра
+	private bool m_MotionYawInit = false;         // первый кадр — только инициализация
+	private float m_MotionSpinCooldownUntil = 0.0; // cooldown события spin (GetTickTime)
+#endif
+
 	//! One-shot fire request from the brain (see RequestFire). Processed by
 	//! TryFireWeapon inside the CommandHandler; m_FireCooldown throttles cadence.
 	private bool m_FireRequest = false;
@@ -236,6 +248,11 @@ class dmAISurvivorBase : PlayerBase
 		m_LastFrameYaw = 0.0;
 		m_YawInit = false;
 		m_Striking = false;
+
+		#ifdef DM_BOT_DEBUG_MOTION
+		m_MotionSpinTimes = new array<float>();
+		m_MotionSpinDYaws = new array<float>();
+		#endif
 
 		RegisterNetSyncVariableFloat("m_LookYawDeg", -DM_LOOK_MAX_YAW, DM_LOOK_MAX_YAW, 1);
 		RegisterNetSyncVariableFloat("m_LookPitchDeg", -DM_LOOK_MAX_PITCH, DM_LOOK_MAX_PITCH, 1);
@@ -1216,6 +1233,9 @@ class dmAISurvivorBase : PlayerBase
 
 		TickMeleeSpinOracle();
 		TickMeleeStateLog();
+		#ifdef DM_BOT_DEBUG_MOTION
+		TickMotionSpinOracle();
+		#endif
 
 		#ifdef SERVER
 		TickTalking(pDt);
@@ -2052,6 +2072,68 @@ class dmAISurvivorBase : PlayerBase
 		}
 		m_LastFrameYaw = yaw;
 	}
+
+#ifdef DM_BOT_DEBUG_MOTION
+	//! Motion spin oracle (событийный, DM_BOT_DEBUG_MOTION): детектирует неистовое
+	//! вращение корпуса по фактической ориентации GetOrientation()[0]. Суммирует
+	//! |Δyaw| за скользящее окно DM_MOTION_SPIN_WINDOW (ring-массивы time/dYaw) и
+	//! при превышении DM_MOTION_SPIN_THRESHOLD пишет ОДНУ строку [MOTION] spin
+	//! (cooldown DM_MOTION_SPIN_COOLDOWN). В отличие от melee-оракула — НЕ привязан
+	//! к удару: ловит любое быстрое вращение. Гейтится на месте вызова.
+	private void TickMotionSpinOracle()
+	{
+		if (!IsAlive() || IsInVehicle() || IsUnconscious())
+		{
+			ResetMotionSpin();
+			return;
+		}
+
+		float now = GetGame().GetTickTime();
+		float yaw = GetOrientation()[0];
+		if (!m_MotionYawInit)
+		{
+			m_MotionYawInit = true;
+			m_MotionLastYaw = yaw;
+			return;
+		}
+
+		float dYaw = Math.AbsFloat(AngleDiff(yaw, m_MotionLastYaw));
+		m_MotionLastYaw = yaw;
+
+		m_MotionSpinTimes.Insert(now);
+		m_MotionSpinDYaws.Insert(dYaw);
+		m_MotionSpinSum = m_MotionSpinSum + dYaw;
+
+		//! Вытесняем выборки старше окна (спереди — самые старые).
+		while (m_MotionSpinTimes.Count() > 0 && now - m_MotionSpinTimes[0] > DM_MOTION_SPIN_WINDOW)
+		{
+			m_MotionSpinSum = m_MotionSpinSum - m_MotionSpinDYaws[0];
+			m_MotionSpinTimes.RemoveOrdered(0);
+			m_MotionSpinDYaws.RemoveOrdered(0);
+		}
+
+		if (m_MotionSpinSum > DM_MOTION_SPIN_THRESHOLD && now > m_MotionSpinCooldownUntil)
+		{
+			m_MotionSpinCooldownUntil = now + DM_MOTION_SPIN_COOLDOWN;
+			vector pos = GetPosition();
+			string msg = "[MOTION] spin bot=" + GetCachedName() + " pos=" + pos;
+			msg = msg + " orient=" + yaw;
+			msg = msg + " rot=" + m_MotionSpinSum;
+			msg = msg + " win=" + DM_MOTION_SPIN_WINDOW;
+			dmBotLog.Debug("", msg);
+			ResetMotionSpin();
+		}
+	}
+
+	//! Сброс скользящего окна спина (умер/в машине/без сознания или после события).
+	private void ResetMotionSpin()
+	{
+		m_MotionSpinTimes.Clear();
+		m_MotionSpinDYaws.Clear();
+		m_MotionSpinSum = 0.0;
+		m_MotionYawInit = false;
+	}
+#endif
 
 	//! Edge-лог нативного мили-состояния (эвейд/замах) в RPT: покадрово читаем
 	//! IsMeleeEvade()/IsMeleeStriking() и печатаем только при смене состояния, чтобы

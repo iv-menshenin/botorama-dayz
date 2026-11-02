@@ -897,6 +897,30 @@ static const float DM_FALL_CHECK_INTERVAL = 1.0;
 //! Fall-safe: длительность (с) отхода назад от края перед перестроением маршрута.
 static const float DM_STEP_BACK_TIME = 0.5;
 
+//! Motion-trouble event logging (DM_BOT_DEBUG_MOTION): три детектора — spin
+//! (неистовое вращение), stall (торможение > 10 с) и pathfail (nopath/fallfear).
+//! Каждый пишет ОДНУ структурированную строку [MOTION] ... с cooldown на бота,
+//! для последующей статистики (Python-парсер).
+
+//! Spin: скользящее окно (с), за которое суммируется |Δyaw| корпуса.
+static const float DM_MOTION_SPIN_WINDOW = 2.0;
+//! Spin: порог суммарного |Δyaw| (градусы) за окно, выше которого событие spin.
+static const float DM_MOTION_SPIN_THRESHOLD = 500.0;
+//! Spin: cooldown (с) на бота между событиями spin.
+static const float DM_MOTION_SPIN_COOLDOWN = 5.0;
+
+//! Stall: время (с) стояния на месте (смещение < EPS) до события stall.
+static const float DM_MOTION_STALL_TIME = 10.0;
+//! Stall: допуск смещения (м) от якоря по горизонтали, ниже которого бот «стоит».
+static const float DM_MOTION_STALL_EPS = 0.3;
+//! Stall: cooldown (с) на бота между событиями stall.
+static const float DM_MOTION_STALL_COOLDOWN = 15.0;
+
+//! Fallfear: время (с) удержания m_NoGroundAhead=true подряд до события pathfail.
+static const float DM_MOTION_FALLFEAR_TIME = 3.0;
+//! Pathfail: cooldown (с) на бота между событиями pathfail (nopath/fallfear).
+static const float DM_MOTION_PATHFAIL_COOLDOWN = 10.0;
+
 //! Leap-of-faith: радиус (м) от бота по горизонтали, в пределах которого обратный
 //! путь должен найти точку земли (иначе «остров» слишком далёк от проходимой земли —
 //! спуска нет). Эталон — Expansion (IsPointInCircle(tempEnd, 10.0, endPos)).

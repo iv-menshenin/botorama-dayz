@@ -20,6 +20,14 @@ class dmBotIntent_MoveTo : dmBotIntent
 	static const float DM_MOVE_NOPATH_LOG_INTERVAL = 30.0;
 	static ref map<string, float> s_NoPathLog;
 
+#ifdef DM_BOT_DEBUG_MOTION
+	//! Cooldown (static) для событий [MOTION] pathfail: ключ "reason:botName",
+	//! чтобы одно событие (nopath/fallfear) не спамилось чаще раза в
+	//! DM_MOTION_PATHFAIL_COOLDOWN. Статик — переживает пересоздание интента
+	//! (MoveTo пересоздаётся на каждый ретрай, см. ShouldLogNoPath).
+	static ref map<string, float> s_MotionPathfailCooldown;
+#endif
+
 	vector m_Goal;
 	float m_ReachDistance = DM_PATH_WAYPOINT_REACH;
 	float m_ReachDeadline = 0.0;   // seconds to reach the target; 0 = no deadline
@@ -86,6 +94,21 @@ class dmBotIntent_MoveTo : dmBotIntent
 	float m_DoorCandidateUntil = 0.0;
 	bool m_NoGroundAhead = false;
 
+#ifdef DM_BOT_DEBUG_MOTION
+	//! Motion stall oracle (событийный, DM_BOT_DEBUG_MOTION): якорь-позиция +
+	//! накопленное время стояния на месте (смещение < DM_MOTION_STALL_EPS по
+	//! горизонтали). При > DM_MOTION_STALL_TIME — событие [MOTION] stall.
+	vector m_MotionStallAnchor = vector.Zero;
+	bool m_MotionStallAnchorValid = false;
+	float m_MotionStallTime = 0.0;
+	float m_MotionStallCooldownUntil = 0.0;
+
+	//! Motion fallfear oracle (событийный, DM_BOT_DEBUG_MOTION): накопитель
+	//! удержания m_NoGroundAhead=true подряд; при > DM_MOTION_FALLFEAR_TIME —
+	//! событие [MOTION] pathfail reason=fallfear.
+	float m_MotionFallFearTime = 0.0;
+#endif
+
 	//! Tree/bush candidate: the trunk probe hit a tree/bush ahead; consumed by the
 	//! veer (side-strafe) to walk around it instead of vaulting/climbing.
 	bool m_TreeCandidate = false;
@@ -139,6 +162,23 @@ class dmBotIntent_MoveTo : dmBotIntent
 		s_NoPathLog.Set(key, now);
 		return true;
 	}
+
+#ifdef DM_BOT_DEBUG_MOTION
+	//! Разрешено ли логировать событие [MOTION] pathfail по ключу "reason:botName"
+	//! (cooldown DM_MOTION_PATHFAIL_COOLDOWN). Статик-кэш переживает пересоздание
+	//! интента — глушит спам одного события на одного бота.
+	static bool ShouldLogMotionPathfail(string key)
+	{
+		float now = GetGame().GetTickTime();
+		if (!s_MotionPathfailCooldown)
+			s_MotionPathfailCooldown = new map<string, float>();
+		float last;
+		if (s_MotionPathfailCooldown.Find(key, last) && now - last < DM_MOTION_PATHFAIL_COOLDOWN)
+			return false;
+		s_MotionPathfailCooldown.Set(key, now);
+		return true;
+	}
+#endif
 
 	override string GetIntentName()
 	{
@@ -237,6 +277,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 		m_Route = new array<ref dmBotRouteSegment>();
 		m_RouteIdx = 0;
 
+		#ifdef DM_BOT_DEBUG_MOTION
+		m_MotionStallAnchorValid = false;
+		m_MotionStallTime = 0.0;
+		m_MotionStallCooldownUntil = 0.0;
+		m_MotionFallFearTime = 0.0;
+		#endif
+
 		m_LastPassedPoint = bot.GetPosition();
 
 		if (!IsContinuous())
@@ -249,6 +296,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 			{
 				if (ShouldLogNoPath("nopath:" + m_Goal.ToString()))
 					dmBotLog.Error(bot.GetName(), "MoveTo: нет пути к " + m_Goal + " (вне navmesh или недостижимо), abort");
+				#ifdef DM_BOT_DEBUG_MOTION
+				if (ShouldLogMotionPathfail("nopath:" + bot.GetName()))
+					LogMotionPathFail(bot, "nopath", bot.GetPosition());
+				#endif
 				Fail();
 			}
 		}
@@ -324,6 +375,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 		{
 			if (ShouldLogNoPath("recover:" + m_Goal.ToString()))
 				dmBotLog.Error(bot.GetName(), "MoveTo: восстановление не помогло, путь к " + m_Goal + " недоступен, abort");
+			#ifdef DM_BOT_DEBUG_MOTION
+			if (ShouldLogMotionPathfail("nopath:" + bot.GetName()))
+				LogMotionPathFail(bot, "nopath", bot.GetPosition());
+			#endif
 			Fail();
 			return;
 		}
@@ -354,6 +409,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 		{
 			if (ShouldLogNoPath("detour:" + m_Goal.ToString()))
 				dmBotLog.Error(bot.GetName(), "MoveTo: detour не помог, путь к " + m_Goal + " недоступен, abort");
+			#ifdef DM_BOT_DEBUG_MOTION
+			if (ShouldLogMotionPathfail("nopath:" + bot.GetName()))
+				LogMotionPathFail(bot, "nopath", bot.GetPosition());
+			#endif
 			Fail();
 			return;
 		}
@@ -479,10 +538,96 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 	float m_TooCloseTime = 0.0;
 
+#ifdef DM_BOT_DEBUG_MOTION
+	//! Motion stall oracle (событийный): стояние на месте > DM_MOTION_STALL_TIME.
+	//! Якорь сбрасывается при любом горизонтальном смещении >= DM_MOTION_STALL_EPS;
+	//! при удержании в пределах EPS копит pDt и пишет [MOTION] stall (cooldown).
+	void TickMotionStallOracle(dmAISurvivor bot, float pDt)
+	{
+		float now = GetGame().GetTickTime();
+		vector pos = bot.GetPosition();
+
+		if (!m_MotionStallAnchorValid)
+		{
+			m_MotionStallAnchor = pos;
+			m_MotionStallAnchorValid = true;
+			m_MotionStallTime = 0.0;
+			return;
+		}
+
+		float dx = pos[0] - m_MotionStallAnchor[0];
+		float dz = pos[2] - m_MotionStallAnchor[2];
+		float epsSq = DM_MOTION_STALL_EPS * DM_MOTION_STALL_EPS;
+		if (dx * dx + dz * dz >= epsSq)
+		{
+			m_MotionStallAnchor = pos;
+			m_MotionStallTime = 0.0;
+			return;
+		}
+
+		m_MotionStallTime = m_MotionStallTime + pDt;
+		if (m_MotionStallTime > DM_MOTION_STALL_TIME && now > m_MotionStallCooldownUntil)
+		{
+			m_MotionStallCooldownUntil = now + DM_MOTION_STALL_COOLDOWN;
+			float elapsed = m_MotionStallTime;
+			m_MotionStallTime = 0.0;
+			LogMotionStall(bot, pos, elapsed);
+		}
+	}
+
+	//! Motion fallfear oracle (событийный): event-изация per-tick STOP по
+	//! m_NoGroundAhead. Копит время удержания m_NoGroundAhead=true; при >
+	//! DM_MOTION_FALLFEAR_TIME пишет [MOTION] pathfail reason=fallfear (cooldown).
+	void TickMotionFallFearOracle(dmAISurvivor bot, float pDt)
+	{
+		if (!m_NoGroundAhead)
+		{
+			m_MotionFallFearTime = 0.0;
+			return;
+		}
+
+		m_MotionFallFearTime = m_MotionFallFearTime + pDt;
+		if (m_MotionFallFearTime > DM_MOTION_FALLFEAR_TIME)
+		{
+			m_MotionFallFearTime = 0.0;
+			if (ShouldLogMotionPathfail("fallfear:" + bot.GetName()))
+				LogMotionPathFail(bot, "fallfear", bot.GetPosition());
+		}
+	}
+
+	//! Одна структурированная строка [MOTION] stall (для Python-парсера).
+	void LogMotionStall(dmAISurvivor bot, vector pos, float elapsed)
+	{
+		string msg = "[MOTION] stall bot=" + bot.GetName() + " pos=" + pos;
+		msg = msg + " goal=" + m_Goal;
+		if (m_HasPath && m_Path && m_PathIdx < m_Path.Count())
+			msg = msg + " wp=" + m_Path[m_PathIdx];
+		else
+			msg = msg + " wp=none";
+		msg = msg + " elapsed=" + elapsed;
+		msg = msg + " intent=" + GetIntentName();
+		dmBotLog.Debug("", msg);
+	}
+
+	//! Одна структурированная строка [MOTION] pathfail (для Python-парсера).
+	void LogMotionPathFail(dmAISurvivor bot, string reason, vector pos)
+	{
+		string msg = "[MOTION] pathfail bot=" + bot.GetName() + " pos=" + pos;
+		msg = msg + " goal=" + m_Goal;
+		msg = msg + " reason=" + reason;
+		dmBotLog.Debug("", msg);
+	}
+#endif
+
 	//! Normal steering: proactive door check, goal re-derive, steer toward the
 	//! current waypoint, per-waypoint progress monitor and stuck resolution.
 	void TickMove(dmAISurvivor bot, float pDt)
 	{
+		#ifdef DM_BOT_DEBUG_MOTION
+		TickMotionStallOracle(bot, pDt);
+		TickMotionFallFearOracle(bot, pDt);
+		#endif
+
 		m_DoorCheckAccum += pDt;
 		if (m_DoorCheckAccum >= DM_DOOR_CHECK_INTERVAL)
 		{
@@ -902,6 +1047,10 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (ShouldLogNoPath("stuck:" + m_Goal.ToString()))
 			dmBotLog.Error(bot.GetName(), "MoveTo: застрял на пути к " + m_Goal + ", abort");
+		#ifdef DM_BOT_DEBUG_MOTION
+		if (ShouldLogMotionPathfail("nopath:" + bot.GetName()))
+			LogMotionPathFail(bot, "nopath", bot.GetPosition());
+		#endif
 		Fail();
 		return false;
 	}
