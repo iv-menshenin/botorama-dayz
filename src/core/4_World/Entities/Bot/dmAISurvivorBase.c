@@ -2935,7 +2935,7 @@ class dmAISurvivorBase : PlayerBase
 		if (climbType == -1)
 		{
 			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug(GetCachedName(), "[Bot] TryVaultClimb: height=" + res.m_fClimbHeight + " out of range, abort");
+			dmBotLog.Debug(GetCachedName(), "[Bot] TryVaultClimb: height=" + res.m_fClimbHeight + " >= DM_CLIMB_MAX_HEIGHT, отказ (крыша/высокая стена)");
 			#endif
 			return false;
 		}
@@ -2956,7 +2956,7 @@ class dmAISurvivorBase : PlayerBase
 			return 0;
 		if (pHeight < 1.7)
 			return 1;
-		if (pHeight < 2.75)
+		if (pHeight < DM_CLIMB_MAX_HEIGHT)
 			return 2;
 		return -1;
 	}

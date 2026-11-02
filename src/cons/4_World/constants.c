@@ -317,6 +317,11 @@ static const float DM_LADDER_APPROACH_TIME = 5.0;
 //! IsClimbing() — gives the climb command time to become active.
 static const float DM_VAULT_GRACE = 1.0;
 
+//! Max obstacle height (meters) the bot will climb over. Above this (roofs ~2.5 m,
+//! high walls) the climb is rejected — the bot only vaults/climbs human-scale
+//! fences (1.7–2.0 m) and steps over low obstacles.
+static const float DM_CLIMB_MAX_HEIGHT = 2.0;
+
 //! Time (seconds) the bot steps back/sideways per stuck-recovery attempt before
 //! re-routing.
 static const float DM_MOVE_RECOVER_TIME = 1.0;
