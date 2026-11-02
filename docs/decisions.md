@@ -692,3 +692,25 @@ CRITICAL), чтобы не упираться в потолок. После пр
 Почему: эмпирически `sorted=false` → ближайший первым, `sorted=true` → дальний первым; это рабочее,
 но хрупкое поведение. История восстановлена по git (см. `docs/research/ladder-reverse-descent-history.md`).
 Действует пока: используется `RaycastRVProxy` с выбором `hits[0]`; при рефакторинге держать `sorted=false`.
+
+### spawn: безопасная точка — SurfaceY → навмеш без воды → не под Building
+Решение: `dmBotPathfinder.FindSafeNavmeshPoint(x,z,maxDist,out point)` = земля по `SurfaceY` →
+`SampleNavmeshPosition` (sample-фильтр теперь исключает `SWIM|SWIM_SEA`, как и путевой) →
+`IsPointUnderBuilding` (райкаст вверх 5 м, `IsInherited(Building)`). `RollSpawnPosition` ретраит
+до `DM_SPAWN_SAFE_RETRIES=20`, фолбэк — `SnapToGround` (SurfaceY).
+Почему: sample-фильтр пропускал воду (в отличие от путевого) → боты спавнились на водный навмеш
+реки «Sefid Darya» (y≈0) и гибли от переохлаждения. Проверка `Building` (не `House`, не `Container`)
+ловит вреки машин/бетон, в которых бот мог застрять.
+Действует пока: `DM_SPAWN_SAFE_PROBE_HEIGHT=5.0` и класс `Building` покрывают статику; контейнеры
+(`Container_Base`) осознанно не проверяются (ящики/сундуки — не «структуры»).
+
+### sea-rescue: детекция «в море» по y<0.1 + телепорт на берег (самолечение)
+Решение: `CheckSeaRescue()` (троттлинг 1 с) при `pos[1] < 0.1` (и не в машине/не на лестнице) ищет
+берег `FindSafeNavmeshPoint` радиусами 8→32→128→256 (×4) и телепортирует (`SetPosition`) на точку
+с `y > 10`. После телепорта НИЧЕГО не делает — бот сам выходит через stuck-детект
+(`DM_MOVE_STUCK_TIME=0.5с` → `ResolveStuck` → `Fail`) и `dmBotState_Travel` на `IsFailed()` → EXIT в Exploration.
+Почему: «человеческая модель» — не лечим бота вручную, даём штатному механизму выйти; это заодно
+обнажает самовосстановление (а не маскирует). Абсолютный порог y<0.1 (не `IsInWater`) — по наблюдению
+заказчика «падение в великое море» = y≈0.
+Действует пока: «море» = y≈0 (речные каньоны Nasdara, напр. Sefid Darya); высокогорные озёра
+(y≈147/325) под порог НЕ попадают — отдельный кейс, вне скоупа.
