@@ -37,6 +37,9 @@ class dmAISurvivor
 	//! Аккумулятор автосохранения (с).
 	private float m_SaveAccum;
 
+	//! Аккумулятор троттлинга детекции моря (с).
+	private float m_SeaRescueAccum = 0.0;
+
 	//! The pawn (visual/physical body) in the world. null until Spawn().
 	private dmAISurvivorBase m_Pawn;
 	
@@ -549,6 +552,15 @@ class dmAISurvivor
 		if (m_Pawn.IsUnconscious())
 			return;
 
+		//! Детекция «бот в море» (троттлинг DM_SEA_RESCUE_INTERVAL) — телепорт-спасение
+		//! на берег, если y < DM_SEA_RESCUE_Y.
+		m_SeaRescueAccum = m_SeaRescueAccum + pDt;
+		if (m_SeaRescueAccum >= DM_SEA_RESCUE_INTERVAL)
+		{
+			m_SeaRescueAccum = 0.0;
+			CheckSeaRescue();
+		}
+
 		//! Таймер держания предмета в руках вне боя: по истечении освободить руки
 		//! (dmLoot.FreeHands кладёт предмет в слот/рюкзак, НЕ дропает). Пауза в бою.
 		EntityAI inHands = m_Pawn.GetItemInHands();
@@ -669,6 +681,53 @@ class dmAISurvivor
 		if (m_Pawn.GetAiming().IsEnabled())
 			m_Pawn.GetAiming().OnUpdate(pDt);
 		UpdateLook(pDt);
+	}
+
+	//! Детекция «бот в море» (y < DM_SEA_RESCUE_Y) и телепорт-спасение на берег.
+	//! После SetPosition ничего не делаем: застрявший MoveTo сам разрешится
+	//! (DM_MOVE_STUCK_TIME → ResolveStuck → TryAbortOrRepath → Fail, а
+	//! dmBotState_Travel на IsFailed() сделает RememberLocation + EXIT в Exploration).
+	void CheckSeaRescue()
+	{
+		if (!m_Pawn || !m_Pawn.IsAlive())
+			return;
+		if (m_Pawn.IsInVehicle() || m_Pawn.IsClimbingLadder())
+			return;
+
+		vector pos = m_Pawn.GetPosition();
+		if (pos[1] >= DM_SEA_RESCUE_Y)
+			return;
+
+		#ifdef DM_BOT_DEBUG_PAWN
+		dmBotLog.Debug(GetName(), "[Rescue] бот в море: pos=" + pos);
+		#endif
+
+		//! Ищем берег нарастающим радиусом (река может быть широкой).
+		dmBotPathfinder pathfinder = new dmBotPathfinder();
+		vector point;
+		float radii[4];
+		radii[0] = 8.0;
+		radii[1] = 32.0;
+		radii[2] = 128.0;
+		radii[3] = 256.0;
+		int i;
+		for (i = 0; i < 4; i++)
+		{
+			if (pathfinder.FindSafeNavmeshPoint(pos[0], pos[2], radii[i], point))
+				break;
+		}
+		if (i >= 4)
+			return;
+
+		#ifdef DM_BOT_DEBUG_PAWN
+		dmBotLog.Debug(GetName(), "[Rescue] берег найден: point=" + point);
+		#endif
+
+		if (point[1] < DM_SEA_RESCUE_MIN_ALT)
+			return;
+
+		m_Pawn.SetPosition(point);
+		dmBotLog.Error(GetName(), "[Rescue] бот спасён из моря: " + pos + " -> " + point);
 	}
 
 	//------------------------------------------------------------------
