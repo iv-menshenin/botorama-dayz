@@ -1156,8 +1156,11 @@ class dmBotIntent_MoveTo : dmBotIntent
 		}
 	}
 
-	//! Fall-safety (троттлинг DM_FALL_CHECK_INTERVAL): дешёвая предпроверка SurfaceY,
-	//! при перепаде — 3 луча вниз. Ставит m_NoGroundAhead.
+	//! Fall-safety (троттлинг DM_FALL_CHECK_INTERVAL): навмеш-проверка «есть ли
+	//! проходимый навмеш впереди на уровне подцели». Террейн (SurfaceY) и коллизия
+	//! (GroundRay) слепы к навмеш-only декам — крыша, выходящая за физическую кромку
+	//! (Land_House_1M2), давала ложный «обрыв» и livelock fallfear+stall. Навмеш-сэмпл
+	//! видит и «висячий дек» (walkable), и настоящий обрыв (навмеша нет / резко ниже).
 	void UpdateFallSafety(dmAISurvivor bot, float pDt)
 	{
 		//! Обход fall-safety на спуске: m_Descending намеренно ведёт бота за край —
@@ -1188,34 +1191,17 @@ class dmBotIntent_MoveTo : dmBotIntent
 		moveDir.Normalize();
 
 		vector ahead = subGoal + moveDir * DM_FALL_CHECK_AHEAD;
-		float surfaceY = GetGame().SurfaceY(ahead[0], ahead[2]);
-		if (Math.AbsFloat(surfaceY - subGoal[1]) <= DM_FALL_SURFACE_EPS)
-		{
-			m_NoGroundAhead = false;
-			return;
-		}
 
-		m_NoGroundAhead = !HasGroundAhead(bot, subGoal, moveDir);
-	}
+		EnsurePathFilter();
+		vector sampled;
+		bool groundAhead = false;
+		if (g_Game.GetWorld().GetAIWorld().SampleNavmeshPosition(ahead, DM_MOVE_GROUND_PROBE_RADIUS, m_PathFilter, sampled))
+			groundAhead = subGoal[1] - sampled[1] <= DM_FALL_SURFACE_EPS;
+		m_NoGroundAhead = !groundAhead;
 
-	//! 3 луча вниз (−45°, 0°, +45° от moveDir). true = земля есть во всех направлениях.
-	bool HasGroundAhead(dmAISurvivor bot, vector basePoint, vector moveDir)
-	{
-		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
-		if (!pawn)
-			return true;
-
-		float c45 = 0.707106781;
-		vector dirL = Vector(moveDir[0] * c45 + moveDir[2] * c45, 0.0, -moveDir[0] * c45 + moveDir[2] * c45);
-		vector dirR = Vector(moveDir[0] * c45 - moveDir[2] * c45, 0.0, moveDir[0] * c45 + moveDir[2] * c45);
-
-		if (!GroundRay(pawn, basePoint + moveDir * DM_FALL_CHECK_AHEAD))
-			return false;
-		if (!GroundRay(pawn, basePoint + dirL * DM_FALL_CHECK_AHEAD))
-			return false;
-		if (!GroundRay(pawn, basePoint + dirR * DM_FALL_CHECK_AHEAD))
-			return false;
-		return true;
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug(bot.GetName(), "[PATH] FallSafety navmesh ahead=" + ahead + " sampled=" + sampled + " ok=" + groundAhead);
+		#endif
 	}
 
 	//! Луч вниз из точки: есть ли поверхность в пределах DM_FALL_DANGER_DROP.
@@ -1757,39 +1743,46 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 	ref PGFilter m_PathFilter;
 
+	//! Ленивая сборка m_PathFilter (общий фильтр ходьбы): создаёт PGFilter один раз
+	//! и настраивает флаги/стоимости. Используется IsPointOnNavMesh и UpdateFallSafety.
+	void EnsurePathFilter()
+	{
+		if (m_PathFilter)
+			return;
+
+		m_PathFilter = new PGFilter();
+		int include = PGPolyFlags.UNREACHABLE | PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.DISABLED | PGPolyFlags.LADDER;
+		int exclude = PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH;
+		int exclusive = PGPolyFlags.NONE;
+
+		m_PathFilter.SetCost(PGAreaType.LADDER, 1.0);
+		m_PathFilter.SetCost(PGAreaType.CRAWL, 10.0);
+		m_PathFilter.SetCost(PGAreaType.CROUCH, 10.0);
+		m_PathFilter.SetCost(PGAreaType.FENCE_WALL, 5.0);  //! Vault
+		m_PathFilter.SetCost(PGAreaType.JUMP, 10.0);  //! Climb
+		m_PathFilter.SetCost(PGAreaType.WATER, 5.0);
+		m_PathFilter.SetCost(PGAreaType.WATER_DEEP, 10.0);
+		m_PathFilter.SetCost(PGAreaType.WATER_SEA, 5.0);
+		m_PathFilter.SetCost(PGAreaType.WATER_SEA_DEEP, 10.0);
+
+		m_PathFilter.SetCost(PGAreaType.DOOR_CLOSED, 4.0);
+		m_PathFilter.SetCost(PGAreaType.DOOR_OPENED, 10000.0);
+
+		m_PathFilter.SetCost(PGAreaType.ROADWAY, 4.0);
+		m_PathFilter.SetCost(PGAreaType.TREE, 1.0);
+
+		m_PathFilter.SetCost(PGAreaType.OBJECTS_NOFFCON, 5.0);
+		m_PathFilter.SetCost(PGAreaType.OBJECTS, 5.0);
+		m_PathFilter.SetCost(PGAreaType.TERRAIN, 4.0);
+		m_PathFilter.SetCost(PGAreaType.BUILDING, 4.0);
+		m_PathFilter.SetCost(PGAreaType.ROADWAY_BUILDING, 1.0);
+
+		m_PathFilter.SetFlags(include, exclude, exclusive);
+	}
+
     bool IsPointOnNavMesh(vector point)
     {
-		if (!m_PathFilter)
-		{
-			m_PathFilter = new PGFilter();
-			int include = PGPolyFlags.UNREACHABLE | PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.DISABLED | PGPolyFlags.LADDER;
-			int exclude = PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH;
-			int exclusive = PGPolyFlags.NONE;
-
-			m_PathFilter.SetCost(PGAreaType.LADDER, 1.0);
-			m_PathFilter.SetCost(PGAreaType.CRAWL, 10.0);
-			m_PathFilter.SetCost(PGAreaType.CROUCH, 10.0);
-			m_PathFilter.SetCost(PGAreaType.FENCE_WALL, 5.0);  //! Vault
-			m_PathFilter.SetCost(PGAreaType.JUMP, 10.0);  //! Climb
-			m_PathFilter.SetCost(PGAreaType.WATER, 5.0);
-			m_PathFilter.SetCost(PGAreaType.WATER_DEEP, 10.0);
-			m_PathFilter.SetCost(PGAreaType.WATER_SEA, 5.0);
-			m_PathFilter.SetCost(PGAreaType.WATER_SEA_DEEP, 10.0);
-
-			m_PathFilter.SetCost(PGAreaType.DOOR_CLOSED, 4.0);
-			m_PathFilter.SetCost(PGAreaType.DOOR_OPENED, 10000.0);
-
-			m_PathFilter.SetCost(PGAreaType.ROADWAY, 4.0);
-			m_PathFilter.SetCost(PGAreaType.TREE, 1.0);
-
-			m_PathFilter.SetCost(PGAreaType.OBJECTS_NOFFCON, 5.0);
-			m_PathFilter.SetCost(PGAreaType.OBJECTS, 5.0);
-			m_PathFilter.SetCost(PGAreaType.TERRAIN, 4.0);
-			m_PathFilter.SetCost(PGAreaType.BUILDING, 4.0);
-			m_PathFilter.SetCost(PGAreaType.ROADWAY_BUILDING, 1.0);
-
-			m_PathFilter.SetFlags(include, exclude, exclusive);
-		}
+		EnsurePathFilter();
 
 		//! Ground probe: find the closest navmesh point within a small radius.
 		//! RaycastNavMesh detects navmesh EDGES (polygon boundaries), NOT the flat
