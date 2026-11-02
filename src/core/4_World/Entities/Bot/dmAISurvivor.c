@@ -702,21 +702,21 @@ class dmAISurvivor
 		dmBotLog.Debug(GetName(), "[Rescue] бот в море: pos=" + pos);
 		#endif
 
-		//! Ищем берег нарастающим радиусом (река может быть широкой).
+		//! Ищем берег нарастающим радиусом ×4 (река может быть широкой).
 		dmBotPathfinder pathfinder = new dmBotPathfinder();
 		vector point;
-		float radii[4];
-		radii[0] = 8.0;
-		radii[1] = 32.0;
-		radii[2] = 128.0;
-		radii[3] = 256.0;
-		int i;
-		for (i = 0; i < 4; i++)
+		float radius = DM_SEA_RESCUE_RADIUS_MIN;
+		bool found = false;
+		for (int step = 0; step < DM_SEA_RESCUE_RADIUS_STEPS; step++)
 		{
-			if (pathfinder.FindSafeNavmeshPoint(pos[0], pos[2], radii[i], point))
+			if (pathfinder.FindSafeNavmeshPoint(pos[0], pos[2], radius, point))
+			{
+				found = true;
 				break;
+			}
+			radius *= DM_SEA_RESCUE_RADIUS_STEP;
 		}
-		if (i >= 4)
+		if (!found)
 			return;
 
 		#ifdef DM_BOT_DEBUG_PAWN

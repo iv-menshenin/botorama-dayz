@@ -419,6 +419,12 @@ static const float DM_SEA_RESCUE_Y           = 0.1;
 static const float DM_SEA_RESCUE_MIN_ALT     = 10.0;
 //! Море: троттлинг детекции (с).
 static const float DM_SEA_RESCUE_INTERVAL    = 1.0;
+//! Море: стартовый радиус поиска берега (м).
+static const float DM_SEA_RESCUE_RADIUS_MIN   = 8.0;
+//! Море: множитель роста радиуса поиска (м на шаг, ×4).
+static const float DM_SEA_RESCUE_RADIUS_STEP  = 4.0;
+//! Море: число шагов роста радиуса поиска берега.
+static const int   DM_SEA_RESCUE_RADIUS_STEPS = 4;
 //! Delay (ms) before a House registers itself, so the building has a valid position
 //! by the time the registry reads it (in the constructor it is still (0,0,0)).
 static const int DM_HOUSE_REGISTER_DELAY_MS = 1000;
