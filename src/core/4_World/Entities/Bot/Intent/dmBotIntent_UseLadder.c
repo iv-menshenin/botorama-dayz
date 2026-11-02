@@ -4,9 +4,9 @@
 //! command (HumanCommandLadder) takes over locomotion, so the MoveTo that spawned
 //! it is dormant. Lifecycle: approach the entry point -> attach (StartCommand_Ladder)
 //! -> climb/descend -> detach at the exit point (CanExit/Exit). The entry point is
-//! a model-space point on the ladder (m_Bottom/m_Top) converted to world space via
-//! Building.ModelToWorld. m_Direction is +1 up (enter at the bottom), -1 down
-//! (enter at the top).
+//! the nearest ladder _con vertex to the bot (GetEntryWorld), not necessarily the
+//! bottom/top — on an intermediate platform the bot attaches at its own level.
+//! m_Direction is +1 up (enter at the bottom), -1 down (enter at the top).
 class dmBotIntent_UseLadder : dmBotIntent
 {
 	Building m_Building;
@@ -35,12 +35,12 @@ class dmBotIntent_UseLadder : dmBotIntent
 		return "UseLadder";
 	}
 
-	void UpdateEntry()
+	//! Точка входа — ближайшая к боту вершина _con (или синтез-проекция для вышки
+	//! из 2 вершин), а не крайние m_Bottom/m_Top: на промежуточной платформе бот
+	//! должен прицепиться на уровне бота.
+	void UpdateEntry(vector botPos)
 	{
-		vector modelEntry = m_Ladder.m_Bottom;
-		if (m_Direction < 0)
-			modelEntry = m_Ladder.m_Top;
-		m_Entry = m_Building.ModelToWorld(modelEntry);
+		m_Entry = m_Ladder.GetEntryWorld(m_Building, botPos);
 	}
 
 	override void OnStart(dmAISurvivor bot)
@@ -60,7 +60,7 @@ class dmBotIntent_UseLadder : dmBotIntent
 			return;
 		}
 
-		UpdateEntry();
+		UpdateEntry(bot.GetPosition());
 
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug(bot.GetName(), "[Ladder] UseLadder.start building=" + m_Building + " dir=" + m_Direction + " entry=" + m_Entry);
@@ -81,13 +81,11 @@ class dmBotIntent_UseLadder : dmBotIntent
 			flatDir[1] = 0.0;
 			float dist = dir.Length();
 
-			//! Точка направления входа/выхода (model-space → world): к ней разворачиваем
-			//! корпус, чтобы нативная HumanCommandLadder.Exit() выпустила бота с верной
-			//! стороны лестницы.
-			vector dirPointModel = m_Ladder.m_BottomDir;
-			if (m_Direction < 0)
-				dirPointModel = m_Ladder.m_TopDir;
-			vector dirPoint = m_Building.ModelToWorld(dirPointModel);
+			//! Точка направления входа/выхода (world): к ней разворачиваем корпус,
+			//! чтобы нативная HumanCommandLadder.Exit() выпустила бота с верной
+			//! стороны лестницы. Парная точке входа (по близости, как у ванили) —
+			//! для промежуточной платформы это dir именно этой вершины, а не края.
+			vector dirPoint = m_Ladder.GetDirWorld(m_Building, m_Entry);
 
 			//! Яу направления входа/выхода: считаем один раз — нужен и на подходе, и при привязке.
 			vector dirToPoint = dirPoint - pos;

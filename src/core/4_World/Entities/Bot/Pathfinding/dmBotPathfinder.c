@@ -256,29 +256,47 @@ class dmBotPathfinder
 			vector bottom = building.ModelToWorld(ladder.m_Bottom);
 			vector top = building.ModelToWorld(ladder.m_Top);
 
-			float dBottom = Math.AbsFloat(bottom[1] - last[1]);
-			float dTop = Math.AbsFloat(top[1] - last[1]);
+			float botY = last[1];
+			float minY = Math.Min(bottom[1], top[1]);
+			float maxY = Math.Max(bottom[1], top[1]);
+
+			float dBottom = Math.AbsFloat(bottom[1] - botY);
+			float dTop = Math.AbsFloat(top[1] - botY);
 
 			#ifdef DM_BOT_DEBUG_PATHFINDER
 			dmBotLog.Debug("", "[PATH] FindRoute ladder i=" + ladder.m_Index + " dBottom=" + dBottom + " dTop=" + dTop);
 			#endif
 
-			if (Math.Min(dBottom, dTop) > DM_FALL_DANGER_DROP)
+			//! Level-gate: НЕ skip, если лестница охватывает уровень бота (проходит
+			//! сквозь платформу многоярусной вышки), либо один из концов близко
+			//! (обычный подъём/спуск с навмеша).
+			if (botY <= minY || botY >= maxY)
 			{
-				#ifdef DM_BOT_DEBUG_PATHFINDER
-				dmBotLog.Debug("", "[PATH] FindRoute ladder i=" + ladder.m_Index + " skip (level gate)");
-				#endif
-				continue;
+				if (Math.Min(dBottom, dTop) > DM_FALL_DANGER_DROP)
+				{
+					#ifdef DM_BOT_DEBUG_PATHFINDER
+					dmBotLog.Debug("", "[PATH] FindRoute ladder i=" + ladder.m_Index + " skip (level gate)");
+					#endif
+					continue;
+				}
 			}
 
-			vector near = bottom;
+			//! near — точка входа на уровне бота (ближайшая вершина _con или синтез),
+			//! far — противоположный конец по направлению движения к цели (dir).
+			vector near = ladder.GetEntryWorld(building, last);
 			vector far = top;
-			int ladderDir = 1;
-			if (dTop < dBottom)
-			{
-				near = top;
+			if (dir < 0)
 				far = bottom;
-				ladderDir = -1;
+			int ladderDir = dir;
+
+			//! Вырожденный случай: точка входа совпадает с дальним концом (бот уже
+			//! у края, а dir указывает в ту же сторону) — лестница бесполезна.
+			if (Math.AbsFloat(far[1] - near[1]) < 0.01)
+			{
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug("", "[PATH] FindRoute ladder i=" + ladder.m_Index + " skip (near==far)");
+				#endif
+				continue;
 			}
 
 			#ifdef DM_BOT_DEBUG_PATHFINDER

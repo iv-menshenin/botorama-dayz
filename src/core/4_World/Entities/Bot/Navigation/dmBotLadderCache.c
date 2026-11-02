@@ -12,7 +12,10 @@
 //! парсинг выполняется один раз на тип.
 
 //! Одна лестница здания: индекс для StartCommand_Ladder, тип анимации и
-//! точки входа (низ/верх в model-space, отсортированы по высоте Y).
+//! точки входа в model-space. m_Vertices/m_VertDirs — ВСЕ вершины selections
+//! "ladderN_con"/"ladderN_con_dir" (по одной на ярус многоярусной вышки),
+//! отсортированы по высоте Y; m_Bottom/m_Top/m_BottomDir/m_TopDir — мин/макс
+//! (совместимость с прежним кодом), заполняются из полного списка.
 class dmBotLadder
 {
 	int m_Index;
@@ -21,6 +24,74 @@ class dmBotLadder
 	vector m_Top;
 	vector m_BottomDir;   // направление входа/выхода у нижней точки
 	vector m_TopDir;      // направление входа/выхода у верхней точки
+	ref array<vector> m_Vertices;   // все вершины _con (model-space), по Y
+	ref array<vector> m_VertDirs;   // все вершины _con_dir (model-space), по Y
+
+	//! Точка входа лестницы (world-space) на уровне worldPos: ближайшая вершина
+	//! _con по Y. Если она дальше DM_FALL_DANGER_DROP по вертикали, но worldPos[1]
+	//! внутри [bottomY, topY] — синтезируем проекцию worldPos на прямую лестницы
+	//! (вышка, смоделированная 2 вершинами без промежуточной точки входа).
+	vector GetEntryWorld(Building building, vector worldPos)
+	{
+		vector entry = vector.Zero;
+		ref array<vector> verts = m_Vertices;
+		if (verts && verts.Count() > 0)
+		{
+			vector bestWorld = building.ModelToWorld(verts[0]);
+			float bestDy = Math.AbsFloat(bestWorld[1] - worldPos[1]);
+			int vi;
+			for (vi = 1; vi < verts.Count(); vi++)
+			{
+				vector w = building.ModelToWorld(verts[vi]);
+				float dy = Math.AbsFloat(w[1] - worldPos[1]);
+				if (dy < bestDy)
+				{
+					bestDy = dy;
+					bestWorld = w;
+				}
+			}
+			if (bestDy <= DM_FALL_DANGER_DROP)
+				return bestWorld;
+		}
+		vector bottom = building.ModelToWorld(m_Bottom);
+		vector top = building.ModelToWorld(m_Top);
+		float span = top[1] - bottom[1];
+		if (Math.AbsFloat(span) < 0.001)
+			return bottom;
+		float t = (worldPos[1] - bottom[1]) / span;
+		entry = bottom + (top - bottom) * t;
+		return entry;
+	}
+
+	//! Направление входа/выхода (world-space), парное точке entryWorld: ближайшая
+	//! вершина _con_dir по дистанции (парность по близости, как у ванили).
+	vector GetDirWorld(Building building, vector entryWorld)
+	{
+		vector dirPoint = vector.Zero;
+		ref array<vector> dirs = m_VertDirs;
+		if (dirs && dirs.Count() > 0)
+		{
+			vector bestWorld = building.ModelToWorld(dirs[0]);
+			float bestDist = vector.DistanceSq(bestWorld, entryWorld);
+			int vi;
+			for (vi = 1; vi < dirs.Count(); vi++)
+			{
+				vector w = building.ModelToWorld(dirs[vi]);
+				float d = vector.DistanceSq(w, entryWorld);
+				if (d < bestDist)
+				{
+					bestDist = d;
+					bestWorld = w;
+				}
+			}
+			dirPoint = bestWorld;
+		}
+		else
+		{
+			dirPoint = building.ModelToWorld(m_BottomDir);
+		}
+		return dirPoint;
+	}
 }
 
 class dmBotLadderCache
@@ -115,6 +186,11 @@ class dmBotLadderCache
 			dmBotLadder lad = ladders[i];
 			dmBotLog.Debug("", "[Ladder] index=" + lad.m_Index + " type=" + lad.m_Type);
 			dmBotLog.Debug("", "[Ladder] bottom=" + lad.m_Bottom + " top=" + lad.m_Top);
+			string ys = "";
+			int vi;
+			for (vi = 0; vi < lad.m_Vertices.Count(); vi++)
+				ys = ys + lad.m_Vertices[vi][1] + ",";
+			dmBotLog.Debug("", "[Ladder] index=" + lad.m_Index + " vertices=" + lad.m_Vertices.Count() + " y=" + ys);
 		}
 		#endif
 
@@ -160,61 +236,65 @@ class dmBotLadderCache
 		return -1;
 	}
 
-	//! Собирает вершины selection'а "_con" в точки входа лестницы, сортируя по Y
-	//! (младшая Y — низ, старшая — верх). Позиции остаются в model-space.
+	//! Собирает ВСЕ вершины selection'а "_con" в точки входа лестницы. Вершины с
+	//! GetLODVertexIndex == -1 пропускаем (ванильная готча: GetVertexPosition при
+	//! -1 вернёт vector.Zero и сорвёт min/max). Массив сортируется по Y (младшая —
+	//! низ), min/max выставляются в m_Bottom/m_Top. Позиции в model-space.
 	private void CollectConVertices(Selection selection, LOD memory, dmBotLadder ladder)
 	{
-		int count = 0;
-		vector bottom;
-		vector top;
+		ladder.m_Vertices = new array<vector>;
 		int j;
 		for (j = 0; j < selection.GetVertexCount(); j++)
 		{
-			vector vertex = selection.GetVertexPosition(memory, j);
-			if (count == 0)
-			{
-				bottom = vertex;
-				top = vertex;
-				count = 1;
+			if (selection.GetLODVertexIndex(j) < 0)
 				continue;
-			}
-			if (vertex[1] < bottom[1])
-				bottom = vertex;
-			if (vertex[1] > top[1])
-				top = vertex;
+			vector vertex = selection.GetVertexPosition(memory, j);
+			ladder.m_Vertices.Insert(vertex);
 		}
-		if (count == 0)
+		if (ladder.m_Vertices.Count() == 0)
 			return;
-		ladder.m_Bottom = bottom;
-		ladder.m_Top = top;
+		SortByY(ladder.m_Vertices);
+		ladder.m_Bottom = ladder.m_Vertices[0];
+		ladder.m_Top = ladder.m_Vertices[ladder.m_Vertices.Count() - 1];
 	}
 
-	//! Собирает вершины selection'а "_con_dir" в направления входа/выхода лестницы,
-	//! сортируя по Y (младшая Y — низ, старшая — верх). Позиции остаются в model-space.
+	//! Собирает ВСЕ вершины selection'а "_con_dir" в направления входа/выхода.
+	//! Фильтр GetLODVertexIndex и сортировка — как в CollectConVertices.
 	private void CollectConDirVertices(Selection selection, LOD memory, dmBotLadder ladder)
 	{
-		int count = 0;
-		vector bottom;
-		vector top;
+		ladder.m_VertDirs = new array<vector>;
 		int j;
 		for (j = 0; j < selection.GetVertexCount(); j++)
 		{
-			vector vertex = selection.GetVertexPosition(memory, j);
-			if (count == 0)
-			{
-				bottom = vertex;
-				top = vertex;
-				count = 1;
+			if (selection.GetLODVertexIndex(j) < 0)
 				continue;
-			}
-			if (vertex[1] < bottom[1])
-				bottom = vertex;
-			if (vertex[1] > top[1])
-				top = vertex;
+			vector vertex = selection.GetVertexPosition(memory, j);
+			ladder.m_VertDirs.Insert(vertex);
 		}
-		if (count == 0)
+		if (ladder.m_VertDirs.Count() == 0)
 			return;
-		ladder.m_BottomDir = bottom;
-		ladder.m_TopDir = top;
+		SortByY(ladder.m_VertDirs);
+		ladder.m_BottomDir = ladder.m_VertDirs[0];
+		ladder.m_TopDir = ladder.m_VertDirs[ladder.m_VertDirs.Count() - 1];
+	}
+
+	//! Сортирует вершины по возрастанию Y (insertion sort; число вершин мало).
+	private void SortByY(array<vector> verts)
+	{
+		int n = verts.Count();
+		int a;
+		int b;
+		vector key;
+		for (a = 1; a < n; a++)
+		{
+			key = verts[a];
+			b = a - 1;
+			while (b >= 0 && verts[b][1] > key[1])
+			{
+				verts[b + 1] = verts[b];
+				b = b - 1;
+			}
+			verts[b + 1] = key;
+		}
 	}
 }
