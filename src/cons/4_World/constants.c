@@ -285,6 +285,17 @@ static const float DM_DOOR_OPEN_TIMEOUT = 3.0;
 //! Stepback (before door opening) speed.
 static const float DM_DOOR_OPEN_STEPBACK_SPEED = 2.0;
 
+//! Gap pause (seconds) the bot halts before opening a door, so its forward
+//! momentum decays before the door swings (see dmBotIntent_OpenDoor phase 0).
+static const float DM_DOOR_GAP_PAUSE = 0.2;
+
+//! Door-press recovery: time (seconds) the bot walks forward at sprint after
+//! closing a door that pinned it (see dmBotIntent_MoveTo TickDoorRecover).
+static const float DM_DOOR_RECOVER_TIME = 1.0;
+
+//! Door-press recovery forward speed (movement index: 1=walk, 2=jog, 3=sprint).
+static const float DM_DOOR_RECOVER_SPEED = 3.0;
+
 //! Distance (meters) to the ladder entry point at which the bot attaches to the
 //! ladder (starts climbing).
 static const float DM_LADDER_ATTACH_DIST = 2.0;

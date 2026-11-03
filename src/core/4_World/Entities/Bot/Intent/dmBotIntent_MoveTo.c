@@ -56,6 +56,11 @@ class dmBotIntent_MoveTo : dmBotIntent
 	int m_DetourCount = 0;
 	float m_DetourDir = 90.0;
 
+	//! Door-press recovery: an open door pinned the bot — closed it, then a
+	//! forward sprint burst to clear the doorway, then re-route.
+	bool m_DoorRecovering = false;
+	float m_DoorRecoverTimer = 0.0;
+
 	bool m_SteppingBack = false;    // отходим назад от края (fall-safe)
 	float m_StepBackTimer = 0.0;
 	bool m_StepBackDone = false;    // уже отходили один раз (без зацикливания)
@@ -345,6 +350,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 
 		if (m_Recovering) { TickRecover(bot, pDt); return; }
 		if (m_Detouring)  { TickDetour(bot, pDt);  return; }
+		if (m_DoorRecovering) { TickDoorRecover(bot, pDt); return; }
 		if (m_Vaulting)   { TickVault(bot, pDt);   return; }
 		if (m_Laddering)  { TickLadder(bot, pDt);  return; }
 		if (m_SteppingBack) { TickStepBack(bot, pDt); return; }
@@ -375,6 +381,36 @@ class dmBotIntent_MoveTo : dmBotIntent
 		{
 			if (ShouldLogNoPath("recover:" + m_Goal.ToString()))
 				dmBotLog.Error(bot.GetName(), "MoveTo: восстановление не помогло, путь к " + m_Goal + " недоступен, abort");
+			#ifdef DM_BOT_DEBUG_MOTION
+			if (ShouldLogMotionPathfail("nopath:" + bot.GetName()))
+				LogMotionPathFail(bot, "nopath", bot.GetPosition());
+			#endif
+			Fail();
+			return;
+		}
+
+		m_NoProgressTime = 0.0;
+	}
+
+	//! Door-press recovery: sprint forward for DM_DOOR_RECOVER_TIME, then re-route.
+	//! Runs while m_DoorRecovering is set (see ResolveStuck/TryCloseDoorAhead).
+	void TickDoorRecover(dmAISurvivor bot, float pDt)
+	{
+		m_DoorRecoverTimer -= pDt;
+		bot.IntentMove(0.0, DM_DOOR_RECOVER_SPEED);
+
+		if (m_DoorRecoverTimer > 0.0)
+			return;
+
+		m_DoorRecovering = false;
+		#ifdef DM_BOT_DEBUG_PATHFINDER
+		dmBotLog.Debug(bot.GetName(), "[PATH] RePath #008");
+		#endif
+		RePath(bot);
+		if (!m_HasPath && !IsContinuous())
+		{
+			if (ShouldLogNoPath("doorrecover:" + m_Goal.ToString()))
+				dmBotLog.Error(bot.GetName(), "MoveTo: закрыл дверь, но путь к " + m_Goal + " недоступен, abort");
 			#ifdef DM_BOT_DEBUG_MOTION
 			if (ShouldLogMotionPathfail("nopath:" + bot.GetName()))
 				LogMotionPathFail(bot, "nopath", bot.GetPosition());
@@ -879,6 +915,13 @@ class dmBotIntent_MoveTo : dmBotIntent
 			#endif
 			return;
 		}
+		if (TryCloseDoorAhead(bot))
+		{
+			#ifdef DM_BOT_DEBUG_PATHFINDER
+			dmBotLog.Debug(bot.GetName(), "[PATH] TryCloseDoorAhead pos=" + bot.GetPosition());
+			#endif
+			return;
+		}
 		if (TryVaultOrClimb(bot))
 		{
 			#ifdef DM_BOT_DEBUG_PATHFINDER
@@ -920,6 +963,18 @@ class dmBotIntent_MoveTo : dmBotIntent
 		if (!m_DoorCandidate || now > m_DoorCandidateUntil)
 			return false;
 		return bot.TryOpenDoorOnPath();
+	}
+
+	//! Close an OPEN door that pinned the bot and start a forward sprint recovery.
+	bool TryCloseDoorAhead(dmAISurvivor bot)
+	{
+		if (!bot.TryCloseDoorOnPath())
+			return false;
+
+		m_DoorRecovering = true;
+		m_DoorRecoverTimer = DM_DOOR_RECOVER_TIME;
+		m_NoProgressTime = 0.0;
+		return true;
 	}
 
 	bool m_FoolVaulted = false;

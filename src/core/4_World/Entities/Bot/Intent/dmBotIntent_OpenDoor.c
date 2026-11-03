@@ -2,9 +2,9 @@
 //!
 //! While it runs (EXCLUSIVE) it owns the MOVE channel, so parallel movement
 //! intents (MoveTo/FollowTo) go dormant and don't shove the bot into the door.
-//! Lifecycle: back away from the door to a safe distance (so the swinging door
-//! doesn't push the bot), then OpenDoor + hand animation, then wait until the
-//! door is fully open.
+//! Lifecycle: halt briefly so the bot's forward momentum decays (gap), back away
+//! from the door to a safe distance (so the swinging door doesn't push the bot),
+//! then OpenDoor + hand animation, then wait until the door is fully open.
 
 //! Trivial callback type for the door-open hand animation. The instance is created
 //! by Human.AddCommandModifier_Action(typename), so this is only a type marker. The
@@ -21,7 +21,7 @@ class dmBotIntent_OpenDoor : dmBotIntent
 	Building m_Building;
 	int m_DoorIdx;
 	vector m_StartPos;
-	int m_Phase;          // 0 = back away, 1 = wait for open
+	int m_Phase;          // 0 = gap halt, 1 = back away, 2 = wait for open
 	float m_PhaseTimer;
 	HumanCommandActionCallback m_ActionCB;
 
@@ -48,7 +48,7 @@ class dmBotIntent_OpenDoor : dmBotIntent
 		}
 
 		m_Phase = 0;
-		m_PhaseTimer = DM_DOOR_STEP_BACK_TIMEOUT;
+		m_PhaseTimer = DM_DOOR_GAP_PAUSE;
 		m_ActionCB = null;
 		m_StartPos = bot.GetPosition();
 	}
@@ -57,7 +57,21 @@ class dmBotIntent_OpenDoor : dmBotIntent
 	{
 		super.OnUpdate(bot, pDt);
 
+		//! Phase 0 — gap halt: issue no movement so the bot's forward momentum
+		//! decays to a stop before the door swings (prevents walking into it).
 		if (m_Phase == 0)
+		{
+			m_PhaseTimer -= pDt;
+			if (m_PhaseTimer <= 0.0)
+			{
+				m_Phase = 1;
+				m_PhaseTimer = DM_DOOR_STEP_BACK_TIMEOUT;
+				m_StartPos = bot.GetPosition();
+			}
+			return;
+		}
+
+		if (m_Phase == 1)
 		{
 			vector botPos = bot.GetPosition();
 			vector d = botPos - m_StartPos;
@@ -76,7 +90,7 @@ class dmBotIntent_OpenDoor : dmBotIntent
 				if (pawn && !pawn.GetCommandModifier_Action() && !pawn.GetCommand_Action())
 					m_ActionCB = pawn.AddCommandModifier_Action(DayZPlayerConstants.CMD_ACTIONMOD_OPENDOORFW, dmBotActionAnimCB);
 
-				m_Phase = 1;
+				m_Phase = 2;
 				m_PhaseTimer = DM_DOOR_OPEN_TIMEOUT;
 
 				#ifdef DM_BOT_DEBUG_FSM
