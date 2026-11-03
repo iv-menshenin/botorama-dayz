@@ -1270,6 +1270,11 @@ class dmAISurvivorBase : PlayerBase
 			UpdateUnconsciousBridge();
 		#endif
 
+		//! Пересчёт после бриджа: UpdateUnconsciousBridge мог стартануть/снять отключку в
+		//! этом же кадре, а canAct считался выше (до бриджа). Иначе на кадре нокаута/смерти
+		//! мотор срабатывает ещё один кадр («дёргается» после отключки).
+		canAct = CanAct();
+
 		if (!canAct)
 		{
 			ResetActuation();
@@ -1698,6 +1703,17 @@ class dmAISurvivorBase : PlayerBase
 		m_FireRequest = false;
 		m_MeleeAttackRequest = false;
 		m_MeleeTarget = null;
+
+		//! Полный сброс желаемого движения и мили: гарантия, что после отключки/смерти
+		//! никакой застывший флаг («назад», эвейд, поднятые руки) не «оживёт» ни в одном
+		//! код-пути. m_ActualSpeed уже 0; здесь гасим и желание, и флаг движения.
+		m_DesiredSpeed = 0.0;
+		m_DesiredMoveAngle = 0.0;
+		m_IsMoving = false;
+		m_MeleeEvadeRequest = false;
+		m_WeaponRaised = false;
+		if (m_VarRaised >= 0)
+			AnimSetBool(m_VarRaised, false);
 
 		if (m_VarLook >= 0)
 			AnimSetBool(m_VarLook, false);
