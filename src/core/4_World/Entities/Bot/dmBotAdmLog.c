@@ -141,6 +141,39 @@ class dmBotAdmLog
 		g_Game.AdminLog(msg);
 	}
 
+	//! Journal a bot spawn: name + world position.
+	static void LogSpawn(dmAISurvivorBase pawn)
+	{
+		if (!pawn)
+			return;
+
+		string name = pawn.GetCachedName();
+		vector pos = pawn.GetPosition();
+
+		string msg = "[bot:spawn] " + name + " pos=<" + pos[0] + ", " + pos[1];
+		msg = msg + ", " + pos[2] + ">";
+
+		g_Game.AdminLog(msg);
+	}
+
+	//! Journal a bot's transition to unconscious: name + position + HP + dropped item.
+	static void LogUnconscious(dmAISurvivorBase pawn, float hp, EntityAI droppedItem)
+	{
+		if (!pawn)
+			return;
+
+		string name = pawn.GetCachedName();
+		vector pos = pawn.GetPosition();
+
+		string msg = "[bot:uncon] " + name + " pos=<" + pos[0] + ", " + pos[1];
+		msg = msg + ", " + pos[2] + ">";
+		msg = msg + " hp=" + hp;
+		if (droppedItem)
+			msg = msg + " drop=" + droppedItem.GetType();
+
+		g_Game.AdminLog(msg);
+	}
+
 	private static string AddDisease(string diseases, string label)
 	{
 		if (diseases == "")

@@ -300,6 +300,10 @@ class dmAISurvivor
 		s_All.Insert(this);
 		s_ByPawn.Set(m_Pawn, this);
 
+		#ifdef SERVER
+		dmBotAdmLog.LogSpawn(m_Pawn);
+		#endif
+
 		#ifdef DM_BOT_DEBUG_SPAWN
 		dmBotLog.Debug(GetName(), "Spawn() OK pawn=" + pawn + " position=" + m_Pawn.GetPosition() + " orientation=" + m_Pawn.GetOrientation() + " total=" + s_All.Count());
 		#endif

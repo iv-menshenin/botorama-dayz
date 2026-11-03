@@ -1463,6 +1463,10 @@ class dmAISurvivorBase : PlayerBase
 					#endif
 				}
 
+				#ifdef SERVER
+				dmBotAdmLog.LogUnconscious(this, GetHealth("", "Health"), inHands);
+				#endif
+
 				#ifdef DM_BOT_DEBUG_BODY
 				DebugBodyState("uncon-enter-after");
 				dmBotLog.Debug(GetCachedName(), "UnconsciousBridge: shock=" + shock + " -> StartCommand_Unconscious(0)");
