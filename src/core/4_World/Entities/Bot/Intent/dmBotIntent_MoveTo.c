@@ -772,6 +772,23 @@ class dmBotIntent_MoveTo : dmBotIntent
 		dmBotLog.Debug(bot.GetName(), "[PATH] Иду к точке: subGoal=" + subGoal + " pos=" + pos + " reached=" + reached);
 		#endif
 
+		//! Снисходительный переход к лестнице: бот упирается в перила входа (0.245 м
+		//! при допуске 0.15) и не дотягивается до `reached`. Если следующий сегмент —
+		//! лестница и бот уже у конца текущего навмеш-сегмента (последняя точка m_Path),
+		//! спавним подъём/спуск по близости, не дожидаясь `reached`.
+		if (m_Route && m_RouteIdx + 1 < m_Route.Count() && m_Route[m_RouteIdx + 1].m_IsLadder && m_HasPath && m_Path && m_PathIdx == m_Path.Count() - 1)
+		{
+			float ladderDist = vector.Distance(pos, m_Path[m_Path.Count() - 1]);
+			if (ladderDist <= DM_LADDER_ATTACH_DIST)
+			{
+				#ifdef DM_BOT_DEBUG_PATHFINDER
+				dmBotLog.Debug(bot.GetName(), "[PATH] Лестница по близости: dist=" + ladderDist + " -> UseLadder (не по reached)");
+				#endif
+				SpawnLadder(bot);
+				return;
+			}
+		}
+
 		if ( reached )
 		{
 			if (m_HasPath && m_PathIdx < m_Path.Count() - 1)
@@ -787,13 +804,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			//! Конец navmesh-сегмента: если дальше по маршруту лестница — спавним подъём.
 			if (m_Route && m_RouteIdx + 1 < m_Route.Count() && m_Route[m_RouteIdx + 1].m_IsLadder)
 			{
-				dmBotRouteSegment ladderSeg = m_Route[m_RouteIdx + 1];
-				m_UseLadder = new dmBotIntent_UseLadder();
-				m_UseLadder.m_Building = ladderSeg.m_Building;
-				m_UseLadder.m_Ladder = ladderSeg.m_Ladder;
-				m_UseLadder.m_Direction = ladderSeg.m_Direction;
-				bot.AddPersonalityIntent(m_UseLadder);
-				m_Laddering = true;
+				SpawnLadder(bot);
 				return;
 			}
 
@@ -902,6 +913,21 @@ class dmBotIntent_MoveTo : dmBotIntent
 			ResolveStuck(bot);
 			return;
 		}
+	}
+
+	//! Спавн подъёма/спуска по лестнице: создать dmBotIntent_UseLadder из
+	//! следующего (лестничного) сегмента маршрута и пометить m_Laddering, пока
+	//! EXCLUSIVE-интент владеет телом. Вызывается как при `reached` (конец
+	//! навмеш-сегмента), так и при близости к последней точке сегмента.
+	void SpawnLadder(dmAISurvivor bot)
+	{
+		dmBotRouteSegment ladderSeg = m_Route[m_RouteIdx + 1];
+		m_UseLadder = new dmBotIntent_UseLadder();
+		m_UseLadder.m_Building = ladderSeg.m_Building;
+		m_UseLadder.m_Ladder = ladderSeg.m_Ladder;
+		m_UseLadder.m_Direction = ladderSeg.m_Direction;
+		bot.AddPersonalityIntent(m_UseLadder);
+		m_Laddering = true;
 	}
 
 	//! Decision cascade when the bot is stuck: door first, then vault/climb, then
@@ -1211,11 +1237,11 @@ class dmBotIntent_MoveTo : dmBotIntent
 		}
 	}
 
-	//! Fall-safety (троттлинг DM_FALL_CHECK_INTERVAL): навмеш-проверка «есть ли
-	//! проходимый навмеш впереди на уровне подцели». Террейн (SurfaceY) и коллизия
-	//! (GroundRay) слепы к навмеш-only декам — крыша, выходящая за физическую кромку
-	//! (Land_House_1M2), давала ложный «обрыв» и livelock fallfear+stall. Навмеш-сэмпл
-	//! видит и «висячий дек» (walkable), и настоящий обрыв (навмеша нет / резко ниже).
+	//! Fall-safety (троттлинг DM_FALL_CHECK_INTERVAL): физическая проверка GroundRay
+	//! в точке ВПЕРЕДИ ПОЗИЦИИ БОТА (pos + moveDir*DM_FALL_CHECK_AHEAD) — есть ли
+	//! поверхность в пределах DM_FALL_DANGER_DROP. Луч бьёт в точку, где бот физически
+	//! стоит (а не в вейпоинт пути), поэтому висячий навмеш-only дек (крыша Land_House_1M2)
+	//! ложного «обрыва» не даёт, а настоящий физический обрыв (>2.75 м) ловится.
 	void UpdateFallSafety(dmAISurvivor bot, float pDt)
 	{
 		//! Обход fall-safety на спуске: m_Descending намеренно ведёт бота за край —
@@ -1245,17 +1271,16 @@ class dmBotIntent_MoveTo : dmBotIntent
 		}
 		moveDir.Normalize();
 
-		vector ahead = subGoal + moveDir * DM_FALL_CHECK_AHEAD;
+		vector ahead = pos + moveDir * DM_FALL_CHECK_AHEAD;
 
-		EnsurePathFilter();
-		vector sampled;
-		bool groundAhead = false;
-		if (g_Game.GetWorld().GetAIWorld().SampleNavmeshPosition(ahead, DM_MOVE_GROUND_PROBE_RADIUS, m_PathFilter, sampled))
-			groundAhead = subGoal[1] - sampled[1] <= DM_FALL_SURFACE_EPS;
-		m_NoGroundAhead = !groundAhead;
+		bool physGround = false;
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (pawn)
+			physGround = GroundRay(pawn, ahead);
+		m_NoGroundAhead = !physGround;
 
 		#ifdef DM_BOT_DEBUG_PATHFINDER
-		dmBotLog.Debug(bot.GetName(), "[PATH] FallSafety navmesh ahead=" + ahead + " sampled=" + sampled + " ok=" + groundAhead);
+		dmBotLog.Debug(bot.GetName(), "[PATH] FallSafety ahead=" + ahead + " ground=" + physGround);
 		#endif
 	}
 
@@ -1799,7 +1824,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 	ref PGFilter m_PathFilter;
 
 	//! Ленивая сборка m_PathFilter (общий фильтр ходьбы): создаёт PGFilter один раз
-	//! и настраивает флаги/стоимости. Используется IsPointOnNavMesh и UpdateFallSafety.
+	//! и настраивает флаги/стоимости. Используется IsPointOnNavMesh.
 	void EnsurePathFilter()
 	{
 		if (m_PathFilter)
