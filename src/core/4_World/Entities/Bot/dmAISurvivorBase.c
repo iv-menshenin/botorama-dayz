@@ -1387,6 +1387,8 @@ class dmAISurvivorBase : PlayerBase
 	}
 #endif
 
+	bool m_HeatStrokeLocked;
+
 	//! Vanilla ticks body systems in OnScheduledTick, gated on IsPlayerSelected()
 	//! and m_AllowModifierTick (enabled only in OnSelectPlayer) — neither happens
 	//! for an AI bot. Enable and tick them at a reduced rate so shock refill,
@@ -1399,6 +1401,14 @@ class dmAISurvivorBase : PlayerBase
 			return;
 
 		mngr.SetModifiers(true);
+		if (!m_HeatStrokeLocked)
+		{
+			m_HeatStrokeLocked = true;
+			//! 1.30 heat stroke phase 4 drains root health directly in OnTick
+			//! (heatstroke.c:309); lock it once so it never activates — the
+			//! symptom-driven mechanic doesn't translate to an AI bot.
+			mngr.SetModifierLock(eModifiers.MDF_HEAT_STROKE4, true);
+		}
 
 		#ifdef DM_BOT_DEBUG_BODY
 		m_BodyDebugAccum += pDt;
