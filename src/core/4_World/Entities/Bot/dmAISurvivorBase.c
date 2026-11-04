@@ -197,6 +197,12 @@ class dmAISurvivorBase : PlayerBase
 	//! причин. Пусто, если внешнего урона не было.
 	private string m_LastDamageAmmo;
 
+	//! Время последнего реального урона (GetTickTime, монотонный). GetLastDamageAmmo
+	//! возвращает пустую строку, если урон «протух» (> DM_DEATH_FALL_RECENT_TIME) —
+	//! чтобы падение, после которого бот выжил и умер от голода/холода, не приписывалось
+	//! как причина смерти.
+	private float m_LastDamageTime;
+
 	//! One-shot melee evade request from the brain (see RequestMeleeEvade). The
 	//! fight logic consumes it and starts a native roll via StartMeleeEvadeA.
 	private bool m_MeleeEvadeRequest = false;
@@ -308,8 +314,12 @@ class dmAISurvivorBase : PlayerBase
 	}
 
 	//! Ammo последнего урона (для детекта падения с высоты в журнале смерти).
+	//! Возвращает пустую строку, если урон «протух» (давность > DM_DEATH_FALL_RECENT_TIME):
+	//! падение, после которого бот выжил и умер от голода/холода, — не причина смерти.
 	string GetLastDamageAmmo()
 	{
+		if (GetGame().GetTickTime() - m_LastDamageTime > DM_DEATH_FALL_RECENT_TIME)
+			return "";
 		return m_LastDamageAmmo;
 	}
 
@@ -1515,6 +1525,7 @@ class dmAISurvivorBase : PlayerBase
 			if (source)
 				m_LastDamageSource = source;
 			m_LastDamageAmmo = ammo;
+			m_LastDamageTime = GetGame().GetTickTime();
 		}
 		return applyDamage;
 	}

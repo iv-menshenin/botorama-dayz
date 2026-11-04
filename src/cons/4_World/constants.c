@@ -929,6 +929,11 @@ static const float DM_FALL_CHECK_INTERVAL = 1.0;
 //! Fall-safe: длительность (с) отхода назад от края перед перестроением маршрута.
 static const float DM_STEP_BACK_TIME = 0.5;
 
+//! Журнал смерти: давность (с) последнего урона, при которой он ещё считается
+//! «причиной смерти» (падение с высоты). Протухший fall-урон (давнее этого) не
+//! приписывается как причина — бот мог выжить и умереть от голода/холода позже.
+static const float DM_DEATH_FALL_RECENT_TIME = 2.0;
+
 //! Motion-trouble event logging (DM_BOT_DEBUG_MOTION): три детектора — spin
 //! (неистовое вращение), stall (торможение > 10 с) и pathfail (nopath/fallfear).
 //! Каждый пишет ОДНУ структурированную строку [MOTION] ... с cooldown на бота,
