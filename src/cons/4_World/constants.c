@@ -151,6 +151,9 @@ static const float DM_BOT_TICK_INTERVAL = 0.033;
 //! tick them here (~4 Hz) — their own intervals are >= 0.35 s, so this is enough.
 static const float DM_BOT_MODIFIER_TICK_INTERVAL = 0.25;
 
+//! Множитель базового потребления энергии/воды у AI-бота (0.5 = расход в 2 раза ниже).
+static const float DM_BOT_CONSUMPTION_COEF = 0.5;
+
 //! Movement speed index for "jog/run" (0=idle, 1=walk, 2=jog, 3=sprint). Used to
 //! cap the bot's speed when the body can't sprint (stamina depleted / broken legs).
 static const float DM_SPEED_IDX_JOG = 2.0;

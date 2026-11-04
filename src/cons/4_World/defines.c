@@ -33,6 +33,8 @@
 //!   DM_BOT_DEBUG_PAWN    — pawn/animation (variable binding, look sync).
 //!   DM_BOT_DEBUG_BODY    — body mechanics (CE profile, corpse registration, blood/
 //!                          shock/unconscious bridge, periodic body stats).
+//!   DM_BOT_DEBUG_SURVIVAL — выживаемость (расход Energy/Water, HeatComfort, ThermalBias,
+//!                          индекс движения — периодический срез для замера скорости потребления).
 //!   DM_BOT_DEBUG_LADDER  — ВРЕМЕННЫЙ per-frame диагностический лог вокруг лестницы
 //!                          (onLadder/cmd/headingDiff/bodyYaw/turnState в CommandHandler
 //!                          + UseLadder exit). Удалить после починки бага «кручение

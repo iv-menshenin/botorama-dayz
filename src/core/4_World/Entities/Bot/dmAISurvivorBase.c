@@ -160,6 +160,9 @@ class dmAISurvivorBase : PlayerBase
 	//! Accumulator for the periodic body-stats debug log (DM_BOT_DEBUG_BODY).
 	private float m_BodyDebugAccum = 0.0;
 
+	//! Accumulator for the periodic survival-stats debug log (DM_BOT_DEBUG_SURVIVAL).
+	private float m_SurvivalDebugAccum = 0.0;
+
 	//! Accumulator for the throttled incapacitated body-state dump (DM_BOT_DEBUG_BODY).
 	private float m_IncapacitatedDebugAccum = 0.0;
 
@@ -1416,6 +1419,23 @@ class dmAISurvivorBase : PlayerBase
 		{
 			m_BodyDebugAccum = 0.0;
 			dmBotLog.Debug(GetCachedName(), "Body: blood=" + GetHealth("", "Blood") + " shock=" + GetHealth("", "Shock") + " bleeding=" + IsBleeding() + " unconscious=" + IsUnconscious() + " brokenLegs=" + (GetBrokenLegs() != eBrokenLegs.NO_BROKEN_LEGS));
+		}
+		#endif
+
+		#ifdef DM_BOT_DEBUG_SURVIVAL
+		m_SurvivalDebugAccum += pDt;
+		if (m_SurvivalDebugAccum >= 5.0)
+		{
+			m_SurvivalDebugAccum = 0.0;
+			float energy = GetStatEnergy().Get();
+			float water = GetStatWater().Get();
+			float heatComfort = GetStatHeatComfort().Get();
+			float thermalBias = GetThermalBiasHandler().Get();
+			GetMovementState(m_MovementState);
+			int moveIdx = m_MovementState.m_iMovement;
+			string line = "[SURVIVAL] energy=" + energy + " water=" + water + " heatComfort=" + heatComfort;
+			line += " thermalBias=" + thermalBias + " moveIdx=" + moveIdx + " time=" + GetGame().GetTickTime();
+			dmBotLog.Debug(GetCachedName(), line);
 		}
 		#endif
 
