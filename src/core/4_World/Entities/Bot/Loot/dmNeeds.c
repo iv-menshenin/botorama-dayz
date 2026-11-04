@@ -43,7 +43,7 @@ class dmNeeds
 		if (req)
 		{
 			req.Update(bot);
-			if ( req.CheckFoodCount() == 0 )
+			if ( req.CheckFoodCount() < 3 )
 			{
 				wish.WishCategory(dmLootCategory.FOOD, 1.0);
 			} else {

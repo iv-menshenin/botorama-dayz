@@ -182,7 +182,7 @@ class dmWishlist
 		if ( categoryWant > 0.0 ) return categoryWant;
 
 		if (category == dmLootCategory.FOOD)
-			return 0.5;
+			return 0.9;
 		if (category == dmLootCategory.WEAPON)
 			return 0.8;
 		if (category == dmLootCategory.MELEE)

@@ -103,6 +103,7 @@ class dmRequirements
 
 		SortItemsByQuality(items);
 
+		int bottleCount = 0;
 		int foodCount = 0;
 		int weaponCount = 0;
 		int meleeCount = 0;
@@ -156,7 +157,12 @@ class dmRequirements
 					item.SetHealth01("", "Health", 0.0);
 					m_Ruined.Insert(item);
 				} else {
-					foodCount = foodCount + 1;
+					if ( item.IsInherited(Bottle_Base) )
+					{
+						bottleCount = bottleCount + 1;
+					} else {
+						foodCount = foodCount + 1;
+					}
 					n = foodCount;
 				}
 			}
@@ -230,6 +236,7 @@ class dmRequirements
 		}
 
 		m_foodCount = foodCount;
+		if ( bottleCount > 0 ) foodCount = foodCount + 1;
 		m_weaponCount = weaponCount;
 		m_meleeCount = meleeCount;
 		m_medicalCount = medicalCount;
