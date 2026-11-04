@@ -30,6 +30,9 @@ class dmCarRepair
 		if (car.GetFluidFraction(CarFluid.BRAKE) < 1.0)
 			car.Fill(CarFluid.BRAKE, car.GetFluidCapacity(CarFluid.BRAKE));
 
+		vector orient = car.GetOrientation();
+		car.SetOrientation(Vector(orient[0], 0.0, 0.0));
+
 		#ifdef DM_BOT_DEBUG_CAR
 		dmBotLog.Debug("", "[CAR] repair: " + car.GetType() + " зоны=" + zonesCount + " детали=" + attCount);
 		#endif
