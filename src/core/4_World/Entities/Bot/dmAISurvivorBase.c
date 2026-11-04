@@ -1636,7 +1636,7 @@ class dmAISurvivorBase : PlayerBase
 			#ifdef DM_BOT_DEBUG_DAMAGE
 			dmBotLog.Debug(GetCachedName(), "EEKilled: killer self, substitute m_LastDamageSource=" + m_LastDamageSource);
 			#endif
-			killer = m_LastDamageSource;
+			if (GetGame().GetTickTime() - m_LastDamageTime <= DM_DEATH_FALL_RECENT_TIME) killer = m_LastDamageSource;
 		}
 
 		if (killer != this)

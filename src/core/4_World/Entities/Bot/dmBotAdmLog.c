@@ -95,12 +95,22 @@ class dmBotAdmLog
 
 		string causeLabel = "";
 		string ammo = pawn.GetLastDamageAmmo();
-		if (ammo != "" && ammo.IndexOf("FallDamage") != -1)
-			causeLabel = "упал с высоты";
-		else if (heat < -0.45)
-			causeLabel = "переохлаждение";
-		else if (heat > 0.45)
-			causeLabel = "перегрев";
+
+		if ( ammo == "" )
+		{
+			if (ammo.IndexOf("FallDamage") != -1)
+				causeLabel = "упал с высоты";
+			else if (energy <= 300)
+				causeLabel = "голод";
+			else if (water <= 300)
+				causeLabel = "жажда";
+			else if (blood <= 2500)
+				causeLabel = "кровопотеря";
+			else if (heat < -0.45)
+				causeLabel = "переохлаждение";
+			else if (heat > 0.45)
+				causeLabel = "перегрев";
+		}
 
 		bool drowned = pawn.GetDrowningWaterLevelCheck();
 
