@@ -158,7 +158,7 @@ class dmAISurvivor
 	private ref array<vector> m_PatrolPoints;
 
 	//! Goal targets (memory, survives FSM transitions).
-	private ref array<ref dmTarget> m_Targets;
+	private ref dmTargetManager m_TargetManager;
 
 	//! Entity the bot escorts (follows alongside). null when not escorting.
 	private EntityAI m_FollowTarget;
@@ -208,7 +208,7 @@ class dmAISurvivor
 		m_PersonalityIntents = new dmBotIntentPool();
 		m_CommandIntents = new dmBotIntentPool();
 		m_PatrolPoints = new array<vector>();
-		m_Targets = new array<ref dmTarget>();
+		m_TargetManager = new dmTargetManager();
 		m_Wishlist = new dmWishlist();
 		m_Requirements = new dmRequirements();
 		m_Needs = new dmNeeds();
@@ -1463,9 +1463,10 @@ class dmAISurvivor
 		vector myPos = GetPosition();
 		float playerDanger = GetDangerDistance();
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			if (t.m_Friendly) continue;
 			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
 			EntityAI e = t.m_Entity;
@@ -1702,9 +1703,10 @@ class dmAISurvivor
 		dmTarget best = null;
 		float bestAttract = 0.0;
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			if (t.m_EverSeen) continue;              // уже видели — разведка не нужна
 			if (t.m_AttentionCooldownUntil > now) continue; // кулдаун: цель только что «отсмотрела»
 			if (t.m_Attraction <= conc) continue;    // интереса мало
@@ -1890,36 +1892,42 @@ class dmAISurvivor
 	// Targets (goals)
 	//------------------------------------------------------------------
 
+	//! Точка-хук: добавление цели (триггер мгновенных реакций — пока пустая обёртка).
 	void AddTarget(dmTarget target)
 	{
-		m_Targets.Insert(target);
+		m_TargetManager.Add(target);
 	}
 
 	void ClearTargets()
 	{
-		m_Targets.Clear();
+		m_TargetManager.Clear();
 	}
 
 	ref array<ref dmTarget> GetTargets()
 	{
-		return m_Targets;
+		return m_TargetManager.GetTargets();
+	}
+
+	//! Точка-хук: удаление цели (триггер — пока пустая обёртка).
+	void RemoveTarget(dmTarget t)
+	{
+		m_TargetManager.Remove(t);
+	}
+
+	//! Заменить цель сущности: найти → удалить старую → добавить новую. Гарантирует
+	//! «одна цель на одну EntityAI» (эволюционная лестница фантом→звук→опознание).
+	void ReplaceTarget(EntityAI entity, dmTarget newTarget)
+	{
+		dmTarget old = m_TargetManager.Find(entity);
+		if (old)
+			RemoveTarget(old);
+		AddTarget(newTarget);
 	}
 
 	//! Find a tracked target by its entity, or null if it isn't remembered.
 	dmTarget FindTarget(EntityAI entity)
 	{
-		#ifdef DM_BOT_PROFILE
-		dmBotSpan _span = dmBotProfiler.Start("Target.Find");
-		#endif
-
-		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
-		{
-			dmTarget t = m_Targets[i];
-			if (t.m_Entity == entity)
-				return t;
-		}
-		return null;
+		return m_TargetManager.Find(entity);
 	}
 
 	void RecalcTargetThreat(dmTarget t, float pDt)
@@ -1981,7 +1989,7 @@ class dmAISurvivor
 		t.m_LastPosition = vector.Zero;
 		t.m_NextLOSUpdate = 0.0;
 		t.m_LastContact = GetGame().GetTickTime();
-		m_Targets.Insert(t);
+		AddTarget(t);
 	}
 
 	//! An enemy dealt damage — register it as a threat immediately, even if it is
@@ -2020,7 +2028,7 @@ class dmAISurvivor
 			t = new dmTargetDummy();
 			t.m_Type = dmTargetType.DESTROY;
 			t.m_Entity = attacker;
-			m_Targets.Insert(t);
+			AddTarget(t);
 		}
 		if (threat > t.m_Threat) t.m_Threat = threat;
 		t.m_Friendly = false;
@@ -2048,7 +2056,7 @@ class dmAISurvivor
 			t.m_Type = dmTargetType.DESTROY;
 			t.m_Entity = entity;
 			t.m_LastContact = GetGame().GetTickTime();
-			m_Targets.Insert(t);
+			AddTarget(t);
 		}
 		if (t.m_Friendly)
 			return;
@@ -2073,7 +2081,7 @@ class dmAISurvivor
 			t = new dmTargetDummy();
 			t.m_Type = dmTargetType.DESTROY;
 			t.m_Entity = entity;
-			m_Targets.Insert(t);
+			AddTarget(t);
 		}
 		if (threat > t.m_Threat) t.m_Threat = threat;
 		t.m_Friendly = false;
@@ -2161,9 +2169,10 @@ class dmAISurvivor
 	void DecayAttraction(float pDt)
 	{
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			if (t.m_Attraction > 0.0)
 			{
 				t.m_Attraction = t.m_Attraction - DM_ATTRACT_DECAY_PER_SEC * pDt;
@@ -2261,9 +2270,10 @@ class dmAISurvivor
 		float bestThreat = 0.0;
 		vector myPos = GetPosition();
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			if (t.m_Friendly) continue;
 			if (!t.IsValidTarget()) continue;
 			if (!t.IsVisible()) continue;
@@ -2337,9 +2347,10 @@ class dmAISurvivor
 		float bestThreat = 0.0;
 		vector myPos = GetPosition();
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			if (t.m_Friendly) continue;
 			if (!t.IsValidTarget()) continue;
 			if (visible && !t.IsVisible()) continue;
@@ -2369,9 +2380,10 @@ class dmAISurvivor
 	dmTarget GetHuntTarget()
 	{
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			if (t.m_Friendly)
 				continue;
 			//! Цель без известной позиции (обнаружена, но ни разу не видна/не слышна) — охотиться не на что.
@@ -2394,9 +2406,10 @@ class dmAISurvivor
 	void BeginTargetScan()
 	{
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			t.m_HasLOS = false;
 		}
 	}
@@ -2407,21 +2420,16 @@ class dmAISurvivor
 	{
 		float now = GetGame().GetTickTime();
 		int i;
-		for (i = m_Targets.Count() - 1; i >= 0; i--)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = targets.Count() - 1; i >= 0; i--)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			// default contact - it means that the record is just added
 			if ( t.m_LastContact == 0 )
 				t.m_LastContact = GetGame().GetTickTime();
 			if (!t.m_Entity || now - t.m_LastContact > timeout || !t.m_Entity.IsAlive())
-				m_Targets.RemoveItem(t);
+				RemoveTarget(t);
 		}
-	}
-
-	//! Remove a specific target from the memory.
-	void RemoveTarget(dmTarget t)
-	{
-		m_Targets.RemoveItem(t);
 	}
 
 	//------------------------------------------------------------------
