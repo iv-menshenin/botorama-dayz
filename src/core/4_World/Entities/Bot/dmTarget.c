@@ -170,4 +170,49 @@ class dmTarget
 		}
 		return goal;
 	}
+
+	//! Классификаторы типа цели. В базе возвращают false — переопределяются в подклассах
+	//! (dmTargetPlayer/Zombie/Animal/Entity), когда цель опознана.
+	bool IsPlayer()
+	{
+		return false;
+	}
+	bool IsPlayerAI()
+	{
+		return false;   // именно ИИ-бот (dmAISurvivorBase); IsPlayer ⊇ IsPlayerAI
+	}
+	bool IsZombie()
+	{
+		return false;
+	}
+	bool IsAnimal()
+	{
+		return false;
+	}
+	bool IsEntity()
+	{
+		return false;   // всё неживое (не Player/Zombie/Animal)
+	}
+
+	//! Типобезопасные геттеры сущности. В базе null — переопределяются в подклассах:
+	//! GetPlayer() — только для Player, GetZombie() — только Zombie, и т.д.
+	PlayerBase GetPlayer()
+	{
+		return null;
+	}
+	ZombieBase GetZombie()
+	{
+		return null;
+	}
+	AnimalBase GetAnimal()
+	{
+		return null;
+	}
+
+	//! Общий доступ к сущности (вместо прямого m_Entity). Инкапсуляция: поле m_Entity
+	//! со временем перестанет читаться извне напрямую.
+	EntityAI GetEntity()
+	{
+		return m_Entity;
+	}
 }
