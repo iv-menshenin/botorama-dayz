@@ -1697,6 +1697,7 @@ class dmAISurvivor
 	//! не иссяк (длительность от аттракшена) или цель не увидена. Зовётся каждый тик из OnUpdate.
 	void UpdateAttention(float pDt)
 	{
+		float now = GetGame().GetTickTime();
 		float conc = GetConcentration();
 		dmTarget best = null;
 		float bestAttract = 0.0;
@@ -1705,6 +1706,7 @@ class dmAISurvivor
 		{
 			dmTarget t = m_Targets[i];
 			if (t.m_EverSeen) continue;              // уже видели — разведка не нужна
+			if (t.m_AttentionCooldownUntil > now) continue; // кулдаун: цель только что «отсмотрела»
 			if (t.m_Attraction <= conc) continue;    // интереса мало
 			if (!t.m_Entity || !t.m_Entity.IsAlive()) continue;
 			if (!best || t.m_Attraction > bestAttract)
@@ -1789,12 +1791,11 @@ class dmAISurvivor
 		//! Завершение: насмотрелся или увидел.
 		if (m_AttentionFacingTime >= dur || best.m_EverSeen)
 		{
-			//! Насмотрелся БЕЗ результата — интерес исчерпан: обнуляем аттракшен, чтобы
-			//! цель не пере-триггерила взгляд в следующем тике (иначе бот таращится
-			//! чанками по ~dur, пока аттракшен не затухнет ~200 с). Увиденную цель не
-			//! трогаем — она и так выпадает из разведки (m_EverSeen).
+			//! Насмотрелся БЕЗ результата — ставим кулдаун, чтобы цель не пере-триггерила
+			//! взгляд в следующем тике (иначе бот таращится чанками по ~dur). Увиденную
+			//! цель не трогаем — она и так выпадает из разведки (m_EverSeen).
 			if (!best.m_EverSeen)
-				best.m_Attraction = 0.0;
+				best.m_AttentionCooldownUntil = now + DM_ATTENTION_RETRIGGER_COOLDOWN;
 
 			#ifdef DM_BOT_DEBUG_ATTENTION
 			dmBotLog.Debug(GetName(), "[Attention] done facing=" + m_AttentionFacingTime + " dur=" + dur + " seen=" + best.m_EverSeen);

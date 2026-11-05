@@ -625,6 +625,7 @@ static const float DM_ATTENTION_HOLD_MIN      = 5.0;   // длительност
 static const float DM_ATTENTION_HOLD_MAX      = 15.0;  // при максимальном аттракшене (с)
 static const float DM_ATTENTION_FACING_YAW    = 15.0;  // |угол тела→цель| < этого = «уже смотрит»
 static const float DM_ATTENTION_STOP_FACTOR   = 2.0;   // attraction > фактор×концентрация → остановиться
+static const float DM_ATTENTION_RETRIGGER_COOLDOWN = 5.0; // кулдаун пере-триггера после «посмотрел и не нашёл» (с)
 
 //! Combat engage: окно (сек) после последнего выстрела, в течение которого бот
 //! считается «активно ведущим стрельбу» (IsInCombat — помимо мили-флага).

@@ -3515,6 +3515,7 @@ class dmE2EBridge
 			line += " threat=" + t.m_Threat;
 			line += " attract=" + t.m_Attractiveness;
 			line += " attraction=" + t.m_Attraction;
+			line += " cooldown=" + t.m_AttentionCooldownUntil;
 			AppendDump(r, line);
 		}
 		if (targets.Count() == 0)
