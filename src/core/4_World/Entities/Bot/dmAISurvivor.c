@@ -661,6 +661,8 @@ class dmAISurvivor
 		if (m_FSM)
 			m_FSM.Update(pDt);
 
+		DecayAttraction(pDt);
+
 		//! The tidy intent never self-finishes (it idles when there's nothing to
 		//! do), but the pool drops it on the auto-deadline (DM_INTENT_MAX_AGE) —
 		//! recreate it then so the bot keeps tidying.
@@ -2019,6 +2021,22 @@ class dmAISurvivor
 		{
 			t.m_LastPosition = position;
 			t.m_Attraction = NoiseAttraction(type, position);
+		}
+	}
+
+	//! Затухание аттракшена свежих целей: −DM_ATTRACT_DECAY_PER_SEC каждую секунду, до 0.
+	void DecayAttraction(float pDt)
+	{
+		int i;
+		for (i = 0; i < m_Targets.Count(); i++)
+		{
+			dmTarget t = m_Targets[i];
+			if (t.m_Attraction > 0.0)
+			{
+				t.m_Attraction = t.m_Attraction - DM_ATTRACT_DECAY_PER_SEC * pDt;
+				if (t.m_Attraction < 0.0)
+					t.m_Attraction = 0.0;
+			}
 		}
 	}
 
