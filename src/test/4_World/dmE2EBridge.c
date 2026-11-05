@@ -877,6 +877,10 @@ class dmE2EBridge
 		{
 			RunBotDump(step, r);
 		}
+		else if (step.Op == "targetdump")
+		{
+			RunTargetDump(step, r);
+		}
 		else if (step.Op == "invdump")
 		{
 			RunInvDump(step, r);
@@ -3474,6 +3478,45 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "dumped";
+	}
+
+	//! "targetdump" — dump the named bot's target memory (one line per target).
+	private void RunTargetDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		ref array<ref dmTarget> targets = bot.GetTargets();
+		int i;
+		for (i = 0; i < targets.Count(); i++)
+		{
+			dmTarget t = targets[i];
+			string typeName = "null";
+			if (t.m_Entity)
+				typeName = t.m_Entity.GetType();
+			int los = 0;
+			if (t.m_HasLOS)
+				los = 1;
+			int everSeen = 0;
+			if (t.m_EverSeen)
+				everSeen = 1;
+			string line = "target[" + i + "] type=" + typeName;
+			line += " pos=" + t.m_LastPosition;
+			line += " LOS=" + los;
+			line += " everSeen=" + everSeen;
+			line += " threat=" + t.m_Threat;
+			line += " attract=" + t.m_Attractiveness;
+			AppendDump(r, line);
+		}
+		if (targets.Count() == 0)
+			AppendDump(r, "targets=none");
+		r.Ok = true;
+		r.Reason = "dumped " + targets.Count();
 	}
 
 	//! "invdump" — dump the named bot's equipped clothing/attachments and their

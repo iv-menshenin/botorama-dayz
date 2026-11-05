@@ -654,6 +654,9 @@ class dmBotCommand : dmCommandModule
 			int friendly = 0;
 			if (t.m_Friendly)
 				friendly = 1;
+			int everSeen = 0;
+			if (t.m_EverSeen)
+				everSeen = 1;
 			float age = GetGame().GetTickTime() - t.m_LastContact;
 
 			string line = "[" + i + "] " + typeName;
@@ -663,6 +666,7 @@ class dmBotCommand : dmCommandModule
 			line += " threat=" + t.m_Threat;
 			line += " attract=" + t.m_Attractiveness;
 			line += " friendly=" + friendly;
+			line += " everSeen=" + everSeen;
 			dmCommandManager.ChatToPlayer(player, line);
 		}
 

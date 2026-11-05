@@ -24,6 +24,7 @@ class dmTarget
 	float m_LastPositionSpread = 0.0; // радиус вероятной позиции цели (центр m_LastPosition); 0 при видимости, растёт по шуму
 	float m_LastDistance;           // последнее известное расстояние до цели
 	bool m_HasLOS = false;          // видна в последнем скане
+	bool m_EverSeen = false;        // бот хоть раз видел цель (LOS-успех); false = создана слухом и ещё не видна
 	float m_LastContact = 0.0;      // GetGame().GetTickTime() последнего контакта
 	float m_LastDamage = 0.0;       // GetGame().GetTickTime() последнего полученного урона
 

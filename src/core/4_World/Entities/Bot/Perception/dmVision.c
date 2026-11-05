@@ -207,6 +207,7 @@ class dmVision
 				t.m_LastPosition = targetPos;
 				t.m_LastPositionSpread = 0.0;
 				t.m_LastContact = now;
+				t.m_EverSeen = true;
 			}
 		}
 
