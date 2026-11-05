@@ -620,6 +620,12 @@ static const float DM_CONC_SHOOT_FAR       = 1000.0;  // Shooting: ≥1000 м �
 static const float DM_CONC_SHOOT_FAR_LEVEL = 0.3;
 static const float DM_CONC_NONCOMBAT       = 0.1;     // мед-уход / патруль / еда / Hunting / прочее
 
+//! Attention: реакция на свежий шум (поворот/остановка + взгляд).
+static const float DM_ATTENTION_HOLD_MIN      = 5.0;   // длительность взгляда при слабом аттракшене (с)
+static const float DM_ATTENTION_HOLD_MAX      = 15.0;  // при максимальном аттракшене (с)
+static const float DM_ATTENTION_FACING_YAW    = 15.0;  // |угол тела→цель| < этого = «уже смотрит»
+static const float DM_ATTENTION_STOP_FACTOR   = 2.0;   // attraction > фактор×концентрация → остановиться
+
 //! Combat engage: окно (сек) после последнего выстрела, в течение которого бот
 //! считается «активно ведущим стрельбу» (IsInCombat — помимо мили-флага).
 static const float DM_COMBAT_ENGAGE_TIMEOUT = 10.0;

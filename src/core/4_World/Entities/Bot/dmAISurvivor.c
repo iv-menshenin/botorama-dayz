@@ -129,6 +129,13 @@ class dmAISurvivor
 	ref dmBotIntent_EvadeAim m_EvadeAimIntent;
 	ref dmBotIntent_HoldLook m_EvadeAimLook;
 
+	//! Реакция на свежий шум (внимание): цель, на которую бот сейчас смотрит, и
+	//! персональные интенты взгляда/остановки. null, когда расследование неактивно.
+	ref dmTarget m_AttentionTarget;                 // свежая цель, на которую бот сейчас смотрит
+	ref dmBotIntent_HoldLook m_AttentionLook;       // взгляд
+	ref dmBotIntent_HoldStill m_AttentionHold;      // остановка (только tier-2)
+	float m_AttentionFacingTime;                    // накопленное время «уже смотрит»
+
 	//! Последний зарегистрированный выстрел (стрелок + серийный номер) — пишет
 	//! dmHearing по SHOT-шуму, читает dmBotIntent_EvadeAim.
 	EntityAI m_LastShotEntity;
@@ -662,6 +669,8 @@ class dmAISurvivor
 			m_FSM.Update(pDt);
 
 		DecayAttraction(pDt);
+
+		UpdateAttention(pDt);
 
 		//! The tidy intent never self-finishes (it idles when there's nothing to
 		//! do), but the pool drops it on the auto-deadline (DM_INTENT_MAX_AGE) —
@@ -1682,6 +1691,129 @@ class dmAISurvivor
 
 		if ( m_EvadeAimIntent )
 			m_EvadeAimIntent.ActiveTick(this);
+	}
+
+	//! Реакция на свежий шум: повернуться/остановиться и смотреть на цель, пока интерес
+	//! не иссяк (длительность от аттракшена) или цель не увидена. Зовётся каждый тик из OnUpdate.
+	void UpdateAttention(float pDt)
+	{
+		float conc = GetConcentration();
+		dmTarget best = null;
+		float bestAttract = 0.0;
+		int i;
+		for (i = 0; i < m_Targets.Count(); i++)
+		{
+			dmTarget t = m_Targets[i];
+			if (t.m_EverSeen) continue;              // уже видели — разведка не нужна
+			if (t.m_Attraction <= conc) continue;    // интереса мало
+			if (!t.m_Entity || !t.m_Entity.IsAlive()) continue;
+			if (!best || t.m_Attraction > bestAttract)
+			{
+				best = t;
+				bestAttract = t.m_Attraction;
+			}
+		}
+
+		//! Цели нет — снять текущее расследование.
+		if (!best)
+		{
+			if (m_AttentionTarget)
+			{
+				#ifdef DM_BOT_DEBUG_ATTENTION
+				dmBotLog.Debug(GetName(), "[Attention] released (attraction faded below concentration)");
+				#endif
+			}
+			ClearAttention();
+			return;
+		}
+
+		//! Преэмпция: более аттрактивная цель вытесняет текущую.
+		if (m_AttentionTarget != best)
+		{
+			if (m_AttentionTarget)
+			{
+				#ifdef DM_BOT_DEBUG_ATTENTION
+				dmBotLog.Debug(GetName(), "[Attention] preempt " + m_AttentionTarget.m_Entity.GetType() + " -> " + best.m_Entity.GetType());
+				#endif
+			}
+			ClearAttention();
+			m_AttentionTarget = best;
+			#ifdef DM_BOT_DEBUG_ATTENTION
+			dmBotLog.Debug(GetName(), "[Attention] engage " + best.m_Entity.GetType() + " attract=" + bestAttract + " conc=" + conc);
+			#endif
+		}
+
+		float dur = DM_ATTENTION_HOLD_MIN + (DM_ATTENTION_HOLD_MAX - DM_ATTENTION_HOLD_MIN) * bestAttract;
+
+		//! Взгляд (всегда при активной реакции).
+		if (!m_AttentionLook || m_AttentionLook.IsFinished() || m_AttentionLook.IsExpired())
+		{
+			m_AttentionLook = new dmBotIntent_HoldLook();
+			m_AttentionLook.m_Entity = best.m_Entity;
+			m_AttentionLook.m_Target = best;
+			m_AttentionLook.m_Turn = dmBotLookTurn.FULL;
+			m_AttentionLook.m_Priority = dmBotIntentPriority.CRITICAL;
+			AddPersonalityIntent(m_AttentionLook);
+		}
+
+		//! Остановка (только сильный интерес: attraction > фактор×концентрация).
+		if (bestAttract > DM_ATTENTION_STOP_FACTOR * conc)
+		{
+			if (!m_AttentionHold || m_AttentionHold.IsFinished() || m_AttentionHold.IsExpired())
+			{
+				m_AttentionHold = new dmBotIntent_HoldStill();
+				AddPersonalityIntent(m_AttentionHold);
+			}
+		}
+		else if (m_AttentionHold && !m_AttentionHold.IsFinished())
+		{
+			m_AttentionHold.Finish();
+			m_AttentionHold = null;
+		}
+
+		//! Накопление «уже смотрит»: тело довёрнуто к цели. Для tier-1 (только поворот,
+		//! бот продолжает идти) тело НЕ доворачивается к цели (идёт, корпус по движению),
+		//! поэтому m_AttentionFacingTime не накапливается и взгляд завершится только по
+		//! best.m_EverSeen/затуханию ниже conc. Это осознанное упрощение: точная длительность
+		//! 5–15 с — про tier-2 (остановка+взгляд, основной сценарий «idle-бот услышал шум»).
+		vector botPos = GetPosition();
+		vector targetPos = best.m_Entity.GetPosition();
+		vector toTarget = targetPos - botPos;
+		toTarget[1] = 0.0;
+		float yawToTarget = toTarget.VectorToAngles()[0];
+		vector orient = GetOrientation();
+		float bodyYaw = orient[0];
+		if (Math.AbsFloat(AngleDiff(bodyYaw, yawToTarget)) < DM_ATTENTION_FACING_YAW)
+			m_AttentionFacingTime += pDt;
+
+		//! Завершение: насмотрелся или увидел.
+		if (m_AttentionFacingTime >= dur || best.m_EverSeen)
+		{
+			//! Насмотрелся БЕЗ результата — интерес исчерпан: обнуляем аттракшен, чтобы
+			//! цель не пере-триггерила взгляд в следующем тике (иначе бот таращится
+			//! чанками по ~dur, пока аттракшен не затухнет ~200 с). Увиденную цель не
+			//! трогаем — она и так выпадает из разведки (m_EverSeen).
+			if (!best.m_EverSeen)
+				best.m_Attraction = 0.0;
+
+			#ifdef DM_BOT_DEBUG_ATTENTION
+			dmBotLog.Debug(GetName(), "[Attention] done facing=" + m_AttentionFacingTime + " dur=" + dur + " seen=" + best.m_EverSeen);
+			#endif
+			ClearAttention();
+		}
+	}
+
+	//! Снять расследование: завершить интенты, обнулить состояние.
+	void ClearAttention()
+	{
+		if (m_AttentionLook && !m_AttentionLook.IsFinished())
+			m_AttentionLook.Finish();
+		if (m_AttentionHold && !m_AttentionHold.IsFinished())
+			m_AttentionHold.Finish();
+		m_AttentionLook = null;
+		m_AttentionHold = null;
+		m_AttentionTarget = null;
+		m_AttentionFacingTime = 0.0;
 	}
 
 	//! Зарегистрировать выстрел стрелка (dmHearing зовёт по SHOT-шуму).
