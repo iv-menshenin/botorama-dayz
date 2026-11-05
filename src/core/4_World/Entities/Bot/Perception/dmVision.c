@@ -4,7 +4,7 @@
 //! DiscoverTarget) runs every DM_PERCEPTION_BOX_INTERVAL and only ADDS new
 //! candidates to the bot's target memory; a per-target LOS refresh runs every tick,
 //! throttled per target by GetRefreshTime. Discovery never checks FOV/LOS — the LOS
-//! pass is the only place that updates m_HasLOS/m_LastPosition/m_LastContact (and
+//! pass is the only place that updates the target's LOS/position/contact memory (and
 //! forgets stale targets).
 //!
 //! Candidates come from the global dmEntityRegistry (zombies/animals/players that
@@ -34,7 +34,7 @@ class dmVision
 		for (int i = 0; i < targets.Count(); i++)
 		{
 			dmTarget t = targets[i];
-			if ( t.m_HasLOS || now - t.m_LastContact < 15.0 || now - t.m_LastDamage < 60.0 || t.m_LastDistance < 200.0 )
+			if ( t.HasLOS() || now - t.LastContact() < 15.0 || now - t.LastDamage() < 60.0 || t.LastDistance() < 200.0 )
 				bot.RecalcTargetThreat(t, pDt);
 		}
 	}
@@ -126,7 +126,7 @@ class dmVision
 	}
 
 	//! Per-target LOS refresh (every tick, throttled by GetRefreshTime). The only
-	//! place that updates m_HasLOS/m_LastPosition/m_LastContact and forgets stale
+	//! place that updates the target's LOS/position/contact memory and forgets stale
 	//! targets.
 	void UpdateLOS(dmAISurvivor bot)
 	{
@@ -147,34 +147,34 @@ class dmVision
 		for (i = 0; i < targets.Count(); i++)
 		{
 			dmTarget t = targets[i];
-			EntityAI e = t.m_Entity;
+			EntityAI e = t.GetEntity();
 			if (!e)
 				continue;
 
-			if (now < t.m_NextLOSUpdate)
+			if (now < t.NextLOSUpdate())
 				continue;
-			t.m_NextLOSUpdate = now + GetRefreshTime(t);
+			t.SetNextLOSUpdate(now + GetRefreshTime(t));
 
 			vector targetPos = t.GetLivePosition();
 			vector toTarget = targetPos - botPos;
 			toTarget[1] = 0.0;
-			t.m_LastDistance = toTarget.Length();
+			t.SetLastDistance(toTarget.Length());
 
 			#ifdef DM_BOT_DEBUG_VISION
-			dmBotLog.Debug(bot.GetName(), "[Vision] Update LOS target=" + e.GetType() + " pos=" + targetPos + " dist=" + t.m_LastDistance);
+			dmBotLog.Debug(bot.GetName(), "[Vision] Update LOS target=" + e.GetType() + " pos=" + targetPos + " dist=" + t.LastDistance());
 			#endif
 
-			if (t.m_LastDistance < 0.01)
+			if (t.LastDistance() < 0.01)
 				continue;
 
 			//! LOS-гейт: райкаст только в пределах радиуса релевантности типа цели
 			//! (тот же радиус, что и при открытии в Scan).
-			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD && t.m_LastDistance > GetLOSMaxDist(t))
+			if (t.Threat() < DM_ATTACK_THREAT_THRESHOLD && t.LastDistance() > GetLOSMaxDist(t))
 			{
 				#ifdef DM_BOT_DEBUG_VISION
-				dmBotLog.Debug(bot.GetName(), "[Vision] No interest " + e.GetType() + " m_Threat=" + t.m_Threat + " dist:" + t.m_LastDistance + ">" + GetLOSMaxDist(t));
+				dmBotLog.Debug(bot.GetName(), "[Vision] No interest " + e.GetType() + " threat=" + t.Threat() + " dist:" + t.LastDistance() + ">" + GetLOSMaxDist(t));
 				#endif
-				t.m_HasLOS = false;
+				t.SetHasLOS(false);
 				continue;
 			}
 
@@ -187,27 +187,27 @@ class dmVision
 				#ifdef DM_BOT_DEBUG_VISION
 				dmBotLog.Debug(bot.GetName(), "[Vision] Angle too big " + e.GetType() + " ang:" + Math.AbsFloat(ang) + ">" + (DM_PERCEPTION_FOV * 0.5));
 				#endif
-				t.m_HasLOS = false;
+				t.SetHasLOS(false);
 				continue;
 			}
 
 			// TODO угол уже рассчитан!
-			if ( !ProbabilityOfDetection(pawn, targetPos, GetVelocity(e), t.m_LastContact) )
+			if ( !ProbabilityOfDetection(pawn, targetPos, GetVelocity(e), t.LastContact()) )
 			{
 				#ifdef DM_BOT_DEBUG_VISION
 				dmBotLog.Debug(bot.GetName(), "[Vision] Цель " + e.GetType() + " не замечена!");
 				#endif
-				t.m_HasLOS = false;
+				t.SetHasLOS(false);
 				continue;
 			}
 
-			t.m_HasLOS = HasLOS(pawn, e, botPos, targetPos);
-			if (t.m_HasLOS)
+			t.SetHasLOS(HasLOS(pawn, e, botPos, targetPos));
+			if (t.HasLOS())
 			{
-				t.m_LastPosition = targetPos;
-				t.m_LastPositionSpread = 0.0;
-				t.m_LastContact = now;
-				t.m_EverSeen = true;
+				t.SetLastPosition(targetPos);
+				t.SetLastPositionSpread(0.0);
+				t.SetLastContact(now);
+				t.SetEverSeen(true);
 			}
 		}
 
@@ -230,9 +230,9 @@ class dmVision
 		for (i = 0; i < targets.Count(); i++)
 		{
 			dmTarget t = targets[i];
-			if (!t.m_HasLOS || t.m_Friendly)
+			if (!t.HasLOS() || t.Friendly())
 				continue;
-			PlayerBase p = PlayerBase.Cast(t.m_Entity);
+			PlayerBase p = PlayerBase.Cast(t.GetEntity());
 			if (!p || !p.IsAlive())
 				continue;
 			if (!p.IsRaised())
@@ -282,7 +282,7 @@ class dmVision
 
 			#ifdef DM_BOT_DEBUG_VISION
 			dmBotLog.Debug(bot.GetName(), "[Aggro] " + p.GetType() + " dist=" + dist + " yaw=" + yawDiff + " halfW=" + halfW);
-			dmBotLog.Debug(bot.GetName(), "[Aggro] pitch=" + pitchDiff + " halfH=" + halfH + " threat=" + t.m_Threat);
+			dmBotLog.Debug(bot.GetName(), "[Aggro] pitch=" + pitchDiff + " halfH=" + halfH + " threat=" + t.Threat());
 			#endif
 
 			if (yawDiff <= halfW && pitchDiff <= halfH)
@@ -377,11 +377,11 @@ class dmVision
 	//! to keep fresh; low-threat targets re-check slower, high-threat fastest.
 	private float GetRefreshTime(dmTarget t)
 	{
-		if (AnimalBase.Cast(t.m_Entity) || ZombieBase.Cast(t.m_Entity))
+		if (AnimalBase.Cast(t.GetEntity()) || ZombieBase.Cast(t.GetEntity()))
 			return DM_PERCEPTION_REFRESH_CREATURE;
-		if (t.m_Friendly)
+		if (t.Friendly())
 			return DM_PERCEPTION_REFRESH_FRIENDLY;
-		if (t.m_Threat < 0.5)
+		if (t.Threat() < 0.5)
 			return DM_PERCEPTION_REFRESH_LOW_THREAT;
 		return DM_PERCEPTION_REFRESH_HIGH_THREAT;
 	}
@@ -390,9 +390,9 @@ class dmVision
 	//! Совпадает с радиусом открытия (Scan): дальше цель не релевантна для действий.
 	private float GetLOSMaxDist(dmTarget t)
 	{
-		if (ZombieBase.Cast(t.m_Entity))
+		if (ZombieBase.Cast(t.GetEntity()))
 			return DM_PERCEPTION_ZOMBIE_RADIUS;
-		if (AnimalBase.Cast(t.m_Entity))
+		if (AnimalBase.Cast(t.GetEntity()))
 			return DM_PERCEPTION_ANIMAL_RADIUS;
 		return DM_PERCEPTION_PLAYER_RADIUS;
 	}

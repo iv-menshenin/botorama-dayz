@@ -218,4 +218,24 @@ class dmTarget
 	{
 		return m_Entity;
 	}
+
+	//! Полевые акцессоры (инкапсуляция полей m_* для внешних потребителей).
+	bool HasLOS()                          { return m_HasLOS; }
+	void SetHasLOS(bool v)                 { m_HasLOS = v; }
+	float LastContact()                    { return m_LastContact; }
+	void SetLastContact(float v)           { m_LastContact = v; }
+	float LastDamage()                     { return m_LastDamage; }
+	void SetLastDamage(float v)            { m_LastDamage = v; }
+	float LastDistance()                   { return m_LastDistance; }
+	void SetLastDistance(float v)          { m_LastDistance = v; }
+	float NextLOSUpdate()                  { return m_NextLOSUpdate; }
+	void SetNextLOSUpdate(float v)         { m_NextLOSUpdate = v; }
+	float Threat()                         { return m_Threat; }
+	void SetThreat(float v)                { m_Threat = v; }
+	bool Friendly()                        { return m_Friendly; }
+	void SetFriendly(bool v)               { m_Friendly = v; }
+	bool EverSeen()                        { return m_EverSeen; }
+	void SetEverSeen(bool v)               { m_EverSeen = v; }
+	void SetLastPosition(vector v)         { m_LastPosition = v; }
+	void SetLastPositionSpread(float v)    { m_LastPositionSpread = v; }
 }
