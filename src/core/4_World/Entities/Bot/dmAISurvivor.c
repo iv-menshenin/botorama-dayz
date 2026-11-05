@@ -1971,7 +1971,7 @@ class dmAISurvivor
 			if ( attractiveness > t.m_Attractiveness ) t.m_Attractiveness = attractiveness;
 			return;
 		}
-		t = new dmTarget();
+		t = new dmTargetDummy();
 		t.m_Type = dmTargetType.DESTROY;
 		t.m_Entity = entity;
 		t.m_Threat = threat;
@@ -2017,7 +2017,7 @@ class dmAISurvivor
 		dmTarget t = FindTarget(attacker);
 		if (!t)
 		{
-			t = new dmTarget();
+			t = new dmTargetDummy();
 			t.m_Type = dmTargetType.DESTROY;
 			t.m_Entity = attacker;
 			m_Targets.Insert(t);
@@ -2044,7 +2044,7 @@ class dmAISurvivor
 		dmTarget t = FindTarget(entity);
 		if (!t)
 		{
-			t = new dmTarget();
+			t = new dmTargetDummy();
 			t.m_Type = dmTargetType.DESTROY;
 			t.m_Entity = entity;
 			t.m_LastContact = GetGame().GetTickTime();
@@ -2070,7 +2070,7 @@ class dmAISurvivor
 		dmTarget t = FindTarget(entity);
 		if (!t)
 		{
-			t = new dmTarget();
+			t = new dmTargetDummy();
 			t.m_Type = dmTargetType.DESTROY;
 			t.m_Entity = entity;
 			m_Targets.Insert(t);
@@ -2390,8 +2390,7 @@ class dmAISurvivor
 		return null;
 	}
 
-	//! Start a scan pass: mark every remembered target as not-seen; RememberTarget
-	//! flips the visible ones back to true.
+	//! Start a scan pass: mark every remembered target as not-seen.
 	void BeginTargetScan()
 	{
 		int i;
@@ -2400,25 +2399,6 @@ class dmAISurvivor
 			dmTarget t = m_Targets[i];
 			t.m_HasLOS = false;
 		}
-	}
-
-	//! Merge a freshly seen entity into the target memory (create or update).
-	void RememberTarget(EntityAI entity, float threat, float attractiveness, bool friendly, vector pos)
-	{
-		dmTarget t = FindTarget(entity);
-		if (!t)
-		{
-			t = new dmTarget();
-			t.m_Type = dmTargetType.DESTROY;
-			t.m_Entity = entity;
-			m_Targets.Insert(t);
-		}
-		if (threat > t.m_Threat) t.m_Threat = threat;
-		t.m_Attractiveness = attractiveness;
-		t.m_Friendly = friendly;
-		t.m_LastPosition = pos;
-		t.m_HasLOS = true;
-		t.m_LastContact = GetGame().GetTickTime();
 	}
 
 	//! Drop targets with no contact for longer than the timeout (backward loop —

@@ -14,6 +14,9 @@ enum dmTargetType
 	DESTROY    // уничтожить (существо/игрок)
 };
 
+//! dmTarget — abstract base class (cannot be created directly). Общая память/перцепция
+//! цели. Конкретные типы — подклассы: dmTargetDummy (фантом), dmTargetSound (звук) и
+//! опознанные (dmTargetPlayer/Zombie/Animal/Entity). Инстанцировать только подклассы.
 class dmTarget
 {
 	dmTargetType m_Type = dmTargetType.DESTROY;
