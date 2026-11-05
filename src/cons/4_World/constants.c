@@ -611,6 +611,15 @@ static const float DM_ATTRACT_SHOT_FAR_DIST  = 1000.0; // выстрел: 1000 �
 static const float DM_ATTRACT_DECAY_PER_SEC = 0.005;   // затухание аттракшена: 0.05 за 10 с
 // ITEM_FALL 0.8 / DOOR 0.6 / ACTION 0.5 — появятся с их генераторами (отдельный атом)
 
+//! Attention model: concentration — насколько бот «занят» текущим (чем выше, тем меньше отвлекается).
+static const float DM_CONC_FIGHT_NEAR      = 5.0;     // Fighting: ≤5 м → 1.0
+static const float DM_CONC_FIGHT_FAR       = 10.0;    // Fighting: ≥10 м → 0.8
+static const float DM_CONC_FIGHT_FAR_LEVEL = 0.8;
+static const float DM_CONC_SHOOT_NEAR      = 100.0;   // Shooting: ≤100 м → 1.0
+static const float DM_CONC_SHOOT_FAR       = 1000.0;  // Shooting: ≥1000 м → 0.3
+static const float DM_CONC_SHOOT_FAR_LEVEL = 0.3;
+static const float DM_CONC_NONCOMBAT       = 0.1;     // мед-уход / патруль / еда / Hunting / прочее
+
 //! Combat engage: окно (сек) после последнего выстрела, в течение которого бот
 //! считается «активно ведущим стрельбу» (IsInCombat — помимо мили-флага).
 static const float DM_COMBAT_ENGAGE_TIMEOUT = 10.0;

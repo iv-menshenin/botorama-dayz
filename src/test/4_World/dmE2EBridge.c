@@ -3451,6 +3451,9 @@ class dmE2EBridge
 		line = "fsm=" + fsmName;
 		AppendDump(r, line);
 
+		line = "concentration=" + bot.GetConcentration();
+		AppendDump(r, line);
+
 		line = "fsmIntents=" + bot.GetFSMIntents().Count();
 		AppendDump(r, line);
 

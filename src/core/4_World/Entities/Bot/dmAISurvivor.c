@@ -2040,6 +2040,46 @@ class dmAISurvivor
 		}
 	}
 
+	//! Дистанция до текущей враждебной цели (для концентрации в боевых состояниях).
+	float HostileDistance()
+	{
+		dmTarget t = GetHostileTarget();
+		if (!t || !t.m_Entity)
+			return 99999.0;
+		return DistanceToTarget(t);
+	}
+
+	//! Концентрация (0..1): насколько бот «занят» текущим. Зависит от состояния FSM
+	//! и дистанции до врага. 0 — Idle (ничем не занят, готов оглянуться).
+	float GetConcentration()
+	{
+		if (m_EatDrinkIntent && m_EatDrinkIntent.IsBusy())
+			return DM_CONC_NONCOMBAT;   // ест/пьёт — небоевое занятие
+
+		string name = "";
+		if (m_FSM && m_FSM.GetCurrentState())
+			name = m_FSM.GetCurrentState().GetName();
+
+		float dist;
+		if (name == "Fighting")
+		{
+			dist = HostileDistance();
+			if (dist <= DM_CONC_FIGHT_NEAR) return 1.0;
+			if (dist >= DM_CONC_FIGHT_FAR) return DM_CONC_FIGHT_FAR_LEVEL;
+			return 1.0 - (1.0 - DM_CONC_FIGHT_FAR_LEVEL) * (dist - DM_CONC_FIGHT_NEAR) / (DM_CONC_FIGHT_FAR - DM_CONC_FIGHT_NEAR);
+		}
+		if (name == "Shooting" || name == "Flanking" || name == "Kamping" || name == "Rushing")
+		{
+			dist = HostileDistance();
+			if (dist <= DM_CONC_SHOOT_NEAR) return 1.0;
+			if (dist >= DM_CONC_SHOOT_FAR) return DM_CONC_SHOOT_FAR_LEVEL;
+			return 1.0 - (1.0 - DM_CONC_SHOOT_FAR_LEVEL) * (dist - DM_CONC_SHOOT_NEAR) / (DM_CONC_SHOOT_FAR - DM_CONC_SHOOT_NEAR);
+		}
+		if (name == "MedicalCare") return DM_CONC_NONCOMBAT;
+		if (name == "Idle") return 0.0;
+		return DM_CONC_NONCOMBAT;   // Patrol/Exploration/Hunting/Travel/Follow/GetWater/Stealth/Surrender
+	}
+
 	dmTarget m_LastHostileTarget; // текущая цель
 
 	//! Праймари-цель (threat >= DM_ATTACK_THREAT_THRESHOLD, не friendly, живая):
