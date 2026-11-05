@@ -3520,13 +3520,14 @@ class dmE2EBridge
 			string typeName = "null";
 			if (t.m_Entity)
 				typeName = t.m_Entity.GetType();
+			string cls = t.ClassName();
 			int los = 0;
 			if (t.m_HasLOS)
 				los = 1;
 			int everSeen = 0;
 			if (t.m_EverSeen)
 				everSeen = 1;
-			string line = "target[" + i + "] type=" + typeName;
+			string line = "target[" + i + "] type=" + typeName + " cls=" + cls;
 			line += " pos=" + t.m_LastPosition;
 			line += " LOS=" + los;
 			line += " everSeen=" + everSeen;

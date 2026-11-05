@@ -658,6 +658,8 @@ class dmAISurvivor
 			m_Vision = new dmVision();
 		m_Vision.Update(this, pDt);
 
+		IdentifySeenTargets();
+
 		m_Needs.Update(this, pDt);
 
 		m_Arsenal.Tick(pDt);
@@ -1916,12 +1918,57 @@ class dmAISurvivor
 
 	//! Заменить цель сущности: найти → удалить старую → добавить новую. Гарантирует
 	//! «одна цель на одну EntityAI» (эволюционная лестница фантом→звук→опознание).
+	//! Переносит накопленную память из старой цели в новую (кроме звуковых полей
+	//! m_Attraction/m_AttentionCooldownUntil), чтобы апгрейд не «забывал» знание бота.
 	void ReplaceTarget(EntityAI entity, dmTarget newTarget)
 	{
 		dmTarget old = m_TargetManager.Find(entity);
 		if (old)
+		{
+			newTarget.SetThreat(old.Threat());
+			newTarget.SetLastPosition(old.LastPosition());
+			newTarget.SetLastPositionSpread(old.LastPositionSpread());
+			newTarget.SetLastDistance(old.LastDistance());
+			newTarget.SetHasLOS(old.HasLOS());
+			newTarget.SetEverSeen(old.EverSeen());
+			newTarget.SetLastContact(old.LastContact());
+			newTarget.SetLastDamage(old.LastDamage());
+			newTarget.SetNextLOSUpdate(old.NextLOSUpdate());
+			newTarget.SetFriendly(old.Friendly());
 			RemoveTarget(old);
+		}
 		AddTarget(newTarget);
+	}
+
+	//! Опознание: цель попала в прямую видимость — апгрейдим до опознанного типа.
+	void TargetIdentified(dmTarget target)
+	{
+		EntityAI entity = target.GetEntity();
+		if (!entity)
+			return;
+
+		#ifdef DM_BOT_DEBUG_ATTENTION
+		dmBotLog.Debug(GetName(), "[Attention] identified " + entity.GetType());
+		#endif
+
+		ReplaceTarget(entity, dmTarget.CreateIdentification(entity));
+	}
+
+	//! Опознать цели, попавшие в прямую видимость (Dummy/Sound → Identification).
+	//! Собираем в отдельный список — ReplaceTarget модифицирует m_Targets.
+	void IdentifySeenTargets()
+	{
+		ref array<ref dmTarget> toIdentify = new array<ref dmTarget>();
+		ref array<ref dmTarget> targets = GetTargets();
+		int i;
+		for (i = 0; i < targets.Count(); i++)
+		{
+			dmTarget t = targets[i];
+			if (!t.Identified() && t.HasLOS())
+				toIdentify.Insert(t);
+		}
+		for (i = 0; i < toIdentify.Count(); i++)
+			TargetIdentified(toIdentify[i]);
 	}
 
 	//! Find a tracked target by its entity, or null if it isn't remembered.
@@ -1979,9 +2026,7 @@ class dmAISurvivor
 			if ( attractiveness > t.m_Attractiveness ) t.m_Attractiveness = attractiveness;
 			return;
 		}
-		t = new dmTargetDummy();
-		t.m_Type = dmTargetType.DESTROY;
-		t.m_Entity = entity;
+		t = dmTarget.CreateDummy(entity);
 		t.m_Threat = threat;
 		t.m_Attractiveness = attractiveness;
 		t.m_Friendly = friendly;
@@ -2025,9 +2070,7 @@ class dmAISurvivor
 		dmTarget t = FindTarget(attacker);
 		if (!t)
 		{
-			t = new dmTargetDummy();
-			t.m_Type = dmTargetType.DESTROY;
-			t.m_Entity = attacker;
+			t = dmTarget.CreateDummy(attacker);
 			AddTarget(t);
 		}
 		if (threat > t.m_Threat) t.m_Threat = threat;
@@ -2052,9 +2095,7 @@ class dmAISurvivor
 		dmTarget t = FindTarget(entity);
 		if (!t)
 		{
-			t = new dmTargetDummy();
-			t.m_Type = dmTargetType.DESTROY;
-			t.m_Entity = entity;
+			t = dmTarget.CreateDummy(entity);
 			t.m_LastContact = GetGame().GetTickTime();
 			AddTarget(t);
 		}
@@ -2078,9 +2119,7 @@ class dmAISurvivor
 		dmTarget t = FindTarget(entity);
 		if (!t)
 		{
-			t = new dmTargetDummy();
-			t.m_Type = dmTargetType.DESTROY;
-			t.m_Entity = entity;
+			t = dmTarget.CreateDummy(entity);
 			AddTarget(t);
 		}
 		if (threat > t.m_Threat) t.m_Threat = threat;
@@ -2121,9 +2160,10 @@ class dmAISurvivor
 		return Math.Clamp(L1 * facingFactor, DM_HUNT_SPREAD_MIN, DM_HUNT_SPREAD_MAX);
 	}
 
-	//! Слух: обновить/добавить цель по шуму. Цель с HasLOS=false получает свежую
-	//! последнюю позицию и обновлённую привлекательность; новая цель добавляется с
-	//! низким threat (услышал, не видел) и привлекательностью шума.
+	//! Слух: обновить/добавить цель по шуму. Новая цель создаётся сразу ЗВУКОВОЙ
+	//! (слух не делает фантомов — их пререгистрирует зрение); существующий фантом
+	//! апгрейдится до звуковой цели (лестница Dummy → Sound). Опознанная цель не
+	//! понижается. Далее — обновление привлекательности/аттракшена/спреда/позиции.
 	void HearNoise(EntityAI entity, vector position, float attractiveness, int type)
 	{
 		#ifdef DM_PERCEPTION_DEBUG
@@ -2132,36 +2172,44 @@ class dmAISurvivor
 		else
 			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness);
 		#endif
+
 		dmTarget t = FindTarget(entity);
 		if (t)
 		{
-			t.m_LastContact = GetGame().GetTickTime();
-			if (!t.IsVisible())
+			//! Лестница Dummy → Sound: фантом, услышанный впервые, становится звуковой целью.
+			if (!t.Identified() && !t.IsInherited(dmTargetSound))
 			{
-				if (!t.m_Friendly && attractiveness > t.m_Attractiveness)
-					t.m_Attractiveness = attractiveness;
-
-				if (!t.m_EverSeen)
-				{
-					float attract = NoiseAttraction(type, position);
-					if (attract > t.m_Attraction)
-						t.m_Attraction = attract;
-				}
-
-				t.m_LastPositionSpread = ComputeNoiseSpread(position);
-
-				t.m_LastPosition = position;
+				ReplaceTarget(entity, dmTarget.CreateSound(entity, type));
+				t = FindTarget(entity);
 			}
-			return;
+		}
+		else
+		{
+			//! Новая цель: сразу звуковая, с низким threat (услышал, не видел).
+			t = dmTarget.CreateSound(entity, type);
+			t.SetThreat(DM_NOISE_THREAT);
+			AddTarget(t);
 		}
 
-		DiscoverTarget(entity, DM_NOISE_THREAT, attractiveness, false);
-		t = FindTarget(entity);
-		if (t)
+		if (!t)
+			return;
+
+		t.m_LastContact = GetGame().GetTickTime();
+		if (!t.IsVisible())
 		{
-			t.m_LastPosition = position;
-			t.m_Attraction = NoiseAttraction(type, position);
+			if (!t.m_Friendly && attractiveness > t.m_Attractiveness)
+				t.m_Attractiveness = attractiveness;
+
+			if (!t.m_EverSeen)
+			{
+				float attract = NoiseAttraction(type, position);
+				if (attract > t.m_Attraction)
+					t.m_Attraction = attract;
+			}
+
 			t.m_LastPositionSpread = ComputeNoiseSpread(position);
+
+			t.m_LastPosition = position;
 		}
 	}
 

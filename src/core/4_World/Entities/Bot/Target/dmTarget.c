@@ -197,6 +197,48 @@ class dmTarget
 		return false;   // всё неживое (не Player/Zombie/Animal)
 	}
 
+	//! Цель опознана (Player/Zombie/Animal/Entity), а не фантом/звук.
+	bool Identified()
+	{
+		return IsPlayer() || IsZombie() || IsAnimal() || IsEntity();
+	}
+
+	//! Фабрика: фантом (пререгистрация зрением, тип не определён).
+	static dmTargetDummy CreateDummy(EntityAI entity)
+	{
+		dmTargetDummy t = new dmTargetDummy();
+		t.m_Type = dmTargetType.DESTROY;
+		t.m_Entity = entity;
+		return t;
+	}
+
+	//! Фабрика: опознанная цель по типу сущности. Неживое → Dummy (dmTargetEntity пока нет).
+	static dmTarget CreateIdentification(EntityAI entity)
+	{
+		dmTarget t;
+		if (ZombieBase.Cast(entity)) t = new dmTargetZombie();
+		else if (AnimalBase.Cast(entity)) t = new dmTargetAnimal();
+		else if (PlayerBase.Cast(entity)) t = new dmTargetPlayer();
+		else t = new dmTargetDummy();
+		t.m_Type = dmTargetType.DESTROY;
+		t.m_Entity = entity;
+		return t;
+	}
+
+	//! Фабрика: звуковая цель по типу шума (dmNoiseType).
+	static dmTargetSound CreateSound(EntityAI entity, int noiseType)
+	{
+		dmTargetSound t;
+		if (noiseType == dmNoiseType.STEP) t = new dmTargetFootsteps();
+		else if (noiseType == dmNoiseType.SHOT) t = new dmTargetShooting();
+		else if (noiseType == dmNoiseType.SCREAM) t = new dmTargetScream();
+		else if (noiseType == dmNoiseType.BULLETIMPACT) t = new dmTargetDroppedBullet();
+		else t = new dmTargetNoise();
+		t.m_Type = dmTargetType.DESTROY;
+		t.m_Entity = entity;
+		return t;
+	}
+
 	//! Типобезопасные геттеры сущности. В базе null — переопределяются в подклассах:
 	//! GetPlayer() — только для Player, GetZombie() — только Zombie, и т.д.
 	PlayerBase GetPlayer()
