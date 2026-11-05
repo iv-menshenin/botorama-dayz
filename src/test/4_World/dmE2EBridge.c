@@ -147,6 +147,7 @@ class dmE2EBridge
 	static ref dmE2EBridge s_Instance;
 	static bool s_TickLogged = false;
 	static int s_TickCount = 0;
+	static int s_TestBotSerial = 0;
 
 	//! Default army spawn scatter radius (meters) when step.Radius is 0.
 	static const float DM_E2E_ARMY_RADIUS = 50.0;
@@ -196,6 +197,15 @@ class dmE2EBridge
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(s_Instance.E2ETick, DM_E2E_TICK_INTERVAL_MS, false);
 		}
 		return s_Instance;
+	}
+
+	//! Формат имени тестового бота: Test0001, Test0002, ...
+	static string FormatTestName(int serial)
+	{
+		if (serial < 10) return "Test000" + serial;
+		if (serial < 100) return "Test00" + serial;
+		if (serial < 1000) return "Test0" + serial;
+		return "Test" + serial;
 	}
 
 	void dmE2EBridge()
@@ -1021,6 +1031,8 @@ class dmE2EBridge
 		{
 			GivePants(pawn);
 			m_Named.Insert(step.Who, bot);
+			s_TestBotSerial = s_TestBotSerial + 1;
+			bot.SetName(FormatTestName(s_TestBotSerial));
 			if (step.Preset == "nomad")
 				bot.SetFSM(dmBotPreset_Nomad.Create(bot));
 			else if (step.Preset == "survivor")
@@ -2150,6 +2162,9 @@ class dmE2EBridge
 			GivePants(pawn);
 			GiveWeapon(pawn);
 
+			s_TestBotSerial = s_TestBotSerial + 1;
+			bot.SetName(FormatTestName(s_TestBotSerial));
+
 			if (i < countA)
 			{
 				m_Named.Insert("army_A_" + spawnedA, bot);
@@ -2246,6 +2261,9 @@ class dmE2EBridge
 
 		GivePants(pawn);
 		m_Named.Insert(step.Who, bot);
+
+		s_TestBotSerial = s_TestBotSerial + 1;
+		bot.SetName(FormatTestName(s_TestBotSerial));
 
 		pawn.GetHumanInventory().CreateInHands("Machete");
 

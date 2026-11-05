@@ -1719,12 +1719,6 @@ class dmAISurvivor
 		//! Цели нет — снять текущее расследование.
 		if (!best)
 		{
-			if (m_AttentionTarget)
-			{
-				#ifdef DM_BOT_DEBUG_ATTENTION
-				dmBotLog.Debug(GetName(), "[Attention] released (attraction faded below concentration)");
-				#endif
-			}
 			ClearAttention();
 			return;
 		}
@@ -2105,6 +2099,20 @@ class dmAISurvivor
 		return 0.0;   // OTHER — без аттракшена
 	}
 
+	//! Размытость позиции шума (растёт с дистанцией и углом «не лицом» к шуму).
+	private float ComputeNoiseSpread(vector position)
+	{
+		vector botPos = GetPosition();
+		float L1 = vector.Distance(botPos, position);
+		vector toNoise = position - botPos;
+		float noiseYaw = toNoise.VectorToAngles()[0];
+		vector bodyDir = GetDirection();
+		float lookYaw = bodyDir.VectorToAngles()[0];
+		float facing = Math.AbsFloat(AngleDiff(noiseYaw, lookYaw));
+		float facingFactor = DM_HUNT_FACING_MIN + (facing / 180.0) * (DM_HUNT_FACING_MAX - DM_HUNT_FACING_MIN);
+		return Math.Clamp(L1 * facingFactor, DM_HUNT_SPREAD_MIN, DM_HUNT_SPREAD_MAX);
+	}
+
 	//! Слух: обновить/добавить цель по шуму. Цель с HasLOS=false получает свежую
 	//! последнюю позицию и обновлённую привлекательность; новая цель добавляется с
 	//! низким threat (услышал, не видел) и привлекательностью шума.
@@ -2132,16 +2140,7 @@ class dmAISurvivor
 						t.m_Attraction = attract;
 				}
 
-				vector botPos = GetPosition();
-				float L1 = vector.Distance(botPos, position);       // бот → шум
-				// facing: угол между направлением тела бота и направлением на шум (0..180)
-				vector toNoise = position - botPos;
-				float noiseYaw = toNoise.VectorToAngles()[0];
-				vector bodyDir = GetDirection();
-				float lookYaw = bodyDir.VectorToAngles()[0];
-				float facing = Math.AbsFloat(dmAISurvivor.AngleDiff(noiseYaw, lookYaw));
-				float facingFactor = DM_HUNT_FACING_MIN + (facing / 180.0) * (DM_HUNT_FACING_MAX - DM_HUNT_FACING_MIN);
-				t.m_LastPositionSpread = Math.Clamp(L1 * facingFactor, DM_HUNT_SPREAD_MIN, DM_HUNT_SPREAD_MAX);
+				t.m_LastPositionSpread = ComputeNoiseSpread(position);
 
 				t.m_LastPosition = position;
 			}
@@ -2154,6 +2153,7 @@ class dmAISurvivor
 		{
 			t.m_LastPosition = position;
 			t.m_Attraction = NoiseAttraction(type, position);
+			t.m_LastPositionSpread = ComputeNoiseSpread(position);
 		}
 	}
 
