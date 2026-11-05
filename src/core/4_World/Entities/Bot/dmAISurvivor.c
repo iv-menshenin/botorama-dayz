@@ -1954,10 +1954,26 @@ class dmAISurvivor
 		return t;
 	}
 
+	//! Аттракшен свежей цели по типу шума + дистанции (выстрел зависит от дистанции).
+	float NoiseAttraction(int type, vector noisePos)
+	{
+		if (type == dmNoiseType.SHOT)
+		{
+			float dist = vector.Distance(GetPosition(), noisePos);
+			if (dist <= DM_ATTRACT_SHOT_NEAR_DIST) return 1.0;
+			if (dist >= DM_ATTRACT_SHOT_FAR_DIST) return 0.0;
+			return 1.0 - (dist - DM_ATTRACT_SHOT_NEAR_DIST) / (DM_ATTRACT_SHOT_FAR_DIST - DM_ATTRACT_SHOT_NEAR_DIST);
+		}
+		if (type == dmNoiseType.STEP) return DM_ATTRACT_STEP;
+		if (type == dmNoiseType.SCREAM) return DM_ATTRACT_SCREAM;
+		if (type == dmNoiseType.BULLETIMPACT) return DM_ATTRACT_BULLETIMPACT;
+		return 0.0;   // OTHER — без аттракшена
+	}
+
 	//! Слух: обновить/добавить цель по шуму. Цель с HasLOS=false получает свежую
 	//! последнюю позицию и обновлённую привлекательность; новая цель добавляется с
 	//! низким threat (услышал, не видел) и привлекательностью шума.
-	void HearNoise(EntityAI entity, vector position, float attractiveness)
+	void HearNoise(EntityAI entity, vector position, float attractiveness, int type)
 	{
 		#ifdef DM_PERCEPTION_DEBUG
 		if ( entity )
@@ -1973,6 +1989,13 @@ class dmAISurvivor
 			{
 				if (!t.m_Friendly && attractiveness > t.m_Attractiveness)
 					t.m_Attractiveness = attractiveness;
+
+				if (!t.m_EverSeen)
+				{
+					float attract = NoiseAttraction(type, position);
+					if (attract > t.m_Attraction)
+						t.m_Attraction = attract;
+				}
 
 				vector botPos = GetPosition();
 				float L1 = vector.Distance(botPos, position);       // бот → шум
@@ -1993,7 +2016,10 @@ class dmAISurvivor
 		DiscoverTarget(entity, DM_NOISE_THREAT, attractiveness, false);
 		t = FindTarget(entity);
 		if (t)
+		{
 			t.m_LastPosition = position;
+			t.m_Attraction = NoiseAttraction(type, position);
+		}
 	}
 
 	dmTarget m_LastHostileTarget; // текущая цель

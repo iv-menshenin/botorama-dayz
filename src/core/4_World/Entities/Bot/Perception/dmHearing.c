@@ -63,6 +63,6 @@ class dmHearing
 		#ifdef DM_PERCEPTION_DEBUG
 		dmBotLog.Debug(m_Bot.GetName(), "[Noise] OnNoise I HEAR YOU: noice_position=" + position + " bot_position=" + m_Bot.GetPosition() + " strength=" + strength);
 		#endif
-		m_Bot.HearNoise(root, position, attractiveness);
+		m_Bot.HearNoise(root, position, attractiveness, type);
 	}
 };

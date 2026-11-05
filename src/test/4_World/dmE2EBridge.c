@@ -3511,6 +3511,7 @@ class dmE2EBridge
 			line += " everSeen=" + everSeen;
 			line += " threat=" + t.m_Threat;
 			line += " attract=" + t.m_Attractiveness;
+			line += " attraction=" + t.m_Attraction;
 			AppendDump(r, line);
 		}
 		if (targets.Count() == 0)

@@ -602,6 +602,14 @@ static const float DM_DAMAGE_THREAT_HP_THRESHOLD = 30.0;
 //! boundary between the fast and slow LOS-refresh cadences in GetRefreshTime.
 static const float DM_ATTACK_THREAT_THRESHOLD = 0.5;
 
+//! Attention model: attraction — интерес разузнать про свежую (невиденную) цель по типу шума.
+static const float DM_ATTRACT_STEP           = 1.0;    // шаги — макс (кто-то рядом)
+static const float DM_ATTRACT_SCREAM         = 0.9;    // крик зомби
+static const float DM_ATTRACT_BULLETIMPACT   = 1.0;    // попадание пули (слышно только в 15 м — как шаги)
+static const float DM_ATTRACT_SHOT_NEAR_DIST = 50.0;   // выстрел: 50 м → максимум
+static const float DM_ATTRACT_SHOT_FAR_DIST  = 1000.0; // выстрел: 1000 м → 0
+// ITEM_FALL 0.8 / DOOR 0.6 / ACTION 0.5 — появятся с их генераторами (отдельный атом)
+
 //! Combat engage: окно (сек) после последнего выстрела, в течение которого бот
 //! считается «активно ведущим стрельбу» (IsInCombat — помимо мили-флага).
 static const float DM_COMBAT_ENGAGE_TIMEOUT = 10.0;

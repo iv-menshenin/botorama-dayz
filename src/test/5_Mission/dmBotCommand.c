@@ -667,6 +667,7 @@ class dmBotCommand : dmCommandModule
 			line += " attract=" + t.m_Attractiveness;
 			line += " friendly=" + friendly;
 			line += " everSeen=" + everSeen;
+			line += " attraction=" + t.m_Attraction;
 			dmCommandManager.ChatToPlayer(player, line);
 		}
 
