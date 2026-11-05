@@ -841,6 +841,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		dmBotLog.Debug(bot.GetName(), "[LADDER] MV: laddering=" + m_Laddering + " vel=" + ladderVel);
 		#endif
 
+		#ifdef DM_BOT_DEBUG_MOVE_ORACLE
 		//! Оракул: командуем вперёд, а фактическая скорость имеет боковую составляющую —
 		//! значит бот зацепил круглое дерево и его снесло по касательной.
 		if (Math.AbsFloat(moveAngle) < DM_TREE_COLLISION_MOVE_ANGLE && GetGame().GetTickTime() > m_TreeCollisionCooldown && GetGame().GetTickTime() > m_VeerGraceUntil)
@@ -868,6 +869,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 				}
 			}
 		}
+		#endif
 
 		//! Body faces the movement direction (comfort policy); the head looks at the
 		//! waypoint. If a higher-priority look intent holds the body (FULL), moveAngle

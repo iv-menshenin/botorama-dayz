@@ -60,6 +60,8 @@
 //!
 //!   DM_PERCEPTION_DEBUG - debug bots perception events
 //!
+//!   DM_BOT_DEBUG_MOVE_ORACLE — оракул пересечения с преятствиями. Сенсор отклонения расчетной траектории движения прямо от фактической.
+//!
 //! TRACE — per-frame, verbose:
 //!   DM_BOT_TRACE_LOOK — head look steering (LookAtPoint, UpdateLook).
 //!   DM_BOT_DEBUG_DRIVE_TELEMETRY — per-tick телеметрия вождения (pos/heading/bearing/angle/steer/speed).
