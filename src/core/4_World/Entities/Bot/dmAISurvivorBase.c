@@ -1855,8 +1855,10 @@ class dmAISurvivorBase : PlayerBase
 			}
 			else
 			{
+				float turnBatch = 2.0;
+				if ( IsRaised() ) turnBatch = 0.5;
 				m_TurnTime += pDt;
-				if (m_TurnTime > 2.0 || Math.AbsFloat(dBody) < 1.0)
+				if (m_TurnTime > turnBatch || Math.AbsFloat(dBody) < 1.0)
 				{
 					if (m_CmdStopTurn >= 0)
 						AnimCallCommand(m_CmdStopTurn, 0, 0.0);
