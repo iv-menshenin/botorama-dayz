@@ -62,6 +62,12 @@ class dmBotIntent_Aim : dmBotIntent
 			bot.LookAtPoint(aiming.GetAimPosition(), dmBotLookTurn.FULL);
 
 			chanceToRequest = aiming.HitProbability() * pDt;
+
+			//! Ближе — меньше влияния джиттера: на 50 м стреляем почти сразу,
+			//! на 1000 м — HitProbability*pDt. Линейная зависимость.
+			float dist = vector.Distance(bot.GetPosition(), m_TargetEntity.GetPosition());
+			float distFactor = Math.Clamp((dist - DM_FIRE_JITTER_NEAR) / (DM_FIRE_JITTER_FAR - DM_FIRE_JITTER_NEAR), 0.0, 0.8);
+			chanceToRequest = 1.0 + (chanceToRequest - 1.0) * distFactor;
 		}
 
 		pawn.RaiseWeapon(true);

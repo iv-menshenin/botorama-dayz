@@ -178,7 +178,7 @@ class dmBotState_Shooting : dmBotState
 
 		if (!t.IsVisible())
 		{
-			m_HasntLOSTimer + pDt;
+			m_HasntLOSTimer = m_HasntLOSTimer + pDt;
 			if ( m_HasntLOSTimer > 15 ) return EXIT;
 		} else {
 			m_HasntLOSTimer = 0;

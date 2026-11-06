@@ -912,6 +912,11 @@ static const float DM_AIM_ADS_DISTANCE = 100.0;
 //! Aiming: seconds the bot stays in HIP before switching to ADS within DM_AIM_ADS_DISTANCE.
 static const float DM_AIM_HIP_GRACE = 10.0;
 
+//! Fire jitter: джиттер (accuracy-гейт выстрела) зависит от дистанции — ближе влияет
+//! меньше. ≤NEAR м — не влияет (стреляем сразу), ≥FAR м — как раньше.
+static const float DM_FIRE_JITTER_NEAR = 50.0;
+static const float DM_FIRE_JITTER_FAR  = 1000.0;
+
 //! Aiming recoil: base barrel kick (degrees up) per shot.
 static const float DM_AIM_RECOIL_DEGREE = 2.0;
 
