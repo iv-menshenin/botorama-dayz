@@ -1925,7 +1925,7 @@ class dmAISurvivor
 		dmTarget old = m_TargetManager.Find(entity);
 		if (old)
 		{
-			newTarget.SetThreat(old.Threat());
+			if ( newTarget.Threat() < old.Threat() ) newTarget.SetThreat(old.Threat());
 			newTarget.SetLastPosition(old.LastPosition());
 			newTarget.SetLastDistance(old.LastDistance());
 			newTarget.SetHasLOS(old.HasLOS());
