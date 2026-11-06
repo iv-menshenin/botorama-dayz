@@ -1031,8 +1031,7 @@ class dmE2EBridge
 		{
 			GivePants(pawn);
 			m_Named.Insert(step.Who, bot);
-			s_TestBotSerial = s_TestBotSerial + 1;
-			bot.SetName(FormatTestName(s_TestBotSerial));
+			bot.SetName(step.Who);
 			if (step.Preset == "nomad")
 				bot.SetFSM(dmBotPreset_Nomad.Create(bot));
 			else if (step.Preset == "survivor")
@@ -3369,11 +3368,30 @@ class dmE2EBridge
 		r.Reason = roadCount.ToString() + " road objects";
 	}
 
+	//! Найти бота по e2e-ключу/имени: сначала m_Named, затем глобальный реестр s_All
+	//! (по GetName()). Нужно, чтобы дампить бота из предыдущего job (m_Named чистится).
+	private bool FindBotByName(string name, out dmAISurvivor bot)
+	{
+		if (m_Named.Find(name, bot))
+			return true;
+		int i;
+		for (i = 0; i < dmAISurvivor.s_All.Count(); i++)
+		{
+			dmAISurvivor b = dmAISurvivor.s_All[i];
+			if (b.GetName() == name)
+			{
+				bot = b;
+				return true;
+			}
+		}
+		return false;
+	}
+
 	//! Dump the named bot's body/motion/brain state as a set of lines.
 	private void RunBotDump(dmE2EStep step, dmE2EStepResult r)
 	{
 		dmAISurvivor bot;
-		if (!m_Named.Find(step.Who, bot))
+		if (!FindBotByName(step.Who, bot))
 		{
 			r.Ok = false;
 			r.Reason = "no such bot";
@@ -3505,7 +3523,7 @@ class dmE2EBridge
 	private void RunTargetDump(dmE2EStep step, dmE2EStepResult r)
 	{
 		dmAISurvivor bot;
-		if (!m_Named.Find(step.Who, bot))
+		if (!FindBotByName(step.Who, bot))
 		{
 			r.Ok = false;
 			r.Reason = "no such bot";
