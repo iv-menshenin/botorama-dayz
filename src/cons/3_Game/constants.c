@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.453";
+static const string DM_BOTORAMA_VERSION = "3.454";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
@@ -54,7 +54,9 @@ static const float DM_NOISE_THREAT = 0.4;
 
 //! Hearing: noise ranges (meters) per source, for the distance filter.
 static const float DM_NOISE_GUNSHOT_STRENGTH = 3000.0;
-static const float DM_NOISE_STEP_STRENGTH = 10.0;
+static const float DM_NOISE_STEP_WALK = 5.0;     // шаги медленным темпом (walk/idle)
+static const float DM_NOISE_STEP_RUN = 10.0;     // бег
+static const float DM_NOISE_STEP_SPRINT = 15.0;  // спринт
 static const float DM_NOISE_BULLETIMPACT_STRENGTH = 15.0;
 static const float DM_NOISE_SCREAM_STRENGTH = 30.0;
 
