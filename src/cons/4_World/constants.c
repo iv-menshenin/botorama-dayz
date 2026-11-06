@@ -8,6 +8,7 @@ static const float DM_EYE_HEIGHT = 1.4;
 
 //! Look turn smoothing speed (per second). Higher = faster head turn.
 static const float DM_LOOK_TURN_SPEED = 12.0;
+static const float DM_LOOK_TURN_SPEED_RAISED = 4.0;  // медленнее при поднятом оружии
 
 //! Maximum head look yaw offset from the body (degrees).
 static const float DM_LOOK_MAX_YAW = 90.0;
@@ -916,6 +917,19 @@ static const float DM_AIM_HIP_GRACE = 10.0;
 //! меньше. ≤NEAR м — не влияет (стреляем сразу), ≥FAR м — как раньше.
 static const float DM_FIRE_JITTER_NEAR = 50.0;
 static const float DM_FIRE_JITTER_FAR  = 1000.0;
+
+//! Прицеливание: если цель отклонилась от линии прицеливания сильнее этого угла,
+//! бот опускает ствол (чтобы быстрее довернуться корпусом).
+static const float DM_SHOOT_LOWER_ANGLE = 20.0;
+//! Задержка перед опусканием ствола: линейно от дистанции (ближе — быстрее).
+static const float DM_SHOOT_LOWER_NEAR_DIST = 15.0;
+static const float DM_SHOOT_LOWER_FAR_DIST  = 100.0;
+static const float DM_SHOOT_LOWER_NEAR_DELAY = 1.0;
+static const float DM_SHOOT_LOWER_FAR_DELAY  = 5.0;
+
+//! Гейт выстрела: точка прицеливания дальше этого радиуса (м) от центра цели —
+//! выстрел блокируется (ствол ещё не довернулся). Угол 3D (с вертикалью).
+static const float DM_SHOOT_GATE_MISS_RADIUS = 1.0;
 
 //! Aiming recoil: base barrel kick (degrees up) per shot.
 static const float DM_AIM_RECOIL_DEGREE = 2.0;

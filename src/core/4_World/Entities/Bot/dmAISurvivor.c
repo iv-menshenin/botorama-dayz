@@ -2695,7 +2695,12 @@ class dmAISurvivor
 		if (m_Pawn.IsMeleeStriking())
 			return;
 
-		float t = Math.Min(1.0, DM_LOOK_TURN_SPEED * pDt);
+		//! С поднятым оружием голова доворачивается медленнее (резкий доворот
+		//! смущает прицел).
+		float turnSpeed = DM_LOOK_TURN_SPEED;
+		if (m_Pawn.IsRaised())
+			turnSpeed = DM_LOOK_TURN_SPEED_RAISED;
+		float t = Math.Min(1.0, turnSpeed * pDt);
 
 		float bodyYaw = m_Pawn.GetOrientation()[0];
 		float relTarget = AngleDiff(m_TargetLookYawAbs, bodyYaw);
