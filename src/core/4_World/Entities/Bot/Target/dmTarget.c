@@ -6,7 +6,7 @@
 //!
 //! Memory (T4): a target that hides behind a wall/brush stays in the list with its
 //! last known position until it times out — m_LastPosition / m_HasLOS / m_LastContact.
-//! Evaluation: m_Threat / m_Attractiveness / m_Friendly drive combat/loot choices.
+//! Evaluation: m_Threat / m_Friendly drive combat choices; m_Attraction drives attention.
 
 enum dmTargetType
 {
@@ -36,7 +36,6 @@ class dmTarget
 	float m_NextLOSUpdate = 0.0;
 
 	float m_Threat = 0.0;           // опасность (0..1)
-	float m_Attractiveness = 0.0;   // привлекательность (0..1)
 	float m_Attraction = 0.0;       // интерес разузнать про СВЕЖУЮ (невиденную) цель по шуму (0..1), затухает
 	float m_AttentionCooldownUntil = 0.0; // до этого tickTime цель не пере-триггерит разведку (кулдаун после «посмотрел и не нашёл»)
 	bool m_Friendly = false;        // не атаковать

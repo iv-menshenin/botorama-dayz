@@ -664,7 +664,6 @@ class dmBotCommand : dmCommandModule
 			line += " LOS=" + los;
 			line += " age=" + age;
 			line += " threat=" + t.m_Threat;
-			line += " attract=" + t.m_Attractiveness;
 			line += " friendly=" + friendly;
 			line += " everSeen=" + everSeen;
 			line += " attraction=" + t.m_Attraction;

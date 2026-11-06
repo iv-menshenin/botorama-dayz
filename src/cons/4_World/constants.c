@@ -662,11 +662,6 @@ static const float DM_RESTRAIN_THREAT_RADIUS = 8.0;
 //! Restrain (развязывание): длительность (секунды) анимации борьбы до освобождения.
 static const float DM_UNTIE_DURATION = 3.0;
 
-//! Target evaluation: attractiveness (0..1) — how interesting a target is.
-static const float DM_TARGET_ATTRACT_PLAYER = 0.1;
-static const float DM_TARGET_ATTRACT_ZOMBIE = 0.2;
-static const float DM_TARGET_ATTRACT_ANIMAL = 0.5;
-
 //! Target memory: seconds without contact before a remembered target is forgotten.
 static const float DM_TARGET_FORGET_TIME = 300.0;
 
@@ -872,9 +867,6 @@ static const float DM_FLANK_MAX_SURFACE_DELTA = 1.5;
 
 //! Flank: whole-attempt timeout (seconds). A stuck/slow MoveTo aborts after this.
 static const float DM_FLANK_STALL_TIMEOUT = 8.0;
-
-//! Hunting: min attractiveness (0..1) to search for a target it can't see.
-static const float DM_HUNT_MIN_ATTRACTIVENESS = 0.5;
 
 //! Hunting: facing factor range — spread = distance × (min at face, max at back).
 static const float DM_HUNT_FACING_MIN = 0.05;

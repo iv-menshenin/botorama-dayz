@@ -2016,18 +2016,16 @@ class dmAISurvivor
 	//! Add a newly discovered entity to the target memory in a "clean" state —
 	//! not yet seen (m_HasLOS=false, no known position). LOS is filled later by
 	//! the perception's per-target refresh loop.
-	void DiscoverTarget(EntityAI entity, float threat, float attractiveness, bool friendly)
+	void DiscoverTarget(EntityAI entity, float threat, bool friendly)
 	{
 		dmTarget t = FindTarget(entity);
 		if (t)
 		{
 			if ( threat > t.m_Threat ) t.m_Threat = threat;
-			if ( attractiveness > t.m_Attractiveness ) t.m_Attractiveness = attractiveness;
 			return;
 		}
 		t = dmTarget.CreateDummy(entity);
 		t.m_Threat = threat;
-		t.m_Attractiveness = attractiveness;
 		t.m_Friendly = friendly;
 		t.m_HasLOS = false;
 		t.m_LastPosition = vector.Zero;
@@ -2188,14 +2186,14 @@ class dmAISurvivor
 	//! Слух: обновить/добавить цель по шуму. Новая цель создаётся сразу ЗВУКОВОЙ
 	//! (слух не делает фантомов — их пререгистрирует зрение); существующий фантом
 	//! апгрейдится до звуковой цели (лестница Dummy → Sound). Опознанная цель не
-	//! понижается. Далее — обновление привлекательности/аттракшена/спреда/позиции.
-	void HearNoise(EntityAI entity, vector position, float attractiveness, int type)
+	//! понижается. Далее — обновление аттракшена/спреда/позиции.
+	void HearNoise(EntityAI entity, vector position, int type)
 	{
 		#ifdef DM_PERCEPTION_DEBUG
 		if ( entity )
-			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness + " [" + entity.GetType() + "]");
+			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position + " [" + entity.GetType() + "]");
 		else
-			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness);
+			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position);
 		#endif
 
 		//! Крик зомби: цель — игрок, на которого нападает зомби (не сам зомби).
@@ -2236,9 +2234,6 @@ class dmAISurvivor
 		t.m_LastContact = GetGame().GetTickTime();
 		if (!t.IsVisible())
 		{
-			if (!t.m_Friendly && attractiveness > t.m_Attractiveness)
-				t.m_Attractiveness = attractiveness;
-
 			if (!t.m_EverSeen)
 			{
 				float attract = NoiseAttraction(type, position);
@@ -2463,7 +2458,7 @@ class dmAISurvivor
 	}
 
 	//! Первая цель, пригодная для охоты: невидимая (!m_HasLOS), не дружественная,
-	//! живая, и либо враждебная с неточной позицией, либо достаточно привлекательная.
+	//! живая, и враждебная с неточной позицией.
 	dmTarget GetHuntTarget()
 	{
 		int i;
@@ -2482,8 +2477,7 @@ class dmAISurvivor
 			if (e && !e.IsAlive())
 				continue;
 			bool hostileSpread = t.m_Threat >= DM_ATTACK_THREAT_THRESHOLD;
-			bool attractive = t.m_Attractiveness > DM_HUNT_MIN_ATTRACTIVENESS;
-			if (hostileSpread || attractive)
+			if (hostileSpread)
 				return t;
 		}
 		return null;

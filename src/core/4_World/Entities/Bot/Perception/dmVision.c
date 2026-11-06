@@ -80,7 +80,7 @@ class dmVision
 			vector pos = z.GetPosition();
 			if (vector.DistanceSq(botPos, pos) > radiusSq)
 				continue;
-			bot.DiscoverTarget(z, DM_TARGET_THREAT_ZOMBIE, DM_TARGET_ATTRACT_ZOMBIE, false);
+			bot.DiscoverTarget(z, DM_TARGET_THREAT_ZOMBIE, false);
 		}
 	}
 
@@ -98,7 +98,7 @@ class dmVision
 			vector pos = a.GetPosition();
 			if (vector.DistanceSq(botPos, pos) > radiusSq)
 				continue;
-			bot.DiscoverTarget(a, DM_TARGET_THREAT_ANIMAL, DM_TARGET_ATTRACT_ANIMAL, false);
+			bot.DiscoverTarget(a, DM_TARGET_THREAT_ANIMAL, false);
 		}
 	}
 
@@ -121,7 +121,7 @@ class dmVision
 			vector pos = p.GetPosition();
 			if (vector.DistanceSq(botPos, pos) > radiusSq)
 				continue;
-			bot.DiscoverTarget(p, DM_TARGET_THREAT_PLAYER, DM_TARGET_ATTRACT_PLAYER, friendly);
+			bot.DiscoverTarget(p, DM_TARGET_THREAT_PLAYER, friendly);
 		}
 	}
 
