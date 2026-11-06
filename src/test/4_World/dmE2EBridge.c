@@ -3532,8 +3532,8 @@ class dmE2EBridge
 			line += " LOS=" + los;
 			line += " everSeen=" + everSeen;
 			line += " threat=" + t.m_Threat;
-			line += " attraction=" + t.m_Attraction;
-			line += " cooldown=" + t.m_AttentionCooldownUntil;
+			line += " attraction=" + t.GetAttraction();
+			line += " cooldown=" + t.GetAttentionCooldownUntil();
 			AppendDump(r, line);
 		}
 		if (targets.Count() == 0)

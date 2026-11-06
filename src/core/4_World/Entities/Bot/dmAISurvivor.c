@@ -1710,13 +1710,13 @@ class dmAISurvivor
 		{
 			dmTarget t = targets[i];
 			if (t.m_EverSeen) continue;              // уже видели — разведка не нужна
-			if (t.m_AttentionCooldownUntil > now) continue; // кулдаун: цель только что «отсмотрела»
-			if (t.m_Attraction <= conc) continue;    // интереса мало
+			if (t.GetAttentionCooldownUntil() > now) continue; // кулдаун: цель только что «отсмотрела»
+			if (t.GetAttraction() <= conc) continue;    // интереса мало
 			if (!t.m_Entity || !t.m_Entity.IsAlive()) continue;
-			if (!best || t.m_Attraction > bestAttract)
+			if (!best || t.GetAttraction() > bestAttract)
 			{
 				best = t;
-				bestAttract = t.m_Attraction;
+				bestAttract = t.GetAttraction();
 			}
 		}
 
@@ -1793,7 +1793,7 @@ class dmAISurvivor
 			//! взгляд в следующем тике (иначе бот таращится чанками по ~dur). Увиденную
 			//! цель не трогаем — она и так выпадает из разведки (m_EverSeen).
 			if (!best.m_EverSeen)
-				best.m_AttentionCooldownUntil = now + DM_ATTENTION_RETRIGGER_COOLDOWN;
+				best.SetAttentionCooldownUntil(now + DM_ATTENTION_RETRIGGER_COOLDOWN);
 
 			#ifdef DM_BOT_DEBUG_ATTENTION
 			dmBotLog.Debug(GetName(), "[Attention] done facing=" + m_AttentionFacingTime + " dur=" + dur + " seen=" + best.m_EverSeen);
@@ -1918,8 +1918,8 @@ class dmAISurvivor
 
 	//! Заменить цель сущности: найти → удалить старую → добавить новую. Гарантирует
 	//! «одна цель на одну EntityAI» (эволюционная лестница фантом→звук→опознание).
-	//! Переносит накопленную память из старой цели в новую (кроме звуковых полей
-	//! m_Attraction/m_AttentionCooldownUntil), чтобы апгрейд не «забывал» знание бота.
+	//! Переносит накопленную память из старой цели в новую (кроме полей внимания
+	//! звуковой цели), чтобы апгрейд не «забывал» знание бота.
 	void ReplaceTarget(EntityAI entity, dmTarget newTarget)
 	{
 		dmTarget old = m_TargetManager.Find(entity);
@@ -2210,6 +2210,8 @@ class dmAISurvivor
 			}
 		}
 
+		float spread = ComputeNoiseSpread(position);
+
 		dmTarget t = FindTarget(entity);
 		if (t)
 		{
@@ -2218,6 +2220,9 @@ class dmAISurvivor
 			{
 				ReplaceTarget(entity, dmTarget.CreateSound(entity, type));
 				t = FindTarget(entity);
+				#ifdef SERVER
+				dmBotAdmLog.LogHeardTarget(m_Pawn, type, position, spread);
+				#endif
 			}
 		}
 		else
@@ -2226,6 +2231,9 @@ class dmAISurvivor
 			t = dmTarget.CreateSound(entity, type);
 			t.SetThreat(DM_NOISE_THREAT);
 			AddTarget(t);
+			#ifdef SERVER
+			dmBotAdmLog.LogHeardTarget(m_Pawn, type, position, spread);
+			#endif
 		}
 
 		if (!t)
@@ -2237,11 +2245,11 @@ class dmAISurvivor
 			if (!t.m_EverSeen)
 			{
 				float attract = NoiseAttraction(type, position);
-				if (attract > t.m_Attraction)
-					t.m_Attraction = attract;
+				if (attract > t.GetAttraction())
+					t.SetAttraction(attract);
 			}
 
-			t.m_LastPositionSpread = ComputeNoiseSpread(position);
+			t.m_LastPositionSpread = spread;
 
 			t.m_LastPosition = position;
 		}
@@ -2255,11 +2263,12 @@ class dmAISurvivor
 		for (i = 0; i < targets.Count(); i++)
 		{
 			dmTarget t = targets[i];
-			if (t.m_Attraction > 0.0)
+			if (t.GetAttraction() > 0.0)
 			{
-				t.m_Attraction = t.m_Attraction - DM_ATTRACT_DECAY_PER_SEC * pDt;
-				if (t.m_Attraction < 0.0)
-					t.m_Attraction = 0.0;
+				float attract = t.GetAttraction() - DM_ATTRACT_DECAY_PER_SEC * pDt;
+				if (attract < 0.0)
+					attract = 0.0;
+				t.SetAttraction(attract);
 			}
 		}
 	}

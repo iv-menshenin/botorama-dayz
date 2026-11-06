@@ -6,7 +6,8 @@
 //!
 //! Memory (T4): a target that hides behind a wall/brush stays in the list with its
 //! last known position until it times out — m_LastPosition / m_HasLOS / m_LastContact.
-//! Evaluation: m_Threat / m_Friendly drive combat choices; m_Attraction drives attention.
+//! Evaluation: m_Threat / m_Friendly drive combat choices; attention (m_Attraction)
+//! lives in dmTargetSound and is exposed via virtual accessors.
 
 enum dmTargetType
 {
@@ -36,8 +37,6 @@ class dmTarget
 	float m_NextLOSUpdate = 0.0;
 
 	float m_Threat = 0.0;           // опасность (0..1)
-	float m_Attraction = 0.0;       // интерес разузнать про СВЕЖУЮ (невиденную) цель по шуму (0..1), затухает
-	float m_AttentionCooldownUntil = 0.0; // до этого tickTime цель не пере-триггерит разведку (кулдаун после «посмотрел и не нашёл»)
 	bool m_Friendly = false;        // не атаковать
 
 	//! Точка прицеливания: живая позиция цели, если она видна, иначе последняя
@@ -279,4 +278,10 @@ class dmTarget
 	void SetEverSeen(bool v)               { m_EverSeen = v; }
 	void SetLastPosition(vector v)         { m_LastPosition = v; }
 	void SetLastPositionSpread(float v)    { m_LastPositionSpread = v; }
+
+	//! Интерес разузнать свежую цель (0 у не-звуковых целей; в dmTargetSound — реальное значение).
+	float GetAttraction() { return 0.0; }
+	void SetAttraction(float v) { }
+	float GetAttentionCooldownUntil() { return 0.0; }
+	void SetAttentionCooldownUntil(float v) { }
 }
