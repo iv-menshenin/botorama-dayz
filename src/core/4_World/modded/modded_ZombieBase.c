@@ -10,6 +10,12 @@ modded class ZombieBase
 		dmEntityRegistry.UnregisterZombie(this);
 	}
 
+	//! Кого атакует зомби (m_ActualTarget, protected на ванильном ZombieBase).
+	EntityAI GetActualTarget()
+	{
+		return m_ActualTarget;
+	}
+
 	//! Publish a cry/roar noise so bots can hear an infected vocalize. Vanilla
 	//! OnSoundVoiceEvent already adds a native NoiseSystem ping on the server for
 	//! voice events; we mirror that with our own dmNoiseSystem signal.

@@ -1927,7 +1927,6 @@ class dmAISurvivor
 		{
 			newTarget.SetThreat(old.Threat());
 			newTarget.SetLastPosition(old.LastPosition());
-			newTarget.SetLastPositionSpread(old.LastPositionSpread());
 			newTarget.SetLastDistance(old.LastDistance());
 			newTarget.SetHasLOS(old.HasLOS());
 			newTarget.SetEverSeen(old.EverSeen());
@@ -2040,7 +2039,7 @@ class dmAISurvivor
 	//! An enemy dealt damage — register it as a threat immediately, even if it is
 	//! outside the vision FOV (e.g. attacking from behind). `source` may be an item
 	//! held by the player — the root player is resolved here.
-	void RegisterDamageThreat(EntityAI source, float damage)
+	void RegisterDamageThreat(EntityAI source, float damage, int damageType)
 	{
 		if (!source)
 			return;
@@ -2067,6 +2066,8 @@ class dmAISurvivor
 			threat = 0.9;
 		}
 
+		float now = GetGame().GetTickTime();
+
 		dmTarget t = FindTarget(attacker);
 		if (!t)
 		{
@@ -2075,9 +2076,33 @@ class dmAISurvivor
 		}
 		if (threat > t.m_Threat) t.m_Threat = threat;
 		t.m_Friendly = false;
-		t.m_LastPosition = attacker.GetPosition();
-		t.m_LastContact = GetGame().GetTickTime();
-		t.m_LastDamage = GetGame().GetTickTime();
+		t.m_LastDamage = now;
+
+		t.SetLastContact(now);
+
+		//! Позицию переписывает ТОЛЬКО фантом. Опознанные/звуковые цели держат
+		//! свою позицию (от зрения/шума) — урон её не трогает.
+		if (t.Identified())
+			return;
+
+		if (damageType == DamageType.CLOSE_COMBAT)
+		{
+			t.SetLastPosition(attacker.GetPosition());
+			ReplaceTarget(attacker, dmTarget.CreateIdentification(attacker));
+			return;
+		}
+
+		if (damageType == DamageType.FIRE_ARM)
+		{
+			if (t.IsInherited(dmTargetDummy))
+			{
+				float dist = vector.Distance(m_Pawn.GetPosition(), attacker.GetPosition());
+				t.SetLastPosition(attacker.GetPosition());
+				t.SetLastPositionSpread(dist / 3.0);   // разброс = треть дистанции
+			}
+			return;
+		}
+		//! Прочий урон — только контакт (позицию не трогаем).
 	}
 
 	//! Аддитивно повысить угрозу цели (используется детектом прицеливания: игрок
@@ -2172,6 +2197,20 @@ class dmAISurvivor
 		else
 			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness);
 		#endif
+
+		//! Крик зомби: цель — игрок, на которого нападает зомби (не сам зомби).
+		//! Если игрока нет или это сам бот — остаётся зомби.
+		if (type == dmNoiseType.SCREAM)
+		{
+			ZombieBase z = ZombieBase.Cast(entity);
+			if (z)
+			{
+				EntityAI attacked = z.GetActualTarget();
+				PlayerBase p = PlayerBase.Cast(attacked);
+				if (p && p != m_Pawn)
+					entity = p;
+			}
+		}
 
 		dmTarget t = FindTarget(entity);
 		if (t)

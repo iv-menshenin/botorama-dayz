@@ -409,7 +409,7 @@ class dmBotTest_Target : dmTestSuite_TestCase
 			if (!m_Zombie)
 				return "FAIL: не удалось заспавнить зомби";
 
-			m_Bot.RegisterDamageThreat(m_Zombie, 100.0);
+			m_Bot.RegisterDamageThreat(m_Zombie, 100.0, DamageType.CLOSE_COMBAT);
 			m_Phase = 1;
 			return "зомби заспавнен, угроза впрыснута";
 		}

@@ -1592,7 +1592,7 @@ class dmAISurvivorBase : PlayerBase
 
 		dmAISurvivor bot = dmAISurvivor.Find(this);
 		if (bot && source)
-			bot.RegisterDamageThreat(source, damageResult.GetHighestDamage("Health"));
+			bot.RegisterDamageThreat(source, damageResult.GetHighestDamage("Health"), damageType);
 
 		//! Огнестрельное ранение: точка пулевой опасности (флаг + brown zone).
 		if (bot && damageType == DamageType.FIRE_ARM)
