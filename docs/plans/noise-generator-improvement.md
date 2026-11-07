@@ -35,8 +35,9 @@
   создать `dmTargetExplosion`/`dmTargetDrop`; `CreateSound`-маппинг новых типов; `NoiseAttraction`
   для новых типов. Файлы: `3_Game/Perception/dmNoiseSystem.c`, `Target/*.c`, `dmAISurvivor.c`.
 - **А1 (цель 1)** — падение пули → стрелок: `FirearmEffects` резолвит shooter и шлёт его как
-  `source`; `dmTargetDroppedBullet.m_Entity = стрелок`. Логика §7 target-refactor: если выстрел
-  слышен — шум падения не перетирает звук выстрела; иначе позиция между падением и стрелком.
+  `source`; `dmTargetDroppedBullet.m_Entity = стрелок`. Позиция обновляется штатным потоком
+  `HearNoise` (шум → позиция шума). §7 target-refactor «середина/не перетирать» — **отменена**
+  (см. decisions.md `noise: lastKnownPosition`).
 - **А2 (цель 2)** — падение предмета + взрыв: хук броска (bind thrower) + `ItemBase.EOnContact`
   (шум приземления с кидателем) + взрыв (`EXPLOSION` с кидателем). Deps: R1, А0.
 - **А3 (цель 3)** — шум экшэнов: двери open/close + reload + bandage + выбранный заказчиком набор.
