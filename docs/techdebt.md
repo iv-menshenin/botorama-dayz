@@ -182,6 +182,18 @@
   читать `dmAI_AimX/Y` вместо `AimX/Y`) до состояния, когда memory-points реально крутятся за
   нашим прицелом; затем — вернуть стрельбу по `GetBarrelDirection()` (убрать рассинхрон дуло↔прицел).
   Рецепт — `docs/research/combat.md` «Минимальный рецепт для botorama».
+- **высокий** — **Как исправить рассинхрон AIM (принудительная синхронизация модели)** — лёгкая
+  альтернатива рерайту графа выше (паттерн «как с лестницей»: `HeadingModel` снапит
+  heading/orientation, убивая накопленный офсет). Движковый угол прицела — `SDayZPlayerAimingModel.
+  m_fCurrentAimX/Y` ([in], в градусах): его читают `GetBaseAimingAngleUD()/LR()` (ваниль `human.c:
+  1095/1098`) и ванильный `Master.agf` InventoryIK; у серверного AI он = 0/stale → ствол дрейфует от
+  скриптового `m_AimRelAngleLR/UD`. Фикс: в `AimingModel` (уже переопределён, `return false`) раз в
+  `DM_AIM_SYNC_INTERVAL` (~10 с) снапать `pModel.m_fCurrentAimX = m_AimRelAngleLR`,
+  `m_fCurrentAimY = m_AimRelAngleUD` — принудительно выравнивать движковый aim под скрипт (это
+  «обратный» Camera Aim Sync Fix: там камера тянется к прицелу персонажа, тут — прицел персонажа к
+  скрипту). НЕ подтверждено эмпирически, что запись в `m_fCurrentAimX/Y` реально двигает ствол
+  (`GetBarrelDirection()`) — это другой путь, чем граф-переменные `dmAI_AimX/Y`. Детали —
+  `docs/plans/anim-graph-aim-rewrite.md`, `docs/research/aim-sync.md`.
 - **сделано** — **Отдача на выстрел** (recoil): `dmBot_Fire` → `AddRecoil(DM_AIM_RECOIL_MODIFIER)`,
   `dmAiming.OnUpdate` гасит `m_RecoilPitch` и прибавляет к питчу (обе ветки). Осталось:
   реальная формула `recoilModifier` от веса/патрона.
@@ -1089,3 +1101,7 @@
   в атоме перестройки внимания.
 - **отложено (техдолг)** — мёртвый метод `BeginTargetScan` (не вызывается) — удалить при
   зачистке скоупа целей через `dmTargetManager` (А3/А4).
+- **ОБЯЗАТЕЛЬНО к концу эпика** — определение стрелка для `dmTargetDroppedBullet`: сейчас
+  BULLETIMPACT приходит с `source=null`, а нужно `m_Entity = стрелок` + позиция между точкой
+  падения и стрелком (если звук выстрела не слышен). Пока `entity = null`; определение стрелка
+  через мост — отдельный атом в конце эпика.

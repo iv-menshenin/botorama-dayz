@@ -144,6 +144,8 @@ if ( target.IsPlayer() )
 - **А3** — эволюционная лестница: зрение → `Dummy`, LOS → `ReplaceTarget(Dummy→Player/Zombie/
   Animal/Entity)`, слух → `ReplaceTarget(Dummy→Sound)`, опознание звука → `ReplaceTarget(Sound→Identification)`.
 - **А4** — удаление `m_Attractiveness` (+Hunting) — **без E2E** (по указанию заказчика).
+  ✅ **Выполнено** (grep по `src/` чист): поле удалено, сигнатуры `DiscoverTarget`/
+  `HearNoise` без `attractiveness`, Hunting входит только по `threat >= 0.5`.
 - **А5** — ADM-лог «новая цель» (`[bot:heard]`) + внимание поверх иерархии (закрывает разрыв
   «`[bot:heard]` не пишется»).
 - **Финальный E2E** — серьёзная регрессия всех механик (ничего не сломано).

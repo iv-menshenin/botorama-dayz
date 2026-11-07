@@ -107,6 +107,12 @@ void OnNoise(EntityAI source, vector position, float strength, int type)
 
 ## 3. `m_Attractiveness` — кто читает
 
+> **УДАЛЕНО (атом A5 рефакторинга целей).** `m_Attractiveness` и связанные константы
+> (`DM_TARGET_ATTRACT_*` / `DM_NOISE_ATTRACTIVENESS_*` / `DM_HUNT_MIN_ATTRACTIVENESS`)
+> вырезаны целиком; `DiscoverTarget`/`HearNoise` больше не принимают `attractiveness`,
+> Hunting входит только по `threat >= DM_ATTACK_THREAT_THRESHOLD`. Записи ниже —
+> исторический снимок до удаления.
+
 Grep по всему `src` — **единственный потребитель-логика**: `dmAISurvivor.GetHuntTarget()`
 (`dmAISurvivor.c:2169`):
 ```
