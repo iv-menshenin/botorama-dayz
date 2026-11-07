@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.472";
+static const string DM_BOTORAMA_VERSION = "3.473";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
@@ -67,6 +67,14 @@ static const float DM_NOISE_GATHER_STRENGTH = 15.0;   // рубка дерева
 static const float DM_NOISE_VOICE_WHISPER = 5.0;      // голос: шёпот (~5 м)
 static const float DM_NOISE_VOICE_TALK = 15.0;        // голос: разговор (~15 м)
 static const float DM_NOISE_VOICE_SHOUT = 30.0;       // голос: крик (~30 м)
+
+//! Weather noise reduction weights (0..1): сильнее явление → сильнее глушит слух.
+static const float DM_WEATHER_RAIN_REDUCTION = 0.5;       // дождь
+static const float DM_WEATHER_SNOW_REDUCTION = 0.25;      // снег
+static const float DM_WEATHER_FOG_REDUCTION = 0.5;        // туман (замена «температуры»)
+static const float DM_WEATHER_WIND_REDUCTION = 0.5;       // ветер
+static const float DM_WEATHER_WIND_SPEED_MAX = 20.0;      // м/с — нормировка ветра в [0,1]
+static const float DM_WEATHER_SANDSTORM_REDUCTION = 0.5;  // песчаная буря
 
 //! Hearing: gunshot range (meters) when the weapon has a suppressor, by kind.
 static const float DM_NOISE_GUNSHOT_SILENCED_PISTOL = 75.0;
