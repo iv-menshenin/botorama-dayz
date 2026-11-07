@@ -1024,6 +1024,12 @@ class dmE2EBridge
 		{
 			RunDumpGridState(step, r);
 		}
+#ifdef SERVER
+		else if (step.Op == "weather")
+		{
+			RunWeather(step, r);
+		}
+#endif
 		else
 		{
 			r.Ok = false;
@@ -1196,6 +1202,70 @@ class dmE2EBridge
 		r.Ok = true;
 		r.Reason = "noise injected type=" + step.Type;
 	}
+
+	//! "weather" — программно управлять погодой (тестирование влияния погоды на шум).
+	//! Type ∈ rain|fog|snow|overcast|wind|sandstorm|clear; Value = числовая строка:
+	//! 0..1 интенсивность (wind — м/с, sandstorm — длительность нарастания в сек),
+	//! "clear" сбрасывает всё в 0 (и останавливает активную бурю).
+	//! Сеттеры серверные → метод целиком под #ifdef SERVER.
+	#ifdef SERVER
+	private void RunWeather(dmE2EStep step, dmE2EStepResult r)
+	{
+		Weather w = g_Game.GetWeather();
+		float v = step.Value.ToFloat();
+
+		if (step.Type == "rain")
+		{
+			w.GetRain().SetLimits(v, v);
+			w.GetRain().Set(v, 0, 3600);
+		}
+		else if (step.Type == "fog")
+		{
+			w.GetFog().SetLimits(v, v);
+			w.GetFog().Set(v, 0, 3600);
+		}
+		else if (step.Type == "snow")
+		{
+			w.GetSnowfall().SetLimits(v, v);
+			w.GetSnowfall().Set(v, 0, 3600);
+		}
+		else if (step.Type == "overcast")
+		{
+			w.GetOvercast().SetLimits(v, v);
+			w.GetOvercast().Set(v, 0, 3600);
+		}
+		else if (step.Type == "wind")
+		{
+			w.GetWindMagnitude().SetLimits(v, v);
+			w.GetWindMagnitude().Set(v, 0, 3600);
+		}
+		else if (step.Type == "sandstorm")
+			w.GetSandstorm().Start(v, false);
+		else if (step.Type == "clear")
+		{
+			w.GetRain().SetLimits(0, 1); w.GetRain().Set(0, 0, 3600);
+			w.GetFog().SetLimits(0, 1); w.GetFog().Set(0, 0, 3600);
+			w.GetSnowfall().SetLimits(0, 1); w.GetSnowfall().Set(0, 0, 3600);
+			w.GetOvercast().SetLimits(0, 1); w.GetOvercast().Set(0, 0, 3600);
+			w.GetWindMagnitude().SetLimits(0, 9999); w.GetWindMagnitude().Set(0, 0, 3600);
+			if (w.GetSandstorm().IsActive())
+				w.GetSandstorm().Stop(0, false);
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "unknown weather type";
+			return;
+		}
+
+		#ifdef DM_PERCEPTION_DEBUG
+		dmBotLog.Debug("", "[Noise] weather set " + step.Type + "=" + step.Value);
+		#endif
+
+		r.Ok = true;
+		r.Reason = "weather " + step.Type + "=" + step.Value;
+	}
+	#endif
 
 	//! "explodenoise" — детерминированное потребление шума ВЗРЫВА через статик-мост.
 	//! Спавнит гранату (ClassName, default RGD5Grenade) рядом с ботом-источником (Who),
