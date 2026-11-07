@@ -6,7 +6,8 @@
 //!
 //! Memory (T4): a target that hides behind a wall/brush stays in the list with its
 //! last known position until it times out — m_LastPosition / m_HasLOS / m_LastContact.
-//! Evaluation: m_Threat / m_Attractiveness / m_Friendly drive combat/loot choices.
+//! Evaluation: m_Threat / m_Friendly drive combat choices; attention (m_Attraction)
+//! lives in dmTargetSound and is exposed via virtual accessors.
 
 enum dmTargetType
 {
@@ -14,6 +15,9 @@ enum dmTargetType
 	DESTROY    // уничтожить (существо/игрок)
 };
 
+//! dmTarget — abstract base class (cannot be created directly). Общая память/перцепция
+//! цели. Конкретные типы — подклассы: dmTargetDummy (фантом), dmTargetSound (звук) и
+//! опознанные (dmTargetPlayer/Zombie/Animal/Entity). Инстанцировать только подклассы.
 class dmTarget
 {
 	dmTargetType m_Type = dmTargetType.DESTROY;
@@ -24,6 +28,7 @@ class dmTarget
 	float m_LastPositionSpread = 0.0; // радиус вероятной позиции цели (центр m_LastPosition); 0 при видимости, растёт по шуму
 	float m_LastDistance;           // последнее известное расстояние до цели
 	bool m_HasLOS = false;          // видна в последнем скане
+	bool m_EverSeen = false;        // бот хоть раз видел цель (LOS-успех); false = создана слухом и ещё не видна
 	float m_LastContact = 0.0;      // GetGame().GetTickTime() последнего контакта
 	float m_LastDamage = 0.0;       // GetGame().GetTickTime() последнего полученного урона
 
@@ -32,7 +37,6 @@ class dmTarget
 	float m_NextLOSUpdate = 0.0;
 
 	float m_Threat = 0.0;           // опасность (0..1)
-	float m_Attractiveness = 0.0;   // привлекательность (0..1)
 	bool m_Friendly = false;        // не атаковать
 
 	//! Точка прицеливания: живая позиция цели, если она видна, иначе последняя
@@ -167,4 +171,117 @@ class dmTarget
 		}
 		return goal;
 	}
+
+	//! Классификаторы типа цели. В базе возвращают false — переопределяются в подклассах
+	//! (dmTargetPlayer/Zombie/Animal/Entity), когда цель опознана.
+	bool IsPlayer()
+	{
+		return false;
+	}
+	bool IsPlayerAI()
+	{
+		return false;   // именно ИИ-бот (dmAISurvivorBase); IsPlayer ⊇ IsPlayerAI
+	}
+	bool IsZombie()
+	{
+		return false;
+	}
+	bool IsAnimal()
+	{
+		return false;
+	}
+	bool IsEntity()
+	{
+		return false;   // всё неживое (не Player/Zombie/Animal)
+	}
+
+	//! Цель опознана (Player/Zombie/Animal/Entity), а не фантом/звук.
+	bool Identified()
+	{
+		return IsPlayer() || IsZombie() || IsAnimal() || IsEntity();
+	}
+
+	//! Фабрика: фантом (пререгистрация зрением, тип не определён).
+	static dmTargetDummy CreateDummy(EntityAI entity)
+	{
+		dmTargetDummy t = new dmTargetDummy();
+		t.m_Type = dmTargetType.DESTROY;
+		t.m_Entity = entity;
+		return t;
+	}
+
+	//! Фабрика: опознанная цель по типу сущности. Неживое → Dummy (dmTargetEntity пока нет).
+	static dmTarget CreateIdentification(EntityAI entity)
+	{
+		dmTarget t;
+		if (ZombieBase.Cast(entity)) t = new dmTargetZombie();
+		else if (AnimalBase.Cast(entity)) t = new dmTargetAnimal();
+		else if (PlayerBase.Cast(entity)) t = new dmTargetPlayer();
+		else t = new dmTargetDummy();
+		t.m_Type = dmTargetType.DESTROY;
+		t.m_Entity = entity;
+		return t;
+	}
+
+	//! Фабрика: звуковая цель по типу шума (dmNoiseType).
+	static dmTargetSound CreateSound(EntityAI entity, int noiseType)
+	{
+		dmTargetSound t;
+		if (noiseType == dmNoiseType.STEP) t = new dmTargetFootsteps();
+		else if (noiseType == dmNoiseType.SHOT) t = new dmTargetShooting();
+		else if (noiseType == dmNoiseType.SCREAM) t = new dmTargetScream();
+		else if (noiseType == dmNoiseType.BULLETIMPACT) t = new dmTargetDroppedBullet();
+		else t = new dmTargetNoise();
+		t.m_Type = dmTargetType.DESTROY;
+		t.m_Entity = entity;
+		return t;
+	}
+
+	//! Типобезопасные геттеры сущности. В базе null — переопределяются в подклассах:
+	//! GetPlayer() — только для Player, GetZombie() — только Zombie, и т.д.
+	PlayerBase GetPlayer()
+	{
+		return null;
+	}
+	ZombieBase GetZombie()
+	{
+		return null;
+	}
+	AnimalBase GetAnimal()
+	{
+		return null;
+	}
+
+	//! Общий доступ к сущности (вместо прямого m_Entity). Инкапсуляция: поле m_Entity
+	//! со временем перестанет читаться извне напрямую.
+	EntityAI GetEntity()
+	{
+		return m_Entity;
+	}
+
+	//! Полевые акцессоры (инкапсуляция полей m_* для внешних потребителей).
+	bool HasLOS()                          { return m_HasLOS; }
+	void SetHasLOS(bool v)                 { m_HasLOS = v; }
+	float LastContact()                    { return m_LastContact; }
+	void SetLastContact(float v)           { m_LastContact = v; }
+	float LastDamage()                     { return m_LastDamage; }
+	void SetLastDamage(float v)            { m_LastDamage = v; }
+	float LastDistance()                   { return m_LastDistance; }
+	void SetLastDistance(float v)          { m_LastDistance = v; }
+	float NextLOSUpdate()                  { return m_NextLOSUpdate; }
+	void SetNextLOSUpdate(float v)         { m_NextLOSUpdate = v; }
+	float Threat()                         { return m_Threat; }
+	void SetThreat(float v)                { m_Threat = v; }
+	bool Friendly()                        { return m_Friendly; }
+	void SetFriendly(bool v)               { m_Friendly = v; }
+	bool EverSeen()                        { return m_EverSeen; }
+	void SetEverSeen(bool v)               { m_EverSeen = v; }
+	void SetLastPosition(vector v)         { m_LastPosition = v; }
+	void SetLastPositionSpread(float v)    { m_LastPositionSpread = v; }
+
+	//! Интерес разузнать свежую цель (0 у не-звуковых целей; в dmTargetSound — реальное значение).
+	float GetAttraction() { return 0.0; }
+	void SetAttraction(float v) { }
+	float GetAttentionCooldownUntil() { return 0.0; }
+	void SetAttentionCooldownUntil(float v) { }
 }

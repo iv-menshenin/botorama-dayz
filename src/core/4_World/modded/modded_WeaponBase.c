@@ -120,7 +120,7 @@ modded class Weapon_Base
 	float dmBotGunshotNoiseStrength()
 	{
 		ItemSuppressor suppressor = GetAttachedSuppressor();
-		if (!suppressor)
+		if (!suppressor || suppressor.IsDamageDestroyed())
 			return DM_NOISE_GUNSHOT_STRENGTH;
 		if (suppressor.IsKindOf("ImprovisedSuppressor"))
 			return DM_NOISE_GUNSHOT_SILENCED_HOMEMADE;

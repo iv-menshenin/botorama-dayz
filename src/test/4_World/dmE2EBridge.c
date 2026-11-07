@@ -147,6 +147,7 @@ class dmE2EBridge
 	static ref dmE2EBridge s_Instance;
 	static bool s_TickLogged = false;
 	static int s_TickCount = 0;
+	static int s_TestBotSerial = 0;
 
 	//! Default army spawn scatter radius (meters) when step.Radius is 0.
 	static const float DM_E2E_ARMY_RADIUS = 50.0;
@@ -196,6 +197,15 @@ class dmE2EBridge
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(s_Instance.E2ETick, DM_E2E_TICK_INTERVAL_MS, false);
 		}
 		return s_Instance;
+	}
+
+	//! Формат имени тестового бота: Test0001, Test0002, ...
+	static string FormatTestName(int serial)
+	{
+		if (serial < 10) return "Test000" + serial;
+		if (serial < 100) return "Test00" + serial;
+		if (serial < 1000) return "Test0" + serial;
+		return "Test" + serial;
 	}
 
 	void dmE2EBridge()
@@ -877,6 +887,10 @@ class dmE2EBridge
 		{
 			RunBotDump(step, r);
 		}
+		else if (step.Op == "targetdump")
+		{
+			RunTargetDump(step, r);
+		}
 		else if (step.Op == "invdump")
 		{
 			RunInvDump(step, r);
@@ -1017,6 +1031,7 @@ class dmE2EBridge
 		{
 			GivePants(pawn);
 			m_Named.Insert(step.Who, bot);
+			bot.SetName(step.Who);
 			if (step.Preset == "nomad")
 				bot.SetFSM(dmBotPreset_Nomad.Create(bot));
 			else if (step.Preset == "survivor")
@@ -2146,6 +2161,9 @@ class dmE2EBridge
 			GivePants(pawn);
 			GiveWeapon(pawn);
 
+			s_TestBotSerial = s_TestBotSerial + 1;
+			bot.SetName(FormatTestName(s_TestBotSerial));
+
 			if (i < countA)
 			{
 				m_Named.Insert("army_A_" + spawnedA, bot);
@@ -2242,6 +2260,9 @@ class dmE2EBridge
 
 		GivePants(pawn);
 		m_Named.Insert(step.Who, bot);
+
+		s_TestBotSerial = s_TestBotSerial + 1;
+		bot.SetName(FormatTestName(s_TestBotSerial));
 
 		pawn.GetHumanInventory().CreateInHands("Machete");
 
@@ -3347,11 +3368,30 @@ class dmE2EBridge
 		r.Reason = roadCount.ToString() + " road objects";
 	}
 
+	//! Найти бота по e2e-ключу/имени: сначала m_Named, затем глобальный реестр s_All
+	//! (по GetName()). Нужно, чтобы дампить бота из предыдущего job (m_Named чистится).
+	private bool FindBotByName(string name, out dmAISurvivor bot)
+	{
+		if (m_Named.Find(name, bot))
+			return true;
+		int i;
+		for (i = 0; i < dmAISurvivor.s_All.Count(); i++)
+		{
+			dmAISurvivor b = dmAISurvivor.s_All[i];
+			if (b.GetName() == name)
+			{
+				bot = b;
+				return true;
+			}
+		}
+		return false;
+	}
+
 	//! Dump the named bot's body/motion/brain state as a set of lines.
 	private void RunBotDump(dmE2EStep step, dmE2EStepResult r)
 	{
 		dmAISurvivor bot;
-		if (!m_Named.Find(step.Who, bot))
+		if (!FindBotByName(step.Who, bot))
 		{
 			r.Ok = false;
 			r.Reason = "no such bot";
@@ -3447,6 +3487,9 @@ class dmE2EBridge
 		line = "fsm=" + fsmName;
 		AppendDump(r, line);
 
+		line = "concentration=" + bot.GetConcentration();
+		AppendDump(r, line);
+
 		line = "fsmIntents=" + bot.GetFSMIntents().Count();
 		AppendDump(r, line);
 
@@ -3474,6 +3517,47 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "dumped";
+	}
+
+	//! "targetdump" — dump the named bot's target memory (one line per target).
+	private void RunTargetDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!FindBotByName(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		ref array<ref dmTarget> targets = bot.GetTargets();
+		int i;
+		for (i = 0; i < targets.Count(); i++)
+		{
+			dmTarget t = targets[i];
+			string typeName = "null";
+			if (t.m_Entity)
+				typeName = t.m_Entity.GetType();
+			string cls = t.ClassName();
+			int los = 0;
+			if (t.m_HasLOS)
+				los = 1;
+			int everSeen = 0;
+			if (t.m_EverSeen)
+				everSeen = 1;
+			string line = "target[" + i + "] type=" + typeName + " cls=" + cls;
+			line += " pos=" + t.m_LastPosition;
+			line += " LOS=" + los;
+			line += " everSeen=" + everSeen;
+			line += " threat=" + t.m_Threat;
+			line += " attraction=" + t.GetAttraction();
+			line += " cooldown=" + t.GetAttentionCooldownUntil();
+			AppendDump(r, line);
+		}
+		if (targets.Count() == 0)
+			AppendDump(r, "targets=none");
+		r.Ok = true;
+		r.Reason = "dumped " + targets.Count();
 	}
 
 	//! "invdump" — dump the named bot's equipped clothing/attachments and their

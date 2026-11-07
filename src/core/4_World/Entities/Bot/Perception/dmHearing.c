@@ -56,13 +56,9 @@ class dmHearing
 		if (type == dmNoiseType.SHOT)
 			m_Bot.OnGunshot(root);
 
-		float attractiveness = DM_NOISE_ATTRACTIVENESS_NOISE;
-		if (type == dmNoiseType.SHOT || type == dmNoiseType.BULLETIMPACT)
-			attractiveness = DM_NOISE_ATTRACTIVENESS_SHOT;
-
 		#ifdef DM_PERCEPTION_DEBUG
 		dmBotLog.Debug(m_Bot.GetName(), "[Noise] OnNoise I HEAR YOU: noice_position=" + position + " bot_position=" + m_Bot.GetPosition() + " strength=" + strength);
 		#endif
-		m_Bot.HearNoise(root, position, attractiveness);
+		m_Bot.HearNoise(root, position, type);
 	}
 };

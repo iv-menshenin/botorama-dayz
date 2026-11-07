@@ -1,0 +1,21 @@
+{
+  "Name": "noise-attention-a5",
+  "Timeout": 90,
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "listener", "Preset": "survivor", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "noiser", "Preset": "survivor", "Pos": [4117, 0, 10818], "Yaw": 180 },
+    { "Op": "sleep", "Timeout": 2 },
+    { "Op": "moveto", "Who": "noiser", "Pos": [4117, 0, 10808] },
+    { "Op": "sleep", "Timeout": 1 },
+    { "Op": "botdump", "Who": "listener" },
+    { "Op": "targetdump", "Who": "listener" },
+    { "Op": "sleep", "Timeout": 2 },
+    { "Op": "botdump", "Who": "listener" },
+    { "Op": "look", "Who": "listener", "Target": "noiser", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 3 },
+    { "Op": "targetdump", "Who": "listener" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

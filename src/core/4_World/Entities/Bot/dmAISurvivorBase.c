@@ -1080,12 +1080,19 @@ class dmAISurvivorBase : PlayerBase
 		m_AimSmoothedLR = m_AimSmoothedLR * 0.7 + m_AimRelAngleLR * 0.3;
 		m_AimSmoothedUD = m_AimSmoothedUD * 0.7 + m_AimRelAngleUD * 0.3;
 
+		//! Плечевая параллакс-поправка (визуальная): канал ствола смещён вбок от оси
+		//! взгляда, поэтому доворачиваем прицел на угол L/d, где L = 13.5 град·м.
+		//! Угол затухает с дальностью — на
+		//! дальней дистанции поправка уже неразличима.
+		float corrDeg = 0.0;
+		if (m_AimDistance > 0.01)
+			corrDeg = 13.5 / m_AimDistance;
 		if (m_VarAimX >= 0)
-			AnimSetFloat(m_VarAimX, m_AimSmoothedLR);
+			AnimSetFloat(m_VarAimX, m_AimSmoothedLR - corrDeg);
 		if (m_VarAimY >= 0)
 			AnimSetFloat(m_VarAimY, m_AimSmoothedUD);
 		if (m_VarAimIKX >= 0)
-			AnimSetFloat(m_VarAimIKX, m_AimSmoothedLR);
+			AnimSetFloat(m_VarAimIKX, m_AimSmoothedLR - corrDeg);
 
 		#ifdef DM_BOT_DEBUG_PAWN
 		if (GetGame().GetTickTime() - m_LastAimLogTime >= 2.0)
@@ -1592,7 +1599,7 @@ class dmAISurvivorBase : PlayerBase
 
 		dmAISurvivor bot = dmAISurvivor.Find(this);
 		if (bot && source)
-			bot.RegisterDamageThreat(source, damageResult.GetHighestDamage("Health"));
+			bot.RegisterDamageThreat(source, damageResult.GetHighestDamage("Health"), damageType);
 
 		//! Огнестрельное ранение: точка пулевой опасности (флаг + brown zone).
 		if (bot && damageType == DamageType.FIRE_ARM)
@@ -1848,8 +1855,10 @@ class dmAISurvivorBase : PlayerBase
 			}
 			else
 			{
+				float turnBatch = 2.0;
+				if ( IsRaised() ) turnBatch = 0.5;
 				m_TurnTime += pDt;
-				if (m_TurnTime > 2.0 || Math.AbsFloat(dBody) < 1.0)
+				if (m_TurnTime > turnBatch || Math.AbsFloat(dBody) < 1.0)
 				{
 					if (m_CmdStopTurn >= 0)
 						AnimCallCommand(m_CmdStopTurn, 0, 0.0);

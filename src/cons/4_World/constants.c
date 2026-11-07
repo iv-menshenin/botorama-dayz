@@ -8,6 +8,7 @@ static const float DM_EYE_HEIGHT = 1.4;
 
 //! Look turn smoothing speed (per second). Higher = faster head turn.
 static const float DM_LOOK_TURN_SPEED = 12.0;
+static const float DM_LOOK_TURN_SPEED_RAISED = 4.0;  // медленнее при поднятом оружии
 
 //! Maximum head look yaw offset from the body (degrees).
 static const float DM_LOOK_MAX_YAW = 90.0;
@@ -602,6 +603,31 @@ static const float DM_DAMAGE_THREAT_HP_THRESHOLD = 30.0;
 //! boundary between the fast and slow LOS-refresh cadences in GetRefreshTime.
 static const float DM_ATTACK_THREAT_THRESHOLD = 0.5;
 
+//! Attention model: attraction — интерес разузнать про свежую (невиденную) цель по типу шума.
+static const float DM_ATTRACT_STEP           = 1.0;    // шаги — макс (кто-то рядом)
+static const float DM_ATTRACT_SCREAM         = 0.9;    // крик зомби
+static const float DM_ATTRACT_BULLETIMPACT   = 1.0;    // попадание пули (слышно только в 15 м — как шаги)
+static const float DM_ATTRACT_SHOT_NEAR_DIST = 50.0;   // выстрел: 50 м → максимум
+static const float DM_ATTRACT_SHOT_FAR_DIST  = 1000.0; // выстрел: 1000 м → 0
+static const float DM_ATTRACT_DECAY_PER_SEC = 0.005;   // затухание аттракшена: 0.05 за 10 с
+// ITEM_FALL 0.8 / DOOR 0.6 / ACTION 0.5 — появятся с их генераторами (отдельный атом)
+
+//! Attention model: concentration — насколько бот «занят» текущим (чем выше, тем меньше отвлекается).
+static const float DM_CONC_FIGHT_NEAR      = 5.0;     // Fighting: ≤5 м → 1.0
+static const float DM_CONC_FIGHT_FAR       = 10.0;    // Fighting: ≥10 м → 0.8
+static const float DM_CONC_FIGHT_FAR_LEVEL = 0.8;
+static const float DM_CONC_SHOOT_NEAR      = 100.0;   // Shooting: ≤100 м → 1.0
+static const float DM_CONC_SHOOT_FAR       = 1000.0;  // Shooting: ≥1000 м → 0.3
+static const float DM_CONC_SHOOT_FAR_LEVEL = 0.3;
+static const float DM_CONC_NONCOMBAT       = 0.1;     // мед-уход / патруль / еда / Hunting / прочее
+
+//! Attention: реакция на свежий шум (поворот/остановка + взгляд).
+static const float DM_ATTENTION_HOLD_MIN      = 5.0;   // длительность взгляда при слабом аттракшене (с)
+static const float DM_ATTENTION_HOLD_MAX      = 15.0;  // при максимальном аттракшене (с)
+static const float DM_ATTENTION_FACING_YAW    = 15.0;  // |угол тела→цель| < этого = «уже смотрит»
+static const float DM_ATTENTION_STOP_FACTOR   = 2.0;   // attraction > фактор×концентрация → остановиться
+static const float DM_ATTENTION_RETRIGGER_COOLDOWN = 5.0; // кулдаун пере-триггера после «посмотрел и не нашёл» (с)
+
 //! Combat engage: окно (сек) после последнего выстрела, в течение которого бот
 //! считается «активно ведущим стрельбу» (IsInCombat — помимо мили-флага).
 static const float DM_COMBAT_ENGAGE_TIMEOUT = 10.0;
@@ -636,11 +662,6 @@ static const float DM_RESTRAIN_THREAT_RADIUS = 8.0;
 
 //! Restrain (развязывание): длительность (секунды) анимации борьбы до освобождения.
 static const float DM_UNTIE_DURATION = 3.0;
-
-//! Target evaluation: attractiveness (0..1) — how interesting a target is.
-static const float DM_TARGET_ATTRACT_PLAYER = 0.1;
-static const float DM_TARGET_ATTRACT_ZOMBIE = 0.2;
-static const float DM_TARGET_ATTRACT_ANIMAL = 0.5;
 
 //! Target memory: seconds without contact before a remembered target is forgotten.
 static const float DM_TARGET_FORGET_TIME = 300.0;
@@ -848,9 +869,6 @@ static const float DM_FLANK_MAX_SURFACE_DELTA = 1.5;
 //! Flank: whole-attempt timeout (seconds). A stuck/slow MoveTo aborts after this.
 static const float DM_FLANK_STALL_TIMEOUT = 8.0;
 
-//! Hunting: min attractiveness (0..1) to search for a target it can't see.
-static const float DM_HUNT_MIN_ATTRACTIVENESS = 0.5;
-
 //! Hunting: facing factor range — spread = distance × (min at face, max at back).
 static const float DM_HUNT_FACING_MIN = 0.05;
 static const float DM_HUNT_FACING_MAX = 0.25;
@@ -894,6 +912,24 @@ static const float DM_AIM_ADS_DISTANCE = 100.0;
 
 //! Aiming: seconds the bot stays in HIP before switching to ADS within DM_AIM_ADS_DISTANCE.
 static const float DM_AIM_HIP_GRACE = 10.0;
+
+//! Fire jitter: джиттер (accuracy-гейт выстрела) зависит от дистанции — ближе влияет
+//! меньше. ≤NEAR м — не влияет (стреляем сразу), ≥FAR м — как раньше.
+static const float DM_FIRE_JITTER_NEAR = 50.0;
+static const float DM_FIRE_JITTER_FAR  = 1000.0;
+
+//! Прицеливание: если цель отклонилась от линии прицеливания сильнее этого угла,
+//! бот опускает ствол (чтобы быстрее довернуться корпусом).
+static const float DM_SHOOT_LOWER_ANGLE = 20.0;
+//! Задержка перед опусканием ствола: линейно от дистанции (ближе — быстрее).
+static const float DM_SHOOT_LOWER_NEAR_DIST = 15.0;
+static const float DM_SHOOT_LOWER_FAR_DIST  = 100.0;
+static const float DM_SHOOT_LOWER_NEAR_DELAY = 1.0;
+static const float DM_SHOOT_LOWER_FAR_DELAY  = 5.0;
+
+//! Гейт выстрела: точка прицеливания дальше этого радиуса (м) от центра цели —
+//! выстрел блокируется (ствол ещё не довернулся). Угол 3D (с вертикалью).
+static const float DM_SHOOT_GATE_MISS_RADIUS = 1.0;
 
 //! Aiming recoil: base barrel kick (degrees up) per shot.
 static const float DM_AIM_RECOIL_DEGREE = 2.0;

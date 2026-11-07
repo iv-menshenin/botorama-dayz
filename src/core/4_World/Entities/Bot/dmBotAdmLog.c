@@ -166,6 +166,28 @@ class dmBotAdmLog
 		g_Game.AdminLog(msg);
 	}
 
+	//! Journal a newly heard target (noise → new/upgraded Sound target).
+	static void LogHeardTarget(dmAISurvivorBase bot, int type, vector position, float spread)
+	{
+		string name = "";
+		if (bot)
+			name = bot.GetCachedName();
+
+		string signal = "шум";
+		if (type == dmNoiseType.STEP) signal = "шаги";
+		else if (type == dmNoiseType.SHOT) signal = "выстрел";
+		else if (type == dmNoiseType.SCREAM) signal = "крик";
+		else if (type == dmNoiseType.BULLETIMPACT) signal = "попадание";
+
+		string msg = "[bot:heard] " + name + " " + signal + " pos=<" + position[0];
+		msg = msg + ", " + position[1];
+		msg = msg + ", " + position[2] + ">";
+		if (spread > 0.0)
+			msg = msg + " spread=" + spread;
+
+		g_Game.AdminLog(msg);
+	}
+
 	//! Journal a bot's transition to unconscious: name + position + HP + dropped item.
 	static void LogUnconscious(dmAISurvivorBase pawn, float hp, EntityAI droppedItem)
 	{

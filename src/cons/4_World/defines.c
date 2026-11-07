@@ -44,6 +44,7 @@
 //!   DM_BOT_DEBUG_LOADOUT — loadout application (dmLoadoutApplier).
 //!   DM_BOT_DEBUG_VISION  — perception scan (candidates, FOV/LOS results).
 //!   DM_BOT_DEBUG_EVADE   — уворот от прицела (EvadeAim): триггер, свип укрытия, додж, конец.
+//!   DM_BOT_DEBUG_ATTENTION — реакция на свежий шум (UpdateAttention): engage/preempt/release/done.
 //!   DM_BOT_DEBUG_COVER   — поиск укрытия (dmCoverFinder) и коричневые зоны (пулевые ранения).
 //!   DM_BOT_DEBUG_MEDICAL — ИИ-лечение (MedicalCare): вход в состояние, шаги очереди,
 //!                          применение эффекта, ошибки.

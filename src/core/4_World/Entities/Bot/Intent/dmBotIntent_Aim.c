@@ -12,6 +12,8 @@ class dmBotIntent_Aim : dmBotIntent
 	float m_FireTimer = 0.0;
 	int m_QueuedShots = 0;
 	int m_SettleTicks = 0;
+	float m_LowerTimer = 0.0;
+	float m_HasNoLOSTimer = 0.0;
 
 	void dmBotIntent_Aim()
 	{
@@ -53,6 +55,7 @@ class dmBotIntent_Aim : dmBotIntent
 			return;
 		}
 
+		float dist = vector.Distance(bot.GetPosition(), m_TargetEntity.GetPosition());
 		float chanceToRequest = 1.0;
 		dmAiming aiming = pawn.GetAiming();
 		if (aiming)
@@ -62,9 +65,37 @@ class dmBotIntent_Aim : dmBotIntent
 			bot.LookAtPoint(aiming.GetAimPosition(), dmBotLookTurn.FULL);
 
 			chanceToRequest = aiming.HitProbability() * pDt;
+
+			//! Ближе — меньше влияния джиттера: на 50 м стреляем почти сразу,
+			//! на 1000 м — HitProbability*pDt. Линейная зависимость.
+			float distFactor = Math.Clamp((dist - DM_FIRE_JITTER_NEAR) / (DM_FIRE_JITTER_FAR - DM_FIRE_JITTER_NEAR), 0.0, 0.8);
+			chanceToRequest = 1.0 + (chanceToRequest - 1.0) * distFactor;
 		}
 
-		pawn.RaiseWeapon(true);
+		//! Цель отклонилась от оси ствола — опускаем оружие (чтобы доворот корпусом
+		//! был быстрее), выждав задержку, зависящую от дистанции. Угол берём от
+		//! физического ствола (реальная ось пули), а не от корпуса: ствол отстаёт
+		//! при довороте, пока корпус ещё разворачивается.
+		vector botPos = bot.GetPosition();
+		vector tPos = m_TargetEntity.GetPosition();
+		vector toTarget = tPos - botPos;
+		toTarget[1] = 0.0;
+		float distToTarget = toTarget.Length();
+		float targetYaw = toTarget.VectorToAngles()[0];
+		float barrelYaw = pawn.GetBarrelDirection().VectorToAngles()[0];
+		float angle = Math.AbsFloat(dmAISurvivor.AngleDiff(barrelYaw, targetYaw));
+
+		if (angle > DM_SHOOT_LOWER_ANGLE)
+		{
+			m_LowerTimer = m_LowerTimer + pDt;
+			float lowerDistFactor = Math.Clamp((distToTarget - DM_SHOOT_LOWER_NEAR_DIST) / (DM_SHOOT_LOWER_FAR_DIST - DM_SHOOT_LOWER_NEAR_DIST), 0.0, 1.0);
+			float lowerDelay = DM_SHOOT_LOWER_NEAR_DELAY + (DM_SHOOT_LOWER_FAR_DELAY - DM_SHOOT_LOWER_NEAR_DELAY) * lowerDistFactor;
+			if (m_LowerTimer >= lowerDelay)
+				pawn.RaiseWeapon(false);
+			return;
+		}
+		m_LowerTimer = 0.0;
+
 		if (!pawn.IsReadyToShoot())
 		{
 			#ifdef DM_BOT_DEBUG_FSM
@@ -75,12 +106,32 @@ class dmBotIntent_Aim : dmBotIntent
 
 		if (!t.IsVisible())
 		{
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug(bot.GetName(), "[FSM] BotIntent: Aim has no LOS");
-			#endif
+			m_HasNoLOSTimer = m_HasNoLOSTimer + pDt;
+			if ( m_HasNoLOSTimer > 5.0 ) pawn.RaiseWeapon( false );
 			return;
 		}
+		m_HasNoLOSTimer = 0.0;
 
+		//! Не стреляем, пока ось ствола отклонена от точки прицела настолько, что
+		//! пуля ушла бы за силуэт (miss = 3D-угол × дальность). Порог не зависит от
+		//! дальности: это смещение точки прицеливания в метрах от центра цели.
+		vector aimPos = t.GetAimPosition();
+		vector toAim = aimPos - botPos;
+		float aimDist = toAim.Length();
+		if (aimDist > 0.001)
+		{
+			toAim.Normalize();
+			vector barrelDir = pawn.GetBarrelDirection();
+			float aimAngle = Math.Acos(Math.Clamp(vector.Dot(barrelDir, toAim), -1.0, 1.0));
+			float miss = aimAngle * aimDist;
+			if (miss > DM_SHOOT_GATE_MISS_RADIUS)
+			{
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug(bot.GetName(), "[FSM] BotIntent: Aim off-target miss=" + miss);
+				#endif
+				return;
+			}
+		}
 
 		m_FireTimer -= pDt;
 		if (m_SettleTicks > 0)

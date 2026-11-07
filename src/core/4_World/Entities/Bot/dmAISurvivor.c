@@ -129,6 +129,13 @@ class dmAISurvivor
 	ref dmBotIntent_EvadeAim m_EvadeAimIntent;
 	ref dmBotIntent_HoldLook m_EvadeAimLook;
 
+	//! Реакция на свежий шум (внимание): цель, на которую бот сейчас смотрит, и
+	//! персональные интенты взгляда/остановки. null, когда расследование неактивно.
+	ref dmTarget m_AttentionTarget;                 // свежая цель, на которую бот сейчас смотрит
+	ref dmBotIntent_HoldLook m_AttentionLook;       // взгляд
+	ref dmBotIntent_HoldStill m_AttentionHold;      // остановка (только tier-2)
+	float m_AttentionFacingTime;                    // накопленное время «уже смотрит»
+
 	//! Последний зарегистрированный выстрел (стрелок + серийный номер) — пишет
 	//! dmHearing по SHOT-шуму, читает dmBotIntent_EvadeAim.
 	EntityAI m_LastShotEntity;
@@ -151,7 +158,7 @@ class dmAISurvivor
 	private ref array<vector> m_PatrolPoints;
 
 	//! Goal targets (memory, survives FSM transitions).
-	private ref array<ref dmTarget> m_Targets;
+	private ref dmTargetManager m_TargetManager;
 
 	//! Entity the bot escorts (follows alongside). null when not escorting.
 	private EntityAI m_FollowTarget;
@@ -201,7 +208,7 @@ class dmAISurvivor
 		m_PersonalityIntents = new dmBotIntentPool();
 		m_CommandIntents = new dmBotIntentPool();
 		m_PatrolPoints = new array<vector>();
-		m_Targets = new array<ref dmTarget>();
+		m_TargetManager = new dmTargetManager();
 		m_Wishlist = new dmWishlist();
 		m_Requirements = new dmRequirements();
 		m_Needs = new dmNeeds();
@@ -651,6 +658,8 @@ class dmAISurvivor
 			m_Vision = new dmVision();
 		m_Vision.Update(this, pDt);
 
+		IdentifySeenTargets();
+
 		m_Needs.Update(this, pDt);
 
 		m_Arsenal.Tick(pDt);
@@ -660,6 +669,10 @@ class dmAISurvivor
 
 		if (m_FSM)
 			m_FSM.Update(pDt);
+
+		DecayAttraction(pDt);
+
+		UpdateAttention(pDt);
 
 		//! The tidy intent never self-finishes (it idles when there's nothing to
 		//! do), but the pool drops it on the auto-deadline (DM_INTENT_MAX_AGE) —
@@ -1452,9 +1465,10 @@ class dmAISurvivor
 		vector myPos = GetPosition();
 		float playerDanger = GetDangerDistance();
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			if (t.m_Friendly) continue;
 			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
 			EntityAI e = t.m_Entity;
@@ -1682,6 +1696,125 @@ class dmAISurvivor
 			m_EvadeAimIntent.ActiveTick(this);
 	}
 
+	//! Реакция на свежий шум: повернуться/остановиться и смотреть на цель, пока интерес
+	//! не иссяк (длительность от аттракшена) или цель не увидена. Зовётся каждый тик из OnUpdate.
+	void UpdateAttention(float pDt)
+	{
+		float now = GetGame().GetTickTime();
+		float conc = GetConcentration();
+		dmTarget best = null;
+		float bestAttract = 0.0;
+		int i;
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
+		{
+			dmTarget t = targets[i];
+			if (t.m_EverSeen) continue;              // уже видели — разведка не нужна
+			if (t.GetAttentionCooldownUntil() > now) continue; // кулдаун: цель только что «отсмотрела»
+			if (t.GetAttraction() <= conc) continue;    // интереса мало
+			if (!t.m_Entity || !t.m_Entity.IsAlive()) continue;
+			if (!best || t.GetAttraction() > bestAttract)
+			{
+				best = t;
+				bestAttract = t.GetAttraction();
+			}
+		}
+
+		//! Цели нет — снять текущее расследование.
+		if (!best)
+		{
+			ClearAttention();
+			return;
+		}
+
+		//! Преэмпция: более аттрактивная цель вытесняет текущую.
+		if (m_AttentionTarget != best)
+		{
+			if (m_AttentionTarget)
+			{
+				#ifdef DM_BOT_DEBUG_ATTENTION
+				dmBotLog.Debug(GetName(), "[Attention] preempt " + m_AttentionTarget.m_Entity.GetType() + " -> " + best.m_Entity.GetType());
+				#endif
+			}
+			ClearAttention();
+			m_AttentionTarget = best;
+			#ifdef DM_BOT_DEBUG_ATTENTION
+			dmBotLog.Debug(GetName(), "[Attention] engage " + best.m_Entity.GetType() + " attract=" + bestAttract + " conc=" + conc);
+			#endif
+		}
+
+		float dur = DM_ATTENTION_HOLD_MIN + (DM_ATTENTION_HOLD_MAX - DM_ATTENTION_HOLD_MIN) * bestAttract;
+
+		//! Взгляд (всегда при активной реакции).
+		if (!m_AttentionLook || m_AttentionLook.IsFinished() || m_AttentionLook.IsExpired())
+		{
+			m_AttentionLook = new dmBotIntent_HoldLook();
+			m_AttentionLook.m_Entity = best.m_Entity;
+			m_AttentionLook.m_Target = best;
+			m_AttentionLook.m_Turn = dmBotLookTurn.FULL;
+			m_AttentionLook.m_Priority = dmBotIntentPriority.CRITICAL;
+			AddPersonalityIntent(m_AttentionLook);
+		}
+
+		//! Остановка (только сильный интерес: attraction > фактор×концентрация).
+		if (bestAttract > DM_ATTENTION_STOP_FACTOR * conc)
+		{
+			if (!m_AttentionHold || m_AttentionHold.IsFinished() || m_AttentionHold.IsExpired())
+			{
+				m_AttentionHold = new dmBotIntent_HoldStill();
+				AddPersonalityIntent(m_AttentionHold);
+			}
+		}
+		else if (m_AttentionHold && !m_AttentionHold.IsFinished())
+		{
+			m_AttentionHold.Finish();
+			m_AttentionHold = null;
+		}
+
+		//! Накопление «уже смотрит»: тело довёрнуто к цели. Для tier-1 (только поворот,
+		//! бот продолжает идти) тело НЕ доворачивается к цели (идёт, корпус по движению),
+		//! поэтому m_AttentionFacingTime не накапливается и взгляд завершится только по
+		//! best.m_EverSeen/затуханию ниже conc. Это осознанное упрощение: точная длительность
+		//! 5–15 с — про tier-2 (остановка+взгляд, основной сценарий «idle-бот услышал шум»).
+		vector botPos = GetPosition();
+		vector targetPos = best.m_Entity.GetPosition();
+		vector toTarget = targetPos - botPos;
+		toTarget[1] = 0.0;
+		float yawToTarget = toTarget.VectorToAngles()[0];
+		vector orient = GetOrientation();
+		float bodyYaw = orient[0];
+		if (Math.AbsFloat(AngleDiff(bodyYaw, yawToTarget)) < DM_ATTENTION_FACING_YAW)
+			m_AttentionFacingTime += pDt;
+
+		//! Завершение: насмотрелся или увидел.
+		if (m_AttentionFacingTime >= dur || best.m_EverSeen)
+		{
+			//! Насмотрелся БЕЗ результата — ставим кулдаун, чтобы цель не пере-триггерила
+			//! взгляд в следующем тике (иначе бот таращится чанками по ~dur). Увиденную
+			//! цель не трогаем — она и так выпадает из разведки (m_EverSeen).
+			if (!best.m_EverSeen)
+				best.SetAttentionCooldownUntil(now + DM_ATTENTION_RETRIGGER_COOLDOWN);
+
+			#ifdef DM_BOT_DEBUG_ATTENTION
+			dmBotLog.Debug(GetName(), "[Attention] done facing=" + m_AttentionFacingTime + " dur=" + dur + " seen=" + best.m_EverSeen);
+			#endif
+			ClearAttention();
+		}
+	}
+
+	//! Снять расследование: завершить интенты, обнулить состояние.
+	void ClearAttention()
+	{
+		if (m_AttentionLook && !m_AttentionLook.IsFinished())
+			m_AttentionLook.Finish();
+		if (m_AttentionHold && !m_AttentionHold.IsFinished())
+			m_AttentionHold.Finish();
+		m_AttentionLook = null;
+		m_AttentionHold = null;
+		m_AttentionTarget = null;
+		m_AttentionFacingTime = 0.0;
+	}
+
 	//! Зарегистрировать выстрел стрелка (dmHearing зовёт по SHOT-шуму).
 	void OnGunshot(EntityAI shooter)
 	{
@@ -1761,36 +1894,86 @@ class dmAISurvivor
 	// Targets (goals)
 	//------------------------------------------------------------------
 
+	//! Точка-хук: добавление цели (триггер мгновенных реакций — пока пустая обёртка).
 	void AddTarget(dmTarget target)
 	{
-		m_Targets.Insert(target);
+		m_TargetManager.Add(target);
 	}
 
 	void ClearTargets()
 	{
-		m_Targets.Clear();
+		m_TargetManager.Clear();
 	}
 
 	ref array<ref dmTarget> GetTargets()
 	{
-		return m_Targets;
+		return m_TargetManager.GetTargets();
+	}
+
+	//! Точка-хук: удаление цели (триггер — пока пустая обёртка).
+	void RemoveTarget(dmTarget t)
+	{
+		m_TargetManager.Remove(t);
+	}
+
+	//! Заменить цель сущности: найти → удалить старую → добавить новую. Гарантирует
+	//! «одна цель на одну EntityAI» (эволюционная лестница фантом→звук→опознание).
+	//! Переносит накопленную память из старой цели в новую (кроме полей внимания
+	//! звуковой цели), чтобы апгрейд не «забывал» знание бота.
+	void ReplaceTarget(EntityAI entity, dmTarget newTarget)
+	{
+		dmTarget old = m_TargetManager.Find(entity);
+		if (old)
+		{
+			if ( newTarget.Threat() < old.Threat() ) newTarget.SetThreat(old.Threat());
+			newTarget.SetLastPosition(old.LastPosition());
+			newTarget.SetLastDistance(old.LastDistance());
+			newTarget.SetHasLOS(old.HasLOS());
+			newTarget.SetEverSeen(old.EverSeen());
+			newTarget.SetLastContact(old.LastContact());
+			newTarget.SetLastDamage(old.LastDamage());
+			newTarget.SetNextLOSUpdate(old.NextLOSUpdate());
+			newTarget.SetFriendly(old.Friendly());
+			RemoveTarget(old);
+		}
+		AddTarget(newTarget);
+	}
+
+	//! Опознание: цель попала в прямую видимость — апгрейдим до опознанного типа.
+	void TargetIdentified(dmTarget target)
+	{
+		EntityAI entity = target.GetEntity();
+		if (!entity)
+			return;
+
+		#ifdef DM_BOT_DEBUG_ATTENTION
+		dmBotLog.Debug(GetName(), "[Attention] identified " + entity.GetType());
+		#endif
+
+		ReplaceTarget(entity, dmTarget.CreateIdentification(entity));
+	}
+
+	//! Опознать цели, попавшие в прямую видимость (Dummy/Sound → Identification).
+	//! Собираем в отдельный список — ReplaceTarget модифицирует m_Targets.
+	void IdentifySeenTargets()
+	{
+		ref array<ref dmTarget> toIdentify = new array<ref dmTarget>();
+		ref array<ref dmTarget> targets = GetTargets();
+		int i;
+		for (i = 0; i < targets.Count(); i++)
+		{
+			dmTarget t = targets[i];
+			if (!t.Identified() && t.HasLOS())
+				toIdentify.Insert(t);
+		}
+		for (i = 0; i < toIdentify.Count(); i++)
+			TargetIdentified(toIdentify[i]);
 	}
 
 	//! Find a tracked target by its entity, or null if it isn't remembered.
 	dmTarget FindTarget(EntityAI entity)
 	{
-		#ifdef DM_BOT_PROFILE
-		dmBotSpan _span = dmBotProfiler.Start("Target.Find");
-		#endif
-
-		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
-		{
-			dmTarget t = m_Targets[i];
-			if (t.m_Entity == entity)
-				return t;
-		}
-		return null;
+		return m_TargetManager.Find(entity);
 	}
 
 	void RecalcTargetThreat(dmTarget t, float pDt)
@@ -1833,32 +2016,28 @@ class dmAISurvivor
 	//! Add a newly discovered entity to the target memory in a "clean" state —
 	//! not yet seen (m_HasLOS=false, no known position). LOS is filled later by
 	//! the perception's per-target refresh loop.
-	void DiscoverTarget(EntityAI entity, float threat, float attractiveness, bool friendly)
+	void DiscoverTarget(EntityAI entity, float threat, bool friendly)
 	{
 		dmTarget t = FindTarget(entity);
 		if (t)
 		{
 			if ( threat > t.m_Threat ) t.m_Threat = threat;
-			if ( attractiveness > t.m_Attractiveness ) t.m_Attractiveness = attractiveness;
 			return;
 		}
-		t = new dmTarget();
-		t.m_Type = dmTargetType.DESTROY;
-		t.m_Entity = entity;
+		t = dmTarget.CreateDummy(entity);
 		t.m_Threat = threat;
-		t.m_Attractiveness = attractiveness;
 		t.m_Friendly = friendly;
 		t.m_HasLOS = false;
 		t.m_LastPosition = vector.Zero;
 		t.m_NextLOSUpdate = 0.0;
 		t.m_LastContact = GetGame().GetTickTime();
-		m_Targets.Insert(t);
+		AddTarget(t);
 	}
 
 	//! An enemy dealt damage — register it as a threat immediately, even if it is
 	//! outside the vision FOV (e.g. attacking from behind). `source` may be an item
 	//! held by the player — the root player is resolved here.
-	void RegisterDamageThreat(EntityAI source, float damage)
+	void RegisterDamageThreat(EntityAI source, float damage, int damageType)
 	{
 		if (!source)
 			return;
@@ -1885,19 +2064,43 @@ class dmAISurvivor
 			threat = 0.9;
 		}
 
+		float now = GetGame().GetTickTime();
+
 		dmTarget t = FindTarget(attacker);
 		if (!t)
 		{
-			t = new dmTarget();
-			t.m_Type = dmTargetType.DESTROY;
-			t.m_Entity = attacker;
-			m_Targets.Insert(t);
+			t = dmTarget.CreateDummy(attacker);
+			AddTarget(t);
 		}
 		if (threat > t.m_Threat) t.m_Threat = threat;
 		t.m_Friendly = false;
-		t.m_LastPosition = attacker.GetPosition();
-		t.m_LastContact = GetGame().GetTickTime();
-		t.m_LastDamage = GetGame().GetTickTime();
+		t.m_LastDamage = now;
+
+		t.SetLastContact(now);
+
+		//! Позицию переписывает ТОЛЬКО фантом. Опознанные/звуковые цели держат
+		//! свою позицию (от зрения/шума) — урон её не трогает.
+		if (t.Identified())
+			return;
+
+		if (damageType == DamageType.CLOSE_COMBAT)
+		{
+			t.SetLastPosition(attacker.GetPosition());
+			ReplaceTarget(attacker, dmTarget.CreateIdentification(attacker));
+			return;
+		}
+
+		if (damageType == DamageType.FIRE_ARM)
+		{
+			if (t.IsInherited(dmTargetDummy))
+			{
+				float dist = vector.Distance(m_Pawn.GetPosition(), attacker.GetPosition());
+				t.SetLastPosition(attacker.GetPosition());
+				t.SetLastPositionSpread(dist / 3.0);   // разброс = треть дистанции
+			}
+			return;
+		}
+		//! Прочий урон — только контакт (позицию не трогаем).
 	}
 
 	//! Аддитивно повысить угрозу цели (используется детектом прицеливания: игрок
@@ -1915,11 +2118,9 @@ class dmAISurvivor
 		dmTarget t = FindTarget(entity);
 		if (!t)
 		{
-			t = new dmTarget();
-			t.m_Type = dmTargetType.DESTROY;
-			t.m_Entity = entity;
+			t = dmTarget.CreateDummy(entity);
 			t.m_LastContact = GetGame().GetTickTime();
-			m_Targets.Insert(t);
+			AddTarget(t);
 		}
 		if (t.m_Friendly)
 			return;
@@ -1941,10 +2142,8 @@ class dmAISurvivor
 		dmTarget t = FindTarget(entity);
 		if (!t)
 		{
-			t = new dmTarget();
-			t.m_Type = dmTargetType.DESTROY;
-			t.m_Entity = entity;
-			m_Targets.Insert(t);
+			t = dmTarget.CreateDummy(entity);
+			AddTarget(t);
 		}
 		if (threat > t.m_Threat) t.m_Threat = threat;
 		t.m_Friendly = false;
@@ -1954,46 +2153,164 @@ class dmAISurvivor
 		return t;
 	}
 
-	//! Слух: обновить/добавить цель по шуму. Цель с HasLOS=false получает свежую
-	//! последнюю позицию и обновлённую привлекательность; новая цель добавляется с
-	//! низким threat (услышал, не видел) и привлекательностью шума.
-	void HearNoise(EntityAI entity, vector position, float attractiveness)
+	//! Аттракшен свежей цели по типу шума + дистанции (выстрел зависит от дистанции).
+	float NoiseAttraction(int type, vector noisePos)
+	{
+		if (type == dmNoiseType.SHOT)
+		{
+			float dist = vector.Distance(GetPosition(), noisePos);
+			if (dist <= DM_ATTRACT_SHOT_NEAR_DIST) return 1.0;
+			if (dist >= DM_ATTRACT_SHOT_FAR_DIST) return 0.0;
+			return 1.0 - (dist - DM_ATTRACT_SHOT_NEAR_DIST) / (DM_ATTRACT_SHOT_FAR_DIST - DM_ATTRACT_SHOT_NEAR_DIST);
+		}
+		if (type == dmNoiseType.STEP) return DM_ATTRACT_STEP;
+		if (type == dmNoiseType.SCREAM) return DM_ATTRACT_SCREAM;
+		if (type == dmNoiseType.BULLETIMPACT) return DM_ATTRACT_BULLETIMPACT;
+		return 0.0;   // OTHER — без аттракшена
+	}
+
+	//! Размытость позиции шума (растёт с дистанцией и углом «не лицом» к шуму).
+	private float ComputeNoiseSpread(vector position)
+	{
+		vector botPos = GetPosition();
+		float L1 = vector.Distance(botPos, position);
+		vector toNoise = position - botPos;
+		float noiseYaw = toNoise.VectorToAngles()[0];
+		vector bodyDir = GetDirection();
+		float lookYaw = bodyDir.VectorToAngles()[0];
+		float facing = Math.AbsFloat(AngleDiff(noiseYaw, lookYaw));
+		float facingFactor = DM_HUNT_FACING_MIN + (facing / 180.0) * (DM_HUNT_FACING_MAX - DM_HUNT_FACING_MIN);
+		return Math.Clamp(L1 * facingFactor, DM_HUNT_SPREAD_MIN, DM_HUNT_SPREAD_MAX);
+	}
+
+	//! Слух: обновить/добавить цель по шуму. Новая цель создаётся сразу ЗВУКОВОЙ
+	//! (слух не делает фантомов — их пререгистрирует зрение); существующий фантом
+	//! апгрейдится до звуковой цели (лестница Dummy → Sound). Опознанная цель не
+	//! понижается. Далее — обновление аттракшена/спреда/позиции.
+	void HearNoise(EntityAI entity, vector position, int type)
 	{
 		#ifdef DM_PERCEPTION_DEBUG
 		if ( entity )
-			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness + " [" + entity.GetType() + "]");
+			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position + " [" + entity.GetType() + "]");
 		else
-			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position + " attractiveness=" + attractiveness);
+			dmBotLog.Debug(GetName(), "[Noise] HearNoise: position=" + position);
 		#endif
+
+		//! Крик зомби: цель — игрок, на которого нападает зомби (не сам зомби).
+		//! Если игрока нет или это сам бот — остаётся зомби.
+		if (type == dmNoiseType.SCREAM)
+		{
+			ZombieBase z = ZombieBase.Cast(entity);
+			if (z)
+			{
+				EntityAI attacked = z.GetActualTarget();
+				PlayerBase p = PlayerBase.Cast(attacked);
+				if (p && p != m_Pawn)
+					entity = p;
+			}
+		}
+
+		float spread = ComputeNoiseSpread(position);
+
 		dmTarget t = FindTarget(entity);
 		if (t)
 		{
-			t.m_LastContact = GetGame().GetTickTime();
-			if (!t.IsVisible())
+			//! Лестница Dummy → Sound: фантом, услышанный впервые, становится звуковой целью.
+			if (!t.Identified() && !t.IsInherited(dmTargetSound))
 			{
-				if (!t.m_Friendly && attractiveness > t.m_Attractiveness)
-					t.m_Attractiveness = attractiveness;
-
-				vector botPos = GetPosition();
-				float L1 = vector.Distance(botPos, position);       // бот → шум
-				// facing: угол между направлением тела бота и направлением на шум (0..180)
-				vector toNoise = position - botPos;
-				float noiseYaw = toNoise.VectorToAngles()[0];
-				vector bodyDir = GetDirection();
-				float lookYaw = bodyDir.VectorToAngles()[0];
-				float facing = Math.AbsFloat(dmAISurvivor.AngleDiff(noiseYaw, lookYaw));
-				float facingFactor = DM_HUNT_FACING_MIN + (facing / 180.0) * (DM_HUNT_FACING_MAX - DM_HUNT_FACING_MIN);
-				t.m_LastPositionSpread = Math.Clamp(L1 * facingFactor, DM_HUNT_SPREAD_MIN, DM_HUNT_SPREAD_MAX);
-
-				t.m_LastPosition = position;
+				ReplaceTarget(entity, dmTarget.CreateSound(entity, type));
+				t = FindTarget(entity);
+				#ifdef SERVER
+				dmBotAdmLog.LogHeardTarget(m_Pawn, type, position, spread);
+				#endif
 			}
-			return;
+		}
+		else
+		{
+			//! Новая цель: сразу звуковая, с низким threat (услышал, не видел).
+			t = dmTarget.CreateSound(entity, type);
+			t.SetThreat(DM_NOISE_THREAT);
+			AddTarget(t);
+			#ifdef SERVER
+			dmBotAdmLog.LogHeardTarget(m_Pawn, type, position, spread);
+			#endif
 		}
 
-		DiscoverTarget(entity, DM_NOISE_THREAT, attractiveness, false);
-		t = FindTarget(entity);
-		if (t)
+		if (!t)
+			return;
+
+		t.m_LastContact = GetGame().GetTickTime();
+		if (!t.IsVisible())
+		{
+			if (!t.m_EverSeen)
+			{
+				float attract = NoiseAttraction(type, position);
+				if (attract > t.GetAttraction())
+					t.SetAttraction(attract);
+			}
+
+			t.m_LastPositionSpread = spread;
+
 			t.m_LastPosition = position;
+		}
+	}
+
+	//! Затухание аттракшена свежих целей: −DM_ATTRACT_DECAY_PER_SEC каждую секунду, до 0.
+	void DecayAttraction(float pDt)
+	{
+		int i;
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
+		{
+			dmTarget t = targets[i];
+			if (t.GetAttraction() > 0.0)
+			{
+				float attract = t.GetAttraction() - DM_ATTRACT_DECAY_PER_SEC * pDt;
+				if (attract < 0.0)
+					attract = 0.0;
+				t.SetAttraction(attract);
+			}
+		}
+	}
+
+	//! Дистанция до текущей враждебной цели (для концентрации в боевых состояниях).
+	float HostileDistance()
+	{
+		dmTarget t = GetHostileTarget();
+		if (!t || !t.m_Entity)
+			return 99999.0;
+		return DistanceToTarget(t);
+	}
+
+	//! Концентрация (0..1): насколько бот «занят» текущим. Зависит от состояния FSM
+	//! и дистанции до врага. 0 — Idle (ничем не занят, готов оглянуться).
+	float GetConcentration()
+	{
+		if (m_EatDrinkIntent && m_EatDrinkIntent.IsBusy())
+			return DM_CONC_NONCOMBAT;   // ест/пьёт — небоевое занятие
+
+		string name = "";
+		if (m_FSM && m_FSM.GetCurrentState())
+			name = m_FSM.GetCurrentState().GetName();
+
+		float dist;
+		if (name == "Fighting")
+		{
+			dist = HostileDistance();
+			if (dist <= DM_CONC_FIGHT_NEAR) return 1.0;
+			if (dist >= DM_CONC_FIGHT_FAR) return DM_CONC_FIGHT_FAR_LEVEL;
+			return 1.0 - (1.0 - DM_CONC_FIGHT_FAR_LEVEL) * (dist - DM_CONC_FIGHT_NEAR) / (DM_CONC_FIGHT_FAR - DM_CONC_FIGHT_NEAR);
+		}
+		if (name == "Shooting" || name == "Flanking" || name == "Kamping" || name == "Rushing")
+		{
+			dist = HostileDistance();
+			if (dist <= DM_CONC_SHOOT_NEAR) return 1.0;
+			if (dist >= DM_CONC_SHOOT_FAR) return DM_CONC_SHOOT_FAR_LEVEL;
+			return 1.0 - (1.0 - DM_CONC_SHOOT_FAR_LEVEL) * (dist - DM_CONC_SHOOT_NEAR) / (DM_CONC_SHOOT_FAR - DM_CONC_SHOOT_NEAR);
+		}
+		if (name == "MedicalCare") return DM_CONC_NONCOMBAT;
+		if (name == "Idle") return 0.0;
+		return DM_CONC_NONCOMBAT;   // Patrol/Exploration/Hunting/Travel/Follow/GetWater/Stealth/Surrender
 	}
 
 	dmTarget m_LastHostileTarget; // текущая цель
@@ -2044,9 +2361,10 @@ class dmAISurvivor
 		float bestThreat = 0.0;
 		vector myPos = GetPosition();
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			if (t.m_Friendly) continue;
 			if (!t.IsValidTarget()) continue;
 			if (!t.IsVisible()) continue;
@@ -2120,9 +2438,10 @@ class dmAISurvivor
 		float bestThreat = 0.0;
 		vector myPos = GetPosition();
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			if (t.m_Friendly) continue;
 			if (!t.IsValidTarget()) continue;
 			if (visible && !t.IsVisible()) continue;
@@ -2148,13 +2467,14 @@ class dmAISurvivor
 	}
 
 	//! Первая цель, пригодная для охоты: невидимая (!m_HasLOS), не дружественная,
-	//! живая, и либо враждебная с неточной позицией, либо достаточно привлекательная.
+	//! живая, и враждебная с неточной позицией.
 	dmTarget GetHuntTarget()
 	{
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			if (t.m_Friendly)
 				continue;
 			//! Цель без известной позиции (обнаружена, но ни разу не видна/не слышна) — охотиться не на что.
@@ -2166,42 +2486,22 @@ class dmAISurvivor
 			if (e && !e.IsAlive())
 				continue;
 			bool hostileSpread = t.m_Threat >= DM_ATTACK_THREAT_THRESHOLD;
-			bool attractive = t.m_Attractiveness > DM_HUNT_MIN_ATTRACTIVENESS;
-			if (hostileSpread || attractive)
+			if (hostileSpread)
 				return t;
 		}
 		return null;
 	}
 
-	//! Start a scan pass: mark every remembered target as not-seen; RememberTarget
-	//! flips the visible ones back to true.
+	//! Start a scan pass: mark every remembered target as not-seen.
 	void BeginTargetScan()
 	{
 		int i;
-		for (i = 0; i < m_Targets.Count(); i++)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = 0; i < targets.Count(); i++)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			t.m_HasLOS = false;
 		}
-	}
-
-	//! Merge a freshly seen entity into the target memory (create or update).
-	void RememberTarget(EntityAI entity, float threat, float attractiveness, bool friendly, vector pos)
-	{
-		dmTarget t = FindTarget(entity);
-		if (!t)
-		{
-			t = new dmTarget();
-			t.m_Type = dmTargetType.DESTROY;
-			t.m_Entity = entity;
-			m_Targets.Insert(t);
-		}
-		if (threat > t.m_Threat) t.m_Threat = threat;
-		t.m_Attractiveness = attractiveness;
-		t.m_Friendly = friendly;
-		t.m_LastPosition = pos;
-		t.m_HasLOS = true;
-		t.m_LastContact = GetGame().GetTickTime();
 	}
 
 	//! Drop targets with no contact for longer than the timeout (backward loop —
@@ -2210,21 +2510,16 @@ class dmAISurvivor
 	{
 		float now = GetGame().GetTickTime();
 		int i;
-		for (i = m_Targets.Count() - 1; i >= 0; i--)
+		ref array<ref dmTarget> targets = GetTargets();
+		for (i = targets.Count() - 1; i >= 0; i--)
 		{
-			dmTarget t = m_Targets[i];
+			dmTarget t = targets[i];
 			// default contact - it means that the record is just added
 			if ( t.m_LastContact == 0 )
 				t.m_LastContact = GetGame().GetTickTime();
 			if (!t.m_Entity || now - t.m_LastContact > timeout || !t.m_Entity.IsAlive())
-				m_Targets.RemoveItem(t);
+				RemoveTarget(t);
 		}
-	}
-
-	//! Remove a specific target from the memory.
-	void RemoveTarget(dmTarget t)
-	{
-		m_Targets.RemoveItem(t);
 	}
 
 	//------------------------------------------------------------------
@@ -2400,7 +2695,12 @@ class dmAISurvivor
 		if (m_Pawn.IsMeleeStriking())
 			return;
 
-		float t = Math.Min(1.0, DM_LOOK_TURN_SPEED * pDt);
+		//! С поднятым оружием голова доворачивается медленнее (резкий доворот
+		//! смущает прицел).
+		float turnSpeed = DM_LOOK_TURN_SPEED;
+		if (m_Pawn.IsRaised())
+			turnSpeed = DM_LOOK_TURN_SPEED_RAISED;
+		float t = Math.Min(1.0, turnSpeed * pDt);
 
 		float bodyYaw = m_Pawn.GetOrientation()[0];
 		float relTarget = AngleDiff(m_TargetLookYawAbs, bodyYaw);

@@ -8,7 +8,25 @@ modded class DayZPlayerImplement
 	{
 		super.OnStepEvent(pEventType, pUserString, pUserInt);
 		#ifdef SERVER
-		dmNoiseSystem.AddNoise(this, GetPosition(), DM_NOISE_STEP_STRENGTH, dmNoiseType.STEP);
+		//! Сила шума шагов: ЛЁЖА — неслышно; СИДЯ — /3; темп: walk 5 / run 10 / sprint 15.
+		HumanMovementState state = new HumanMovementState();
+		GetMovementState(state);
+
+		if (state.m_iStanceIdx == DayZPlayerConstants.STANCEIDX_PRONE || state.m_iStanceIdx == DayZPlayerConstants.STANCEIDX_RAISEDPRONE)
+			return;   // лёжа — неслышно
+
+		float strength;
+		if (state.m_iMovement == DayZPlayerConstants.MOVEMENTIDX_SPRINT)
+			strength = DM_NOISE_STEP_SPRINT;
+		else if (state.m_iMovement == DayZPlayerConstants.MOVEMENTIDX_RUN)
+			strength = DM_NOISE_STEP_RUN;
+		else
+			strength = DM_NOISE_STEP_WALK;
+
+		if (state.m_iStanceIdx == DayZPlayerConstants.STANCEIDX_CROUCH || state.m_iStanceIdx == DayZPlayerConstants.STANCEIDX_RAISEDCROUCH)
+			strength = strength / 3.0;
+
+		dmNoiseSystem.AddNoise(this, GetPosition(), strength, dmNoiseType.STEP);
 		#endif
 	}
 
