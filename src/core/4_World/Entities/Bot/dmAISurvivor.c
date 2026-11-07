@@ -2175,7 +2175,8 @@ class dmAISurvivor
 		if (type == dmNoiseType.SCREAM) return DM_ATTRACT_SCREAM;
 		if (type == dmNoiseType.BULLETIMPACT) return DM_ATTRACT_BULLETIMPACT;
 		if (type == dmNoiseType.DROP) return DM_ATTRACT_DROP;
-		return 0.0;   // OTHER/звук — без аттракшена
+		if (type == dmNoiseType.SOUND) return DM_ATTRACT_SOUND;
+		return 0.0;   // OTHER — без аттракшена
 	}
 
 	//! Размытость позиции шума (растёт с дистанцией и углом «не лицом» к шуму).

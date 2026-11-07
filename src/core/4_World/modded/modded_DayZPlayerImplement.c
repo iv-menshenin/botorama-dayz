@@ -4,6 +4,10 @@
 //! signal in the same place so bot hearing receives it too.
 modded class DayZPlayerImplement
 {
+	//! Server time (ms) of the last VON noise we published — throttles voice noise
+	//! to once per second (mirrors vanilla m_NextVoNNoiseTime).
+	int dm_LastVoiceNoiseTime;
+
 	override void OnStepEvent(string pEventType, string pUserString, int pUserInt)
 	{
 		super.OnStepEvent(pEventType, pUserString, pUserInt);
@@ -27,6 +31,36 @@ modded class DayZPlayerImplement
 			strength = strength / 3.0;
 
 		dmNoiseSystem.AddNoise(this, GetPosition(), strength, dmNoiseType.STEP);
+		#endif
+	}
+
+	//! Publish a VON (voice) noise so bots can hear a player talking. Vanilla
+	//! CommandHandler already adds a native NoiseSystem ping once per second on the
+	//! server for a speaking player; we mirror that with our own dmNoiseSystem signal
+	//! (whisper/talk/shout strength). AI bots never speak (IsPlayerSpeaking()==0),
+	//! so they generate no self-noise through this hook.
+	override void CommandHandler(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
+	{
+		super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);
+		#ifdef SERVER
+		if (IsPlayerSpeaking() > 0.1)
+		{
+			int now = g_Game.GetTime();
+			if (now >= dm_LastVoiceNoiseTime + 1000)
+			{
+				dm_LastVoiceNoiseTime = now;
+				float strength = DM_NOISE_VOICE_TALK;
+				int level = g_Game.GetVoiceLevel(this);
+				if (level == VoiceLevelWhisper)
+					strength = DM_NOISE_VOICE_WHISPER;
+				else if (level == VoiceLevelShout)
+					strength = DM_NOISE_VOICE_SHOUT;
+				#ifdef DM_PERCEPTION_DEBUG
+				dmBotLog.Debug("", "[Noise] voice");
+				#endif
+				dmNoiseSystem.AddNoise(this, GetPosition(), strength, dmNoiseType.SOUND);
+			}
+		}
 		#endif
 	}
 

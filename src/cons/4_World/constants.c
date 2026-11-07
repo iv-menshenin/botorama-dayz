@@ -613,7 +613,7 @@ static const float DM_ATTRACT_EXPLOSION_NEAR_DIST = 50.0;   // взрыв: 50 м
 static const float DM_ATTRACT_EXPLOSION_FAR_DIST  = 1000.0; // взрыв: 1000 м → 0 (как выстрел)
 static const float DM_ATTRACT_DROP = 0.8;                   // ITEM_FALL
 static const float DM_ATTRACT_DECAY_PER_SEC = 0.005;   // затухание аттракшена: 0.05 за 10 с
-// DOOR 0.6 / ACTION 0.5 — появятся с их генераторами (атом A3)
+static const float DM_ATTRACT_SOUND = 0.5;  // экшены игрока (дверь/перезарядка/рубка/голос)
 
 //! Attention model: concentration — насколько бот «занят» текущим (чем выше, тем меньше отвлекается).
 static const float DM_CONC_FIGHT_NEAR      = 5.0;     // Fighting: ≤5 м → 1.0
