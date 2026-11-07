@@ -1240,7 +1240,12 @@ class dmE2EBridge
 			w.GetWindMagnitude().Set(v, 0, 3600);
 		}
 		else if (step.Type == "sandstorm")
+		{
 			w.GetSandstorm().Start(v, false);
+			#ifdef DM_PERCEPTION_DEBUG
+			dmBotLog.Debug("", "[Noise] sandstorm start pos=" + w.GetSandstorm().GetPosition() + " dir=" + w.GetSandstorm().GetDirection() + " mag=" + w.GetSandstorm().GetMagnitude());
+			#endif
+		}
 		else if (step.Type == "clear")
 		{
 			w.GetRain().SetLimits(0, 1); w.GetRain().Set(0, 0, 3600);
