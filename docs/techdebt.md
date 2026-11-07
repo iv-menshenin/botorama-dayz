@@ -1144,3 +1144,27 @@
   ExplosionEffectsEx (взрыв). Непотреблённый бинд (брошенный предмет, чей EOnContact не наступил;
   дымовая/светошумовая, если не идёт через Explode) оставляет перманентную запись. Тот же класс
   утечки, что `dmBallisticsBridge.s_LastShot`. Будущее: ленивая чистка по мёртвым ключам или Sweep.
+
+## Z. Генератор шумов — TODO после observer-прохода (записано заказчиком)
+
+- **сделано (v3.476)** — рубка дерева: разделена на два шума. (1) «Срубленное дерево» (дроп,
+  `OnFinishProgressServer`) → **50 м** (`DM_NOISE_GATHER_DROP_STRENGTH`); (2) «Процесс рубки» (каждый замах,
+  `OnExecuteServer`, `HasMultipleExecution=true`) → **20 м** (`DM_NOISE_GATHER_PROCESS_STRENGTH`). Куст не шумит.
+- **сделано (v3.476)** — копание (`ActionDigWorms`): шум в процессе (`OnExecuteServer`), гейт **только лопата**
+  (`IsInherited(Shovel) || IsInherited(FieldShovel)`). Нож/мачете/кирка не шумят. `OnFinishProgressServer` шум убран.
+- **сделано (v3.476)** — взрывоопасные предметы (граната/мина) тоже эмитят **DROP** на приземлении; кидатель
+  НЕ чистится для взрывчатки (нужен позже для атрибуции взрыва).
+- **сделано (v3.476)** — отложенное добавление таргета по дистанции (задержка звука): `dmHearing.OnNoise` →
+  `HearNoise` через `CallLater(HearNoiseDelayed, d.Length()/DM_SOUND_SPEED*1000, ...)`. Фильтр дистанции и
+  `OnGunshot` (уворот) — мгновенны.
+- **БАГ (observer-проход, ОТЛОЖЕН — research `noise-zombie-scream.md`)** — крик зомби НЕ эмитит SCREAM: хук
+  `modded ZombieBase.OnSoundVoiceEvent` → `AddNoise(..., SCREAM)` не сработал (в логе были только шаги, SCREAM
+  `type=2` отсутствует, хотя зомби рядом кричал). Причина (research): у зомби ДВА механизма вокализации —
+  (1) `SoundVoice`-anim-события (`OnSoundVoiceEvent`→`ProcessSoundVoiceEvent`, сервер-сайд нативный шум) и
+  (2) клиентские state-звуки (`InfectedSoundEventHandler`/`ProcessVoiceFX`, mindstate-петли AlertedIdle/ChaseMove —
+  **клиент-only, НЕ проходят `OnSoundVoiceEvent`**). Наш хук ловит (1), а наблюдаемый «крик» — почти наверняка (2).
+  **Следующие шаги (задача `spawnzombie` + верификация H1/H2):** (а) E2E-ручка `spawnzombie` (спавн зомби С ИИ,
+  `init_ai=true` — сейчас `spawnobj` спавнит без ИИ); (б) безусловный debug-лог в `OnSoundVoiceEvent` + агро-зомби —
+  появится ли `[Zmb] OnSoundVoiceEvent` на сервере (H2: `SoundVoice` вообще не диспатчится на выделенном сервере?);
+  (в) если да — альтернативный хук `ZombieBase.HandleMindStateChange` (`zombiebase.c:450-478`, переход в
+  ALERTED/CHASE = «агро-крик», эталон Expansion `zmbm_gamedev_base.c:4`). Детали/гипотезы H1–H5 — в research-заметке.

@@ -900,3 +900,26 @@ action-manager/weapon-FSM, поэтому хуки player-only; генерить
 наблюдателя (нет ручки «открыть дверь/перезарядить как человек») — отложен до финальной регрессии A5.
 Действует пока: боты не получили action-manager/ванильный weapon-FSM для этих действий;
 если понадобится «бот-источник» этих шумов — хуки в `dmBotIntent_OpenDoor`/`ReloadWeaponAI`.
+
+### noise-gather: копание — шум «в процессе» на OnExecuteServer, только лопатой
+Решение: `ActionDigWorms` шумит на `OnExecuteServer` (не на `OnFinishProgressServer`), с гейтом
+«только лопата» (`m_MainItem.IsInherited(Shovel) || IsInherited(FieldShovel)`). Рубка
+(`ActionMineTree`) делится: дроп (`OnFinishProgressServer`) → 50 м, процесс (`OnExecuteServer`,
+`HasMultipleExecution=true` → per замах) → 20 м. Куст/камень не меняются.
+Почему: спека заказчика явно просит «в процессе, не на завершение». Нюанс: research
+(`noise-actions-hooks.md` §1.4) считает, что у `ActionDigWorms` `OnExecuteServer` срабатывает ОДИН раз
+(`HasMultipleExecution=false`); но по коду (`animatedactionbase.c` + `actioncontinuousbase.c`)
+`m_WasExecuted` сбрасывается в `OnStart/EndAnimationLoop`, т.е. per-цикл анимации — частота близка к
+`OnFinishProgressServer` (~10 с), но семантически это «замах», а не «выкопал червя». Частоту проверяет
+E2E; если `OnExecuteServer` окажется единичным — откат на `OnFinishProgressServer`.
+Действует пока: не подтверждена фактическая частота `UA_ANIM_EVENT` у `CMD_ACTIONFB_DIGGIN_WORMS`.
+
+### noise-propagation: отложенное добавление таргета = звук «летит» dist/DM_SOUND_SPEED
+Решение: фильтр дистанции и `OnGunshot` (уворот) остаются мгновенными; только `HearNoise` (добавление
+таргета) откладывается через `CallLater(HearNoiseDelayed, delayMs, ...)`, где `delayMs = d.Length() /
+DM_SOUND_SPEED * 1000` (`DM_SOUND_SPEED = 340 м/с`). Дистанция уже есть в фильтре (`d.Length()`).
+Почему: реалистичный «полёт звука» (2 км ≈ 5.9 с) без физики распространения — звук доходит мгновенно
+(фильтр синхронный), но реакция на него задерживается. Одна константа + метод-обёртка; `OnGunshot`
+должен быть мгновенным (пуля ~800 м/с, уворот до удара), поэтому он вне задержки.
+Действует пока: задержка линейна по дистанции без капа; при появлении «прогноза траектории звука»
+(препятствия/эхо) — пересмотреть на модель затухания, а не чистый `dist/speed`.

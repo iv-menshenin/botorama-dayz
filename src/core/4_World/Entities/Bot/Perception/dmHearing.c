@@ -59,6 +59,20 @@ class dmHearing
 		#ifdef DM_PERCEPTION_DEBUG
 		dmBotLog.Debug(m_Bot.GetName(), "[Noise] OnNoise I HEAR YOU: noice_position=" + position + " bot_position=" + m_Bot.GetPosition() + " strength=" + strength);
 		#endif
-		m_Bot.HearNoise(root, position, type);
+
+		//! Звук «летит» до бота: добавление таргета откладывается на dist / скорость звука.
+		float delayMs = d.Length() / DM_SOUND_SPEED * 1000.0;
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HearNoiseDelayed, (int)delayMs, false, root, position, type);
+	}
+
+	//! Отложенное добавление таргета (CallLater) — пришёл момент, когда звук «долетел».
+	void HearNoiseDelayed(EntityAI entity, vector position, int type)
+	{
+		if (!m_Bot || !m_Bot.IsSpawned())
+			return;
+		#ifdef DM_PERCEPTION_DEBUG
+		dmBotLog.Debug(m_Bot.GetName(), "[Noise] OnNoise sound arrived: position=" + position + " type=" + type);
+		#endif
+		m_Bot.HearNoise(entity, position, type);
 	}
 };

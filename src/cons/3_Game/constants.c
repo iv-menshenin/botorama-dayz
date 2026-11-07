@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.475";
+static const string DM_BOTORAMA_VERSION = "3.476";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
@@ -63,10 +63,15 @@ static const float DM_NOISE_EXPLOSION_STRENGTH = 3000.0;  // взрыв гран
 static const float DM_NOISE_DROP_STRENGTH = 20.0;         // падение брошенного предмета (20 м)
 static const float DM_NOISE_DOOR_STRENGTH = 10.0;     // дверь open/close (~10 м)
 static const float DM_NOISE_RELOAD_STRENGTH = 10.0;   // перезарядка (~10 м)
-static const float DM_NOISE_GATHER_STRENGTH = 15.0;   // рубка дерева/копание (~15 м)
+static const float DM_NOISE_GATHER_STRENGTH = 15.0;   // добыча камня (MineRock, ~15 м)
+static const float DM_NOISE_GATHER_DROP_STRENGTH = 50.0;    // срубленное дерево (дроп, ~50 м)
+static const float DM_NOISE_GATHER_PROCESS_STRENGTH = 20.0; // процесс рубки/копания (per замах, ~20 м)
 static const float DM_NOISE_VOICE_WHISPER = 5.0;      // голос: шёпот (~5 м)
 static const float DM_NOISE_VOICE_TALK = 15.0;        // голос: разговор (~15 м)
 static const float DM_NOISE_VOICE_SHOUT = 30.0;       // голос: крик (~30 м)
+
+//! Скорость звука (м/с) для задержки слуха: шум «долетает» до бота за dist / DM_SOUND_SPEED.
+static const float DM_SOUND_SPEED = 340.0;
 
 //! Weather noise reduction weights (0..1): сильнее явление → сильнее глушит слух.
 static const float DM_WEATHER_RAIN_REDUCTION = 0.5;       // дождь
