@@ -2153,20 +2153,29 @@ class dmAISurvivor
 		return t;
 	}
 
-	//! Аттракшен свежей цели по типу шума + дистанции (выстрел зависит от дистанции).
+	//! Аттракшен свежей цели по типу шума + дистанции (выстрел/взрыв зависят от дистанции).
 	float NoiseAttraction(int type, vector noisePos)
 	{
+		float dist;
 		if (type == dmNoiseType.SHOT)
 		{
-			float dist = vector.Distance(GetPosition(), noisePos);
+			dist = vector.Distance(GetPosition(), noisePos);
 			if (dist <= DM_ATTRACT_SHOT_NEAR_DIST) return 1.0;
 			if (dist >= DM_ATTRACT_SHOT_FAR_DIST) return 0.0;
 			return 1.0 - (dist - DM_ATTRACT_SHOT_NEAR_DIST) / (DM_ATTRACT_SHOT_FAR_DIST - DM_ATTRACT_SHOT_NEAR_DIST);
 		}
+		if (type == dmNoiseType.EXPLOSION)
+		{
+			dist = vector.Distance(GetPosition(), noisePos);
+			if (dist <= DM_ATTRACT_EXPLOSION_NEAR_DIST) return 1.0;
+			if (dist >= DM_ATTRACT_EXPLOSION_FAR_DIST) return 0.0;
+			return 1.0 - (dist - DM_ATTRACT_EXPLOSION_NEAR_DIST) / (DM_ATTRACT_EXPLOSION_FAR_DIST - DM_ATTRACT_EXPLOSION_NEAR_DIST);
+		}
 		if (type == dmNoiseType.STEP) return DM_ATTRACT_STEP;
 		if (type == dmNoiseType.SCREAM) return DM_ATTRACT_SCREAM;
 		if (type == dmNoiseType.BULLETIMPACT) return DM_ATTRACT_BULLETIMPACT;
-		return 0.0;   // OTHER — без аттракшена
+		if (type == dmNoiseType.DROP) return DM_ATTRACT_DROP;
+		return 0.0;   // OTHER/звук — без аттракшена
 	}
 
 	//! Размытость позиции шума (растёт с дистанцией и углом «не лицом» к шуму).

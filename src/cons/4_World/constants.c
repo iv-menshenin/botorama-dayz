@@ -609,8 +609,11 @@ static const float DM_ATTRACT_SCREAM         = 0.9;    // крик зомби
 static const float DM_ATTRACT_BULLETIMPACT   = 1.0;    // попадание пули (слышно только в 15 м — как шаги)
 static const float DM_ATTRACT_SHOT_NEAR_DIST = 50.0;   // выстрел: 50 м → максимум
 static const float DM_ATTRACT_SHOT_FAR_DIST  = 1000.0; // выстрел: 1000 м → 0
+static const float DM_ATTRACT_EXPLOSION_NEAR_DIST = 50.0;   // взрыв: 50 м → максимум (как выстрел)
+static const float DM_ATTRACT_EXPLOSION_FAR_DIST  = 1000.0; // взрыв: 1000 м → 0 (как выстрел)
+static const float DM_ATTRACT_DROP = 0.8;                   // ITEM_FALL
 static const float DM_ATTRACT_DECAY_PER_SEC = 0.005;   // затухание аттракшена: 0.05 за 10 с
-// ITEM_FALL 0.8 / DOOR 0.6 / ACTION 0.5 — появятся с их генераторами (отдельный атом)
+// DOOR 0.6 / ACTION 0.5 — появятся с их генераторами (атом A3)
 
 //! Attention model: concentration — насколько бот «занят» текущим (чем выше, тем меньше отвлекается).
 static const float DM_CONC_FIGHT_NEAR      = 5.0;     // Fighting: ≤5 м → 1.0

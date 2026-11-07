@@ -48,7 +48,7 @@ class dmE2EStep
 	string Wheel;     // wheel CfgVehicles class (spawncar)
 	vector From;      // raycast start point (world)
 	vector To;        // raycast end point (world)
-	string Type;      // raycast intersect type (fire|view|geom|ifire|none) OR noise type (SHOT|STEP|SCREAM|BULLETIMPACT|OTHER)
+	string Type;      // raycast intersect type (fire|view|geom|ifire|none) OR noise type (SHOT|STEP|SCREAM|BULLETIMPACT|EXPLOSION|DROP|OTHER)
 	float RayRadius;  // raycast ray radius (0 = thin)
 	string Flags;     // raycast collision flags: allobjects|nearestcontact|firstcontact|onlystatic|onlydynamic|onlywater (empty -> allobjects)
 	bool Sorted;      // raycast sorted flag
@@ -62,7 +62,7 @@ class dmE2EStep
 	string Preset;    // FSM preset: "nomad"|"survivor"|"combat"|"escort"|"hunter" (spawn); "shooting" (default) | "combat" (army); "nomad" (meleefight)
 	float Spread;     // hostile threat blur (army, default DM_INVASION_SPREAD)
 	float Threat;     // threat value for the "hostile" op (default 1.0 when <= 0)
-	float Strength;   // noise radius, meters (noise op; default 3000 SHOT / 30.0 otherwise)
+	float Strength;   // noise radius, meters (noise op; default 3000 SHOT/EXPLOSION / 30.0 otherwise)
 	int Zombies;      // number of zombies to spawn (meleefight, default 2)
 	float ZombieDist; // zombie spawn distance from the bot (meleefight, default 2.5)
 	vector TargetPos; // griddump end point (world); `string Target` is a bot name, so the end position uses a vector field
@@ -1150,7 +1150,7 @@ class dmE2EBridge
 	//! "noise" — инъекция фейкового шума в dmNoiseSystem для тестов слуха/noise-attention.
 	//! Who (опционально) = бот-источник (source=null если пусто → позиционный шум);
 	//! Pos (опционально) = позиция шума, фолбэк — позиция источника; Strength (м) —
-	//! радиус шума, 0 → дефолт по типу; Type = тип шума (SHOT|STEP|SCREAM|BULLETIMPACT|OTHER).
+	//! радиус шума, 0 → дефолт по типу; Type = тип шума (SHOT|STEP|SCREAM|BULLETIMPACT|EXPLOSION|DROP|OTHER).
 	//! Все боты в радиусе слышат через dmHearing.OnNoise → HearNoise → noise-attention.
 	private void RunNoise(dmE2EStep step, dmE2EStepResult r)
 	{
@@ -1170,6 +1170,10 @@ class dmE2EBridge
 			type = dmNoiseType.SCREAM;
 		else if (step.Type == "BULLETIMPACT")
 			type = dmNoiseType.BULLETIMPACT;
+		else if (step.Type == "EXPLOSION")
+			type = dmNoiseType.EXPLOSION;
+		else if (step.Type == "DROP")
+			type = dmNoiseType.DROP;
 		else if (step.Type == "OTHER")
 			type = dmNoiseType.OTHER;
 
@@ -1178,6 +1182,8 @@ class dmE2EBridge
 		{
 			strength = 30.0;
 			if (type == dmNoiseType.SHOT)
+				strength = DM_NOISE_GUNSHOT_STRENGTH;
+			else if (type == dmNoiseType.EXPLOSION)
 				strength = DM_NOISE_GUNSHOT_STRENGTH;
 		}
 

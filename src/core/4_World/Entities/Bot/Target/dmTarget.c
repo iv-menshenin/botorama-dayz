@@ -231,6 +231,8 @@ class dmTarget
 		else if (noiseType == dmNoiseType.SHOT) t = new dmTargetShooting();
 		else if (noiseType == dmNoiseType.SCREAM) t = new dmTargetScream();
 		else if (noiseType == dmNoiseType.BULLETIMPACT) t = new dmTargetDroppedBullet();
+		else if (noiseType == dmNoiseType.EXPLOSION) t = new dmTargetExplosion();
+		else if (noiseType == dmNoiseType.DROP) t = new dmTargetDrop();
 		else t = new dmTargetNoise();
 		t.m_Type = dmTargetType.DESTROY;
 		t.m_Entity = entity;

@@ -12,7 +12,10 @@ enum dmNoiseType
 	STEP,
 	SCREAM,
 	BULLETIMPACT,
-	SHOT
+	SHOT,
+	EXPLOSION,
+	DROP,
+	SOUND
 }
 
 class dmNoiseSystem
