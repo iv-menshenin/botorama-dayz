@@ -836,6 +836,10 @@ class dmE2EBridge
 		{
 			RunNoise(step, r);
 		}
+		else if (step.Op == "explodenoise")
+		{
+			RunExplodeNoise(step, r);
+		}
 		else if (step.Op == "bullet")
 		{
 			RunBullet(step, r);
@@ -1191,6 +1195,60 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "noise injected type=" + step.Type;
+	}
+
+	//! "explodenoise" — детерминированное потребление шума ВЗРЫВА через статик-мост.
+	//! Спавнит гранату (ClassName, default RGD5Grenade) рядом с ботом-источником (Who),
+	//! биндит кидателя в dmNoiseThrowerBridge и подрывает через ванильный Object.Explode.
+	//! Ожидаемый эффект в RPT (DM_PERCEPTION_DEBUG) — проверяется грепом RPT, не result-JSON:
+	//!   [Noise] ExplosionEffectsEx source=<граната> culprit=<бот>
+	//!   [Noise] AddNoise type=5 src=<бот> strength=3000
+	//! Цепочка: Explode → DamageSystem.ExplosionDamage (native) → DayZGame.ExplosionEffectsEx
+	//! (modded в core/3_Game) → GetThrower → dmNoiseSystem.AddNoise(EXPLOSION).
+	private void RunExplodeNoise(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!m_Named.Find(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		PlayerBase pawn = bot.GetPawn();
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		string cls = step.ClassName;
+		if (cls == "")
+			cls = "RGD5Grenade";
+
+		vector pos = step.Pos;
+		if (pos == vector.Zero)
+			pos = pawn.GetPosition() + Vector(5.0, 0.0, 5.0);
+
+		EntityAI grenade = EntityAI.Cast(GetGame().CreateObject(cls, SnapToGroundExactly(pos), false));
+		if (!grenade)
+		{
+			r.Ok = false;
+			r.Reason = "grenade spawn failed: " + cls;
+			return;
+		}
+		SetProbeLifetime(grenade);
+
+		dmNoiseThrowerBridge.BindThrower(grenade, pawn);
+
+		//! Подрыв через ванильный Object.Explode (InitiateExplosion — protected, недоступен
+		//! из моста). Explode сам резолвит ammoType из config гранаты.
+		grenade.Explode(DamageType.EXPLOSION);
+
+		r.Ok = true;
+		r.Reason = "explodenoise: grenade=" + cls + " thrower=" + step.Who;
+		AppendDump(r, "explodenoise grenadeType=" + grenade.GetType() + " boundThrower=" + pawn.GetType());
 	}
 
 	//! "bullet" — детерминированное огнестрельное ранение. Штатный путь: урон через

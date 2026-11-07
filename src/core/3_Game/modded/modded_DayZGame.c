@@ -35,4 +35,34 @@ modded class DayZGame
 		#endif
 		#endif
 	}
+
+	//! Publish an explosion noise attributed to the culprit (the thrower of a
+	//! grenade, or the victim of a mine). The culprit is resolved from the
+	//! cross-module bridge (bound by HandActionThrow / TrapBase.SnapOnObject).
+	//! Vanilla ExplosionEffectsEx already adds a native NoiseSystem ping at the
+	//! explosion point; we mirror that with our own dmNoiseSystem signal so bots
+	//! know WHOSE explosion they heard.
+	override void ExplosionEffectsEx(Object source, Object directHit, int componentIndex, float energyFactor, float explosionFactor, HitInfo hitInfo)
+	{
+		super.ExplosionEffectsEx(source, directHit, componentIndex, energyFactor, explosionFactor, hitInfo);
+		#ifdef SERVER
+		EntityAI sourceEnt = EntityAI.Cast(source);
+		EntityAI culprit = dmNoiseThrowerBridge.GetThrower(sourceEnt);
+		if (!culprit)
+			culprit = dmNoiseThrowerBridge.GetTriggered(sourceEnt);
+		#ifdef DM_PERCEPTION_DEBUG
+		string src = "null";
+		if (sourceEnt)
+			src = sourceEnt.GetType();
+		string cul = "null";
+		if (culprit)
+			cul = culprit.GetType();
+		dmBotLog.Debug("", "[Noise] ExplosionEffectsEx source=" + src + " culprit=" + cul);
+		#endif
+		if (culprit)
+			dmNoiseSystem.AddNoise(culprit, hitInfo.GetPosition(), DM_NOISE_EXPLOSION_STRENGTH, dmNoiseType.EXPLOSION);
+		dmNoiseThrowerBridge.ClearThrower(sourceEnt);
+		dmNoiseThrowerBridge.ClearTriggered(sourceEnt);
+		#endif
+	}
 }
