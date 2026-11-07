@@ -754,6 +754,63 @@ tier-2 (остановка+взгляд). Tier-1 (только поворот, �
 Действует пока: tier-1/2 разделены по `attraction > 2×concentration`; если tier-1 потребует
 точной длительности — мерять по довороту ГОЛОВЫ (`m_CurLookYaw`/`m_HeadHoldTime`).
 
+### noise-weather: «температура» → туман (`GetFog()`), т.к. температуры в Weather API нет
+Решение: влияние погоды на передачу шума учитывает rain/snow/fog/wind/sandstorm; пункт
+«температура» заменён на туман (`Weather.GetFog().GetActual()`).
+Почему: в `Weather` (vanilla `3_game/weather.c`) нет погодной температуры — только
+`GetRain/GetSnowfall/GetFog/GetOvercast/GetWind*` (+ `GetSandstorm()` в 1.30). Физически
+туман давит звук сильнее температуры; температура тела игрока (`GetStatTemperature`) к
+«передаче шума» отношения не имеет.
+Действует пока: не появится нативный API погодной температуры; если понадобится «дрожь/
+переохлаждение» как источник шума самого игрока — это отдельная модель (не передача).
+
+### noise-weather: ветер — скалярный множитель дистанции, не направленный
+Решение: ветер влияет на дистанцию передачи шума ОДНИМ скалярным множителем от
+`GetWindSpeed()`, без учёта направления «источник→бот» относительно ветра.
+Почему: направленная модель (по ветру дальше/против короче) — второй класс сложности с
+хрупкой знаковой конвенцией (урок баллистики, AGENTS.md «человеческая модель»). Скаляр
+просто проверить E2E; направленность добавить инкрементально, если скаляра окажется мало.
+Действует пока: не будет требования направленной акустики ветра (тогда отдельная модель).
+
+### noise-throw: бинд «кидатель → предмет» — статик-карта, а не поле на предмете
+Решение: связь «кто кинул предмет/гранату» держим в статик-карте `EntityAI thrower[item]`
+(образец `dmBallisticsBridge`), бинд на броске, потребление в `ExplosionEffectsEx`/`FirearmEffects`.
+Почему: в `Grenade_Base`/`ExplosivesBase`/`ItemBase` нет поля «кто кинул» (grep пуст), движок не
+пробрасывает кидателя в `Explode`/`ExplosionDamage` (второй аргумент `null`, object.c:156). Точка
+бинда — `modded HandActionThrow.Action` (есть `e.m_Player` + `e.GetSrcEntity()`), фолбэк —
+`Grenade_Base.EEItemLocationChanged` (`oldLoc.GetParent()` = кидатель).
+Действует пока: нет нативного поля `m_ThrownBy`/`SetThrownBy` в ванили; если появится — заменить карту.
+
+### noise-bullet: `source` в `FirearmEffects` = снаряд, стрелок — через `GetHierarchyRootPlayer()`
+Решение: в `modded_DayZGame.FirearmEffects` слать стрелка (`EntityAI.Cast(source).GetHierarchyRootPlayer()`)
+вместо `null`, чтобы попадание пули несло инфу «чья пуля упала рядом».
+Почему: `source` — сущность-снаряд (ваниль кастует в `EntityAI`, `ShootsExplosiveAmmo()`), а не стрелок;
+Expansion резолвит стрелка через `GetHierarchyRoot()` (ExpansionWorld.c:497). Наш `dmBallisticsBridge.OnImpact`
+уже резолвит `GetHierarchyRootPlayer()` из `source` — значит source ненулевой на сервере.
+Действует пока: стрелок в транспорте — `GetHierarchyRoot()` вернёт транспорт, поэтому берём именно
+`GetHierarchyRootPlayer()` (см. sandstorm-замечание в research noise-generator-sources.md).
+
+### noise-weather: множитель = `GetNoiseReductionByWeather()` (умножение strength), не аддитив
+Решение: единый погодный фактор применяется как `strength *= GetNoiseReductionByWeather()` в точке
+генерации (как ваниль передаёт external-strength-multiplier); фильтр `dmHearing.OnNoise` не меняем.
+Sandstorm в 1.30 — `GetNoiseReductionByWeatherEx` (max-reduction, не стакается), но наш `dmNoiseSystem`
+не идёт через нативный sink → применяем фактор сами.
+Почему: ваниль/Expansion уже передают погоду как множитель силы (не аддитивную поправку), а фильтр
+`d.LengthSq() > strength²` автоматически сужает радиус при `strength` меньшей.
+Действует пока: `GetNoiseReductionByWeatherEx(Object)` требует `notnull` — для позиционных шумов (без
+source) используем базовый `GetNoiseReductionByWeather()` или обёртку с позицией.
+
+### noise-weather: песчаная буря — read-only `GetSandstorm().GetIntensity()`, без своей логики
+Решение: фактор песчаной бури читается через `g_Game.GetWeather().GetSandstorm()` →
+`IsActive()` + `GetIntensity(worldPos)`; свою логику спавна/прогноза бури НЕ пишем
+(`GetMagnitude()`/`GetPointOnEdge` — только если понадобится «накроет ли точку»).
+Почему: буря — движущийся фронт (research `sandstorm.md`), на картах botorama
+(Chernarus/Livonia) сама не возникает (старт только у мира Nasdara). Движок уже глушит
+нативный шум (`SANDSTORM_NOISE_REDUCTION_WEIGHT=0.5`), но НЕ наш кастомный `dmNoiseSystem`
+→ для честного «буря приглушает слух бота» нужен свой множитель от `GetIntensity`.
+Действует пока: буря детектится как погодный фактор на картах, где она реально идёт (Nasdara
+или сервер форсит `DEV_SET_SANDSTORM`); не строим «предсказатель начала» по forecast-сигналам.
+
 ### noise-attention: пере-триггер разведки гасится кулдауном, а НЕ обнулением аттракшена
 Решение: после «посмотрел и не нашёл» ставим кулдаун `DM_ATTENTION_RETRIGGER_COOLDOWN = 5 с` на
 цель (`m_AttentionCooldownUntil`), аттракшен НЕ обнуляем. После кулдауна цель снова триггерит
