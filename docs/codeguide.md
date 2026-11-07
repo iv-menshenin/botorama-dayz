@@ -201,6 +201,15 @@ GetGame().RemoteObjectTreeCreate(item);   // Tree create
   предка в 3_Game нет. Решение — статический мост-класс в 3_Game (хранит состояние в
   `map` по ключу `EntityAI`, 4_World читает/пишет через его статики): `dmBallisticsBridge`
   (`core/3_Game/dmBallisticsBridge.c`).
+- **То же для ПРЕДМЕТНОЙ цепочки: `InventoryItem` (3_Game) — движковый**, хоть и имеет
+  скриптовые поля (сигнал — `proto native` методы типа `ThrowPhysically` + `extends EntityAI`
+  + модуль 3_Game). `modded class InventoryItem` даёт `Engine class 'InventoryItem' cannot
+  be modded` НА СЕРВЕРЕ при загрузке скриптов (AddonBuilder НЕ отбраковывает — гейт компиляции
+  тут бессилен, нужен deploy+загрузка). Первый скриптовый предок предметов — `ItemBase` (4_World).
+  Следствие: поле «на предмете», читаемое из 3_Game (`DayZGame.ExplosionEffectsEx`/`HandActionThrow`),
+  НЕВОЗМОЖНО — из 3_Game виден только `InventoryItem` (движковый), а `ItemBase` (модифицируемый)
+  невидим из 3_Game. Кросс-модульное состояние предмета — через static-мост по ключу `EntityAI`
+  (`dmNoiseThrowerBridge`, образец `dmBallisticsBridge`).
 - **Оверрайд требует ТОЧНОЙ сигнатуры (типы параметров входят).** Метод мода с другим
   типом параметра (напр. `DropItem(EntityAI)` vs ванильный `DropItem(ItemBase)`) НЕ
   оверрайдит ванильный — это оверлоад. При вызове с аргументом базового типа компилятор

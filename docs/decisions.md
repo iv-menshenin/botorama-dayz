@@ -799,27 +799,25 @@ tier-2 (остановка+взгляд). Tier-1 (только поворот, �
 если появится потребность различать «знаю точно (видел)» vs «знаю примерно (слышал)» — ввести явный
 флаг точности, а не ветвить по типу шума в `HearNoise`.
 
-### noise-throw: бинд «кидатель → предмет» — поле `m_ThrowerPlayer` на ItemBase (НЕ статик-карта)
-Решение: связь «кто кинул предмет/гранату» держим полем `EntityAI m_ThrowerPlayer` на
-`modded class ItemBase` (общая база — пригодится для любых брошенных предметов, не только гранат);
-бинд в `modded HandActionThrow.Action` (`item.m_ThrowerPlayer = e.m_Player`), потребление в
-`ExplosionEffectsEx` (граната) и `ItemBase.EOnContact` (приземление предмета).
-Почему: поле на сущности чище статик-карты (не надо чистить, переживает дефолт, неотделимо от
-предмета); в ванили поля «кто кинул» нет (grep пуст), движок не пробрасывает кидателя в
-`Explode`/`ExplosionDamage` (второй аргумент `null`, object.c:156). `ItemBase` выбрана (а не
-`InventoryItem`) — читается в `ExplosionEffectsEx`, где `source` = Grenade_Base → ExplosivesBase → ItemBase.
-Действует пока: нет нативного поля `m_ThrownBy`/`SetThrownBy`; если появится — заменить наше поле.
+### noise-throw: «кто кинул» — статик-мост `dmNoiseThrowerBridge` (поле на предмете НЕВОЗМОЖНО)
+Решение: связь «кто кинул предмет/гранату» держим в static-мосте `dmNoiseThrowerBridge` (3_Game):
+`map<EntityAI, EntityAI>` (thrower[item]); бинд в `modded HandActionThrow.Action`, потребление в
+`ExplosionEffectsEx` (граната) и `ItemBase.EOnContact` (приземление), очистка `ClearThrower` после
+потребления (гасит утечку И повторный `EOnContact` на отскоке).
+Почему: ПОЛЕ на предмете НЕВОЗМОЖНО — (1) `InventoryItem` (3_Game) движковый (`Engine class cannot
+be modded`, подтверждено E2E v3.471); (2) `ItemBase` (4_World) модифицируем, но НЕвидим из
+`DayZGame`/`HandActionThrow` (3_Game). Единственный общий тип, видимый из обоих модулей, — `EntityAI`
+(движковый), поэтому состояние храним в static-карте по ключу `EntityAI` (паттерн `dmBallisticsBridge`).
+Действует пока: нет нативного поля `m_ThrownBy`/`SetThrownBy`; если появится — заменить мост на поле.
 
-### noise-trap: «кто активировал ловушку» — поле `m_TriggeredPlayer` на TrapBase + хук SnapOnObject
-Решение: связь «кто наступил/задел мину/растяжку» держим полем `EntityAI m_TriggeredPlayer` на
-`modded class TrapBase`; бинд в `override TrapBase.SnapOnObject(EntityAI victim)` (серверный, зовётся из
-`TrapTrigger.OnEnterServerEvent` с `insider.GetObject()`); потребление в `ExplosionEffectsEx`.
-Почему: хук — именно `SnapOnObject`, а НЕ `OnSteppedOn` (`LandMineTrap.OnSteppedOn` в машинной ветке
-делает `return` без `super`) и НЕ `EEKilled` (`killer` = уничтожитель, не жертва). `SnapOnObject` мина/растяжка
-НЕ переопределяют → ловит все ветки (человек/машина/предмет). `TrapSpawnBase` (охотничьи силки) — ОТДЕЛЬНОЕ
-семейство без жертвы, к «кто наступил» не относится.
-Действует пока: проброс жертвы «растяжка → прикреплённая граната» не подтверждён (research пометил
-`[нужно подтвердить]`) — у `TripwireTrap` взрывается граната (source ≠ растяжка), а `m_TriggeredPlayer` на растяжке.
+### noise-trap: «кто активировал ловушку» — статик-мост + хук SnapOnObject
+Решение: связь «кто наступил/задел мину/растяжку» держим в `dmNoiseThrowerBridge` (map `triggered[trap]`
+по ключу EntityAI); бинд в `override TrapBase.SnapOnObject(EntityAI victim)` **ДО** `super` (ваниль в конце
+зовёт OnSteppedOn → Explode → ExplosionEffectsEx); потребление в `ExplosionEffectsEx`; очистка `ClearTriggered`.
+Почему: поле на `TrapBase` (4_World) невидимо из `DayZGame` (3_Game) → тот же мост. Хук — `SnapOnObject`, а НЕ
+`OnSteppedOn` (мина в машинной ветке `return` без super) и НЕ `EEKilled` (killer = уничтожитель, не жертва).
+`SnapOnObject` мина/растяжка не переопределяют → ловит все ветки. `TrapSpawnBase` (силки) — отдельное семейство без жертвы.
+Действует пока: проброс «растяжка → прикреплённая граната» не подтверждён; у `TripwireTrap` source ≠ растяжка.
 
 ### noise: EXPLOSION/DROP — новые типы; аттракшен взрыва дистанционный (как выстрел)
 Решение: `enum dmNoiseType` += `EXPLOSION`/`DROP`/`SOUND`; аттракшен EXPLOSION — дистанционный ЛЕРП как
