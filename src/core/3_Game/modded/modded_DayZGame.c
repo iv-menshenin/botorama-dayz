@@ -1,8 +1,8 @@
 //! modded DayZGame — publish a bullet-impact noise when a projectile hits a
 //! surface. Vanilla FirearmEffects already adds a native NoiseSystem ping at the
 //! impact point on the server; we mirror that with our own dmNoiseSystem signal in
-//! the same place (source = null: on reception this reads as "a bullet landed
-//! nearby", not a gunshot from a shooter).
+//! the same place. The shooter is resolved from the projectile (source) so the bot
+//! knows WHOSE bullet landed nearby (not just "a bullet landed").
 modded class DayZGame
 {
 	override void FirearmEffects(Object source, Object directHit, int componentIndex, string surface, vector pos, vector surfNormal,
@@ -10,7 +10,10 @@ modded class DayZGame
 	{
 		super.FirearmEffects(source, directHit, componentIndex, surface, pos, surfNormal, exitPos, inSpeed, outSpeed, isWater, deflected, ammoType);
 		#ifdef SERVER
-		dmNoiseSystem.AddNoise(null, pos, DM_NOISE_BULLETIMPACT_STRENGTH, dmNoiseType.BULLETIMPACT);
+		EntityAI shooter;
+		if (source)
+			shooter = EntityAI.Cast(source).GetHierarchyRootPlayer();
+		dmNoiseSystem.AddNoise(shooter, pos, DM_NOISE_BULLETIMPACT_STRENGTH, dmNoiseType.BULLETIMPACT);
 		dmBallisticsBridge.OnImpact(EntityAI.Cast(source), directHit, pos, inSpeed.Length());
 		#ifdef DM_BOT_DEBUG_BALLISTICS
 		string src = "null";

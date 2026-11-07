@@ -27,7 +27,7 @@ class dmE2EJob
 //! One job step (op plus per-op parameters).
 class dmE2EStep
 {
-	string Op;        // "ping" | "spawn" | "moveto" | "follow" | "patrol" | ... | "drivetest"
+	string Op;        // "ping" | "spawn" | "moveto" | "follow" | "patrol" | ... | "noise" | ... | "drivetest"
 	string Who;       // bot name (spawn, moveto, ...) / object name (spawnobj)
 	string Target;    // target bot name (follow, distance, look)
 	string Turn;      // look turn mode: "auto" (default, head-first) | "full" | "none"
@@ -48,7 +48,7 @@ class dmE2EStep
 	string Wheel;     // wheel CfgVehicles class (spawncar)
 	vector From;      // raycast start point (world)
 	vector To;        // raycast end point (world)
-	string Type;      // raycast intersect type: fire|view|geom|ifire|none (empty -> view)
+	string Type;      // raycast intersect type (fire|view|geom|ifire|none) OR noise type (SHOT|STEP|SCREAM|BULLETIMPACT|OTHER)
 	float RayRadius;  // raycast ray radius (0 = thin)
 	string Flags;     // raycast collision flags: allobjects|nearestcontact|firstcontact|onlystatic|onlydynamic|onlywater (empty -> allobjects)
 	bool Sorted;      // raycast sorted flag
@@ -62,6 +62,7 @@ class dmE2EStep
 	string Preset;    // FSM preset: "nomad"|"survivor"|"combat"|"escort"|"hunter" (spawn); "shooting" (default) | "combat" (army); "nomad" (meleefight)
 	float Spread;     // hostile threat blur (army, default DM_INVASION_SPREAD)
 	float Threat;     // threat value for the "hostile" op (default 1.0 when <= 0)
+	float Strength;   // noise radius, meters (noise op; default 3000 SHOT / 30.0 otherwise)
 	int Zombies;      // number of zombies to spawn (meleefight, default 2)
 	float ZombieDist; // zombie spawn distance from the bot (meleefight, default 2.5)
 	vector TargetPos; // griddump end point (world); `string Target` is a bot name, so the end position uses a vector field
@@ -831,6 +832,10 @@ class dmE2EBridge
 		{
 			RunHostile(step, r);
 		}
+		else if (step.Op == "noise")
+		{
+			RunNoise(step, r);
+		}
 		else if (step.Op == "bullet")
 		{
 			RunBullet(step, r);
@@ -1140,6 +1145,46 @@ class dmE2EBridge
 
 		r.Ok = true;
 		r.Reason = "hostile " + step.Who + " -> " + step.Target + " threat=" + threat;
+	}
+
+	//! "noise" — инъекция фейкового шума в dmNoiseSystem для тестов слуха/noise-attention.
+	//! Who (опционально) = бот-источник (source=null если пусто → позиционный шум);
+	//! Pos (опционально) = позиция шума, фолбэк — позиция источника; Strength (м) —
+	//! радиус шума, 0 → дефолт по типу; Type = тип шума (SHOT|STEP|SCREAM|BULLETIMPACT|OTHER).
+	//! Все боты в радиусе слышат через dmHearing.OnNoise → HearNoise → noise-attention.
+	private void RunNoise(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		EntityAI source = null;
+		if (m_Named.Find(step.Who, bot))
+			source = bot.GetPawn();
+
+		vector pos = step.Pos;
+		if (pos == vector.Zero && source)
+			pos = source.GetPosition();
+
+		int type = dmNoiseType.SHOT;
+		if (step.Type == "STEP")
+			type = dmNoiseType.STEP;
+		else if (step.Type == "SCREAM")
+			type = dmNoiseType.SCREAM;
+		else if (step.Type == "BULLETIMPACT")
+			type = dmNoiseType.BULLETIMPACT;
+		else if (step.Type == "OTHER")
+			type = dmNoiseType.OTHER;
+
+		float strength = step.Strength;
+		if (strength <= 0.0)
+		{
+			strength = 30.0;
+			if (type == dmNoiseType.SHOT)
+				strength = DM_NOISE_GUNSHOT_STRENGTH;
+		}
+
+		dmNoiseSystem.AddNoise(source, pos, strength, type);
+
+		r.Ok = true;
+		r.Reason = "noise injected type=" + step.Type;
 	}
 
 	//! "bullet" — детерминированное огнестрельное ранение. Штатный путь: урон через
