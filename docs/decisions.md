@@ -817,7 +817,18 @@ be modded`, подтверждено E2E v3.471); (2) `ItemBase` (4_World) мо�
 Почему: поле на `TrapBase` (4_World) невидимо из `DayZGame` (3_Game) → тот же мост. Хук — `SnapOnObject`, а НЕ
 `OnSteppedOn` (мина в машинной ветке `return` без super) и НЕ `EEKilled` (killer = уничтожитель, не жертва).
 `SnapOnObject` мина/растяжка не переопределяют → ловит все ветки. `TrapSpawnBase` (силки) — отдельное семейство без жертвы.
-Действует пока: проброс «растяжка → прикреплённая граната» не подтверждён; у `TripwireTrap` source ≠ растяжка.
+Действует пока: нет — мина И растяжка покрыты (v3.474).
+
+### noise-tripwire: проброс жертвы на прикреплённую гранату — хук `TripwireTrap.OnSteppedOn` (до super)
+Решение: у растяжки граната — аттачмент; взрывается граната (source=граната), а жертва висит на растяжке.
+Проброс делаем в `modded class TripwireTrap.override OnSteppedOn(victim)`: ДО `super` цикл по `GetInventory().
+GetAttachmentFromIndex(att)` → `BindTriggered(аттачмент, victim)`; затем `ClearTriggered(this)` (растяжка сама
+не взрывается — гасим её запись от `SnapOnObject`, иначе stale).
+Почему: `OnSteppedOn` — единственная серверная точка, где жертва доступна ДО отцепления гранаты
+(`SetInactive`). `SetInactive`/`OnActivatedByItem` не знают жертву. `TripwireTrap.OnSteppedOn` не имеет
+раннего `return` (в отличие от машинной ветки `LandMineTrap`) → override надёжен.
+Действует пока: граната остаётся аттачментом растяжки; если движок поменяет механизм (напр. граната не
+аттачмент) — пересмотреть точку связки.
 
 ### noise: EXPLOSION/DROP — новые типы; аттракшен взрыва дистанционный (как выстрел)
 Решение: `enum dmNoiseType` += `EXPLOSION`/`DROP`/`SOUND`; аттракшен EXPLOSION — дистанционный ЛЕРП как
