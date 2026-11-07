@@ -72,18 +72,18 @@ class dmBotIntent_Aim : dmBotIntent
 			chanceToRequest = 1.0 + (chanceToRequest - 1.0) * distFactor;
 		}
 
-		//! Цель отклонилась от оси ствола — опускаем оружие (чтобы доворот корпусом
+		//! Цель отклонилась от оси прицела — опускаем оружие (чтобы доворот корпусом
 		//! был быстрее), выждав задержку, зависящую от дистанции. Угол берём от
-		//! физического ствола (реальная ось пули), а не от корпуса: ствол отстаёт
-		//! при довороте, пока корпус ещё разворачивается.
+		//! скриптового прицела (реальная ось пули), а не от корпуса: физический ствол
+		//! у серверного AI рассинхронен (ведётся движковым aim-моделом, §H).
 		vector botPos = bot.GetPosition();
 		vector tPos = m_TargetEntity.GetPosition();
 		vector toTarget = tPos - botPos;
 		toTarget[1] = 0.0;
 		float distToTarget = toTarget.Length();
 		float targetYaw = toTarget.VectorToAngles()[0];
-		float barrelYaw = pawn.GetBarrelDirection().VectorToAngles()[0];
-		float angle = Math.AbsFloat(dmAISurvivor.AngleDiff(barrelYaw, targetYaw));
+		float aimYaw = pawn.GetAimWorldDirection().VectorToAngles()[0];
+		float angle = Math.AbsFloat(dmAISurvivor.AngleDiff(aimYaw, targetYaw));
 
 		if (angle > DM_SHOOT_LOWER_ANGLE)
 		{
@@ -112,17 +112,22 @@ class dmBotIntent_Aim : dmBotIntent
 		}
 		m_HasNoLOSTimer = 0.0;
 
-		//! Не стреляем, пока ось ствола отклонена от точки прицела настолько, что
+		//! Не стреляем, пока ось прицела отклонена от точки прицела настолько, что
 		//! пуля ушла бы за силуэт (miss = 3D-угол × дальность). Порог не зависит от
 		//! дальности: это смещение точки прицеливания в метрах от центра цели.
+		//! Проверяем СКРИПТОВЫЙ прицел (куда реально летит пуля), а не физический
+		//! ствол — ствол ведётся движковым aim-моделом и у AI рассинхронен (§H).
+		//! toAim считается от дула (точки вылета пули), а не от стоп: начало отрезка
+		//! должно совпадать с точкой, из которой реально вылетает пуля.
 		vector aimPos = t.GetAimPosition();
-		vector toAim = aimPos - botPos;
+		vector muzzle = pawn.GetMuzzlePosition();
+		vector toAim = aimPos - muzzle;
 		float aimDist = toAim.Length();
 		if (aimDist > 0.001)
 		{
 			toAim.Normalize();
-			vector barrelDir = pawn.GetBarrelDirection();
-			float aimAngle = Math.Acos(Math.Clamp(vector.Dot(barrelDir, toAim), -1.0, 1.0));
+			vector aimDir = pawn.GetAimWorldDirection();
+			float aimAngle = Math.Acos(Math.Clamp(vector.Dot(aimDir, toAim), -1.0, 1.0));
 			float miss = aimAngle * aimDist;
 			if (miss > DM_SHOOT_GATE_MISS_RADIUS)
 			{

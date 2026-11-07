@@ -457,7 +457,8 @@ class dmVision
 		float distSq = vector.DistanceSq(botPos, position);
 
 		float dAng = Math.AbsFloat( pawn.GetLookDiffAngle(position) );
-		float probAng = 1.1 - Math.Clamp( ((1.0 + dAng) * 2 * distSq) / 1000.0, 0.1, 1.0 ); 	// 10-100%
+		float dist = Math.Sqrt(distSq);
+		float probAng = 1.1 - Math.Clamp( ((1.0 + dAng) * 2 * dist) / 1000.0, 0.1, 1.0 ); 	// 10-100%
 
 		float probVel = 1.0;
 		float speed = velocity.LengthSq();
