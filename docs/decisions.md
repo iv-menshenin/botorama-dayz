@@ -799,14 +799,35 @@ tier-2 (остановка+взгляд). Tier-1 (только поворот, �
 если появится потребность различать «знаю точно (видел)» vs «знаю примерно (слышал)» — ввести явный
 флаг точности, а не ветвить по типу шума в `HearNoise`.
 
-### noise-throw: бинд «кидатель → предмет» — статик-карта, а не поле на предмете
-Решение: связь «кто кинул предмет/гранату» держим в статик-карте `EntityAI thrower[item]`
-(образец `dmBallisticsBridge`), бинд на броске, потребление в `ExplosionEffectsEx`/`FirearmEffects`.
-Почему: в `Grenade_Base`/`ExplosivesBase`/`ItemBase` нет поля «кто кинул» (grep пуст), движок не
-пробрасывает кидателя в `Explode`/`ExplosionDamage` (второй аргумент `null`, object.c:156). Точка
-бинда — `modded HandActionThrow.Action` (есть `e.m_Player` + `e.GetSrcEntity()`), фолбэк —
-`Grenade_Base.EEItemLocationChanged` (`oldLoc.GetParent()` = кидатель).
-Действует пока: нет нативного поля `m_ThrownBy`/`SetThrownBy` в ванили; если появится — заменить карту.
+### noise-throw: бинд «кидатель → предмет» — поле `m_ThrowerPlayer` на ItemBase (НЕ статик-карта)
+Решение: связь «кто кинул предмет/гранату» держим полем `EntityAI m_ThrowerPlayer` на
+`modded class ItemBase` (общая база — пригодится для любых брошенных предметов, не только гранат);
+бинд в `modded HandActionThrow.Action` (`item.m_ThrowerPlayer = e.m_Player`), потребление в
+`ExplosionEffectsEx` (граната) и `ItemBase.EOnContact` (приземление предмета).
+Почему: поле на сущности чище статик-карты (не надо чистить, переживает дефолт, неотделимо от
+предмета); в ванили поля «кто кинул» нет (grep пуст), движок не пробрасывает кидателя в
+`Explode`/`ExplosionDamage` (второй аргумент `null`, object.c:156). `ItemBase` выбрана (а не
+`InventoryItem`) — читается в `ExplosionEffectsEx`, где `source` = Grenade_Base → ExplosivesBase → ItemBase.
+Действует пока: нет нативного поля `m_ThrownBy`/`SetThrownBy`; если появится — заменить наше поле.
+
+### noise-trap: «кто активировал ловушку» — поле `m_TriggeredPlayer` на TrapBase + хук SnapOnObject
+Решение: связь «кто наступил/задел мину/растяжку» держим полем `EntityAI m_TriggeredPlayer` на
+`modded class TrapBase`; бинд в `override TrapBase.SnapOnObject(EntityAI victim)` (серверный, зовётся из
+`TrapTrigger.OnEnterServerEvent` с `insider.GetObject()`); потребление в `ExplosionEffectsEx`.
+Почему: хук — именно `SnapOnObject`, а НЕ `OnSteppedOn` (`LandMineTrap.OnSteppedOn` в машинной ветке
+делает `return` без `super`) и НЕ `EEKilled` (`killer` = уничтожитель, не жертва). `SnapOnObject` мина/растяжка
+НЕ переопределяют → ловит все ветки (человек/машина/предмет). `TrapSpawnBase` (охотничьи силки) — ОТДЕЛЬНОЕ
+семейство без жертвы, к «кто наступил» не относится.
+Действует пока: проброс жертвы «растяжка → прикреплённая граната» не подтверждён (research пометил
+`[нужно подтвердить]`) — у `TripwireTrap` взрывается граната (source ≠ растяжка), а `m_TriggeredPlayer` на растяжке.
+
+### noise: EXPLOSION/DROP — новые типы; аттракшен взрыва дистанционный (как выстрел)
+Решение: `enum dmNoiseType` += `EXPLOSION`/`DROP`/`SOUND`; аттракшен EXPLOSION — дистанционный ЛЕРП как
+SHOT (`DM_ATTRACT_EXPLOSION_NEAR_DIST=50` → 1.0, `FAR_DIST=1000` → 0.0), DROP → `DM_ATTRACT_DROP=0.8`.
+Радиусы шума — в константах (`EXPLOSION` ~3 км, `DROP` ~20 м), подбор опытным путём.
+Почему: взрыв слышен с 3 км, но фиксированный attraction 1.0 тянул бы бота разбираться через полкарты —
+поэтому «как выстрел» (интерес падает с дистанцией); DROP = «кто-то рядом что-то кинул» (ITEM_FALL 0.8).
+Действует пока: тюнинг дистанций/аттракшена не завершён; менять константы, не формулу.
 
 ### noise-bullet: `source` в `FirearmEffects` = снаряд, стрелок — через `GetHierarchyRootPlayer()`
 Решение: в `modded_DayZGame.FirearmEffects` слать стрелка (`EntityAI.Cast(source).GetHierarchyRootPlayer()`)
