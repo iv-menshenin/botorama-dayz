@@ -41,9 +41,9 @@ PORT="${PORT:-2302}"
 MOD='Z:\mnt\deep-space\Steam\steamapps\common\DayZServer\@Botorama'
 
 echo "=== launching DayZ observer client (connect 127.0.0.1:$PORT) ==="
-# 1500s (25 min): клиент может грузиться до 15 мин (Fossilize/стриминг мира);
-# прежний timeout 600 убивал клиента раньше входа в игру.
-timeout 1500 "$RT" --verb=waitforexitandrun -- \
+# 86400s (24h): клиент может грузиться до 15 мин (Fossilize/стриминг мира);
+# таймаут не должен убить игру посреди теста — по требованию заказчика.
+timeout 86400 "$RT" --verb=waitforexitandrun -- \
     "$PROTON" waitforexitandrun \
     "$GAME/DayZ_x64.exe" \
     "-connect=127.0.0.1:$PORT" \

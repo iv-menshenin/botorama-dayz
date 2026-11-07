@@ -848,6 +848,10 @@ class dmE2EBridge
 		{
 			RunSpawnObj(step, r);
 		}
+		else if (step.Op == "spawnitem")
+		{
+			RunSpawnItem(step, r);
+		}
 		else if (step.Op == "spawnonroute")
 		{
 			RunSpawnOnRoute(step, r);
@@ -2720,6 +2724,29 @@ class dmE2EBridge
 			m_Objects.Insert(step.Who, obj);
 			r.Ok = true;
 			r.Reason = "spawned " + step.ClassName;
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "spawn failed";
+		}
+	}
+
+	//! "spawnitem" — spawn a PERSISTENT item (weapon/tool) at a ground-snapped
+	//! position for a human observer to pick up. Unlike spawnobj it does NOT
+	//! register in m_Objects, so FinalizeJob→ClearNamed does NOT delete it —
+	//! it survives across jobs (long lifetime) until the world cleans it up.
+	private void RunSpawnItem(dmE2EStep step, dmE2EStepResult r)
+	{
+		Object obj = GetGame().CreateObject(step.ClassName, ResolveWorldPos(step.Pos), false);
+		if (obj)
+		{
+			obj.SetOrientation(Vector(step.Yaw, 0, 0));
+			EntityAI entity = EntityAI.Cast(obj);
+			if (entity)
+				SetProbeLifetime(entity);
+			r.Ok = true;
+			r.Reason = "spawned (persist) " + step.ClassName;
 		}
 		else
 		{

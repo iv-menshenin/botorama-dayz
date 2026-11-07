@@ -13,3 +13,6 @@ src/loadout/Presets/
 
 # PBO build output (tools/build.sh)
 build/
+
+# e2e scripts
+tools/e2e/
