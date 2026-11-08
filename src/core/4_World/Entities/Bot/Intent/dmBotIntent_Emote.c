@@ -49,4 +49,28 @@ class dmBotIntent_Emote : dmBotIntent
 		if (!pawn.GetCommand_Action() && !pawn.GetCommandModifier_Action())
 			Finish();
 	}
+
+	override void OnCancel(dmAISurvivor bot)
+	{
+		StopEmote(bot);
+		super.OnCancel(bot);
+	}
+
+	//! Отменить жест. Для серверного ИИ нет клиента (EmoteManager.Update гейтится
+	//! IsPlayerSelected) — жест не завершается сам, callback окончания не приходит,
+	//! и рука остаётся поднятой. Прерываем команду действия напрямую (как
+	//! dmBotIntent_SitByFireplace.StopSitting).
+	void StopEmote(dmAISurvivor bot)
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+			return;
+
+		HumanCommandActionCallback action = pawn.GetCommand_Action();
+		if (action)
+			action.Cancel();
+		HumanCommandActionCallback modifier = pawn.GetCommandModifier_Action();
+		if (modifier)
+			modifier.Cancel();
+	}
 }
