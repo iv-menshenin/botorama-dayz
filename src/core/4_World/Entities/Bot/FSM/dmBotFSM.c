@@ -85,6 +85,7 @@ class dmBotFSM
 	{
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("FSM.Update");
+		float _t0 = 0.0;
 		#endif
 
 		if (!m_CurrentState)
@@ -94,12 +95,36 @@ class dmBotFSM
 		}
 
 		dmBotState dst;
+		int stateResult;
+		bool selected;
 
-		if (m_CurrentState.OnUpdate(pDt) == dmBotState.EXIT)
+		//! Суб-спаны FSM (атрибуция фрейм-спайков к состоянию/переходам). Ручной
+		//! замер через Record вместо dmBotSpan: у Enfusion нет блочной области
+		//! видимости, деструктор scope-guard сработал бы на выходе из Update, а не
+		//! вокруг вызова. Конкатенация имени спана — per-frame аллокация, но только
+		//! под DM_BOT_PROFILE (приемлемо). Имена состояний CSV-безопасны (без `,`).
+		#ifdef DM_BOT_PROFILE
+		_t0 = GetGame().GetTickTime();
+		#endif
+		stateResult = m_CurrentState.OnUpdate(pDt);
+		#ifdef DM_BOT_PROFILE
+		if (dmBotProfiler.IsEnabled())
+			dmBotProfiler.Record("FSM.State." + m_CurrentState.GetName(), GetGame().GetTickTime() - _t0);
+		#endif
+
+		if (stateResult == dmBotState.EXIT)
 		{
 			if ( m_CurrentState.CanExit() )
 			{
-				if (!SelectTransition(dst))
+				#ifdef DM_BOT_PROFILE
+				_t0 = GetGame().GetTickTime();
+				#endif
+				selected = SelectTransition(dst);
+				#ifdef DM_BOT_PROFILE
+				if (dmBotProfiler.IsEnabled())
+					dmBotProfiler.Record("FSM.Transitions", GetGame().GetTickTime() - _t0);
+				#endif
+				if (!selected)
 					dst = FallbackState();
 				if (dst)
 					TransitionTo(dst);	
@@ -113,7 +138,15 @@ class dmBotFSM
 			if (m_PreemptTimer >= s_PreemptInterval)
 			{
 				m_PreemptTimer = 0.0;
-				if (SelectPreemptive(dst))
+				#ifdef DM_BOT_PROFILE
+				_t0 = GetGame().GetTickTime();
+				#endif
+				selected = SelectPreemptive(dst);
+				#ifdef DM_BOT_PROFILE
+				if (dmBotProfiler.IsEnabled())
+					dmBotProfiler.Record("FSM.Transitions", GetGame().GetTickTime() - _t0);
+				#endif
+				if (selected)
 					TransitionTo(dst);
 			}
 		}

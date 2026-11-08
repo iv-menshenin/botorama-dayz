@@ -7,7 +7,7 @@
 //!
 //! Ops: ping | spawn | moveto | follow | patrol | speed | loadout | look | say |
 //! shock | healplayer | setstat | bleed | infect | healbot | givebottle | restrain | give | givebayonet | givecargo | cargoto | wait | assert | snapshot | clearall | killall (named bots)
-//! plus the perf ops sleep | prof | army (two-team fight) | meleefight (machete
+//! plus the perf ops sleep | prof | brain (on/off — A/B brain-death toggle) | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | spawnonroute | raycast | scanbox |
 //! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | invdump | wearprobe | dropprobe | enumdump | reqdump | rescanarsenal | strike | evade | orient | raiseweapon | getpos | setpos | clearobj (named objects), the car ops spawncar |
 //! driveto | drive | cardump | carstate | cardamage | carrepair | griddump, and observe (teleport a connected player). `wait`, `sleep`
@@ -821,6 +821,10 @@ class dmE2EBridge
 		else if (step.Op == "prof")
 		{
 			RunProf(step, r);
+		}
+		else if (step.Op == "brain")
+		{
+			RunBrain(step, r);
 		}
 		else if (step.Op == "army")
 		{
@@ -2282,6 +2286,29 @@ class dmE2EBridge
 				r.Ok = true;
 				r.Reason = "dumped";
 			}
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "bad action";
+		}
+	}
+
+	//! "brain" — A/B «смерть мозга»: Value "on"/"off" вкл/выкл мозг ВСЕХ ботов
+	//! (пешки остаются живыми). Диагностическая ручка профилирования.
+	private void RunBrain(dmE2EStep step, dmE2EStepResult r)
+	{
+		if (step.Value == "on")
+		{
+			dmAISurvivor.SetBrainEnabled(true);
+			r.Ok = true;
+			r.Reason = "on";
+		}
+		else if (step.Value == "off")
+		{
+			dmAISurvivor.SetBrainEnabled(false);
+			r.Ok = true;
+			r.Reason = "off";
 		}
 		else
 		{

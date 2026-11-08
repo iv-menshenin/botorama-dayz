@@ -22,6 +22,12 @@ class dmAISurvivor
 	//! Accumulated time toward the next brain tick (driven by TickAll).
 	static float s_TickAccum = 0.0;
 
+	//! Диагностическая ручка A/B «мозг есть/нет» (НЕ геймплейная фича): false
+	//! останавливает цикл OnUpdate у ВСЕХ ботов (FSM/intents/vision/pathfinding),
+	//! пешки остаются живыми и симулируются движком (CommandHandler вызывается
+	//! движком независимо). Используется только для профилирования «смерти мозга».
+	static bool s_BrainEnabled = true;
+
 	//! Survivor model class (e.g. "dmAI_SurvivorM_Denis").
 	private string m_Model = DM_DEFAULT_MODEL;
 
@@ -2967,6 +2973,15 @@ class dmAISurvivor
 		s_TickInterval = seconds;
 	}
 
+	//! Включить/выключить мозг ВСЕХ ботов — диагностическая ручка A/B «мозг
+	//! есть/нет» (не геймплейная фича). false останавливает цикл OnUpdate
+	//! (FSM/intents/vision/pathfinding), пешки остаются живыми и симулируются
+	//! движком. Влияет только на профилирование «смерти мозга».
+	static void SetBrainEnabled(bool enabled)
+	{
+		s_BrainEnabled = enabled;
+	}
+
 	//! Advance every bot at a fixed rate. Called by the server driver every frame;
 	//! time is accumulated and the brain only runs once per s_TickInterval, so it
 	//! doesn't over-tick relative to the pawn simulation (see DM_BOT_TICK_INTERVAL).
@@ -2978,6 +2993,12 @@ class dmAISurvivor
 
 		float dt = s_TickAccum;
 		s_TickAccum = 0.0;
+
+		//! «Смерть мозга»: при выключенном мозге цикл OnUpdate не выполняется —
+		//! пешки живы (CommandHandler вызывается движком независимо), а профильный
+		//! спан Tick даёт ~0 вызовов. dt накапливается как обычно.
+		if (!s_BrainEnabled)
+			return;
 
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Tick");
