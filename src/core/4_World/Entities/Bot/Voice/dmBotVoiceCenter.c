@@ -38,6 +38,20 @@ class dmBotVoiceCenter
 		m_NextAmbientChatAt = now + DM_VOICE_COOLDOWN_DEFAULT + Math.RandomIntInclusive(0, (int)DM_VOICE_COOLDOWN_DEFAULT);
 	}
 
+	//! Может ли бот говорить: не вырублен и нет болезни от человечины (Kuru/прион).
+	private bool CanSpeak()
+	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Bot.GetPawn());
+		if (!pawn)
+			return false;
+		if (pawn.IsUnconsciousStateOnly())
+			return false;
+		ModifiersManager mngr = pawn.GetModifiersManager();
+		if (mngr && mngr.IsModifierActive(eModifiers.MDF_BRAIN))
+			return false;
+		return true;
+	}
+
 	private int SayImpl(dmVoiceCategory cat, int indexFrom, int indexTo, bool respectCooldown)
 	{
 		int count = dmBotVoice.GetCategoryCount(cat);
@@ -63,14 +77,18 @@ class dmBotVoiceCenter
 				return -1;
 		}
 
+		//! Гейт состояния: нельзя говорить вырубленным/с болезнью.
+		if (!CanSpeak())
+			return -1;
+
 		int index = Math.RandomIntInclusive(from, to);
 		int lineId = cat * 100 + index;
 
 		m_LastSpokeAt.Set(cat, now);
 
-		dmBotIntent_Voice intent = new dmBotIntent_Voice();
-		intent.m_LineId = lineId;
-		m_Bot.AddPersonalityIntent(intent);
+		//! Реакция: реальная реплика — через 0.5–1.5 с (время реакции).
+		int delayMs = (int)(Math.RandomFloat(DM_VOICE_REACTION_DELAY_MIN, DM_VOICE_REACTION_DELAY_MAX) * 1000.0);
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(CreateVoiceIntent, delayMs, false, lineId);
 
 		#ifdef DM_BOT_DEBUG_VOICE
 		string cd = "off";
@@ -80,5 +98,13 @@ class dmBotVoiceCenter
 		#endif
 
 		return lineId;
+	}
+
+	//! Отложенное создание интента реплики (после оттяжки реакции).
+	private void CreateVoiceIntent(int lineId)
+	{
+		dmBotIntent_Voice intent = new dmBotIntent_Voice();
+		intent.m_LineId = lineId;
+		m_Bot.AddPersonalityIntent(intent);
 	}
 }

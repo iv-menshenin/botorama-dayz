@@ -188,7 +188,7 @@ class dmAISurvivorBase : PlayerBase
 	private bool m_WasBleeding = false;
 
 	//! Вырубило ударом при ДТП (шок-падение в транспорте) — ждём пробуждения для реплики.
-	private bool m_CrashKnocked = false;
+	private float m_CrashKnockTime = -1.0; // -1 = нет отложенного ДТП; иначе момент шока от ДТП (GetTickTime)
 
 	//! Последний реальный источник урона (EntityAI), запомненный в
 	//! EEOnDamageCalculated. DayZ 1.20 может передать в EEKilled сам труп
@@ -1568,10 +1568,10 @@ class dmAISurvivorBase : PlayerBase
 				bot.Say(dmVoiceCategory.WAKE);
 
 				//! Если отключка была от ДТП — реплика восстановления БЕЗ кулдауна.
-				if (m_CrashKnocked)
+				if (m_CrashKnockTime >= 0.0 && GetGame().GetTickTime() - m_CrashKnockTime < DM_CRASH_RECOVERY_WINDOW)
 				{
 					bot.SayNoCooldown(dmVoiceCategory.PASSENGER_CRASH, 3, 5);
-					m_CrashKnocked = false;
+					m_CrashKnockTime = -1.0;
 				}
 			}
 		}
@@ -1609,7 +1609,7 @@ class dmAISurvivorBase : PlayerBase
 
 		//! Пулевое/мили-попадание сбрасывает «вырубило ДТП» — пулевой нокаут не наследует
 		//! флаг от старого ДТП без нокаута.
-		m_CrashKnocked = false;
+		m_CrashKnockTime = -1.0;
 
 		#ifdef DM_BOT_DEBUG_DAMAGE
 		dmBotLog.Debug(GetCachedName(), "EEHitBy damageType=" + damageType + " ammo=" + ammo + " dmgZone=" + dmgZone);
@@ -1671,7 +1671,7 @@ class dmAISurvivorBase : PlayerBase
 
 		//! Шок-падение пока бот в транспорте = удар при ДТП → кандидат на «вырубило».
 		if (healthType == "Shock" && value < 0.0 && IsInVehicle())
-			m_CrashKnocked = true;
+			m_CrashKnockTime = GetGame().GetTickTime();
 
 		if (healthType != "Health" || value >= 0.0 || !IsInVehicle())
 			return;

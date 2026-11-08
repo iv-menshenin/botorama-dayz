@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.490";
+static const string DM_BOTORAMA_VERSION = "3.491";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
@@ -89,6 +89,14 @@ static const float DM_NOISE_GUNSHOT_SILENCED_HOMEMADE = 150.0;
 
 //! Дефолтный кулдаун молчания категории реплик (сек, 15 мин), если категория не переопределена.
 static const float DM_VOICE_COOLDOWN_DEFAULT = 900.0;
+static const float DM_CRASH_RECOVERY_WINDOW = 90.0;   // окно «шок от ДТП → пробуждение» (1.5 мин)
+static const float DM_VOICE_REACTION_DELAY_MIN = 0.5; // оттяжка реакции речи (с)
+static const float DM_VOICE_REACTION_DELAY_MAX = 1.5;
+static const float DM_VOICE_EMOTE_DURATION_MIN = 1.0; // длительность эмоции приветствия (с)
+static const float DM_VOICE_EMOTE_DURATION_MAX = 3.0;
+static const float DM_GREET_MAX_DISTANCE = 50.0;      // порог дистанции приветствия (м)
+static const float DM_GREET_VISIBILITY_TIME = 5.0;    // мин. время видимости игрока до приветствия (с)
+static const float DM_GREET_LOOK_DURATION = 2.5;      // сколько бот смотрит на игрока при приветствии (с)
 //! Верхняя граница lineId реплики (category*100 + index). Используется в net-var и guard.
 static const int DM_VOICE_LINE_MAX = 1000;
 
