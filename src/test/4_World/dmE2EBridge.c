@@ -21,6 +21,7 @@ class dmE2EJob
 {
 	string Name;     // job id (= file name)
 	float Timeout;   // overall timeout (seconds); 0 = none
+	bool Keep;       // true -> после job НЕ чистить именованных ботов (персистентные боты между job)
 	autoptr array<ref dmE2EStep> Steps;
 }
 
@@ -462,7 +463,8 @@ class dmE2EBridge
 
 		SaveResult(m_Result);
 		MoveToDone(m_JobPath, m_JobFileName);
-		ClearNamed();
+		if (!m_Job.Keep)
+			ClearNamed();
 
 		#ifdef DM_BOT_DEBUG_E2E
 		dmBotLog.Debug("", "[E2E] job done: " + m_Result.Name + " status=" + m_Result.Status);
