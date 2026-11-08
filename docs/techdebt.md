@@ -140,8 +140,8 @@
   на лестнице накручивается до ~13700° за спуск (маскируется `return false` на LADDER + MOVE-снап).
   Cure (если понадобится): закрыть нативную фазу — явный `hcl.Exit()`/`OnCommandLadderFinish` до
   `!IsClimbingLadder()` (сейчас ветка `CanExit()→Exit()` мертва — стоит после `Finish`-проверки в
-  `dmBotIntent_UseLadder`). Связано: диагностический домен `DM_BOT_DEBUG_LADDER` временно в `--test`
-  (per-frame спам) — вынести в per-frame-правило после починки.
+  `dmBotIntent_UseLadder`). Связано: диагностический домен `DM_BOT_DEBUG_LADDER` — per-frame,
+  вынесен из `--test` в per-frame-правило (включается точечно `--define DM_BOT_DEBUG_LADDER`).
 
 ## G. Интенты: жизненный цикл (гигиена пула)
 
@@ -1157,14 +1157,7 @@
 - **сделано (v3.476)** — отложенное добавление таргета по дистанции (задержка звука): `dmHearing.OnNoise` →
   `HearNoise` через `CallLater(HearNoiseDelayed, d.Length()/DM_SOUND_SPEED*1000, ...)`. Фильтр дистанции и
   `OnGunshot` (уворот) — мгновенны.
-- **БАГ (observer-проход, ОТЛОЖЕН — research `noise-zombie-scream.md`)** — крик зомби НЕ эмитит SCREAM: хук
-  `modded ZombieBase.OnSoundVoiceEvent` → `AddNoise(..., SCREAM)` не сработал (в логе были только шаги, SCREAM
-  `type=2` отсутствует, хотя зомби рядом кричал). Причина (research): у зомби ДВА механизма вокализации —
-  (1) `SoundVoice`-anim-события (`OnSoundVoiceEvent`→`ProcessSoundVoiceEvent`, сервер-сайд нативный шум) и
-  (2) клиентские state-звуки (`InfectedSoundEventHandler`/`ProcessVoiceFX`, mindstate-петли AlertedIdle/ChaseMove —
-  **клиент-only, НЕ проходят `OnSoundVoiceEvent`**). Наш хук ловит (1), а наблюдаемый «крик» — почти наверняка (2).
-  **Следующие шаги (задача `spawnzombie` + верификация H1/H2):** (а) E2E-ручка `spawnzombie` (спавн зомби С ИИ,
-  `init_ai=true` — сейчас `spawnobj` спавнит без ИИ); (б) безусловный debug-лог в `OnSoundVoiceEvent` + агро-зомби —
-  появится ли `[Zmb] OnSoundVoiceEvent` на сервере (H2: `SoundVoice` вообще не диспатчится на выделенном сервере?);
-  (в) если да — альтернативный хук `ZombieBase.HandleMindStateChange` (`zombiebase.c:450-478`, переход в
-  ALERTED/CHASE = «агро-крик», эталон Expansion `zmbm_gamedev_base.c:4`). Детали/гипотезы H1–H5 — в research-заметке.
+- **сделано (v3.479, закрыто наблюдением)** — крик зомби **работает**: в observer-прогоне SCREAM эмитится и
+  слышится (`AddNoise type=2 src=ZmbM_...`, strength 25.96). Ранний прогон был ложным срабатыванием (зомби не
+  агрился / слушатель далеко). Хук `modded ZombieBase.OnSoundVoiceEvent` корректен. Research
+  `noise-zombie-scream.md` оставлен как справка (механизмы вокализации зомби, гипотезы H1–H5).

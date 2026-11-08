@@ -1,8 +1,8 @@
 # Эпик: усовершенствование генератора шумов (noise generator)
 
-Статус: **планирование** (спека согласована, research готов — `docs/research/noise-generator-sources.md`). Продолжает эпик
+Статус: **ВЫПОЛНЕНО** (v3.479, ветка `feature/noise-generator`, влита в `master`). Продолжает эпик
 `target-refactor.md` (noise-attention) и раздел «Будущая работа (слух/звук)» из
-`ai-development-plan.md`. Ветка: `feature/noise-attention`.
+`ai-development-plan.md`.
 
 Базовый конвейер уже работает: `dmNoiseSystem.AddNoise(source,pos,strength,type)` →
 `SI_OnNoiseAdded` → `dmHearing.OnNoise` (фильтр дистанции → резолв корня → `HearNoise`) →

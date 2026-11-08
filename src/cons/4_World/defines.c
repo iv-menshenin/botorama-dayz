@@ -75,9 +75,7 @@
 //!   `--test` (полный список в `tools/defines_test.txt`). Всё, кроме двух ниже.
 //!   PER-FRAME-домены (спам на каждый кадр) — НЕ входят в `--test`, включаются точечно
 //!   только если сценарий их проверяет:
-//!     DM_BOT_DEBUG_PERFRAME_MOVING_LOG, DM_BOT_TRACE_LOOK.
-//!     DM_BOT_DEBUG_LADDER — ВРЕМЕННО в `--test` (исключение на время отладки бага
-//!     «кручение после лестницы»); после починки вернуть в per-frame-правило.
+//!     DM_BOT_DEBUG_PERFRAME_MOVING_LOG, DM_BOT_TRACE_LOOK, DM_BOT_DEBUG_LADDER.
 //!
 //! Gating is done at the CALL SITE, not inside dmBotLog:
 //!
