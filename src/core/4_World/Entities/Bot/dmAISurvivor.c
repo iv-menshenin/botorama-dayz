@@ -2223,6 +2223,10 @@ class dmAISurvivor
 		}
 
 		float spread = ComputeNoiseSpread(position);
+		//! Бросок: кидатель не в точке падения, а в радиусе ~дистанции броска —
+		//! неопределённость фиксированная, не зависит от локализации шума.
+		if (type == dmNoiseType.DROP)
+			spread = DM_NOISE_DROP_SPREAD;
 
 		dmTarget t = FindTarget(entity);
 		if (t)
@@ -2253,6 +2257,7 @@ class dmAISurvivor
 
 		t.m_LastContact = GetGame().GetTickTime();
 		t.SetEverHeard(true);
+		t.SetLastNoiseTime(GetGame().GetTickTime());
 		if (!t.IsVisible())
 		{
 			if (!t.m_EverSeen)

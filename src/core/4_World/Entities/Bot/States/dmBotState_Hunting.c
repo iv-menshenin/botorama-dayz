@@ -79,11 +79,11 @@ class dmBotState_Hunting : dmBotState
 			return EXIT;
 		}
 
-		// Цель стала видимой — охота кончилась.
-		if (m_Target.IsVisible())
+		//! 30 минут без новой информации шумом — прекратить охоту.
+		if (m_Target.InfoUpdatedTimePassed() > DM_HUNT_TIMEOUT)
 		{
 			#ifdef DM_BOT_DEBUG_FSM_HUNTING
-			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting цель видима, охота окончена");
+			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Hunting: таймаут — нет новой инфы 30 мин");
 			#endif
 			return EXIT;
 		}
@@ -117,18 +117,14 @@ class dmBotState_Hunting : dmBotState
 		#endif
 	}
 
-	//! Держит m_Target актуальной охотящейся целью; false — охотиться не на кого.
+	//! Пере-резолв каждый тик: опознанная цель заменяется (Sound → Player/Zombie/
+	//! Animal) и GetHuntTarget её больше не вернёт; удалённая (TTL/дистанция) — тоже.
 	bool ResolveTarget(dmAISurvivor bot)
 	{
-		if (m_Target)
+		dmTarget fresh = bot.GetHuntTarget();
+		if (fresh != m_Target)
 		{
-			EntityAI e = m_Target.m_Entity;
-			if (e && !e.IsAlive())
-				m_Target = null;
-		}
-		if (!m_Target)
-		{
-			m_Target = bot.GetHuntTarget();
+			m_Target = fresh;
 			if (!m_Target)
 			{
 				#ifdef DM_BOT_DEBUG_FSM_HUNTING

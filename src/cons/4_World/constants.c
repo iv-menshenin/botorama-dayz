@@ -669,6 +669,9 @@ static const float DM_UNTIE_DURATION = 3.0;
 //! Target memory: seconds without contact before a remembered target is forgotten.
 static const float DM_TARGET_FORGET_TIME = 300.0;
 
+//! Hunting: секунд без новой инфы шумом → выход из Hunting.
+static const float DM_HUNT_TIMEOUT = 1800.0;   // 30 мин
+
 //! Target memory: цель дальше этого (м) удаляется из памяти независимо от контакта.
 static const float DM_TARGET_MAX_DISTANCE = 1100.0;
 

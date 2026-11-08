@@ -309,4 +309,7 @@ class dmTarget
 	void SetAttraction(float v) { }
 	float GetAttentionCooldownUntil() { return 0.0; }
 	void SetAttentionCooldownUntil(float v) { }
+	//! Секунд с последнего обновления информации ШУМОМ; -1 если никогда (не-звуковые цели).
+	float InfoUpdatedTimePassed() { return -1.0; }
+	void SetLastNoiseTime(float v) { }
 }
