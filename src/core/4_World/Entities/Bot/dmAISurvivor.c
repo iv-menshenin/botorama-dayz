@@ -806,10 +806,16 @@ class dmAISurvivor
 		return m_VoiceCenter;
 	}
 
-	//! Удобный делегат: сказать случайную реплику из категории (см. dmBotVoiceCenter.SayCategory).
-	int SayCategory(dmVoiceCategory cat)
+	//! Сказать случайную реплику из диапазона категории, с кулдауном категории.
+	int Say(dmVoiceCategory cat, int indexFrom = 1, int indexTo = -1)
 	{
-		return m_VoiceCenter.SayCategory(cat);
+		return m_VoiceCenter.Say(cat, indexFrom, indexTo);
+	}
+
+	//! Сказать реплику БЕЗ кулдауна (редкие события).
+	int SayNoCooldown(dmVoiceCategory cat, int indexFrom = 1, int indexTo = -1)
+	{
+		return m_VoiceCenter.SayNoCooldown(cat, indexFrom, indexTo);
 	}
 
 	//------------------------------------------------------------------

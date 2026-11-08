@@ -804,7 +804,7 @@ class dmBotCommand : dmCommandModule
 			return true;
 		}
 
-		int lineId = bot.SayCategory(cat);
+		int lineId = bot.Say(cat);
 		if (lineId >= 0)
 			dmCommandManager.ChatToPlayer(player, "Бот говорит реплику " + lineId + " (" + parts[2] + ")");
 		else

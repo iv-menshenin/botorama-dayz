@@ -61,6 +61,19 @@ class dmBotVoice
 		return keys.Count();
 	}
 
+	//! Кулдаун категории (сек). Явные кулдауны — ниже; остальные — дефолт 15 мин.
+	static float GetCooldown(dmVoiceCategory cat)
+	{
+		switch (cat)
+		{
+		case dmVoiceCategory.GREETING:   return 60.0;   // 1 мин
+		case dmVoiceCategory.WAKE:       return 300.0;  // 5 мин
+		case dmVoiceCategory.AIMED_AT:   return 300.0;  // 5 мин
+		case dmVoiceCategory.HEARD_SHOT: return 300.0;  // 5 мин
+		}
+		return DM_VOICE_COOLDOWN_DEFAULT;
+	}
+
 	//! Имя голоса из конфига модели (CfgVehicles dmBotVoice). Fallback "default".
 	static string GetVoiceName(notnull EntityAI entity)
 	{
