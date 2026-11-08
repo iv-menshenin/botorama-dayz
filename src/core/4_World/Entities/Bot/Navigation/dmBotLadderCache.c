@@ -188,8 +188,11 @@ class dmBotLadderCache
 			dmBotLog.Debug("", "[Ladder] bottom=" + lad.m_Bottom + " top=" + lad.m_Top);
 			string ys = "";
 			int vi;
-			for (vi = 0; vi < lad.m_Vertices.Count(); vi++)
-				ys = ys + lad.m_Vertices[vi][1] + ",";
+			if ( lad.m_Vertices )
+			{
+				for (vi = 0; vi < lad.m_Vertices.Count(); vi++)
+					ys = ys + lad.m_Vertices[vi][1] + ",";
+			}
 			dmBotLog.Debug("", "[Ladder] index=" + lad.m_Index + " vertices=" + lad.m_Vertices.Count() + " y=" + ys);
 		}
 		#endif
