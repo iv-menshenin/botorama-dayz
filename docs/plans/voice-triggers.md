@@ -1,23 +1,31 @@
 # Оживление ботов — голосовые реплики по событиям
 
-> Статус: реализовано ядро + 9/10 категорий (v3.483–v3.487, ветка `feature/multiple-voices`).
-> Содержимое категорий и правила выбора — `docs/voices/voices.md` (единственный источник
-> правды по репликам/триггерам/кулдаунам).
+> Статус: **реализовано полностью** (v3.483–v3.490, ветка `feature/multiple-voices`):
+> ядро + все 10 категорий (со всеми под-случаями). Содержимое категорий и правила выбора —
+> `docs/voices/voices.md` (единственный источник правды по репликам/триггерам/кулдаунам).
 
 ## Реализовано
 
 - **Ядро**: `dmBotVoice.GetCooldown(cat)`, per-category `m_LastSpokeAt`, `Say(cat, from, to)` /
   `SayNoCooldown(cat, from, to)` (+ `TryAmbientChat` для фонового трёпа). `SayCategory`/`ResetCooldown` удалены.
-- **Триггеры**: HEARD_SHOT, GOT_SHOT (урон от пули), COMBAT, IDLE, PATROL (муж. модель), ESCORT,
-  WAKE, AIMED_AT, GREETING.
+- **Триггеры (все 10 категорий)**:
+  - HEARD_SHOT — `dmHearing.OnNoise` (SHOT/EXPLOSION, чужой).
+  - GOT_SHOT — `EEHitBy` FIRE_ARM → `[2..3]`; BULLETIMPACT-шум → `[1..2]`; кровотек (фронт `IsBleeding`) → `[4..5]`.
+  - COMBAT — `OnEntry` Fighting/Shooting (производные наследуют через `super.OnEntry`).
+  - IDLE — `TryAmbientChat` (персистентный таймер 15м+RandInt(0,15)).
+  - PATROL — `TryAmbientChat`, только муж. модель (`IsMale`).
+  - ESCORT — `Follow.OnEntry`.
+  - WAKE — `UpdateUnconsciousBridge` при пробуждении.
+  - AIMED_AT — `dmBotIntent_EvadeAim.OnStart`.
+  - GREETING — `TargetIdentified` (первое опознание игрока/бота, threat<0.5, диапазон 7/5/1).
+  - PASSENGER_CRASH — override `AddHealth`: урон от ДТП по величине (<10/20/30/≥30) +
+    «очнулся после ДТП» (`m_CrashKnocked` → `SayNoCooldown([3..5])`).
 
-## Отложено (техдолг)
+## Ключевые факты (ресёрч)
 
-- **PASSENGER_CRASH**: урон от ДТП к пассажиру приходит через `CarScript.DamageCrew` → `AddHealth`
-  (минуя `EEHitBy`). Нужен отдельный детект: падение Health без свежего `EEHitBy` + признак
-  «пассажир в транспорте»; плюс под-случай «очнулся после ДТП» → `SayNoCooldown(PASSENGER_CRASH, 3, 5)`.
-- **GOT_SHOT под-триггеры**: BULLETIMPACT-шум (позиционный, без source) и кровотек (детект
-  перехода `!IsBleeding() → IsBleeding()`).
+- Урон от ДТП к экипажу приходит через `CarScript.DamageCrew` → `AddHealth("", "Health", -hp)` /
+  `AddHealth("", "Shock", -shock)` — **минуя `EEHitBy`** (поэтому детект — override `AddHealth`).
+- BULLETIMPACT-шум имеет source-стрелка (генерится в `modded DayZGame.FirearmEffects`), не позиционный.
 
 ## Цель
 

@@ -296,13 +296,14 @@ description: Живой справочник по ИИ-ботам для DayZ (�
 - **Интент** `dmBotIntent_Voice` — канал `VOICE`, `EXCLUSIVE`, personality-интент; `OnUpdate` → `SpeakLine` → `Finish`.
   Канал VOICE отдельный от LOOK/MOVE/STANCE — речь не блокирует движение/бой.
 - **Триггеры** (кто зовёт `Say`): HEARD_SHOT — `dmHearing.OnNoise` (SHOT/EXPLOSION, чужой);
-  GOT_SHOT — `EEHitBy` FIRE_ARM → `Say(GOT_SHOT,2,3)`; COMBAT — `OnEntry` Fighting/Shooting;
-  IDLE — `dmBotState_Idle.OnUpdate` → `TryAmbientChat(IDLE)`; PATROL — `Patrol.OnUpdate` → `TryAmbientChat(PATROL)`
-  (только `IsMale`); ESCORT — `Follow.OnEntry` → `Say(ESCORT)`; WAKE — `UpdateUnconsciousBridge` при пробуждении;
-  AIMED_AT — `dmBotIntent_EvadeAim.OnStart`; GREETING — `TargetIdentified` (первое опознание игрока/бота,
-  `threat < 0.5`, диапазон по threat 7/5/1).
-  **Отложено**: PASSENGER_CRASH (урон ДТП идёт через `CarScript.DamageCrew`→`AddHealth`, минуя `EEHitBy`)
-  и GOT_SHOT под-триггеры (BULLETIMPACT-шум/кровотек). См. `docs/plans/voice-triggers.md`, `docs/voices/voices.md`.
+  GOT_SHOT — `EEHitBy` FIRE_ARM → `[2..3]`, BULLETIMPACT-шум → `[1..2]`, кровотек (фронт `IsBleeding`) → `[4..5]`;
+  COMBAT — `OnEntry` Fighting/Shooting; IDLE — `dmBotState_Idle.OnUpdate` → `TryAmbientChat(IDLE)`;
+  PATROL — `Patrol.OnUpdate` → `TryAmbientChat(PATROL)` (только `IsMale`); ESCORT — `Follow.OnEntry` → `Say(ESCORT)`;
+  WAKE — `UpdateUnconsciousBridge` при пробуждении; AIMED_AT — `dmBotIntent_EvadeAim.OnStart`;
+  GREETING — `TargetIdentified` (первое опознание игрока/бота, `threat < 0.5`, диапазон 7/5/1);
+  PASSENGER_CRASH — override `AddHealth` (урон от ДТП: `CarScript.DamageCrew` → `AddHealth("", "Health"/"Shock", -x)`,
+  **минуя `EEHitBy`**): по величине урона + `m_CrashKnocked` → `SayNoCooldown([3..5])` при пробуждении.
+  См. `docs/plans/voice-triggers.md`, `docs/voices/voices.md`.
 
 ## Бой
 

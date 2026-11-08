@@ -184,14 +184,11 @@
     per-category `m_LastSpokeAt` в `dmBotVoiceCenter`, методы `Say`/`SayNoCooldown` (категория +
     диапазон `[from..to]`), делегаты `dmAISurvivor`, переписать `dmBotVoiceTest.c`.
 27. `[x]` **Реактивные триггеры** — HEARD_SHOT (`dmHearing.OnNoise`), GOT_SHOT (урон от пули →
-    `Say(GOT_SHOT,2,3)`), COMBAT (`OnEntry` Fighting/Shooting).
-    ⚠️ отложено: GOT_SHOT под-триггеры BULLETIMPACT-шум и кровотек (нужны особая обработка
-    позиционного шума и детект начала кровотечения).
+    `Say(GOT_SHOT,2,3)`; BULLETIMPACT-шум → `[1..2]`; кровотек → `[4..5]`), COMBAT (`OnEntry` Fighting/Shooting).
 28. `[x]` **Фоновые триггеры** — IDLE/PATROL (персистентный таймер `TryAmbientChat`: 15м+RandInt(0,15);
     PATROL только муж. модель `IsMale`), ESCORT (Follow).
-29. `[~]` **Контекстные триггеры** — WAKE ✅, AIMED_AT ✅, GREETING ✅ (`TargetIdentified`,
-    диапазон по threat). ⚠️ **PASSENGER_CRASH отложен**: урон от ДТП приходит к пассажиру через
-    `CarScript.DamageCrew` → `AddHealth` (МИНУЯ `EEHitBy`), поэтому нужен отдельный детект
-    (следить за падением Health без свежего `EEHitBy` + признак «пассажир в транспорте»).
+29. `[x]` **Контекстные триггеры** — WAKE, AIMED_AT, GREETING (`TargetIdentified`, диапазон по threat),
+    PASSENGER_CRASH (override `AddHealth`: урон от ДТП по величине + «очнулся после ДТП» через
+    `m_CrashKnocked` → `SayNoCooldown`).
 
 Детали и правила выбора реплик — `docs/plans/voice-triggers.md` и `docs/voices/voices.md`.
