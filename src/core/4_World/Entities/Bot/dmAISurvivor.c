@@ -2533,8 +2533,14 @@ class dmAISurvivor
 			// default contact - it means that the record is just added
 			if ( t.m_LastContact == 0 )
 				t.m_LastContact = GetGame().GetTickTime();
-			if (!t.m_Entity || now - t.m_LastContact > timeout || !t.m_Entity.IsAlive()
-				|| (t.m_LastPosition != vector.Zero && vector.Distance(botPos, t.m_LastPosition) > DM_TARGET_MAX_DISTANCE))
+			//! Протухшая по времени (300 с без контакта) или мёртвая — удалить.
+			if (!t.m_Entity || now - t.m_LastContact > timeout || !t.m_Entity.IsAlive())
+			{
+				RemoveTarget(t);
+				continue;
+			}
+			//! С известной позицией, но дальше 1100 м — удалить.
+			if (t.m_LastPosition != vector.Zero && vector.Distance(botPos, t.m_LastPosition) > DM_TARGET_MAX_DISTANCE)
 				RemoveTarget(t);
 		}
 	}
