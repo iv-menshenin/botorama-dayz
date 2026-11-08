@@ -1161,3 +1161,15 @@
   слышится (`AddNoise type=2 src=ZmbM_...`, strength 25.96). Ранний прогон был ложным срабатыванием (зомби не
   агрился / слушатель далеко). Хук `modded ZombieBase.OnSoundVoiceEvent` корректен. Research
   `noise-zombie-scream.md` оставлен как справка (механизмы вокализации зомби, гипотезы H1–H5).
+
+## S. Shelter (песчаная буря) — косметика с ревью
+
+- **низкий** — дублирование дедупа дверей (grid-ключ `Math.Floor(dp*2+0.5)`) между
+  `dmCampCoverFinder.StepDoorsProbe` и `dmBotState_Shelter.ComputeShelterPoint`. Вынести
+  общий хелпер `DedupDoorPositions(Building, out array<int>)`, чтобы разрешение сетки
+  не разошлось в двух местах.
+- **низкий** — мёртвая ветка `if (unique > 0)` в `ComputeShelterPoint`: `GetNearestBuildingWithDoors`
+  гарантирует `GetDoorCount() > 0`, фолбэк на позицию здания недостижим (defensive, безвредно).
+- **низкий** — практически мёртвое ребро `shelter → getwater`: `NeedsWater` теперь гейтится
+  бурей (`IsPointInStorm(source)` → false), пока источник в буре — а в Shelter источник почти
+  всегда в буре. Не баг (сработает при локальном фронте), но семантически избыточно.

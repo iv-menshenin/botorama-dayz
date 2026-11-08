@@ -94,4 +94,14 @@ class dmBotConditions
 	{
 		return new dmBotCondition_TargetInBuilding();
 	}
+
+	static dmBotCondition InSandstorm()
+	{
+		return new dmBotCondition_InSandstorm();
+	}
+
+	static dmBotCondition HasVisibleHostile()
+	{
+		return new dmBotCondition_HasVisibleHostile();
+	}
 }

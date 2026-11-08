@@ -14,6 +14,7 @@ class dmBotPreset_Combat
 		dmBotState kamping = new dmBotState_Kamping();
 		dmBotState rushing = new dmBotState_Rushing();
 		dmBotState medical = new dmBotState_MedicalCare();
+		dmBotState shelter = new dmBotState_Shelter();
 		fsm.AddState(idle, "Idle");
 		fsm.AddState(fight, "Fighting");
 		fsm.AddState(shoot, "Shooting");
@@ -22,6 +23,7 @@ class dmBotPreset_Combat
 		fsm.AddState(kamping, "Kamping");
 		fsm.AddState(rushing, "Rushing");
 		fsm.AddState(medical, "MedicalCare");
+		fsm.AddState(shelter, "Shelter");
 		idle.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShootVisible()));
 		idle.AddTransition(flank, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.Flanking()));
 		idle.AddTransition(kamping, 2.0).Require(dmBotConditions.Kamping());
@@ -29,6 +31,7 @@ class dmBotPreset_Combat
 		idle.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		idle.AddTransition(hunting, 1.0);
 		idle.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+		idle.AddTransition(shelter, 2.0).Require(dmBotConditions.InSandstorm().And(dmBotConditions.HasVisibleHostile().Not()));
 		shoot.AddTransition(idle, 1.0);
 		shoot.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		shoot.AddTransition(flank, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.Flanking()));
@@ -53,11 +56,20 @@ class dmBotPreset_Combat
 		hunting.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
 		hunting.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShootVisible()));
 		hunting.AddTransition(idle, 0.5);
+		hunting.AddTransition(shelter, 2.0).Require(dmBotConditions.InSandstorm().And(dmBotConditions.HasVisibleHostile().Not()));
 		medical.AddTransition(shoot, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShootVisible()));
 		medical.AddTransition(flank, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.Flanking()));
 		medical.AddTransition(kamping, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.Kamping()));
 		medical.AddTransition(rushing, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.Rushing()));
 		medical.AddTransition(fight, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShoot().Not()));
+
+		shelter.AddTransition(idle, 1.0);
+		shelter.AddTransition(shoot, 2.0).Require(dmBotConditions.HasVisibleHostile().And(dmBotConditions.CanShootVisible()));
+		shelter.AddTransition(fight, 2.0).Require(dmBotConditions.HasVisibleHostile().And(dmBotConditions.CanShoot().Not()));
+		shelter.AddTransition(shoot, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShootVisible()));
+		shelter.AddTransition(fight, 2.0).Require(dmBotConditions.HasImminentThreat().And(dmBotConditions.CanShoot().Not()));
+		shelter.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+
 		fsm.SetDefaultState("Idle");
 		fsm.Start();
 		return fsm;

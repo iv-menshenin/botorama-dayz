@@ -262,6 +262,17 @@ static const string DM_CHAT_POI = "poi";
 //! (which is the "/bot intent goto" action).
 static const string DM_CHAT_POI_GOTO = "goto";
 
+//! Sandstorm command family ("/sandstorm start|stop") — форс песчаной бури для
+//! E2E-теста укрытия (Shelter).
+static const string DM_CHAT_SANDSTORM = "sandstorm";
+static const string DM_CHAT_SANDSTORM_START = "start";
+static const string DM_CHAT_SANDSTORM_STOP = "stop";
+//! Sandstorm: время нарастания (секунды) при "/sandstorm start".
+static const float DM_SANDSTORM_FADE_IN = 5.0;
+//! Sandstorm: overcast/ветер, форсируемые при старте (совпадают с порогами Nasdara).
+static const float DM_SANDSTORM_OVERCAST = 0.8;
+static const float DM_SANDSTORM_WIND = 18.0;
+
 //! SpawnCity command ("/spawncity") — принудительный спавн всех ботов.
 static const string DM_CHAT_SPAWNCITY = "spawncity";
 //! SpawnCity COT sub-command (the command ignores it; COT needs one subcommand).

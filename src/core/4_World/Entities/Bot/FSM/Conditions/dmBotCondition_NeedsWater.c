@@ -23,7 +23,12 @@ class dmBotCondition_NeedsWater : dmBotCondition
 			return false;
 
 		//! Нет источника воды в радиусе поиска — наполнять нечем.
-		if (dmLiveBuildingRegistry.Get().GetNearestWaterSource(bot.GetPosition(), DM_GET_WATER_SEARCH_RADIUS) == null)
+		Building source = dmLiveBuildingRegistry.Get().GetNearestWaterSource(bot.GetPosition(), DM_GET_WATER_SEARCH_RADIUS);
+		if (!source)
+			return false;
+
+		//! Не идти за водой в бурю: источник внутри фронта — подождём её прохода.
+		if (dmSandstorm.IsPointInStorm(source.GetPosition(), DM_SANDSTORM_EXIT_INTENSITY))
 			return false;
 
 		return true;

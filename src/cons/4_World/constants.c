@@ -1156,6 +1156,16 @@ static const float DM_GET_WATER_FILL_TIME     = 3.0;
 //! GetWater: cooldown повторного входа (секунды) после неудачи (источник недостижим/удалился).
 static const float DM_GET_WATER_RETRY_COOLDOWN = 3.0;
 
+//! Shelter (укрытие от песчаной бури): гистерезис входа/выхода по интенсивности
+//! фронта в точке бота. Вход при intensity > ENTER, выход при intensity <= EXIT.
+static const float DM_SANDSTORM_ENTER_INTENSITY = 0.6;
+static const float DM_SANDSTORM_EXIT_INTENSITY  = 0.1;
+//! Shelter: радиус поиска здания-укрытия (метры). Стартовое значение ~100 м —
+//! компромисс между «не бежать через пол-карты» и «найти хоть что-то рядом».
+static const float DM_SHELTER_SEARCH_RADIUS = 100.0;
+//! Shelter: дистанция до точки укрытия (метры), на которой бот считается «дошёл».
+static const float DM_SHELTER_REACH = 1.0;
+
 //! Арсенал: задержка (сек) после спавна до стартового полного рескана инвентаря.
 //! Ловит спавн-лоадаут, применённый после первого тика; рескан идёт по одной
 //! вещи за фрейм (без спайка кадра).
