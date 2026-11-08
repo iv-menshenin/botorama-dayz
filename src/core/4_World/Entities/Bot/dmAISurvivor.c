@@ -818,6 +818,12 @@ class dmAISurvivor
 		return m_VoiceCenter.SayNoCooldown(cat, indexFrom, indexTo);
 	}
 
+	//! Фоновый трёп (IDLE/PATROL) — см. dmBotVoiceCenter.TryAmbientChat.
+	void TryAmbientChat(dmVoiceCategory cat)
+	{
+		m_VoiceCenter.TryAmbientChat(cat);
+	}
+
 	//------------------------------------------------------------------
 	// Brain attributes (queried by FSM conditions/states)
 	//------------------------------------------------------------------

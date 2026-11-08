@@ -85,6 +85,8 @@ class dmBotState_Follow : dmBotState
 		m_SideDistance = Math.RandomFloat(DM_FOLLOW_SIDE_DISTANCE_MIN, DM_FOLLOW_SIDE_DISTANCE_MAX);
 		CreateScan();
 
+		GetOwner().Say(dmVoiceCategory.ESCORT);
+
 		#ifdef DM_BOT_DEBUG_FSM
 		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Follow.entry target=" + m_TargetEntity);
 		#endif

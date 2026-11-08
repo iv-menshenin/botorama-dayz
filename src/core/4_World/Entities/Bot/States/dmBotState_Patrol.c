@@ -44,6 +44,11 @@ class dmBotState_Patrol : dmBotState
 
 	override int OnUpdate(float pDt)
 	{
+		//! Трёп в патруле — только мужская модель персонажа (см. voices.md).
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(GetOwner().GetPawn());
+		if (pawn && pawn.IsMale())
+			GetOwner().TryAmbientChat(dmVoiceCategory.PATROL);
+
 		if (m_Route.Count() == 0)
 			return EXIT;
 

@@ -4,6 +4,7 @@ class dmBotVoiceCenter
 {
 	private ref dmAISurvivor m_Bot;
 	private ref map<dmVoiceCategory, float> m_LastSpokeAt;
+	private float m_NextAmbientChatAt = 0.0; // 0 = не инициализирован; момент следующего фонового трёпа
 
 	void dmBotVoiceCenter(dmAISurvivor bot)
 	{
@@ -22,6 +23,19 @@ class dmBotVoiceCenter
 	int SayNoCooldown(dmVoiceCategory cat, int indexFrom = 1, int indexTo = -1)
 	{
 		return SayImpl(cat, indexFrom, indexTo, false);
+	}
+
+	//! Фоновый трёп (IDLE/PATROL): если наступил момент — сказать случайную реплику
+	//! категории и перезапланировать следующий момент (15 мин + случайные 0..15 мин).
+	void TryAmbientChat(dmVoiceCategory cat)
+	{
+		float now = GetGame().GetTickTime();
+		if (m_NextAmbientChatAt <= 0.0)
+			m_NextAmbientChatAt = now + DM_VOICE_COOLDOWN_DEFAULT + Math.RandomIntInclusive(0, (int)DM_VOICE_COOLDOWN_DEFAULT);
+		if (now < m_NextAmbientChatAt)
+			return;
+		Say(cat);
+		m_NextAmbientChatAt = now + DM_VOICE_COOLDOWN_DEFAULT + Math.RandomIntInclusive(0, (int)DM_VOICE_COOLDOWN_DEFAULT);
 	}
 
 	private int SayImpl(dmVoiceCategory cat, int indexFrom, int indexTo, bool respectCooldown)

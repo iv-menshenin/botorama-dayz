@@ -38,6 +38,8 @@ class dmBotState_Idle : dmBotState
 		// если не выйти из IDLE, то бот не будет перематываться сразу, будет сначала "отдыхать" а потом лечиться
 		if ( GetOwner().AreNecessaryMedicationsAvailable() ) return EXIT;
 
+		GetOwner().TryAmbientChat(dmVoiceCategory.IDLE);
+
 		if (m_Scan && (m_Scan.IsFinished() || m_Scan.IsExpired()))
 			m_Scan = null;
 		if (!m_Scan)
