@@ -147,6 +147,13 @@ static const float DM_FSM_PREEMPT_INTERVAL = 0.25;
 //! pawn's simulation (see fstructure.md "Профилирование").
 static const float DM_BOT_TICK_INTERVAL = 0.033;
 
+//! Макс ботов, обрабатываемых за один тик мозга (round-robin слайсинг).
+//! При Count > SLICE боты тикают по кругу: каждый бот раз в ~(Count/SLICE) тиков.
+//! Tradeoff: слайсинг режет пер-фрейм спайк (раньше все 40 ботов ~9-12 мс в одном
+//! фрейме), но снижает пер-бот частоту (тик = 30 Гц → пер-бот ≈ 30×SLICE/Count Гц);
+//! настройка значения — отдельным шагом после замера.
+static const int DM_BOT_TICK_SLICE = 10;
+
 //! Reduced-frequency interval (seconds) for the AI-bot body-modifier tick.
 //! Vanilla ticks modifiers every frame for the selected player; for an AI bot we
 //! tick them here (~4 Hz) — their own intervals are >= 0.35 s, so this is enough.

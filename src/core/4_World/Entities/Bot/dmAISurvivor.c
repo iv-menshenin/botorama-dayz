@@ -22,6 +22,9 @@ class dmAISurvivor
 	//! Accumulated time toward the next brain tick (driven by TickAll).
 	static float s_TickAccum = 0.0;
 
+	//! Курсор round-robin слайсинга: индекс бота, с которого начинается следующий тик.
+	static int s_RoundRobinIndex = 0;
+
 	//! Диагностическая ручка A/B «мозг есть/нет» (НЕ геймплейная фича): false
 	//! останавливает цикл OnUpdate у ВСЕХ ботов (FSM/intents/vision/pathfinding),
 	//! пешки остаются живыми и симулируются движком (CommandHandler вызывается
@@ -3008,10 +3011,46 @@ class dmAISurvivor
 		dmBotSpan _span = dmBotProfiler.Start("Tick");
 		#endif
 
-		//! Backward iteration: OnUpdate may OnDeath() (death) and remove the bot
-		//! from s_All mid-loop; going backward keeps the indices valid.
-		for (int i = s_All.Count() - 1; i >= 0; i--)
-			s_All[i].OnUpdate(dt);
+		//! Слайсинг: бот тикает раз за полный round-robin цикл (~ceil(Count/SLICE)
+		//! тиков), поэтому должен получить столько реального времени, чтобы его
+		//! dt-таймеры шли в реальном времени (иначе — в SLICE/Count раз медленнее).
+		int slicesPerCycle = 1;
+		int count = s_All.Count();
+		if (count > DM_BOT_TICK_SLICE)
+			slicesPerCycle = (count + DM_BOT_TICK_SLICE - 1) / DM_BOT_TICK_SLICE;  // ceil(count/SLICE)
+		float botDt = dt * (float)slicesPerCycle;
+
+		//! Round-robin слайсинг: за один тик мозга обрабатываем максимум
+		//! DM_BOT_TICK_SLICE ботов вместо всех сразу. При Count > SLICE боты
+		//! тикают по кругу — каждый бот раз в ~(Count/SLICE) тиков; пер-фрейм
+		//! спайк режется ценой снижения пер-бот частоты. Второе условие цикла
+		//! (processed < s_All.Count()) не даёт обернуть срез на малом числе
+		//! ботов: при Count <= SLICE каждый бот тикает ровно один раз за тик.
+		int processed = 0;
+		int n;
+		int idx;
+		while (processed < DM_BOT_TICK_SLICE && processed < s_All.Count())
+		{
+			//! n — счётчик ДО вызова OnUpdate. Если после него Count() уменьшился,
+			//! значит текущий бот удалил себя (OnDeath → s_All.RemoveItem), массив
+			//! сдвинулся влево и s_All[idx] теперь держит СЛЕДУЮЩЕГО бота — курсор
+			//! НЕ двигаем, обработаем сдвинутого в следующей итерации.
+			n = s_All.Count();
+
+			//! clamp после удалений: закрывает случай удаления последнего элемента
+			//! среза (курсор вышел за границу — оборачиваем в начало).
+			if (s_RoundRobinIndex >= n)
+				s_RoundRobinIndex = 0;
+
+			idx = s_RoundRobinIndex;
+			s_All[idx].OnUpdate(botDt);
+			//! processed считает ВЫЗОВЫ OnUpdate (включая умерших, которые сразу
+			//! вернулись после OnDeath) — это и есть лимит ботов на тик.
+			processed = processed + 1;
+
+			if (s_All.Count() == n)
+				s_RoundRobinIndex = idx + 1;
+		}
 	}
 
 	//------------------------------------------------------------------
