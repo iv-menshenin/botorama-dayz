@@ -187,6 +187,9 @@ class dmAISurvivorBase : PlayerBase
 	//! Детект начала кровотечения (фронт !IsBleeding -> IsBleeding) — реплика GOT_SHOT.
 	private bool m_WasBleeding = false;
 
+	//! Вырубило ударом при ДТП (шок-падение в транспорте) — ждём пробуждения для реплики.
+	private bool m_CrashKnocked = false;
+
 	//! Последний реальный источник урона (EntityAI), запомненный в
 	//! EEOnDamageCalculated. DayZ 1.20 может передать в EEKilled сам труп
 	//! (killer == this) — тогда ванильный PluginAdminLog ложно пишет "died"
@@ -1561,7 +1564,16 @@ class dmAISurvivorBase : PlayerBase
 			//! Очнулся после отключки — реплика WAKE (кулдаун 5 мин в центре).
 			dmAISurvivor bot = dmAISurvivor.Find(this);
 			if (bot)
+			{
 				bot.Say(dmVoiceCategory.WAKE);
+
+				//! Если отключка была от ДТП — реплика восстановления БЕЗ кулдауна.
+				if (m_CrashKnocked)
+				{
+					bot.SayNoCooldown(dmVoiceCategory.PASSENGER_CRASH, 3, 5);
+					m_CrashKnocked = false;
+				}
+			}
 		}
 	}
 
@@ -1594,6 +1606,10 @@ class dmAISurvivorBase : PlayerBase
 		super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
 
 		m_ReceivedHit = true;
+
+		//! Пулевое/мили-попадание сбрасывает «вырубило ДТП» — пулевой нокаут не наследует
+		//! флаг от старого ДТП без нокаута.
+		m_CrashKnocked = false;
 
 		#ifdef DM_BOT_DEBUG_DAMAGE
 		dmBotLog.Debug(GetCachedName(), "EEHitBy damageType=" + damageType + " ammo=" + ammo + " dmgZone=" + dmgZone);
@@ -1652,6 +1668,10 @@ class dmAISurvivorBase : PlayerBase
 	override void AddHealth(string zoneName, string healthType, float value)
 	{
 		super.AddHealth(zoneName, healthType, value);
+
+		//! Шок-падение пока бот в транспорте = удар при ДТП → кандидат на «вырубило».
+		if (healthType == "Shock" && value < 0.0 && IsInVehicle())
+			m_CrashKnocked = true;
 
 		if (healthType != "Health" || value >= 0.0 || !IsInVehicle())
 			return;
