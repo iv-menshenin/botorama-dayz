@@ -1663,48 +1663,41 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
-	//! Детект урона от ДТП: урон экипажу приходит через AddHealth("", "Health", -hp)
-	//! (CarScript.DamageCrew), МИНУЯ EEHitBy. Фиксируем падение Health пока бот в транспорте.
-	override void AddHealth(string zoneName, string healthType, float value)
+	//! Удар при ДТП (зовётся из modded CarScript.DamageCrew). Ставит таймстемп «вырубило ДТП»
+	//! и говорит реплику PASSENGER_CRASH по величине урона.
+	void OnCrashHit(float dmg)
 	{
-		super.AddHealth(zoneName, healthType, value);
+		m_CrashKnockTime = GetGame().GetTickTime();
 
-		//! Шок-падение пока бот в транспорте = удар при ДТП → кандидат на «вырубило».
-		if (healthType == "Shock" && value < 0.0 && IsInVehicle())
-			m_CrashKnockTime = GetGame().GetTickTime();
-
-		if (healthType != "Health" || value >= 0.0 || !IsInVehicle())
-			return;
-
-		dmAISurvivor bot = dmAISurvivor.Find(this);
-		if (!bot)
-			return;
-
-		float damage = -value;
+		//! Пороги по dmg (ваниль DamageCrew: hp = Lerp(2,100, InverseLerp(750,1200,dmg)); max hp=100):
+		//!   dmg<786.7 -> hp<10  (best_driver);  dmg<832.7 -> hp<20  (not_firewood);
+		//!   dmg<878.6 -> hp<30  (should_take_bus);  иначе hp>=30 -> that_hurt.
 		int from;
 		int to;
-		if (damage < 10.0)
+		if (dmg < 786.7)
 		{
-			from = 1; to = 1; // best_driver
+			from = 1; to = 1;
 		}
-		else if (damage < 20.0)
+		else if (dmg < 832.7)
 		{
-			from = 1; to = 2; // + not_firewood
+			from = 1; to = 2;
 		}
-		else if (damage < 30.0)
+		else if (dmg < 878.6)
 		{
-			from = 1; to = 3; // + should_take_bus
+			from = 1; to = 3;
 		}
 		else
 		{
-			from = 4; to = 4; // that_hurt
+			from = 4; to = 4;
 		}
 
 		#ifdef DM_BOT_DEBUG_VOICE
-		dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.AddHealth() crash damage=" + damage + " range=" + from + ".." + to);
+		dmBotLog.Debug(GetCachedName(), "OnCrashHit dmg=" + dmg + " range=" + from + ".." + to);
 		#endif
 
-		bot.Say(dmVoiceCategory.PASSENGER_CRASH, from, to);
+		dmAISurvivor bot = dmAISurvivor.Find(this);
+		if (bot)
+			bot.Say(dmVoiceCategory.PASSENGER_CRASH, from, to);
 	}
 
 	//! Death: run the vanilla PlayerBase.EEKilled chain. Its GetHive().
