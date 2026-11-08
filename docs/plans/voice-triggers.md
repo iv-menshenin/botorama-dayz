@@ -1,7 +1,23 @@
 # Оживление ботов — голосовые реплики по событиям
 
-> Статус: план. Содержимое категорий и правила выбора — `docs/voices/voices.md`
-> (единственный источник правды по репликам/триггерам/кулдаунам).
+> Статус: реализовано ядро + 9/10 категорий (v3.483–v3.487, ветка `feature/multiple-voices`).
+> Содержимое категорий и правила выбора — `docs/voices/voices.md` (единственный источник
+> правды по репликам/триггерам/кулдаунам).
+
+## Реализовано
+
+- **Ядро**: `dmBotVoice.GetCooldown(cat)`, per-category `m_LastSpokeAt`, `Say(cat, from, to)` /
+  `SayNoCooldown(cat, from, to)` (+ `TryAmbientChat` для фонового трёпа). `SayCategory`/`ResetCooldown` удалены.
+- **Триггеры**: HEARD_SHOT, GOT_SHOT (урон от пули), COMBAT, IDLE, PATROL (муж. модель), ESCORT,
+  WAKE, AIMED_AT, GREETING.
+
+## Отложено (техдолг)
+
+- **PASSENGER_CRASH**: урон от ДТП к пассажиру приходит через `CarScript.DamageCrew` → `AddHealth`
+  (минуя `EEHitBy`). Нужен отдельный детект: падение Health без свежего `EEHitBy` + признак
+  «пассажир в транспорте»; плюс под-случай «очнулся после ДТП» → `SayNoCooldown(PASSENGER_CRASH, 3, 5)`.
+- **GOT_SHOT под-триггеры**: BULLETIMPACT-шум (позиционный, без source) и кровотек (детект
+  перехода `!IsBleeding() → IsBleeding()`).
 
 ## Цель
 

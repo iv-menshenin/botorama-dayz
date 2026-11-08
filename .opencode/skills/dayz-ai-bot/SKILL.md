@@ -277,6 +277,33 @@ description: Живой справочник по ИИ-ботам для DayZ (�
 - Команда `/bot vision [switch]` — печать видимых целей или переключение Scene/Physics.
 - Слух и перцепция предметов (лут) — TODO. Research-детали — `docs/research/perception.md`.
 
+## Голос / реплики (речь бота)
+
+- **Воспроизведение**: сервер `dmAISurvivorBase.SpeakLine(lineId)` → net-var `m_VoiceLineId`+
+  `m_VoiceLineNonce` → клиент `OnVariablesSynchronized` → `PlayVoiceLineClient` → `Play3D`
+  по `SoundParams("dmBotVoice_<voice>_<keyword>_SoundSet")`. Рот — `m_TalkDuration`
+  (`dmBotVoice.GetTalkDuration` читает `duration` из CfgSoundSets). Research — `docs/research/voice.md`.
+- **Голоса**: 4 (`default`/`severe`/`hasty`/`calm`), привязаны к модели через атрибут
+  `dmBotVoice = "..."` в CfgVehicles-классе `dmAI_SurvivorM_*`; читается `ConfigGetString("dmBotVoice")`
+  на сущности (`dmBotVoice.GetVoiceName(entity)`). Имена сетов строятся из таблицы ключей `s_Keys`
+  (array<ref TStringArray> по категориям). `lineId = cat*100 + index`.
+- **Запуск реплики** (`dmBotVoiceCenter`, делегаты на `dmAISurvivor`):
+  - `Say(cat, from=1, to=-1)` — случайная реплика диапазона `[from..to]`, С кулдауном категории.
+  - `SayNoCooldown(cat, from=1, to=-1)` — БЕЗ кулдауна, но ВСЁ РАВНО обновляет `m_LastSpokeAt[cat]`.
+  - `TryAmbientChat(cat)` — фоновый трёп (IDLE/PATROL): персистентный таймер 15м + RandInt(0,15м).
+  - Кулдаун — per-category `map<dmVoiceCategory,float> m_LastSpokeAt` + `dmBotVoice.GetCooldown(cat)`
+    (дефолт `DM_VOICE_COOLDOWN_DEFAULT`=900с; GREETING 60с; WAKE/AIMED_AT/HEARD_SHOT 300с).
+- **Интент** `dmBotIntent_Voice` — канал `VOICE`, `EXCLUSIVE`, personality-интент; `OnUpdate` → `SpeakLine` → `Finish`.
+  Канал VOICE отдельный от LOOK/MOVE/STANCE — речь не блокирует движение/бой.
+- **Триггеры** (кто зовёт `Say`): HEARD_SHOT — `dmHearing.OnNoise` (SHOT/EXPLOSION, чужой);
+  GOT_SHOT — `EEHitBy` FIRE_ARM → `Say(GOT_SHOT,2,3)`; COMBAT — `OnEntry` Fighting/Shooting;
+  IDLE — `dmBotState_Idle.OnUpdate` → `TryAmbientChat(IDLE)`; PATROL — `Patrol.OnUpdate` → `TryAmbientChat(PATROL)`
+  (только `IsMale`); ESCORT — `Follow.OnEntry` → `Say(ESCORT)`; WAKE — `UpdateUnconsciousBridge` при пробуждении;
+  AIMED_AT — `dmBotIntent_EvadeAim.OnStart`; GREETING — `TargetIdentified` (первое опознание игрока/бота,
+  `threat < 0.5`, диапазон по threat 7/5/1).
+  **Отложено**: PASSENGER_CRASH (урон ДТП идёт через `CarScript.DamageCrew`→`AddHealth`, минуя `EEHitBy`)
+  и GOT_SHOT под-триггеры (BULLETIMPACT-шум/кровотек). См. `docs/plans/voice-triggers.md`, `docs/voices/voices.md`.
+
 ## Бой
 
 - **Мили реализовано (T10)**: `dmBotMeleeFightLogic_LightHeavy` подменяет `m_MeleeFightLogic`

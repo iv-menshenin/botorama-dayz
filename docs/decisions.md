@@ -987,3 +987,17 @@ Animal 0.2 / прочее 0.4 (вместо прежнего `DM_NOISE_THREAT=0.
 Действует пока: женского голоса нет — 11 женских моделей без `dmBotVoice` → fallback `"default"`;
 нарезка 20 мужских по 5 на голос — алфавитная. При появлении женского пака/перетасовке — править
 `config.cpp`, а не код.
+
+### voice: запуск реплик — Say/SayNoCooldown + покатегорийный кулдаун, таймер фонового трёпа на VoiceCenter
+Решение: реплика запускается двумя методами `dmBotVoiceCenter.Say(cat, from, to)` (с кулдауном категории)
+и `SayNoCooldown(cat, from, to)` (без, но обновляет таймер категории); кулдаун — per-category
+`map<dmVoiceCategory,float> m_LastSpokeAt` + `GetCooldown(cat)` (дефолт 900с, GREETING 60с, WAKE/AIMED_AT/HEARD_SHOT 300с).
+Категория — первый аргумент (даёт и кулдаун, и базу `lineId = cat*100 + index`), диапазон `[from..to]`
+— для подмножеств по threat/урону/триггеру. Фоновый трёп (IDLE/PATROL) — персистентный таймер
+`VoiceCenter.TryAmbientChat` (15м + RandInt(0,15м)).
+Почему: `dmBotState_Idle` живёт сериями по 15с (EXIT через `m_TotalTimer`), поэтому таймер «когда поболтать»
+нельзя держать в состоянии — он переживает входы/выходы только на VoiceCenter. Голос — отдельный канал
+`VOICE` (personality-интент), не блокирует взгляд/движение/бой. Реактивные триггеры — прямо в точках
+событий (`dmHearing.OnNoise`/`EEHitBy`/`OnEntry`), а не в FSM-состояниях.
+Действует пока: PASSENGER_CRASH и GOT_SHOT-подтриггеры (BULLETIMPACT/кровотек) отложены (см. voice-triggers.md);
+«безкулдаунная» реплика всё равно обновляет `m_LastSpokeAt[cat]` (чтобы не дать обычной реплике той же категории).

@@ -180,14 +180,18 @@
 > (`feature/multiple-voices`); интент `dmBotIntent_Voice` готов. Не хватало ТОЛЬКО триггеров
 > (никто не звал `SayCategory`) и покатегорийного кулдауна.
 
-26. `[~]` **Ядро речи** — `DM_VOICE_COOLDOWN_DEFAULT` (900с), `dmBotVoice.GetCooldown(cat)`,
+26. `[x]` **Ядро речи** — `DM_VOICE_COOLDOWN_DEFAULT` (900с), `dmBotVoice.GetCooldown(cat)`,
     per-category `m_LastSpokeAt` в `dmBotVoiceCenter`, методы `Say`/`SayNoCooldown` (категория +
     диапазон `[from..to]`), делегаты `dmAISurvivor`, переписать `dmBotVoiceTest.c`.
-27. `[ ]` **Реактивные триггеры** — HEARD_SHOT (`dmHearing.OnNoise`), GOT_SHOT (урон/кровотек),
-    COMBAT (`OnEntry` Fighting/Shooting).
-28. `[ ]` **Фоновые триггеры** — IDLE/PATROL (таймер 15м+RandInt(0,15); PATROL только муж. модель),
-    ESCORT (Follow).
-29. `[ ]` **Контекстные триггеры** — WAKE (выход из нокаута), AIMED_AT (`dmBotIntent_EvadeAim`),
-    GREETING (не-враждебный игрок, диапазон по threat), PASSENGER_CRASH (урон от ДТП; очнулся — без кулдауна).
+27. `[x]` **Реактивные триггеры** — HEARD_SHOT (`dmHearing.OnNoise`), GOT_SHOT (урон от пули →
+    `Say(GOT_SHOT,2,3)`), COMBAT (`OnEntry` Fighting/Shooting).
+    ⚠️ отложено: GOT_SHOT под-триггеры BULLETIMPACT-шум и кровотек (нужны особая обработка
+    позиционного шума и детект начала кровотечения).
+28. `[x]` **Фоновые триггеры** — IDLE/PATROL (персистентный таймер `TryAmbientChat`: 15м+RandInt(0,15);
+    PATROL только муж. модель `IsMale`), ESCORT (Follow).
+29. `[~]` **Контекстные триггеры** — WAKE ✅, AIMED_AT ✅, GREETING ✅ (`TargetIdentified`,
+    диапазон по threat). ⚠️ **PASSENGER_CRASH отложен**: урон от ДТП приходит к пассажиру через
+    `CarScript.DamageCrew` → `AddHealth` (МИНУЯ `EEHitBy`), поэтому нужен отдельный детект
+    (следить за падением Health без свежего `EEHitBy` + признак «пассажир в транспорте»).
 
 Детали и правила выбора реплик — `docs/plans/voice-triggers.md` и `docs/voices/voices.md`.
