@@ -1930,6 +1930,8 @@ class dmAISurvivor
 			newTarget.SetLastDistance(old.LastDistance());
 			newTarget.SetHasLOS(old.HasLOS());
 			newTarget.SetEverSeen(old.EverSeen());
+			newTarget.SetEverHeard(old.HaveEverHeard());
+			newTarget.SetLastSeen(old.LastSeen());
 			newTarget.SetLastContact(old.LastContact());
 			newTarget.SetLastDamage(old.LastDamage());
 			newTarget.SetNextLOSUpdate(old.NextLOSUpdate());
@@ -2237,9 +2239,9 @@ class dmAISurvivor
 		}
 		else
 		{
-			//! Новая цель: сразу звуковая, с низким threat (услышал, не видел).
+			//! Новая цель: сразу звуковая, threat по классу сущности (услышал, не видел).
 			t = dmTarget.CreateSound(entity, type);
-			t.SetThreat(DM_NOISE_THREAT);
+			t.SetThreat(dmTarget.ThreatForEntity(entity));
 			AddTarget(t);
 			#ifdef SERVER
 			dmBotAdmLog.LogHeardTarget(m_Pawn, type, position, spread);
@@ -2250,6 +2252,7 @@ class dmAISurvivor
 			return;
 
 		t.m_LastContact = GetGame().GetTickTime();
+		t.SetEverHeard(true);
 		if (!t.IsVisible())
 		{
 			if (!t.m_EverSeen)
@@ -2496,7 +2499,7 @@ class dmAISurvivor
 			if (e && !e.IsAlive())
 				continue;
 			bool hostileSpread = t.m_Threat >= DM_ATTACK_THREAT_THRESHOLD;
-			if (hostileSpread)
+			if (hostileSpread && t.HaveEverHeard() && !t.HaveEverSeen())
 				return t;
 		}
 		return null;
@@ -2519,6 +2522,7 @@ class dmAISurvivor
 	void ForgetStaleTargets(float timeout)
 	{
 		float now = GetGame().GetTickTime();
+		vector botPos = GetPosition();
 		int i;
 		ref array<ref dmTarget> targets = GetTargets();
 		for (i = targets.Count() - 1; i >= 0; i--)
@@ -2527,7 +2531,8 @@ class dmAISurvivor
 			// default contact - it means that the record is just added
 			if ( t.m_LastContact == 0 )
 				t.m_LastContact = GetGame().GetTickTime();
-			if (!t.m_Entity || now - t.m_LastContact > timeout || !t.m_Entity.IsAlive())
+			if (!t.m_Entity || now - t.m_LastContact > timeout || !t.m_Entity.IsAlive()
+				|| (t.m_LastPosition != vector.Zero && vector.Distance(botPos, t.m_LastPosition) > DM_TARGET_MAX_DISTANCE))
 				RemoveTarget(t);
 		}
 	}

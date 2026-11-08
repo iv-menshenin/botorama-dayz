@@ -29,6 +29,8 @@ class dmTarget
 	float m_LastDistance;           // последнее известное расстояние до цели
 	bool m_HasLOS = false;          // видна в последнем скане
 	bool m_EverSeen = false;        // бот хоть раз видел цель (LOS-успех); false = создана слухом и ещё не видна
+	bool m_EverHeard = false;       // бот хоть раз слышал цель (шум от неё создал/обновил звуковую цель)
+	float m_LastSeen = 0.0;         // GetGame().GetTickTime() последнего зрительного контакта; 0 = никогда не видел
 	float m_LastContact = 0.0;      // GetGame().GetTickTime() последнего контакта
 	float m_LastDamage = 0.0;       // GetGame().GetTickTime() последнего полученного урона
 
@@ -223,6 +225,15 @@ class dmTarget
 		return t;
 	}
 
+	//! Угроза «слышимой» цели по классу сущности (зеркалит CreateIdentification).
+	static float ThreatForEntity(EntityAI entity)
+	{
+		if (PlayerBase.Cast(entity)) return DM_TARGET_THREAT_PLAYER;
+		if (ZombieBase.Cast(entity)) return DM_TARGET_THREAT_ZOMBIE;
+		if (AnimalBase.Cast(entity)) return DM_TARGET_THREAT_ANIMAL;
+		return DM_NOISE_THREAT;   // неживое/неизвестное — старый плоский порог
+	}
+
 	//! Фабрика: звуковая цель по типу шума (dmNoiseType).
 	static dmTargetSound CreateSound(EntityAI entity, int noiseType)
 	{
@@ -278,6 +289,18 @@ class dmTarget
 	void SetFriendly(bool v)               { m_Friendly = v; }
 	bool EverSeen()                        { return m_EverSeen; }
 	void SetEverSeen(bool v)               { m_EverSeen = v; }
+	bool HaveEverSeen()                    { return m_EverSeen; }
+	bool HaveEverHeard()                   { return m_EverHeard; }
+	void SetEverHeard(bool v)              { m_EverHeard = v; }
+	void SetLastSeen(float v)              { m_LastSeen = v; }
+	float LastSeen()                       { return m_LastSeen; }
+	//! Сколько секунд прошло с последнего зрительного контакта; -1 если никогда не видел.
+	float LastSeenTime()
+	{
+		if (m_LastSeen <= 0.0)
+			return -1.0;
+		return GetGame().GetTickTime() - m_LastSeen;
+	}
 	void SetLastPosition(vector v)         { m_LastPosition = v; }
 	void SetLastPositionSpread(float v)    { m_LastPositionSpread = v; }
 

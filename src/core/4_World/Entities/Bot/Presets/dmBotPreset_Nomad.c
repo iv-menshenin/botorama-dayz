@@ -11,6 +11,7 @@ class dmBotPreset_Nomad
 		dmBotState explore = new dmBotState_Exploration();
 		dmBotState fight   = new dmBotState_Fighting();
 		dmBotState shoot   = new dmBotState_Shooting();
+		dmBotState hunting = new dmBotState_Hunting();
 		dmBotState flank   = new dmBotState_Flanking();
 		dmBotState kamping = new dmBotState_Kamping();
 		dmBotState rushing = new dmBotState_Rushing();
@@ -22,6 +23,7 @@ class dmBotPreset_Nomad
 		fsm.AddState(explore, "Exploration");
 		fsm.AddState(fight, "Fighting");
 		fsm.AddState(shoot, "Shooting");
+		fsm.AddState(hunting, "Hunting");
 		fsm.AddState(flank, "Flanking");
 		fsm.AddState(kamping, "Kamping");
 		fsm.AddState(rushing, "Rushing");
@@ -35,6 +37,7 @@ class dmBotPreset_Nomad
 		idle.AddTransition(kamping, 2.0).Require(dmBotConditions.Kamping());
 		idle.AddTransition(rushing, 2.0).Require(dmBotConditions.Rushing());
 		idle.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
+		idle.AddTransition(hunting, 1.0);
 		idle.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		idle.AddTransition(getwater, 2.0).Require(dmBotConditions.NeedsWater());
 
@@ -44,6 +47,7 @@ class dmBotPreset_Nomad
 		explore.AddTransition(kamping, 2.0).Require(dmBotConditions.Kamping());
 		explore.AddTransition(rushing, 2.0).Require(dmBotConditions.Rushing());
 		explore.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
+		explore.AddTransition(hunting, 1.0);
 		explore.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		explore.AddTransition(getwater, 2.0).Require(dmBotConditions.NeedsWater());
 		explore.AddTransition(idle, 0.1);
@@ -54,6 +58,7 @@ class dmBotPreset_Nomad
 		travel.AddTransition(kamping, 2.0).Require(dmBotConditions.Kamping());
 		travel.AddTransition(rushing, 2.0).Require(dmBotConditions.Rushing());
 		travel.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
+		travel.AddTransition(hunting, 1.0);
 		travel.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		travel.AddTransition(getwater, 2.0).Require(dmBotConditions.NeedsWater());
 
@@ -65,6 +70,9 @@ class dmBotPreset_Nomad
 		fight.AddTransition(travel, 1.0);
 		shoot.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
 		fight.AddTransition(medical, 2.0).Require(dmBotConditions.MedicalCare());
+		hunting.AddTransition(fight, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShoot().Not()));
+		hunting.AddTransition(shoot, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.CanShootVisible()));
+		hunting.AddTransition(idle, 0.5);
 		shoot.AddTransition(flank, 2.0).Require(dmBotConditions.HasHostile().And(dmBotConditions.Flanking()));
 		shoot.AddTransition(kamping, 2.0).Require(dmBotConditions.Kamping());
 		shoot.AddTransition(rushing, 2.0).Require(dmBotConditions.Rushing());

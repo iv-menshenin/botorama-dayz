@@ -208,6 +208,7 @@ class dmVision
 				t.SetLastPositionSpread(0.0);
 				t.SetLastContact(now);
 				t.SetEverSeen(true);
+				t.SetLastSeen(now);
 			}
 		}
 

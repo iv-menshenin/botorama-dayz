@@ -669,6 +669,9 @@ static const float DM_UNTIE_DURATION = 3.0;
 //! Target memory: seconds without contact before a remembered target is forgotten.
 static const float DM_TARGET_FORGET_TIME = 300.0;
 
+//! Target memory: цель дальше этого (м) удаляется из памяти независимо от контакта.
+static const float DM_TARGET_MAX_DISTANCE = 1100.0;
+
 //! Aggro через прицеливание: бот считает игрока враждебным, если тот целится
 //! в него (IsRaised + огнестрел в руках + прицел в силуэт бота). Угловое окно —
 //! угловой размер бота (ширина/высота) с запасом DM_AGGRO_AIM_ENLARGE.
