@@ -1965,6 +1965,18 @@ class dmAISurvivor
 		#endif
 
 		ReplaceTarget(entity, dmTarget.CreateIdentification(entity));
+
+		//! Приветствие: увидел нового не-враждебного игрока/бота (threat < 0.5).
+		PlayerBase p = PlayerBase.Cast(entity);
+		if (p && target.Threat() < DM_ATTACK_THREAT_THRESHOLD)
+		{
+			int from = 7;
+			if (target.Threat() >= 0.45)
+				from = 1;
+			else if (target.Threat() >= 0.2)
+				from = 5;
+			Say(dmVoiceCategory.GREETING, from, 10);
+		}
 	}
 
 	//! Опознать цели, попавшие в прямую видимость (Dummy/Sound → Identification).
