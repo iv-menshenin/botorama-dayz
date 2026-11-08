@@ -1041,10 +1041,14 @@ class dmE2EBridge
 		}
 	}
 
-	//! "spawn" — create a named bot at a ground-snapped position.
+	//! "spawn" — create a named bot at a ground-snapped position. ClassName
+	//! (optional) selects the bot model (a CfgVehicles class, e.g.
+	//! dmAI_SurvivorM_Francis); empty → default dmAI_SurvivorM_Denis.
 	private void RunSpawn(dmE2EStep step, dmE2EStepResult r)
 	{
 		ref dmAISurvivor bot = new dmAISurvivor();
+		if (step.ClassName != "")
+			bot.SetModel(step.ClassName);
 		PlayerBase pawn = bot.Spawn(ResolveWorldPos(step.Pos), Vector(step.Yaw, 0, 0));
 		if (pawn)
 		{
