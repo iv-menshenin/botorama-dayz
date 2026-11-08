@@ -214,7 +214,7 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 				vector hitNormal;
 				int hitZone = -1;
 				set<Object> hitObjects = new set<Object>;
-				if (!DayZPhysics.RaycastRV(rayStart, rayEnd, hitPos, hitNormal, hitZone, hitObjects, null, m_Player, false, false, ObjIntersectIFire, 0.0, CollisionFlags.ALLOBJECTS))
+				if (!dmPhysicsProbe.CastRV(rayStart, rayEnd, hitPos, hitNormal, hitZone, hitObjects, null, m_Player, false, false, ObjIntersectIFire, 0.0, CollisionFlags.ALLOBJECTS))
 				{
 					#ifdef DM_BOT_DEBUG_DAMAGE
 					dmBotLog.Debug(name, "EvaluateHit: raycast miss (nothing in reach)");

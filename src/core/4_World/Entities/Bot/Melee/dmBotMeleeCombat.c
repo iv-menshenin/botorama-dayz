@@ -52,7 +52,7 @@ class dmBotMeleeCombat : DayZPlayerImplementMeleeCombat
 		int hitZone = -1;
 		set<Object> hitObjects = new set<Object>;
 
-		if (DayZPhysics.RaycastRV(rayStart, rayEnd, hitPos, hitNormal, hitZone, hitObjects, null, m_DZPlayer, false, false, ObjIntersectIFire, 0.0, CollisionFlags.ALLOBJECTS) && hitZone >= 0)
+		if (dmPhysicsProbe.CastRV(rayStart, rayEnd, hitPos, hitNormal, hitZone, hitObjects, null, m_DZPlayer, false, false, ObjIntersectIFire, 0.0, CollisionFlags.ALLOBJECTS) && hitZone >= 0)
 		{
 			SetHitZoneIdx(hitZone);
 			SetHitPos(hitPos);

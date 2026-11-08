@@ -207,7 +207,7 @@ class dmBotPathfinder
 		vector hitPos;
 		vector hitNormal;
 		float hitFrac;
-		bool hit = DayZPhysics.RayCastBullet(from, to, PhxInteractionLayers.ITEM_LARGE | PhxInteractionLayers.BUILDING | PhxInteractionLayers.VEHICLE, null, hitObj, hitPos, hitNormal, hitFrac);
+		bool hit = dmPhysicsProbe.CastBullet(from, to, PhxInteractionLayers.ITEM_LARGE | PhxInteractionLayers.BUILDING | PhxInteractionLayers.VEHICLE, null, hitObj, hitPos, hitNormal, hitFrac);
 		if (!hit || !hitObj)
 			return false;
 
@@ -404,7 +404,7 @@ class dmBotPathfinder
 		RaycastRVParams rp = new RaycastRVParams(pos + Vector(0.0, 1.0, 0.0), pos + Vector(0.0, -50.0, 0.0), ignoreObj);
 		rp.flags = CollisionFlags.ALLOBJECTS;
 		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		if (DayZPhysics.RaycastRVProxy(rp, hits) && hits.Count() > 0)
+		if (dmPhysicsProbe.CastProxy(rp, hits) && hits.Count() > 0)
 		{
 			building = Building.Cast(hits[0].obj);
 			if (building)
@@ -414,7 +414,7 @@ class dmBotPathfinder
 		RaycastRVParams rpUp = new RaycastRVParams(pos + Vector(0.0, 1.0, 0.0), pos + Vector(0.0, 25.0, 0.0), ignoreObj);
 		rpUp.flags = CollisionFlags.ALLOBJECTS;
 		ref array<ref RaycastRVResult> hitsUp = new array<ref RaycastRVResult>;
-		if (DayZPhysics.RaycastRVProxy(rpUp, hitsUp) && hitsUp.Count() > 0)
+		if (dmPhysicsProbe.CastProxy(rpUp, hitsUp) && hitsUp.Count() > 0)
 		{
 			building = Building.Cast(hitsUp[0].obj);
 			if (building)

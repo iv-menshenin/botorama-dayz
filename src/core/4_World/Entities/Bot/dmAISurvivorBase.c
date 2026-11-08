@@ -681,7 +681,7 @@ class dmAISurvivorBase : PlayerBase
 		vector hitPos;
 		vector hitNormal;
 		float hitFrac;
-		bool hit = DayZPhysics.RayCastBullet(from, to, PhxInteractionLayers.ITEM_LARGE | PhxInteractionLayers.BUILDING | PhxInteractionLayers.VEHICLE, null, hitObj, hitPos, hitNormal, hitFrac);
+		bool hit = dmPhysicsProbe.CastBullet(from, to, PhxInteractionLayers.ITEM_LARGE | PhxInteractionLayers.BUILDING | PhxInteractionLayers.VEHICLE, null, hitObj, hitPos, hitNormal, hitFrac);
 		if (!hit)
 		{
 			#ifdef DM_BOT_DEBUG_FSM

@@ -1180,7 +1180,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		RaycastRVParams low = new RaycastRVParams(pos + Vector(0.0, 0.3, 0.0), probe + Vector(0.0, 1.0, 0.0), bot.GetPawn());
 		low.flags = CollisionFlags.ALLOBJECTS;
 		ref array<ref RaycastRVResult> lowHits = new array<ref RaycastRVResult>;
-		if (DayZPhysics.RaycastRVProxy(low, lowHits) && lowHits.Count() > 0 && lowHits[0].obj)
+		if (dmPhysicsProbe.CastProxy(low, lowHits) && lowHits.Count() > 0 && lowHits[0].obj)
 		{
 			//! Дерево/куст НЕ карабкабельно — не ставить climb-candidate.
 			if (!lowHits[0].obj.IsTree() && !lowHits[0].obj.IsBush())
@@ -1204,7 +1204,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		RaycastRVParams eye = new RaycastRVParams(pos + Vector(0.0, 1.5, 0.0), probe + Vector(0.0, 1.5, 0.0), bot.GetPawn());
 		eye.flags = CollisionFlags.ALLOBJECTS;
 		ref array<ref RaycastRVResult> eyeHits = new array<ref RaycastRVResult>;
-		if (DayZPhysics.RaycastRVProxy(eye, eyeHits) && eyeHits.Count() > 0)
+		if (dmPhysicsProbe.CastProxy(eye, eyeHits) && eyeHits.Count() > 0)
 		{
 			Building building = Building.Cast(eyeHits[0].obj);
 			if (building)
@@ -1225,7 +1225,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		tree.type = ObjIntersectGeom;
 		tree.flags = CollisionFlags.ALLOBJECTS;
 		ref array<ref RaycastRVResult> treeHits = new array<ref RaycastRVResult>;
-		if (DayZPhysics.RaycastRVProxy(tree, treeHits) && treeHits.Count() > 0)
+		if (dmPhysicsProbe.CastProxy(tree, treeHits) && treeHits.Count() > 0)
 		{
 			Object to = treeHits[0].obj;
 			if (to && (to.IsTree() || to.IsBush()))
@@ -1294,7 +1294,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		vector contactPos;
 		vector contactDir;
 		int contactComponent;
-		return DayZPhysics.RaycastRV(beg, end, contactPos, contactDir, contactComponent, null, null, pawn, false, false, ObjIntersectGeom);
+		return dmPhysicsProbe.CastRV(beg, end, contactPos, contactDir, contactComponent, null, null, pawn, false, false, ObjIntersectGeom);
 	}
 
 	//! Re-aim the navmesh path at m_Goal. On failure m_HasPath becomes false and
@@ -1385,7 +1385,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		rp.flags = CollisionFlags.ALLOBJECTS;
 		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
 		string hitType = "none";
-		if (DayZPhysics.RaycastRVProxy(rp, hits) && hits.Count() > 0 && hits[0].obj)
+		if (dmPhysicsProbe.CastProxy(rp, hits) && hits.Count() > 0 && hits[0].obj)
 			hitType = hits[0].obj.GetType();
 		dmBotLog.Debug(bot.GetName(), "[PATH] RoofProbe " + label + " pt=" + pt + " hit=" + hitType);
 	}
@@ -1464,7 +1464,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 			rp.type = ObjIntersectView;
 			rp.flags = CollisionFlags.NEARESTCONTACT;
 			ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-			if (DayZPhysics.RaycastRVProxy(rp, hits) && hits.Count() > 0)
+			if (dmPhysicsProbe.CastProxy(rp, hits) && hits.Count() > 0)
 			{
 				building = Building.Cast(hits[0].obj);
 				if (building)
@@ -1644,7 +1644,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		vector contactPos;
 		vector contactDir;
 		int contactComponent;
-		if (!DayZPhysics.RaycastRV(beg, end, contactPos, contactDir, contactComponent, null, null, pawn, false, false, ObjIntersectGeom))
+		if (!dmPhysicsProbe.CastRV(beg, end, contactPos, contactDir, contactComponent, null, null, pawn, false, false, ObjIntersectGeom))
 			return false;
 
 		float fallHeight = botPos[1] - contactPos[1];
@@ -1816,7 +1816,7 @@ class dmBotIntent_MoveTo : dmBotIntent
 		vector contactPos;
 		vector contactDir;
 		int contactComponent;
-		if (!DayZPhysics.RaycastRV(beg, end, contactPos, contactDir, contactComponent, null, null, pawn, false, false, ObjIntersectGeom))
+		if (!dmPhysicsProbe.CastRV(beg, end, contactPos, contactDir, contactComponent, null, null, pawn, false, false, ObjIntersectGeom))
 			return false;
 
 		float fallHeight = botPos[1] - contactPos[1];
@@ -1895,7 +1895,7 @@ class dmBotIntent_MoveTo : dmBotIntent
         params.flags = CollisionFlags.ALLOBJECTS;
         
         array<ref RaycastRVResult> results = {};
-        if (DayZPhysics.RaycastRVProxy(params, results))
+        if (dmPhysicsProbe.CastProxy(params, results))
         {
             foreach (RaycastRVResult result : results)
             {

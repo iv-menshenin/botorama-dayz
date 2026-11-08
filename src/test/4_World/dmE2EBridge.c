@@ -7,7 +7,7 @@
 //!
 //! Ops: ping | spawn | moveto | follow | patrol | speed | loadout | look | say |
 //! shock | healplayer | setstat | bleed | infect | healbot | givebottle | restrain | give | givebayonet | givecargo | cargoto | wait | assert | snapshot | clearall | killall (named bots)
-//! plus the perf ops sleep | prof | brain (on/off — A/B brain-death toggle) | army (two-team fight) | meleefight (machete
+//! plus the perf ops sleep | prof | perfstats (dump/clear physics-query telemetry) | brain (on/off — A/B brain-death toggle) | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | spawnonroute | raycast | scanbox |
 //! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | invdump | wearprobe | dropprobe | enumdump | reqdump | rescanarsenal | strike | evade | orient | raiseweapon | getpos | setpos | clearobj (named objects), the car ops spawncar |
 //! driveto | drive | cardump | carstate | cardamage | carrepair | griddump, and observe (teleport a connected player). `wait`, `sleep`
@@ -821,6 +821,10 @@ class dmE2EBridge
 		else if (step.Op == "prof")
 		{
 			RunProf(step, r);
+		}
+		else if (step.Op == "perfstats")
+		{
+			RunPerfStats(step, r);
 		}
 		else if (step.Op == "brain")
 		{
@@ -2275,6 +2279,37 @@ class dmE2EBridge
 		else if (step.Value == "dump")
 		{
 			string path = dmBotProfiler.Dump();
+			if (path == "")
+			{
+				r.Ok = false;
+				r.Reason = "empty";
+			}
+			else
+			{
+				r.Dump.Insert(path);
+				r.Ok = true;
+				r.Reason = "dumped";
+			}
+		}
+		else
+		{
+			r.Ok = false;
+			r.Reason = "bad action";
+		}
+	}
+
+	//! "perfstats" — control the physics-query telemetry: Value dump | clear.
+	private void RunPerfStats(dmE2EStep step, dmE2EStepResult r)
+	{
+		if (step.Value == "clear")
+		{
+			dmPerfTelemetry.Clear();
+			r.Ok = true;
+			r.Reason = "cleared";
+		}
+		else if (step.Value == "dump")
+		{
+			string path = dmPerfTelemetry.Dump();
 			if (path == "")
 			{
 				r.Ok = false;

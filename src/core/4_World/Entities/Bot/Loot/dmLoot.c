@@ -297,7 +297,7 @@ class dmLoot
 		vector botPos = pawn.GetPosition();
 		vector minPos = botPos - Vector(radius, radius, radius);
 		vector maxPos = botPos + Vector(radius, radius, radius);
-		DayZPlayerUtils.SceneGetEntitiesInBox(minPos, maxPos, entities, QueryFlags.DYNAMIC);
+		dmPhysicsProbe.ScanBox(minPos, maxPos, entities, QueryFlags.DYNAMIC);
 	}
 
 	//! Предметы-на-земле (ItemBase вне чьего-либо инвентаря) в кубе radius вокруг пешки.

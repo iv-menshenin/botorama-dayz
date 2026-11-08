@@ -129,7 +129,7 @@ class dmBotIntent_RetrieveWeapon : dmBotIntent
 		rp.flags = CollisionFlags.NEARESTCONTACT;
 
 		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
+		if (!dmPhysicsProbe.CastProxy(rp, hits) || hits.Count() == 0)
 			return true;
 
 		Object o = hits[0].obj;

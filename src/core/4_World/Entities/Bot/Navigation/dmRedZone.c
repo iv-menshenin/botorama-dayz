@@ -97,7 +97,7 @@ class dmRedZone
 		vector minPos = pos - Vector(radius, radius, radius);
 		vector maxPos = pos + Vector(radius, radius, radius);
 		array<EntityAI> entities = new array<EntityAI>();
-		DayZPlayerUtils.SceneGetEntitiesInBox(minPos, maxPos, entities, QueryFlags.DYNAMIC);
+		dmPhysicsProbe.ScanBox(minPos, maxPos, entities, QueryFlags.DYNAMIC);
 
 		int i;
 		for (i = 0; i < entities.Count(); i++)

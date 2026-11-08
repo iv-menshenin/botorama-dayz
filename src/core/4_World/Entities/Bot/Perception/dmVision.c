@@ -436,7 +436,7 @@ class dmVision
 		rp.flags = CollisionFlags.NEARESTCONTACT;
 
 		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
+		if (!dmPhysicsProbe.CastProxy(rp, hits) || hits.Count() == 0)
 			return true;
 
 		//! sorted=true + NEARESTCONTACT → ближайший хит первый; для LOS важен

@@ -181,6 +181,13 @@ GetGame().RemoteObjectTreeCreate(item);   // Tree create
 - `static const int/float/bool` — константы компиляции, доступны как `Class.NAME`
   и без квалификатора в наследниках.
 - Каст: `Base.Cast(instance)` → `Base` или `null` (`PlayerBase pawn = PlayerBase.Cast(entity);`).
+- **НЕ называй свой статический метод `Cast`.** Это зарезервированный оператор приведения
+  (`Class.Cast(Object)`): вызов `dmPhysicsProbe.Cast(beg, end, ...)` компилятор разбирает как
+  приведение `beg` к `dmPhysicsProbe` → `Types 'dmPhysicsProbe' and 'vector' are not related` →
+  `Can't compile "World" script module!` → `Application crashed!` на старте. AddonBuilder это
+  НЕ ловит (билд «успешен», PBO собрался, но не грузится — ошибка только на загрузке сервера).
+  Называй обёртку иначе (`CastRV`, `Raycast`, ...). Готча поймана на `dmPhysicsProbe` (v3.497):
+  `Cast` → `CastRV` + 5 сайтов.
 - **Классификация типа сущности — через `Cast`, НЕ `IsInherited`.** `IsInherited(ZombieBase)`
   возвращает `false` для зомби без ИИ (`CreateObject(..., init_ai=false)`, напр. тест-маркер
   `bullet`-ручки), тогда как `ZombieBase.Cast(e)` даёт не-null. Поэтому `IsInherited(ZombieBase)`
@@ -487,6 +494,8 @@ class CfgSoundSets
   есть такой тип в DayZ) — конфликт имён. Конвенция: переменные/поля — camelCase (с маленькой
   буквы), классы/типы — с заглавной. Не начинай имя переменной с заглавной буквы.
 - `ref` для не-Managed-ссылок (поля/локалы), но НЕ на параметрах.
+- Не называй статический метод `Cast` — коллизия со встроенным приведением `Class.Cast`, падает
+  только на загрузке сервера (AddonBuilder не ловит). Имя обёртки — `CastRV`/`Raycast`/т.п.
 - `out`/`inout` — только в сигнатуре; на месте вызова без `out`/`inout`.
 - Генерик не вызывает методы `T` без каста.
 - Логи — через `#ifdef` на месте вызова; `dmBotLog.Error` не гейтится.

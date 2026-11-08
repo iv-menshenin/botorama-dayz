@@ -261,7 +261,7 @@ class dmBotIntent_Flank : dmBotIntent_MoveTo
 		rp.flags = CollisionFlags.NEARESTCONTACT;
 
 		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
+		if (!dmPhysicsProbe.CastProxy(rp, hits) || hits.Count() == 0)
 			return true;
 
 		Object o = hits[0].obj;

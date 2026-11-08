@@ -878,7 +878,7 @@ class dmBotIntent_Drive : dmBotIntent_GetInVehicle
 		params.flags = CollisionFlags.ALLOBJECTS;
 		params.type = ObjIntersectGeom;
 		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		if (DayZPhysics.RaycastRVProxy(params, hits))
+		if (dmPhysicsProbe.CastProxy(params, hits))
 		{
 			Human driver = m_Car.CrewMember(DayZPlayerConstants.VEHICLESEAT_DRIVER);
 			int i;

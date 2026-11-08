@@ -1282,7 +1282,7 @@ class dmAISurvivor
 		rp.type = ObjIntersectView;
 		rp.flags = CollisionFlags.NEARESTCONTACT;
 		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
+		if (!dmPhysicsProbe.CastProxy(rp, hits) || hits.Count() == 0)
 			return false;
 
 		Building building = Building.Cast(hits[0].obj);
@@ -1332,7 +1332,7 @@ class dmAISurvivor
 		rp.type = ObjIntersectView;
 		rp.flags = CollisionFlags.NEARESTCONTACT;
 		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		if (!DayZPhysics.RaycastRVProxy(rp, hits) || hits.Count() == 0)
+		if (!dmPhysicsProbe.CastProxy(rp, hits) || hits.Count() == 0)
 			return false;
 
 		Building building = Building.Cast(hits[0].obj);
@@ -2987,6 +2987,10 @@ class dmAISurvivor
 	//! doesn't over-tick relative to the pawn simulation (see DM_BOT_TICK_INTERVAL).
 	static void TickAll(float pDt)
 	{
+		#ifdef DM_BOT_PROFILE
+		dmPerfTelemetry.BeginFrame();
+		#endif
+
 		s_TickAccum += pDt;
 		if (s_TickAccum < s_TickInterval)
 			return;

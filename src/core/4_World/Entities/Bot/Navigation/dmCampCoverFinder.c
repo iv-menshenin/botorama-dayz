@@ -195,9 +195,9 @@ class dmCampCoverJob
 		vector max = Vector(centerX + extX, groundY + DM_CAMP_SCAN_HEIGHT, centerZ + extZ);
 
 		array<EntityAI> statics = new array<EntityAI>();
-		DayZPlayerUtils.SceneGetEntitiesInBox(min, max, statics, QueryFlags.STATIC);
+		dmPhysicsProbe.ScanBox(min, max, statics, QueryFlags.STATIC);
 		array<EntityAI> dynamics = new array<EntityAI>();
-		DayZPlayerUtils.SceneGetEntitiesInBox(min, max, dynamics, QueryFlags.DYNAMIC);
+		dmPhysicsProbe.ScanBox(min, max, dynamics, QueryFlags.DYNAMIC);
 
 		int i;
 		EntityAI e;
@@ -419,7 +419,7 @@ class dmCampCoverJob
 		rp.flags = CollisionFlags.NEARESTCONTACT;
 
 		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
-		DayZPhysics.RaycastRVProxy(rp, hits);
+		dmPhysicsProbe.CastProxy(rp, hits);
 		if (hits.Count() == 0)
 			return true;
 

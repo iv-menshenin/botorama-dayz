@@ -128,6 +128,7 @@ class dmE2EStep
 | `clearall` / `killall` | — | `dmAISurvivor.ClearAll()` / `KillAll()` |
 | `sleep` | `Timeout` | **отложенный**: ждёт `Timeout` сек → `Ok`, `Reason="slept"` |
 | `prof` | `Value` (`start`/`stop`/`clear`/`dump`) | управление `dmBotProfiler`; `dump` кладёт путь CSV в `Steps[].Dump` |
+| `perfstats` | `Value` (`clear`/`dump`) | управление `dmPerfTelemetry` (телеметрия райкастов/сканбоксов); `dump` кладёт путь CSV `telemetry_*.csv` в `Steps[].Dump` |
 | `brain` | `Value` (`on`/`off`) | `dmAISurvivor.SetBrainEnabled(Value=="on")` — A/B «смерть мозга» (пешки живы, мозг отключён) |
 | `army` | `Count`, `Settlement`/`Pos`, `Radius`, `Preset`, `Spread` | спавн `Count` ботов двумя враждебными командами вокруг центра; оружие+патроны; пресет `shooting`/`combat` |
 | `meleefight` | `Who`, `Pos`, `Yaw`, `Zombies`, `ZombieDist`, `Preset` | спавн бота с мачете + `Zombies` зомби с мозгом вокруг (dist `ZombieDist`), зарегистрированных враждебными боту; пресет `survivor` (default) / `nomad` |

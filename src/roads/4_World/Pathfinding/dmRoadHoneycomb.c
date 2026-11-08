@@ -565,7 +565,7 @@ class dmRoadHoneycomb
 		params.flags = CollisionFlags.ALLOBJECTS;
 		params.sorted = true;
 		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>();
-		if (!DayZPhysics.RaycastRVProxy(params, hits))
+		if (!dmPhysicsProbe.CastProxy(params, hits))
 			return false;
 
 		#ifdef DM_BOT_DEBUG_ROADS
