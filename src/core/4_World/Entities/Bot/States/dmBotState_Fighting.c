@@ -74,6 +74,7 @@ class dmBotState_Fighting : dmBotState
 
 		dmAISurvivor bot = GetOwner();
 		bot.SetInCombat(true);
+		bot.Say(dmVoiceCategory.COMBAT);
 		m_PreferredSpeed = bot.GetPreferredSpeed();
 		bot.SetPreferredSpeed(3.0);
 

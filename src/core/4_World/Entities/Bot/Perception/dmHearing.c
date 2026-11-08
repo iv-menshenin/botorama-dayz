@@ -56,6 +56,10 @@ class dmHearing
 		if (type == dmNoiseType.SHOT)
 			m_Bot.OnGunshot(root);
 
+		//! Услышал чужой выстрел/взрыв — реплика HEARD_SHOT (кулдаун 5 мин в центре).
+		if (type == dmNoiseType.SHOT || type == dmNoiseType.EXPLOSION)
+			m_Bot.Say(dmVoiceCategory.HEARD_SHOT);
+
 		#ifdef DM_PERCEPTION_DEBUG
 		dmBotLog.Debug(m_Bot.GetName(), "[Noise] OnNoise I HEAR YOU: noice_position=" + position + " bot_position=" + m_Bot.GetPosition() + " strength=" + strength);
 		#endif

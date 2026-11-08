@@ -1604,7 +1604,10 @@ class dmAISurvivorBase : PlayerBase
 
 		//! Огнестрельное ранение: точка пулевой опасности (флаг + brown zone).
 		if (bot && damageType == DamageType.FIRE_ARM)
+		{
 			bot.RegisterBulletHit();
+			bot.Say(dmVoiceCategory.GOT_SHOT, 2, 3); // on_me_on_me, im_shot
+		}
 
 		//! Мили-урон: регистрация активной фазы мили (блокер вытеснения бой→лечение).
 		if (bot && damageType == DamageType.CLOSE_COMBAT)
