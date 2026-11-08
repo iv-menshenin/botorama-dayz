@@ -2381,6 +2381,7 @@ class dmAISurvivor
 			if (t.m_Friendly) continue;
 			if (!t.IsValidTarget()) continue;
 			if (!t.IsVisible()) continue;
+			if (!t.Identified()) continue;   // консистентно с GetHostileTargetEx
 			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
 			EntityAI e = t.m_Entity;
 			if (!e || !e.IsAlive()) continue;
@@ -2457,6 +2458,7 @@ class dmAISurvivor
 			dmTarget t = targets[i];
 			if (t.m_Friendly) continue;
 			if (!t.IsValidTarget()) continue;
+			if (!t.Identified()) continue;   // бой — только по опознанным целям (Player/Zombie/Animal)
 			if (visible && !t.IsVisible()) continue;
 
 			if (t.m_Threat < DM_ATTACK_THREAT_THRESHOLD) continue;
@@ -2499,7 +2501,7 @@ class dmAISurvivor
 			if (e && !e.IsAlive())
 				continue;
 			bool hostileSpread = t.m_Threat >= DM_ATTACK_THREAT_THRESHOLD;
-			if (hostileSpread && t.HaveEverHeard() && !t.HaveEverSeen())
+			if (hostileSpread && !t.Identified())
 				return t;
 		}
 		return null;
