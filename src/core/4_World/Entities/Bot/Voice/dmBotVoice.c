@@ -1,6 +1,6 @@
-//! dmBotVoice — категоризатор голосовых реплик: категории, число реплик, маппинг
-//! модели -> голос и lineId -> имя CfgSoundSets-сета. Звуки описаны в config.cpp,
-//! файлы лежат в voices/<voice>/<category>/<keyword>.ogg (плейсхолдеры до студии).
+//! dmBotVoice — категоризатор голосовых реплик: категории, число реплик, голос из
+//! конфига модели (dmBotVoice) и lineId -> имя CfgSoundSets-сета. Звуки описаны в
+//! config.cpp, файлы лежат в voices/<voice>/<category>/<keyword>.ogg (плейсхолдеры).
 enum dmVoiceCategory
 {
 	GREETING,        // Приветствия
@@ -14,17 +14,6 @@ enum dmVoiceCategory
 	COMBAT,          // враги, бой
 	ESCORT,          // сопровождение
 	DM_VOICE_CATEGORY_COUNT
-};
-
-//! Голос — отдельный набор реплик (default/severe/hasty/calm). Голос выводится из
-//! модели бота на клиенте и сервере, а НЕ входит в lineId.
-enum dmBotVoiceId
-{
-	VOICE_DEFAULT,
-	VOICE_SEVERE,
-	VOICE_HASTY,
-	VOICE_CALM,
-	DM_BOT_VOICE_COUNT
 };
 
 class dmBotVoice
@@ -72,44 +61,13 @@ class dmBotVoice
 		return keys.Count();
 	}
 
-	//! Имя папки голоса (default/severe/hasty/calm).
-	static string GetVoiceName(dmBotVoiceId voice)
+	//! Имя голоса из конфига модели (CfgVehicles dmBotVoice). Fallback "default".
+	static string GetVoiceName(notnull EntityAI entity)
 	{
-		switch (voice)
-		{
-		case dmBotVoiceId.VOICE_SEVERE: return "severe";
-		case dmBotVoiceId.VOICE_HASTY:  return "hasty";
-		case dmBotVoiceId.VOICE_CALM:   return "calm";
-		}
-		return "default";
-	}
-
-	//! Модель -> голос по имени класса (GetType()). 20 мужских моделей нарезаны по
-	//! 5 на голос; женские и неизвестные -> VOICE_DEFAULT.
-	static dmBotVoiceId GetVoiceForModel(string modelName)
-	{
-		switch (modelName)
-		{
-		case "dmAI_SurvivorM_Francis":
-		case "dmAI_SurvivorM_Guo":
-		case "dmAI_SurvivorM_Hassan":
-		case "dmAI_SurvivorM_Indar":
-		case "dmAI_SurvivorM_Jose":
-			return dmBotVoiceId.VOICE_SEVERE;
-		case "dmAI_SurvivorM_Kaito":
-		case "dmAI_SurvivorM_Lewis":
-		case "dmAI_SurvivorM_Manua":
-		case "dmAI_SurvivorM_Niki":
-		case "dmAI_SurvivorM_Oliver":
-			return dmBotVoiceId.VOICE_HASTY;
-		case "dmAI_SurvivorM_Peter":
-		case "dmAI_SurvivorM_Quinn":
-		case "dmAI_SurvivorM_Rolf":
-		case "dmAI_SurvivorM_Seth":
-		case "dmAI_SurvivorM_Taiki":
-			return dmBotVoiceId.VOICE_CALM;
-		}
-		return dmBotVoiceId.VOICE_DEFAULT;
+		string voice = entity.ConfigGetString("dmBotVoice");
+		if (voice == "")
+			return "default";
+		return voice;
 	}
 
 	//! Ключ реплики по lineId (cat = lineId/100, index = lineId%100). "" = нет реплики.
@@ -126,16 +84,16 @@ class dmBotVoice
 	}
 
 	//! lineId = category*100 + index (index 1..count). Пустая строка = нет реплики.
-	static string GetSoundSetName(dmBotVoiceId voice, int lineId)
+	static string GetSoundSetName(string voice, int lineId)
 	{
 		string keyword = GetKeyword(lineId);
 		if (keyword == "")
 			return "";
-		return "dmBotVoice_" + GetVoiceName(voice) + "_" + keyword + "_SoundSet";
+		return "dmBotVoice_" + voice + "_" + keyword + "_SoundSet";
 	}
 
 	//! Длительность рта (сек) — из конфига CfgSoundSets <set> duration. Fallback 1.0.
-	static float GetTalkDuration(dmBotVoiceId voice, int lineId)
+	static float GetTalkDuration(string voice, int lineId)
 	{
 		string name = GetSoundSetName(voice, lineId);
 		if (name == "")

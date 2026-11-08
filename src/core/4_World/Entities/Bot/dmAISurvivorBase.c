@@ -1176,7 +1176,7 @@ class dmAISurvivorBase : PlayerBase
 	//! Звук играет каждый клиент сам (звуки не реплицируются).
 	void PlayVoiceLineClient(int lineId)
 	{
-		dmBotVoiceId voice = dmBotVoice.GetVoiceForModel(GetType());
+		string voice = dmBotVoice.GetVoiceName(this);
 		string soundSet = dmBotVoice.GetSoundSetName(voice, lineId);
 		if (soundSet == "")
 		{
@@ -2065,7 +2065,7 @@ class dmAISurvivorBase : PlayerBase
 	{
 		if (lineId <= 0 || lineId >= DM_VOICE_LINE_MAX)
 			return;
-		dmBotVoiceId voice = dmBotVoice.GetVoiceForModel(GetType());
+		string voice = dmBotVoice.GetVoiceName(this);
 		if (m_VoiceLineNonce >= 65535)
 			m_VoiceLineNonce = 0;
 		m_VoiceLineId = lineId;

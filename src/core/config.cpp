@@ -89,6 +89,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Mirek : SurvivorM_Mirek
 	{
 		scope = 2;
+		dmBotVoice = "default";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -97,6 +98,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Denis : SurvivorM_Denis
 	{
 		scope = 2;
+		dmBotVoice = "default";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -105,6 +107,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Boris : SurvivorM_Boris
 	{
 		scope = 2;
+		dmBotVoice = "default";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -113,6 +116,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Cyril : SurvivorM_Cyril
 	{
 		scope = 2;
+		dmBotVoice = "default";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -121,6 +125,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Elias : SurvivorM_Elias
 	{
 		scope = 2;
+		dmBotVoice = "default";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -129,6 +134,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Francis : SurvivorM_Francis
 	{
 		scope = 2;
+		dmBotVoice = "severe";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -137,6 +143,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Guo : SurvivorM_Guo
 	{
 		scope = 2;
+		dmBotVoice = "severe";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -145,6 +152,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Hassan : SurvivorM_Hassan
 	{
 		scope = 2;
+		dmBotVoice = "severe";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -153,6 +161,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Indar : SurvivorM_Indar
 	{
 		scope = 2;
+		dmBotVoice = "severe";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -161,6 +170,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Jose : SurvivorM_Jose
 	{
 		scope = 2;
+		dmBotVoice = "severe";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -169,6 +179,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Kaito : SurvivorM_Kaito
 	{
 		scope = 2;
+		dmBotVoice = "hasty";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -177,6 +188,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Lewis : SurvivorM_Lewis
 	{
 		scope = 2;
+		dmBotVoice = "hasty";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -185,6 +197,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Manua : SurvivorM_Manua
 	{
 		scope = 2;
+		dmBotVoice = "hasty";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -193,6 +206,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Niki : SurvivorM_Niki
 	{
 		scope = 2;
+		dmBotVoice = "hasty";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -201,6 +215,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Oliver : SurvivorM_Oliver
 	{
 		scope = 2;
+		dmBotVoice = "hasty";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -209,6 +224,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Peter : SurvivorM_Peter
 	{
 		scope = 2;
+		dmBotVoice = "calm";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -217,6 +233,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Quinn : SurvivorM_Quinn
 	{
 		scope = 2;
+		dmBotVoice = "calm";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -225,6 +242,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Rolf : SurvivorM_Rolf
 	{
 		scope = 2;
+		dmBotVoice = "calm";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -233,6 +251,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Seth : SurvivorM_Seth
 	{
 		scope = 2;
+		dmBotVoice = "calm";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";
@@ -241,6 +260,7 @@ class CfgVehicles
 	class dmAI_SurvivorM_Taiki : SurvivorM_Taiki
 	{
 		scope = 2;
+		dmBotVoice = "calm";
 		class enfAnimSys : enfAnimSys
 		{
 			graphName = "dm_core\Animations\player_main.agr";

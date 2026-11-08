@@ -377,9 +377,9 @@ class CfgSoundSets
 - **`GetInstanceType()` на Entity/DayZPlayer возвращает `DayZPlayerInstanceType`
   (enum `INSTANCETYPE_SERVER`/`CLIENT`/`REMOTE`/`AI_*`), а НЕ имя класса модели.**
   Для имени класса (`"dmAI_SurvivorM_Mirek"`) используй `GetType()` (возвращает
-  `string`). `GetVoiceForModel(GetInstanceType())` всегда падал в fallback — маппинг
-  по имени модели требует `GetType()`. Не путать: в старых логах метка `instType=`
-  вводила в заблуждение (там был enum, а не имя модели).
+  `string`). Для чтения атрибута из CfgVehicles-класса сущности — `ConfigGetString("attr")`
+  (метод на `Object`/`EntityAI`, отсутствующий атрибут → `""`), а не `GetType()`-строку.
+  Не путать: в старых логах метка `instType=` вводила в заблуждение (там был enum, а не имя модели).
 - **`string.ToLower()`/`ToUpper()` — `proto int ToLower()`, мутируют строку на месте
   и возвращают `int` (не строку!)**. Нельзя в выражении/сравнении —
   `str.ToLower() == "x"` → `Incompatible parameter`. НАДО как отдельный statement:
