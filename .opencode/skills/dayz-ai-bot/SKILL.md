@@ -293,6 +293,10 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   - `TryAmbientChat(cat)` — фоновый трёп (IDLE/PATROL): персистентный таймер 15м + RandInt(0,15м).
   - Кулдаун — per-category `map<dmVoiceCategory,float> m_LastSpokeAt` + `dmBotVoice.GetCooldown(cat)`
     (дефолт `DM_VOICE_COOLDOWN_DEFAULT`=900с; GREETING 60с; WAKE/AIMED_AT/HEARD_SHOT 300с).
+  - **Гейт `CanSpeak()`**: `!IsUnconsciousStateOnly()` (НЕ `IsUnconscious()` — тот ещё true в момент
+    пробуждения из-за `COMMANDID_UNCONSCIOUS`) и `!IsModifierActive(MDF_BRAIN)` (Куру/прион). Блокирует ТОЛЬКО речь.
+  - **Оттяжка реакции**: `SayImpl` зовёт `CallLater(CreateVoiceIntent, RandomFloat(0.5..1.5)·1000, lineId)`
+    — реальный звук через 0.5–1.5 с. Кулдаун ставится в момент РЕШЕНИЯ (не звука).
 - **Интент** `dmBotIntent_Voice` — канал `VOICE`, `EXCLUSIVE`, personality-интент; `OnUpdate` → `SpeakLine` → `Finish`.
   Канал VOICE отдельный от LOOK/MOVE/STANCE — речь не блокирует движение/бой.
 - **Триггеры** (кто зовёт `Say`): HEARD_SHOT — `dmHearing.OnNoise` (SHOT/EXPLOSION, чужой);
@@ -300,9 +304,13 @@ description: Живой справочник по ИИ-ботам для DayZ (�
   COMBAT — `OnEntry` Fighting/Shooting; IDLE — `dmBotState_Idle.OnUpdate` → `TryAmbientChat(IDLE)`;
   PATROL — `Patrol.OnUpdate` → `TryAmbientChat(PATROL)` (только `IsMale`); ESCORT — `Follow.OnEntry` → `Say(ESCORT)`;
   WAKE — `UpdateUnconsciousBridge` при пробуждении; AIMED_AT — `dmBotIntent_EvadeAim.OnStart`;
-  GREETING — `TargetIdentified` (первое опознание игрока/бота, `threat < 0.5`, диапазон 7/5/1);
+  GREETING — `TargetIdentified` → `CallLater(MaybeGreet, 5с)`; `MaybeGreet` пере-проверяет гейты
+  (жив, `!IsInCombat()`, `HasLOS`, <`DM_GREET_MAX_DISTANCE`=50м) → `Say(GREETING)` + `PlayGreetingEmote()`
+  (эмоция `ID_EMOTE_GREETING`, своя оттяжка 0.5–1.5 с, длительность 1–3 с — **независимо от Say**, т.е.
+  играет даже в кулдауне речи) + `LookAtPlayer()` (HoldLook FULL);
   PASSENGER_CRASH — override `AddHealth` (урон от ДТП: `CarScript.DamageCrew` → `AddHealth("", "Health"/"Shock", -x)`,
-  **минуя `EEHitBy`**): по величине урона + `m_CrashKnocked` → `SayNoCooldown([3..5])` при пробуждении.
+  **минуя `EEHitBy`**): по величине урона + `m_CrashKnockTime` (float-таймстемп, окно `DM_CRASH_RECOVERY_WINDOW`=90с)
+  → `SayNoCooldown([3..5])` при пробуждении.
   См. `docs/plans/voice-triggers.md`, `docs/voices/voices.md`.
 
 ## Бой

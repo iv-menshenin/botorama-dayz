@@ -1,13 +1,20 @@
 # Оживление ботов — голосовые реплики по событиям
 
-> Статус: **реализовано полностью** (v3.483–v3.490, ветка `feature/multiple-voices`):
-> ядро + все 10 категорий (со всеми под-случаями). Содержимое категорий и правила выбора —
-> `docs/voices/voices.md` (единственный источник правды по репликам/триггерам/кулдаунам).
+> Статус: **реализовано полностью** (v3.483–v3.492, ветка `feature/multiple-voices`):
+> ядро + все 10 категорий (со всеми под-случаями) + «полировка» (оттяжка реакции, гейт состояния,
+> эмоция приветствия). Содержимое категорий и правила выбора — `docs/voices/voices.md`.
 
 ## Реализовано
 
 - **Ядро**: `dmBotVoice.GetCooldown(cat)`, per-category `m_LastSpokeAt`, `Say(cat, from, to)` /
   `SayNoCooldown(cat, from, to)` (+ `TryAmbientChat` для фонового трёпа). `SayCategory`/`ResetCooldown` удалены.
+- **Полировка** (v3.491–v3.492):
+  - **Оттяжка реакции**: `SayImpl` → `CallLater(CreateVoiceIntent, RandomFloat(0.5..1.5)с)`.
+  - **Гейт состояния** `CanSpeak()`: `!IsUnconsciousStateOnly()` + `!MDF_BRAIN` (Куру) — блокирует только речь.
+  - **Приветствие**: `TargetIdentified` → `CallLater(MaybeGreet, 5с)`; `MaybeGreet` гейтит (жив / `!IsInCombat()` /
+    `HasLOS` / <50м) → `Say(GREETING)` + эмоция `ID_EMOTE_GREETING` (своя оттяжка 0.5–1.5с, длительность 1–3с,
+    независимо от Say) + `LookAtPlayer` (HoldLook FULL).
+  - **ДТП-окно**: `m_CrashKnocked` (bool) → `m_CrashKnockTime` (float-таймстемп, окно 90с) — сброс безусловный.
 - **Триггеры (все 10 категорий)**:
   - HEARD_SHOT — `dmHearing.OnNoise` (SHOT/EXPLOSION, чужой).
   - GOT_SHOT — `EEHitBy` FIRE_ARM → `[2..3]`; BULLETIMPACT-шум → `[1..2]`; кровотек (фронт `IsBleeding`) → `[4..5]`.
@@ -17,9 +24,9 @@
   - ESCORT — `Follow.OnEntry`.
   - WAKE — `UpdateUnconsciousBridge` при пробуждении.
   - AIMED_AT — `dmBotIntent_EvadeAim.OnStart`.
-  - GREETING — `TargetIdentified` (первое опознание игрока/бота, threat<0.5, диапазон 7/5/1).
+  - GREETING — `TargetIdentified` → `MaybeGreet` (см. «Полировка»).
   - PASSENGER_CRASH — override `AddHealth`: урон от ДТП по величине (<10/20/30/≥30) +
-    «очнулся после ДТП» (`m_CrashKnocked` → `SayNoCooldown([3..5])`).
+    «очнулся после ДТП» (`m_CrashKnockTime` → `SayNoCooldown([3..5])`).
 
 ## Ключевые факты (ресёрч)
 
