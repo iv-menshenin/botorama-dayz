@@ -1647,6 +1647,46 @@ class dmAISurvivorBase : PlayerBase
 		}
 	}
 
+	//! Детект урона от ДТП: урон экипажу приходит через AddHealth("", "Health", -hp)
+	//! (CarScript.DamageCrew), МИНУЯ EEHitBy. Фиксируем падение Health пока бот в транспорте.
+	override void AddHealth(string zoneName, string healthType, float value)
+	{
+		super.AddHealth(zoneName, healthType, value);
+
+		if (healthType != "Health" || value >= 0.0 || !IsInVehicle())
+			return;
+
+		dmAISurvivor bot = dmAISurvivor.Find(this);
+		if (!bot)
+			return;
+
+		float damage = -value;
+		int from;
+		int to;
+		if (damage < 10.0)
+		{
+			from = 1; to = 1; // best_driver
+		}
+		else if (damage < 20.0)
+		{
+			from = 1; to = 2; // + not_firewood
+		}
+		else if (damage < 30.0)
+		{
+			from = 1; to = 3; // + should_take_bus
+		}
+		else
+		{
+			from = 4; to = 4; // that_hurt
+		}
+
+		#ifdef DM_BOT_DEBUG_VOICE
+		dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.AddHealth() crash damage=" + damage + " range=" + from + ".." + to);
+		#endif
+
+		bot.Say(dmVoiceCategory.PASSENGER_CRASH, from, to);
+	}
+
 	//! Death: run the vanilla PlayerBase.EEKilled chain. Its GetHive().
 	//! CharacterKill() is skipped for AI bots because the modded
 	//! DayZPlayerImplement.GetHive() returns null for INSTANCETYPE_AI_SERVER (no
