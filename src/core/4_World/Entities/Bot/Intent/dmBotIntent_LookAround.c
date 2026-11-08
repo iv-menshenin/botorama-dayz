@@ -123,6 +123,17 @@ class dmBotIntent_LookAround : dmBotIntent
 			if (roll == 4)
 				sign = -1.0;
 			m_BodyTarget = bodyYaw + sign * Math.RandomFloat(DM_SCAN_BODY_ANGLE_MIN, DM_SCAN_BODY_ANGLE_MAX);
+
+			dmTarget glance = bot.GetEverSeenGlanceTarget();
+			if (glance)
+			{
+				vector targetPos = glance.LastPosition();
+				vector myPos = bot.GetPosition();
+				vector toTarget = targetPos - myPos;
+				toTarget[1] = 0.0;
+				if (toTarget.LengthSq() > 0.0001)
+					m_BodyTarget = toTarget.VectorToAngles()[0];
+			}
 			m_Phase = 2;
 		}
 

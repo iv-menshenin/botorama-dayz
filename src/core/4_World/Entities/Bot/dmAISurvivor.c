@@ -2512,6 +2512,33 @@ class dmAISurvivor
 		return null;
 	}
 
+	//! Цель для EverSeen-glance: невидимая цель, которую бот хоть раз видел (m_EverSeen),
+	//! с известной позицией — для периодического доворота тела в Idle вместо случайного
+	//! угла. Возвращает самую «свежую по последнему взгляду» (наибольший m_LastSeen).
+	dmTarget GetEverSeenGlanceTarget()
+	{
+		dmTarget best = null;
+		float bestSeen = -1.0;
+		ref array<ref dmTarget> targets = GetTargets();
+		int i;
+		for (i = 0; i < targets.Count(); i++)
+		{
+			dmTarget t = targets[i];
+			if (!t.HaveEverSeen())
+				continue;
+			if (t.IsVisible())
+				continue;
+			if (!t.IsValidTarget())
+				continue;
+			if (t.LastSeen() > bestSeen)
+			{
+				bestSeen = t.LastSeen();
+				best = t;
+			}
+		}
+		return best;
+	}
+
 	//! Drop targets with no contact for longer than the timeout (backward loop —
 	//! safe while removing items).
 	void ForgetStaleTargets(float timeout)

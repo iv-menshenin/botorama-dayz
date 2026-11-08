@@ -1,0 +1,22 @@
+{
+  "Name": "everseen-glance",
+  "Timeout": 120,
+  "Comment": "Observer-руководство. Бот (preset hunting = Idle + Hunting) смотрит на цель полным разворотом -> dmVision ставит m_EverSeen=1 и LOS=1 (проверить в targetdump). Затем orient разворачивает бота на 180 (цель уходит за пределы конуса зрения -> LOS=0, но m_EverSeen остаётся). В Idle LookAround (m_AllowBodyTurn=true) бот должен периодически доворачиваться телом к LastKnownPosition цели (botdump.orient ~ азимут на targetdump.pos цели), а не в случайную сторону.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "bot", "Preset": "hunting", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "ptarget", "Preset": "survivor", "Pos": [4117, 0, 10821], "Yaw": 180 },
+    { "Op": "sleep", "Timeout": 2 },
+    { "Op": "look", "Who": "bot", "Target": "ptarget", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "orient", "Who": "bot", "Yaw": 180 },
+    { "Op": "sleep", "Timeout": 3 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "sleep", "Timeout": 20 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}
