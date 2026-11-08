@@ -1966,17 +1966,66 @@ class dmAISurvivor
 
 		ReplaceTarget(entity, dmTarget.CreateIdentification(entity));
 
-		//! Приветствие: увидел нового не-враждебного игрока/бота (threat < 0.5).
+		//! Кандидат на приветствие: новый не-враждебный игрок/бот (threat < 0.5).
+		//! Реальный грит — после окна видимости, с повторной проверкой гейтов.
 		PlayerBase p = PlayerBase.Cast(entity);
 		if (p && target.Threat() < DM_ATTACK_THREAT_THRESHOLD)
-		{
-			int from = 7;
-			if (target.Threat() >= 0.45)
-				from = 1;
-			else if (target.Threat() >= 0.2)
-				from = 5;
-			Say(dmVoiceCategory.GREETING, from, 10);
-		}
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(MaybeGreet, (int)(DM_GREET_VISIBILITY_TIME * 1000.0), false, entity);
+	}
+
+	//! Отложенное приветствие (после окна видимости): пере-проверяет гейты и запускает
+	//! реплику + эмоцию + поворот к игроку. Гейты: жив, не в бою, всё ещё виден (LOS),
+	//! ближе DM_GREET_MAX_DISTANCE.
+	void MaybeGreet(EntityAI entity)
+	{
+		if (!entity || !entity.IsAlive())
+			return;
+		if (IsInCombat())
+			return;
+
+		dmTarget t = FindTarget(entity);
+		if (!t || !t.HasLOS())
+			return;
+
+		if (vector.Distance(GetPosition(), entity.GetPosition()) > DM_GREET_MAX_DISTANCE)
+			return;
+
+		int from = 7;
+		if (t.Threat() >= 0.45)
+			from = 1;
+		else if (t.Threat() >= 0.2)
+			from = 5;
+
+		Say(dmVoiceCategory.GREETING, from, 10);
+		PlayGreetingEmote();
+		LookAtPlayer(entity);
+	}
+
+	//! Эмоция приветствия: отложена на свою оттяжку (независимо от Say) и длится 1–3 с.
+	void PlayGreetingEmote()
+	{
+		int delayMs = (int)(Math.RandomFloat(DM_VOICE_REACTION_DELAY_MIN, DM_VOICE_REACTION_DELAY_MAX) * 1000.0);
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(StartGreetingEmote, delayMs, false);
+	}
+
+	void StartGreetingEmote()
+	{
+		dmBotIntent_Emote emote = new dmBotIntent_Emote();
+		emote.m_EmoteID = EmoteConstants.ID_EMOTE_GREETING;
+		emote.m_Deadline = Math.RandomFloat(DM_VOICE_EMOTE_DURATION_MIN, DM_VOICE_EMOTE_DURATION_MAX);
+		emote.m_Priority = dmBotIntentPriority.DESIRABLE;
+		AddPersonalityIntent(emote);
+	}
+
+	//! Повернуться к игроку (персональный фокус зрения) на время приветствия.
+	void LookAtPlayer(EntityAI entity)
+	{
+		dmBotIntent_HoldLook look = new dmBotIntent_HoldLook();
+		look.m_Entity = entity;
+		look.m_Turn = dmBotLookTurn.FULL;
+		look.m_Priority = dmBotIntentPriority.DESIRABLE;
+		look.m_Deadline = DM_GREET_LOOK_DURATION;
+		AddPersonalityIntent(look);
 	}
 
 	//! Опознать цели, попавшие в прямую видимость (Dummy/Sound → Identification).
