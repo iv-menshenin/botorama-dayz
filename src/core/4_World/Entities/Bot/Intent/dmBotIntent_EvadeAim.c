@@ -73,6 +73,7 @@ class dmBotIntent_EvadeAim : dmBotIntent_MoveTo
 	override void OnStart(dmAISurvivor bot)
 	{
 		super.OnStart(bot);
+		bot.Say(dmVoiceCategory.AIMED_AT);
 
 		m_StallTimer = 0.0;
 		m_TickAccum = 0.0;

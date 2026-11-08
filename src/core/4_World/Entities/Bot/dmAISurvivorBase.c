@@ -1544,6 +1544,11 @@ class dmAISurvivorBase : PlayerBase
 				dmBotLog.Debug(GetCachedName(), "UnconsciousBridge: shock=" + shock + " -> WakeUp");
 				#endif
 			}
+
+			//! Очнулся после отключки — реплика WAKE (кулдаун 5 мин в центре).
+			dmAISurvivor bot = dmAISurvivor.Find(this);
+			if (bot)
+				bot.Say(dmVoiceCategory.WAKE);
 		}
 	}
 
