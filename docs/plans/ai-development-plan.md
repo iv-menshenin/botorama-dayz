@@ -171,3 +171,23 @@
   `spawn` c `Preset:"hunting"` для слушателя).
 - **Задержка звука (скорость звука)** — сделано: `dmHearing.OnNoise` → `HearNoise` через
   `CallLater(HearNoiseDelayed, d.Length()/DM_SOUND_SPEED*1000, ...)`; проверено (2 км ≈ 5.9 с).
+
+---
+
+## Оживление ботов — голосовые реплики по событиям
+
+> Воспроизведение (`SpeakLine` → net-var → `Play3D`) и 4 голоса × 52 реплики уже готовы
+> (`feature/multiple-voices`); интент `dmBotIntent_Voice` готов. Не хватало ТОЛЬКО триггеров
+> (никто не звал `SayCategory`) и покатегорийного кулдауна.
+
+26. `[~]` **Ядро речи** — `DM_VOICE_COOLDOWN_DEFAULT` (900с), `dmBotVoice.GetCooldown(cat)`,
+    per-category `m_LastSpokeAt` в `dmBotVoiceCenter`, методы `Say`/`SayNoCooldown` (категория +
+    диапазон `[from..to]`), делегаты `dmAISurvivor`, переписать `dmBotVoiceTest.c`.
+27. `[ ]` **Реактивные триггеры** — HEARD_SHOT (`dmHearing.OnNoise`), GOT_SHOT (урон/кровотек),
+    COMBAT (`OnEntry` Fighting/Shooting).
+28. `[ ]` **Фоновые триггеры** — IDLE/PATROL (таймер 15м+RandInt(0,15); PATROL только муж. модель),
+    ESCORT (Follow).
+29. `[ ]` **Контекстные триггеры** — WAKE (выход из нокаута), AIMED_AT (`dmBotIntent_EvadeAim`),
+    GREETING (не-враждебный игрок, диапазон по threat), PASSENGER_CRASH (урон от ДТП; очнулся — без кулдауна).
+
+Детали и правила выбора реплик — `docs/plans/voice-triggers.md` и `docs/voices/voices.md`.
