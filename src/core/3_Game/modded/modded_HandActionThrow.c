@@ -2,7 +2,7 @@
 //! cross-module bridge so that later ItemBase.EOnContact (landing) and
 //! DayZGame.ExplosionEffectsEx (grenade explosion) can attribute the noise to the
 //! right entity. The item cannot carry the field itself (InventoryItem is an
-//! engine class), so the association lives in dmNoiseThrowerBridge keyed by EntityAI.
+//! engine class), so the association lives in dmNoiseCulpritBridge keyed by EntityAI.
 modded class HandActionThrow
 {
 	override void Action(HandEventBase e)
@@ -13,7 +13,7 @@ modded class HandActionThrow
 		DayZPlayer player = DayZPlayer.Cast(e.m_Player);
 		if (item && player)
 		{
-			dmNoiseThrowerBridge.BindThrower(item, player);
+			dmNoiseCulpritBridge.Bind(item, player);
 			#ifdef DM_PERCEPTION_DEBUG
 			dmBotLog.Debug("", "[Noise] bind thrower " + item.GetType());
 			#endif

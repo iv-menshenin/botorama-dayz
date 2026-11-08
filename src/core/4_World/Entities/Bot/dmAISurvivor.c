@@ -2512,18 +2512,6 @@ class dmAISurvivor
 		return null;
 	}
 
-	//! Start a scan pass: mark every remembered target as not-seen.
-	void BeginTargetScan()
-	{
-		int i;
-		ref array<ref dmTarget> targets = GetTargets();
-		for (i = 0; i < targets.Count(); i++)
-		{
-			dmTarget t = targets[i];
-			t.m_HasLOS = false;
-		}
-	}
-
 	//! Drop targets with no contact for longer than the timeout (backward loop —
 	//! safe while removing items).
 	void ForgetStaleTargets(float timeout)

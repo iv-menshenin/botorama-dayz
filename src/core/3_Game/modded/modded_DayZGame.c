@@ -47,9 +47,7 @@ modded class DayZGame
 		super.ExplosionEffectsEx(source, directHit, componentIndex, energyFactor, explosionFactor, hitInfo);
 		#ifdef SERVER
 		EntityAI sourceEnt = EntityAI.Cast(source);
-		EntityAI culprit = dmNoiseThrowerBridge.GetThrower(sourceEnt);
-		if (!culprit)
-			culprit = dmNoiseThrowerBridge.GetTriggered(sourceEnt);
+		EntityAI culprit = dmNoiseCulpritBridge.Get(sourceEnt);
 		#ifdef DM_PERCEPTION_DEBUG
 		string src = "null";
 		if (sourceEnt)
@@ -61,8 +59,7 @@ modded class DayZGame
 		#endif
 		if (culprit)
 			dmNoiseSystem.AddNoise(culprit, hitInfo.GetPosition(), DM_NOISE_EXPLOSION_STRENGTH, dmNoiseType.EXPLOSION);
-		dmNoiseThrowerBridge.ClearThrower(sourceEnt);
-		dmNoiseThrowerBridge.ClearTriggered(sourceEnt);
+		dmNoiseCulpritBridge.Clear(sourceEnt);
 		#endif
 	}
 }

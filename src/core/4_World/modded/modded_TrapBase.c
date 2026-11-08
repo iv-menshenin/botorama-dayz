@@ -10,7 +10,7 @@ modded class TrapBase
 	{
 		if (victim)
 		{
-			dmNoiseThrowerBridge.BindTriggered(this, victim);
+			dmNoiseCulpritBridge.Bind(this, victim);
 			#ifdef DM_PERCEPTION_DEBUG
 			dmBotLog.Debug("", "[Noise] bind triggered " + victim.GetType());
 			#endif

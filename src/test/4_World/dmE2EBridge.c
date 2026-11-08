@@ -1278,12 +1278,12 @@ class dmE2EBridge
 
 	//! "explodenoise" — детерминированное потребление шума ВЗРЫВА через статик-мост.
 	//! Спавнит гранату (ClassName, default RGD5Grenade) рядом с ботом-источником (Who),
-	//! биндит кидателя в dmNoiseThrowerBridge и подрывает через ванильный Object.Explode.
+	//! биндит кидателя в dmNoiseCulpritBridge и подрывает через ванильный Object.Explode.
 	//! Ожидаемый эффект в RPT (DM_PERCEPTION_DEBUG) — проверяется грепом RPT, не result-JSON:
 	//!   [Noise] ExplosionEffectsEx source=<граната> culprit=<бот>
 	//!   [Noise] AddNoise type=5 src=<бот> strength=3000
 	//! Цепочка: Explode → DamageSystem.ExplosionDamage (native) → DayZGame.ExplosionEffectsEx
-	//! (modded в core/3_Game) → GetThrower → dmNoiseSystem.AddNoise(EXPLOSION).
+	//! (modded в core/3_Game) → Get → dmNoiseSystem.AddNoise(EXPLOSION).
 	private void RunExplodeNoise(dmE2EStep step, dmE2EStepResult r)
 	{
 		dmAISurvivor bot;
@@ -1319,7 +1319,7 @@ class dmE2EBridge
 		}
 		SetProbeLifetime(grenade);
 
-		dmNoiseThrowerBridge.BindThrower(grenade, pawn);
+		dmNoiseCulpritBridge.Bind(grenade, pawn);
 
 		//! Подрыв через ванильный Object.Explode (InitiateExplosion — protected, недоступен
 		//! из моста). Explode сам резолвит ammoType из config гранаты.

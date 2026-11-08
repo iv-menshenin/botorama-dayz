@@ -10,12 +10,12 @@ modded class ItemBase
 	{
 		super.EOnContact(other, extra);
 		#ifdef SERVER
-		EntityAI thrower = dmNoiseThrowerBridge.GetThrower(this);
+		EntityAI thrower = dmNoiseCulpritBridge.Get(this);
 		if (thrower)
 		{
 			dmNoiseSystem.AddNoise(thrower, GetPosition(), DM_NOISE_DROP_STRENGTH, dmNoiseType.DROP);
 			if (!ExplosivesBase.Cast(this))
-				dmNoiseThrowerBridge.ClearThrower(this);   // гасит отскок; для взрывчатки кидатель нужен позже (взрыв)
+				dmNoiseCulpritBridge.Clear(this);   // гасит отскок; для взрывчатки кидатель нужен позже (взрыв)
 		}
 		#endif
 	}

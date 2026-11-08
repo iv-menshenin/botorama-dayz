@@ -17,7 +17,7 @@ modded class TripwireTrap
 				ItemBase attachment = ItemBase.Cast(GetInventory().GetAttachmentFromIndex(att));
 				if (attachment)
 				{
-					dmNoiseThrowerBridge.BindTriggered(attachment, victim);
+					dmNoiseCulpritBridge.Bind(attachment, victim);
 					#ifdef DM_PERCEPTION_DEBUG
 					dmBotLog.Debug("", "[Noise] bind grenade (tripwire) " + attachment.GetType());
 					#endif
@@ -26,7 +26,7 @@ modded class TripwireTrap
 		}
 		//! The tripwire itself never explodes — drop its own binding (left by
 		//! modded TrapBase.SnapOnObject) so it does not become a stale entry.
-		dmNoiseThrowerBridge.ClearTriggered(this);
+		dmNoiseCulpritBridge.Clear(this);
 		super.OnSteppedOn(victim);
 	}
 	#endif
