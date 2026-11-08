@@ -1176,7 +1176,8 @@ class dmAISurvivorBase : PlayerBase
 	//! Звук играет каждый клиент сам (звуки не реплицируются).
 	void PlayVoiceLineClient(int lineId)
 	{
-		string soundSet = dmBotVoice.GetSoundSetName(lineId);
+		dmBotVoiceId voice = dmBotVoice.GetVoiceForModel(GetType());
+		string soundSet = dmBotVoice.GetSoundSetName(voice, lineId);
 		if (soundSet == "")
 		{
 			dmBotLog.Error(GetCachedName(), "dmAISurvivorBase.PlayVoiceLineClient() unknown lineId=" + lineId);
@@ -1202,7 +1203,7 @@ class dmAISurvivorBase : PlayerBase
 		GetGame().GetSoundScene().Play3D(soundObject, builder);
 
 		#ifdef DM_BOT_DEBUG_VOICE
-		dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.PlayVoiceLineClient() lineId=" + lineId + " soundSet=" + soundSet + " instType=" + GetInstanceType());
+		dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.PlayVoiceLineClient() lineId=" + lineId + " soundSet=" + soundSet + " model=" + GetType() + " voice=" + voice);
 		#endif
 	}
 #endif
@@ -2064,15 +2065,16 @@ class dmAISurvivorBase : PlayerBase
 	{
 		if (lineId <= 0 || lineId >= DM_VOICE_LINE_MAX)
 			return;
+		dmBotVoiceId voice = dmBotVoice.GetVoiceForModel(GetType());
 		if (m_VoiceLineNonce >= 65535)
 			m_VoiceLineNonce = 0;
 		m_VoiceLineId = lineId;
 		m_VoiceLineNonce++;
-		m_TalkDuration = dmBotVoice.GetTalkDuration(lineId);
+		m_TalkDuration = dmBotVoice.GetTalkDuration(voice, lineId);
 		m_TalkDelta = 0.0;
 		SetSynchDirty();
 		#ifdef DM_BOT_DEBUG_VOICE
-		dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.SpeakLine() lineId=" + lineId + " nonce=" + m_VoiceLineNonce + " instType=" + GetInstanceType());
+		dmBotLog.Debug(GetCachedName(), "dmAISurvivorBase.SpeakLine() lineId=" + lineId + " nonce=" + m_VoiceLineNonce + " model=" + GetType() + " voice=" + voice);
 		#endif
 	}
 
