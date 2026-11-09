@@ -605,6 +605,26 @@ static const float DM_DAWN_DUSK_WINDOW = 10.0;
 //! Освещённость: интервал пересчёта кэша света на мозге (сек).
 static const float DM_ILLUMINATION_CACHE_INTERVAL = 3.0;
 
+//! Освещённость: коэффициенты эмиссии собственного источника света игрока
+//! (0..1, калиброваны по Expansion eAI_GetNightVisibility). EmitLightIntensivity
+//! берёт МАКСИМУМ по активным источникам; IlluminationIntensivity — бинарный
+//! флаг «источник даёт зрение хозяину», решается ЕДИНЫМ порогом
+//! DM_ILLUMINATION_THRESHOLD (emit > порог) либо NVG/NV-оптикой (emit=0, зрение есть).
+static const float DM_EMIT_UNIVERSAL_WEAPON = 0.045; // UniversalLight на оружии (прожектор, гейт IsRaised)
+static const float DM_EMIT_UNIVERSAL_HELMET = 0.0255; // UniversalLight на шлеме/в руках (широкий, без гейта)
+static const float DM_EMIT_TLR = 0.0185;             // пистолетный фонарь TLRLight
+static const float DM_EMIT_FLASHLIGHT = 0.0255;      // ручной фонарь
+static const float DM_EMIT_HEADTORCH = 0.0255;       // налобник Headtorch_ColorBase
+static const float DM_EMIT_TORCH = 0.03;             // факел FlammableBase
+static const float DM_EMIT_ROADFLARE = 0.03;         // дорожный фальшфейер
+static const float DM_EMIT_CHEMLIGHT = 0.0075;       // химсвет (слабее порога — зрение не даёт)
+
+//! Порог «источник даёт зрение хозяину»: emit выше этого → illumination=1.
+//! Отделяет реальные светильники (факел/roadflare 0.03, фонарь/налобник 0.0255,
+//! TLRLight 0.0185) от химсвета (0.0075). NVG/NV-оптика дают зрение независимо
+//! от порога (emit=0).
+static const float DM_ILLUMINATION_THRESHOLD = 0.01;
+
 //! Perception: horizontal field of view (degrees). A target within ±half this angle
 //! from the look direction counts as "in front".
 static const float DM_PERCEPTION_FOV = 160.0;

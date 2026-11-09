@@ -1358,9 +1358,10 @@ class dmE2EBridge
 		r.Reason = "lightdump logged";
 	}
 
-	//! "givelight" — дать боту источник света (ClassName) в руки. Головные
-	//! источники (Headtorch_*/NVGoggles) и SlotName="head" кладутся в слот головы
-	//! (Headgear), остальные — CreateInHands.
+	//! "givelight" — дать боту источник света (ClassName) в руки. NVGoggles — под-слот:
+	//! сперва ремешок NVGHeadstrap на Eyewear, затем сами очки в его под-слот "NVG"
+	//! (research light-sources-classification.md §3/§5). Налобник Headtorch_* и
+	//! SlotName="head" — в Headgear, остальные — CreateInHands.
 	private void RunGiveLight(dmE2EStep step, dmE2EStepResult r)
 	{
 		dmAISurvivor bot;
@@ -1383,23 +1384,61 @@ class dmE2EBridge
 		if (cls == "")
 			cls = "Flashlight";
 
-		int headSlotId = InventorySlots.GetSlotIdFromString("Headgear");
-
-		if (step.SlotName == "head" || cls == "NVGoggles")
+		EntityAI item = null;
+		if (cls == "NVGoggles")
 		{
-			pawn.GetInventory().CreateAttachmentEx(cls, headSlotId);
+			EntityAI strap = pawn.GetInventory().CreateAttachmentEx("NVGHeadstrap", InventorySlots.GetSlotIdFromString("Eyewear"));
+			if (strap)
+				item = strap.GetInventory().CreateAttachmentEx(cls, InventorySlots.GetSlotIdFromString("NVG"));
 		}
-		else if (cls.Length() >= 10 && cls.Substring(0, 10) == "Headtorch_")
+		else if (step.SlotName == "head" || (cls.Length() >= 10 && cls.Substring(0, 10) == "Headtorch_"))
 		{
-			pawn.GetInventory().CreateAttachmentEx(cls, headSlotId);
+			item = pawn.GetInventory().CreateAttachmentEx(cls, InventorySlots.GetSlotIdFromString("Headgear"));
 		}
 		else
 		{
-			pawn.GetHumanInventory().CreateInHands(cls);
+			item = pawn.GetHumanInventory().CreateInHands(cls);
 		}
+
+		if (!item)
+		{
+			r.Ok = false;
+			r.Reason = "spawn failed: " + cls;
+			return;
+		}
+
+		TurnOnLight(item);
 
 		r.Ok = true;
 		r.Reason = "givelight " + cls;
+	}
+
+	//! Включить источник после выдачи. Факел (FlammableBase) поджигается через
+	//! OnIgnitedThis(), НЕ SwitchOn() — SwitchOn() оставляет IsWorking()=false →
+	//! emit/illum будут 0 (research light-sources.md §3). Остальным EM-источникам
+	//! даём заряженную Battery9V ПО КЛАССУ (CreateAttachment) — слота "Battery" в
+	//! скриптах нет, батарея — энергоисточник EM; иначе IsWorking() останется false.
+	private void TurnOnLight(EntityAI item)
+	{
+		if (!item || !item.GetCompEM())
+			return;
+
+		FlammableBase flammable = FlammableBase.Cast(item);
+		if (flammable)
+		{
+			flammable.OnIgnitedThis(null);
+			return;
+		}
+
+		GameInventory itemInv = item.GetInventory();
+		if (itemInv)
+		{
+			EntityAI bat = itemInv.CreateAttachment("Battery9V");
+			if (bat && bat.HasEnergyManager())
+				bat.GetCompEM().AddEnergy(bat.GetCompEM().GetEnergyMax());
+		}
+
+		item.GetCompEM().SwitchOn();
 	}
 
 	//! "explodenoise" — детерминированное потребление шума ВЗРЫВА через статик-мост.
@@ -3931,9 +3970,16 @@ class dmE2EBridge
 		line = "sandstorm=" + state.inSandstorm;
 		AppendDump(r, line);
 
+		line = "emit=" + pawn.EmitLightIntensivity();
+		AppendDump(r, line);
+
+		line = "illum=" + pawn.IlluminationIntensivity();
+		AppendDump(r, line);
+
 		#ifdef DM_BOT_DEBUG_LIGHT
 		dmBotLog.Debug(bot.GetName(), "[Light] botdump time=" + dHour + ":" + dMin + " daylightFactor=" + state.daylightFactor);
 		dmBotLog.Debug(bot.GetName(), "[Light] botdump moon=" + state.moonIntensity + " maxDist=" + bot.GetMaxDist(dmIllumTargetType.PLAYER) + " bunker=" + state.inBunker + " sandstorm=" + state.inSandstorm);
+		dmBotLog.Debug(bot.GetName(), "[Light] botdump emit=" + pawn.EmitLightIntensivity() + " illum=" + pawn.IlluminationIntensivity());
 		#endif
 
 		r.Ok = true;

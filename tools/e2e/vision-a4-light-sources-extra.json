@@ -1,0 +1,23 @@
+{
+  "Name": "vision-a4-light-sources-extra",
+  "Timeout": 90,
+  "Comment": "A4/A5 дополнительные источники (за пределами основного сценария): Roadflare (emit=0.03 illum=1), TLRLight (пистолетный фонарь, emit=0.0185 illum=1, гейт IsRaised), NVGoggles (emit=0 illum=1, слот NVG). Каждый источник — отдельному боту.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "flarebot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "givelight", "Who": "flarebot", "ClassName": "Roadflare" },
+    { "Op": "sleep", "Timeout": 1 },
+    { "Op": "botdump", "Who": "flarebot" },
+    { "Op": "spawn", "Who": "tlrbot", "Pos": [4120, 0, 10827], "Yaw": 0 },
+    { "Op": "givelight", "Who": "tlrbot", "ClassName": "TLRLight" },
+    { "Op": "raiseweapon", "Who": "tlrbot", "Value": "on" },
+    { "Op": "sleep", "Timeout": 1 },
+    { "Op": "botdump", "Who": "tlrbot" },
+    { "Op": "spawn", "Who": "nvgbot", "Pos": [4123, 0, 10827], "Yaw": 0 },
+    { "Op": "givelight", "Who": "nvgbot", "ClassName": "NVGoggles" },
+    { "Op": "sleep", "Timeout": 1 },
+    { "Op": "botdump", "Who": "nvgbot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

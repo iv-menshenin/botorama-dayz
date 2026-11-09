@@ -1,0 +1,18 @@
+{
+  "Name": "vision-a4-torch-retest",
+  "Timeout": 60,
+  "Comment": "Контроль A4/A5: (1) факел с длинным sleep 5 — не тайминг ли виноват в emit=0 (SwitchOn vs ignition); (2) TLRLight БЕЗ raiseweapon — подтвердить гейт IsRaised (emit должен быть 0).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "torchbot2", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "givelight", "Who": "torchbot2", "ClassName": "Torch" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "botdump", "Who": "torchbot2" },
+    { "Op": "spawn", "Who": "tlrlow", "Pos": [4120, 0, 10827], "Yaw": 0 },
+    { "Op": "givelight", "Who": "tlrlow", "ClassName": "TLRLight" },
+    { "Op": "sleep", "Timeout": 2 },
+    { "Op": "botdump", "Who": "tlrlow" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

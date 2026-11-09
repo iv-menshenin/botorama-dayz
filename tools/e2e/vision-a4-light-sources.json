@@ -1,0 +1,22 @@
+{
+  "Name": "vision-a4-light-sources",
+  "Timeout": 90,
+  "Comment": "A4/A5 собственные источники света: EmitLightIntensivity (макс. эмиссия активного источника) и IlluminationIntensivity (бинарный флаг «даёт зрение хозяину»). Каждый источник выдаётся ОТДЕЛЬНОМУ боту (руки/слоты не перезаписываются). givelight теперь включает источник: SwitchOn() для всех EM-источников + заряженная Battery9V для фонаря (иначе IsWorking()=false без энергии). Ожидание по botdump: факел (Torch) emit=0.03 illum=1; химсвет (Chemlight_Blue) emit=0.0075 illum=0; ручной фонарь (Flashlight) emit=0.0255 illum=1. Значения — research light-sources.md §7.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "torchbot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "givelight", "Who": "torchbot", "ClassName": "Torch" },
+    { "Op": "sleep", "Timeout": 1 },
+    { "Op": "botdump", "Who": "torchbot" },
+    { "Op": "spawn", "Who": "chembot", "Pos": [4120, 0, 10827], "Yaw": 0 },
+    { "Op": "givelight", "Who": "chembot", "ClassName": "Chemlight_Blue" },
+    { "Op": "sleep", "Timeout": 1 },
+    { "Op": "botdump", "Who": "chembot" },
+    { "Op": "spawn", "Who": "flashbot", "Pos": [4123, 0, 10827], "Yaw": 0 },
+    { "Op": "givelight", "Who": "flashbot", "ClassName": "Flashlight" },
+    { "Op": "sleep", "Timeout": 1 },
+    { "Op": "botdump", "Who": "flashbot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

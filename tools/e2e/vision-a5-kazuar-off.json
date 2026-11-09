@@ -1,0 +1,13 @@
+{
+  "Name": "vision-a5-kazuar-off",
+  "Timeout": 60,
+  "Comment": "A5 NV-оптика OFF: give KazuarOptic (CreateInHands, БЕЗ SwitchOn — выдаётся выключенным) → ожидаем emit=0, illum=0 (фикс NV_OPTICS_OFF != NONE: выключенная оптика не даёт ложного зрения).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "kazoff", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "give", "Who": "kazoff", "Value": "KazuarOptic" },
+    { "Op": "sleep", "Timeout": 1 },
+    { "Op": "botdump", "Who": "kazoff" },
+    { "Op": "clearall" }
+  ]
+}

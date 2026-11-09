@@ -1,0 +1,14 @@
+{
+  "Name": "vision-a4-nvg-invdump",
+  "Timeout": 60,
+  "Comment": "Проверка A5 NVG: подтвердить, что NVGoggles после givelight лежит в под-слоте (ремешок NVGHeadstrap на Eyewear), а не 'spawn failed'. invdump показывает слот Eyewear; botdump — emit=0 illum=1.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "nvg2", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "givelight", "Who": "nvg2", "ClassName": "NVGoggles" },
+    { "Op": "sleep", "Timeout": 1 },
+    { "Op": "invdump", "Who": "nvg2" },
+    { "Op": "botdump", "Who": "nvg2" },
+    { "Op": "clearall" }
+  ]
+}
