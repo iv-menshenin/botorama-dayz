@@ -652,6 +652,17 @@ static const float DM_PERCEPTION_REFRESH_HIGH_THREAT = 0.2;
 //! ≥ 4 × DM_PERCEPTION_REFRESH_FRIENDLY (иначе фликер visFrac у friendly).
 static const float DM_PROBE_FRESHNESS = 1.4;
 
+//! Vision (A11): дистанция (метры), на которой вероятность зрительного обнаружения
+//! = 1.0 (полная уверенность). Дальше она спадает обратно-квадратично:
+//! probDist = clamp(DM_PROB_FULL_VIS_DIST^2 / d^2, 0, 1) → 10 м = 1.0, 50 м = 0.04,
+//! 900 м ≈ 1.2e-4. Метры, НЕ коэффициент.
+static const float DM_PROB_FULL_VIS_DIST = 10.0;
+
+//! Vision (A11): множитель вероятности обнаружения по стойке ЦЕЛИ (игрок).
+static const float DM_PROB_STANCE_STAND  = 1.0;   // стоя (дефолт)
+static const float DM_PROB_STANCE_CROUCH = 0.75;  // сидя
+static const float DM_PROB_STANCE_PRONE  = 0.5;   // лёжа
+
 //! Target evaluation: threat (0..1) — how dangerous a sighted entity is.
 //! The player is scored low so bots don't auto-attack them by default.
 static const float DM_TARGET_THREAT_PLAYER = 0.6;

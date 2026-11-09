@@ -206,6 +206,7 @@ class dmVision
 			//! точка силуэта; затем ролл идентификации ТОЛЬКО для неопознанной цели
 			//! (m_EverSeen == false). Уже виденная цель видна без ролла.
 			bool visible = false;
+			float visFrac = 1.0;   // зомби/животные: видимость бинарна (HasLOS) → 1.0
 			PlayerBase targetPlayer = PlayerBase.Cast(e);
 			if (targetPlayer)
 			{
@@ -215,7 +216,8 @@ class dmVision
 				vector probeEnd = BonePositionWS(e, ProbeBoneName(probeIdx), targetPos);
 				if (ProbeRay(pawn, e, botPos, probeEnd))
 					t.MarkProbeSeen(probeIdx, now, probeEnd);
-				visible = t.VisibilityFraction(now) > 0.0;
+				visFrac = t.VisibilityFraction(now);
+				visible = visFrac > 0.0;
 			}
 			else
 			{
@@ -230,17 +232,22 @@ class dmVision
 
 			if (!t.EverSeen())
 			{
-				//! Идентификация: неопознанная цель требует ролла вероятности.
-				#ifdef DM_BOT_DEBUG_VISION
-				dmBotLog.Debug(bot.GetName(), "[Vision] ident-roll " + e.GetType());
-				#endif
-				if (!ProbabilityOfDetection(pawn, targetPos, GetVelocity(e), t.LastContact()))
+				//! Идентификация: неопознанный ИГРОК требует ролла вероятности.
+				//! Существо (targetPlayer == null) опознаётся 100% — БЕЗ ролла:
+				//! гейты дальности/FOV/LOS уже отработали выше.
+				if (targetPlayer)
 				{
 					#ifdef DM_BOT_DEBUG_VISION
-					dmBotLog.Debug(bot.GetName(), "[Vision] ident failed " + e.GetType());
+					dmBotLog.Debug(bot.GetName(), "[Vision] ident-roll " + e.GetType());
 					#endif
-					t.SetHasLOS(false);
-					continue;
+					if (!ProbabilityOfDetection(pawn, targetPlayer, targetPos, GetVelocity(e), t.LastContact(), visFrac))
+					{
+						#ifdef DM_BOT_DEBUG_VISION
+						dmBotLog.Debug(bot.GetName(), "[Vision] ident failed " + e.GetType());
+						#endif
+						t.SetHasLOS(false);
+						continue;
+					}
 				}
 				t.SetHasLOS(true);
 				t.SetEverSeen(true);
@@ -526,8 +533,12 @@ class dmVision
 		return ProbeRay(pawn, target, botPos, end);
 	}
 
-	// ProbabilityOfDetection - вероятность обнаружить цель зрением
-	bool ProbabilityOfDetection(dmAISurvivorBase pawn, vector position, vector velocity, float lastContact)
+	// ProbabilityOfDetection - вероятность обнаружить цель зрением.
+	//! A11: prob = probAngle × probDist × probVel × probForg × visFrac × probStance.
+	//! probAngle — только угол (дистанция уехала в probDist); probDist — обратно-
+	//! квадратичная по дистанции; probStance — стойка ЦЕЛИ (стоя 1.0 / сидя 0.75 /
+	//! лёжа 0.5); visFrac — доля видимого силуэта (зомби/животные — 1.0).
+	bool ProbabilityOfDetection(dmAISurvivorBase pawn, PlayerBase target, vector position, vector velocity, float lastContact, float visibilityFraction)
 	{
 		float forgettingTime = GetGame().GetTickTime() - lastContact;
 		if ( forgettingTime < 30.0 ) return true;
@@ -537,8 +548,9 @@ class dmVision
 		float distSq = vector.DistanceSq(botPos, position);
 
 		float dAng = Math.AbsFloat( pawn.GetLookDiffAngle(position) );
-		float dist = Math.Sqrt(distSq);
-		float probAng = 1.1 - Math.Clamp( ((1.0 + dAng) * 2 * dist) / 1000.0, 0.1, 1.0 ); 	// 10-100%
+		float probAngle = 1.1 - Math.Clamp( dAng / 90.0, 0.1, 1.0 );								// 21-100% (без дистанции)
+
+		float probDist = Math.Clamp( (DM_PROB_FULL_VIS_DIST * DM_PROB_FULL_VIS_DIST) / distSq, 0.0, 1.0 );	// 10 м = 1.0, 50 м = 0.04, 900 м ≈ 1.2e-4
 
 		float probVel = 1.0;
 		float speed = velocity.LengthSq();
@@ -547,10 +559,26 @@ class dmVision
 			probVel = Math.Clamp( 1000000 / (distSq * Math.Max(45 - speed, 0.0000001)), 0.01, 1.0 );	// 1-100%
 		}
 
+		float probStance = DM_PROB_STANCE_STAND;
+		if ( target )
+		{
+			HumanMovementState state = new HumanMovementState();
+			target.GetMovementState(state);
+			int stanceIdx = state.m_iStanceIdx;
+			if ( stanceIdx == DayZPlayerConstants.STANCEIDX_CROUCH || stanceIdx == DayZPlayerConstants.STANCEIDX_RAISEDCROUCH )
+				probStance = DM_PROB_STANCE_CROUCH;
+			else if ( stanceIdx == DayZPlayerConstants.STANCEIDX_PRONE || stanceIdx == DayZPlayerConstants.STANCEIDX_RAISEDPRONE )
+				probStance = DM_PROB_STANCE_PRONE;
+		}
+
+		float prob = probAngle * probDist * probVel * probForg * visibilityFraction * probStance;
+
 		#ifdef DM_PERCEPTION_DEBUG
-		dmBotLog.Debug(pawn.GetCachedName(), "[Vision] Chance: " + ( probAng * probVel * probForg ) + " probAng=" + probAng + " probVel=" + probVel + " probForg=" + probForg + " [" + speed +"]");
+		dmBotLog.Debug(pawn.GetCachedName(), "[Vision] prob=" + prob + " probAng=" + probAngle + " probDist=" + probDist);
+		dmBotLog.Debug(pawn.GetCachedName(), "[Vision] probVel=" + probVel + " probForg=" + probForg + " probStance=" + probStance);
+		dmBotLog.Debug(pawn.GetCachedName(), "[Vision] visFrac=" + visibilityFraction);
 		#endif
 
-		return Math.RandomFloat(0.0, 1.0) < ( probAng * probVel * probForg );
+		return Math.RandomFloat(0.0, 1.0) < prob;
 	}
 }

@@ -1,0 +1,20 @@
+{
+  "Name": "vision-a12-zombie2",
+  "Timeout": 90,
+  "Comment": "A12 зомби на чистой прямой (колонка X=4217, как у подтверждённого животного; X=4117 был за холмом+дом). zbot->зомби (50м), pbot->игрок (50м, контроль).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "spawn", "Who": "zbot", "Pos": [4217, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "pbot", "Pos": [4317, 0, 10827], "Yaw": 0 },
+    { "Op": "spawnobj", "Who": "z1", "ClassName": "ZmbM_PatrolNormal_Autumn", "Pos": [4217, 0, 10877] },
+    { "Op": "spawn", "Who": "p2", "Pos": [4317, 0, 10877], "Yaw": 180 },
+    { "Op": "look", "Who": "zbot", "Pos": [4217, 0, 10877], "Turn": "full" },
+    { "Op": "look", "Who": "pbot", "Pos": [4317, 0, 10877], "Turn": "full" },
+    { "Op": "sleep", "Timeout": 6 },
+    { "Op": "targetdump", "Who": "zbot" },
+    { "Op": "targetdump", "Who": "pbot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

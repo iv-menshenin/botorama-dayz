@@ -1,0 +1,17 @@
+{
+  "Name": "vision-a11-probd50",
+  "Timeout": 60,
+  "Comment": "A11 изолированно: probDist на 50 м. Один бот + одна цель (без соседних ботов в 100 м, чтобы не было кросстока). b50 смотрит Yaw=180 (юг), цель 50 м севернее.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "spawn", "Who": "b50", "Pos": [4317, 0, 10827], "Yaw": 180 },
+    { "Op": "spawn", "Who": "t50", "Pos": [4317, 0, 10877], "Yaw": 180 },
+    { "Op": "sleep", "Timeout": 35 },
+    { "Op": "look", "Who": "b50", "Pos": [4317, 0, 10877], "Turn": "full" },
+    { "Op": "sleep", "Timeout": 6 },
+    { "Op": "targetdump", "Who": "b50" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

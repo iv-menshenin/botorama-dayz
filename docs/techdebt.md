@@ -1261,3 +1261,17 @@
   «точка прицела» = ноги. Комментарий `GetAimPosition` маскирует это.
 - **низкий** — `DM_AIM_HEADSHOT_SPEED_EPS` (`cons/4_World/constants.c`) стала мёртвой после удаления
   headshot-под-оптикой в А10.
+
+## Vision rework (А11/А12) — косметика с ревью «придиры»
+
+- **низкий** — рассинхрон DEBUG-домена: разбор вероятности под `DM_PERCEPTION_DEBUG` (prod-debug
+  default), а остальной `dmVision.c` (ident-roll/identified/FOV/LOS) под `DM_BOT_DEBUG_VISION`
+  (test-only). В прод-дебаге дамп вероятности без контекста. Унифицировать на `DM_BOT_DEBUG_VISION`.
+- **низкий** — магические литералы `1.1/90.0/0.1` в `probAngle` без имени (при вынесенных
+  `DM_PROB_FULL_VIS_DIST`/`DM_PROB_STANCE_*`). Вынести `DM_PROB_ANGLE_FULL/CEIL/FLOOR` при калибровке.
+
+## Vision rework (А12) — gap стойки
+
+- **средний** — `probStance` (0.75/0.5) НЕ E2E-проверен: в `dmE2EBridge` нет op `stance`/`crouch`/`prone`
+  (дефолтный спавн = стоя = 1.0). Маппинг `STANCEIDX_CROUCH→0.75`/`PRONE→0.5` подтверждён код-инспекцией
+  и ревью. Добавить op `stance` для честного теста стойки (или ручная проверка наблюдателем).

@@ -1,0 +1,24 @@
+{
+  "Name": "vision-a12-creatures",
+  "Timeout": 90,
+  "Comment": "A12: существа (зомби/животное) опознаются 100% с первого LOS-тика, БЕЗ ролла (targetPlayer==null -> no ProbabilityOfDetection). Контроль: игрок-бот на 50 м даёт ident-roll. Три наблюдателя по одному look. zbot->зомби (50м), abot->животное (50м), pbot->игрок (50м).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "spawn", "Who": "zbot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "abot", "Pos": [4217, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "pbot", "Pos": [4317, 0, 10827], "Yaw": 0 },
+    { "Op": "spawnobj", "Who": "z1", "ClassName": "ZmbM_PatrolNormal_Autumn", "Pos": [4117, 0, 10877] },
+    { "Op": "spawnobj", "Who": "a1", "ClassName": "Animal_RangiferTarandus", "Pos": [4217, 0, 10877] },
+    { "Op": "spawn", "Who": "p2", "Pos": [4317, 0, 10877], "Yaw": 180 },
+    { "Op": "look", "Who": "zbot", "Pos": [4117, 0, 10877], "Turn": "full" },
+    { "Op": "look", "Who": "abot", "Pos": [4217, 0, 10877], "Turn": "full" },
+    { "Op": "look", "Who": "pbot", "Pos": [4317, 0, 10877], "Turn": "full" },
+    { "Op": "sleep", "Timeout": 6 },
+    { "Op": "targetdump", "Who": "zbot" },
+    { "Op": "targetdump", "Who": "abot" },
+    { "Op": "targetdump", "Who": "pbot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

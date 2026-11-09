@@ -1,0 +1,24 @@
+{
+  "Name": "vision-a11-prob",
+  "Timeout": 120,
+  "Comment": "A11 (вероятность обнаружения: probAngle без дистанции + обратно-квадратичный probDist + visFrac + probStance). День, открытое поле (ballistics-range). Бот-наблюдатель (без пресета, стоит) по очереди смотрит полным разворотом на свежие неподвижные цели-боты на ~10 м / ~50 м / ~860 м (маркер '800m' из locations.md). Каждая свежая цель при первом взгляде проходит ролл идентификации -> ProbabilityOfDetection печатает разложение (DM_PERCEPTION_DEBUG): итог prob + probAng/probDist/probVel/probForg/probStance/visFrac. ПРОВЕРКА по RPT: probDist ~1.0 (10 м), ~0.04 (50 м), ~1.3e-4 (~860 м) — обратно-квадратичный спад; probStance=1.0 (дефолт-стойка). Маркеры: '[Vision] prob=', '[Vision] probDist=', '[Vision] probStance=', '[Vision] visFrac='. Стойка цели (crouch/prone) из моста НЕ задаётся (нет op stance) — дефолтный спавн даёт стоя (probStance=1.0); проверка 0.75/0.5 — будущий op или ручная (gap).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "spawn", "Who": "bot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "player2", "Pos": [4117, 0, 10837], "Yaw": 180 },
+    { "Op": "spawn", "Who": "player3", "Pos": [4167, 0, 10827], "Yaw": 180 },
+    { "Op": "spawn", "Who": "player4", "Pos": [4540, 0, 10081], "Yaw": 180 },
+    { "Op": "look", "Who": "bot", "Target": "player2", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "look", "Who": "bot", "Target": "player3", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "look", "Who": "bot", "Target": "player4", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}
