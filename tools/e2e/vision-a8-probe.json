@@ -1,0 +1,16 @@
+{
+  "Name": "vision-a8-probe",
+  "Timeout": 120,
+  "Comment": "A8 (4-точечный силуэт, базовый кейс): день, бот + неподвижный игрок-бот на ~15 м, открытое поле (ballistics-range). После нескольких LOS-тиков все 4 точки (Head/Spine3/LeftShoulder/RightShoulder) видны → targetdump: cls=dmTargetPlayer LOS=1 visFrac=1 probeMask=15 (0b1111). Частичное укрытие (голова видна, грудь за стеной → visFrac<1) — отдельный кейс, требует локации из locations.md (пока нет → gap).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "spawn", "Who": "bot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "player2", "Pos": [4117, 0, 10842], "Yaw": 180 },
+    { "Op": "look", "Who": "bot", "Target": "player2", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

@@ -38,6 +38,14 @@ class dmTarget
 	//! 0.0 = проверка нужна немедленно (сразу после открытия).
 	float m_NextLOSUpdate = 0.0;
 
+	//! 4-точечный силуэт (A8): время последнего успешного проба каждой точки
+	//! (GetGame().GetTickTime()); 0.0 = ни разу не пробита. A=Head, B=Spine3,
+	//! C=LeftShoulder, D=RightShoulder. Свежесть точки — DM_PROBE_FRESHNESS.
+	float m_ProbeSeen[4];
+
+	//! Round-robin курсор следующей точки пробы (0..3).
+	int m_ProbeIndex = 0;
+
 	float m_Threat = 0.0;           // опасность (0..1)
 	bool m_Friendly = false;        // не атаковать
 
@@ -303,6 +311,69 @@ class dmTarget
 	}
 	void SetLastPosition(vector v)         { m_LastPosition = v; }
 	void SetLastPositionSpread(float v)    { m_LastPositionSpread = v; }
+
+	//! Свежа ли точка силуэта (последний успешный проб ≤ DM_PROBE_FRESHNESS назад).
+	bool IsProbeFresh(int idx, float now)
+	{
+		return m_ProbeSeen[idx] > 0.0 && now - m_ProbeSeen[idx] <= DM_PROBE_FRESHNESS;
+	}
+
+	//! Отметить успешный проб точки текущим временем.
+	void MarkProbeSeen(int idx, float now)
+	{
+		m_ProbeSeen[idx] = now;
+	}
+
+	//! Число свежих точек силуэта (0..4).
+	int VisibleProbeCount(float now)
+	{
+		int count = 0;
+		int i;
+		for (i = 0; i < 4; i++)
+		{
+			if (IsProbeFresh(i, now))
+				count = count + 1;
+		}
+		return count;
+	}
+
+	//! Доля видимого силуэта (0..1): 1 точка = 0.25, все 4 = 1.0.
+	float VisibilityFraction(float now)
+	{
+		return (float)VisibleProbeCount(now) / 4.0;
+	}
+
+	//! Маска свежих точек (decimal 0..15): A=1, B=2, C=4, D=8.
+	int ProbeMask(float now)
+	{
+		int mask = 0;
+		int i;
+		for (i = 0; i < 4; i++)
+		{
+			if (IsProbeFresh(i, now))
+				mask = mask + ProbeMaskBit(i);
+		}
+		return mask;
+	}
+
+	//! Вес бита точки (1/2/4/8) — без побитовых операторов (запрещены в Enfusion).
+	static int ProbeMaskBit(int idx)
+	{
+		if (idx == 1) return 2;
+		if (idx == 2) return 4;
+		if (idx == 3) return 8;
+		return 1;
+	}
+
+	//! Следующая точка для round-robin пробы (A→B→C→D→A…), с продвижением курсора.
+	int NextProbeIndex()
+	{
+		int idx = m_ProbeIndex;
+		m_ProbeIndex = m_ProbeIndex + 1;
+		if (m_ProbeIndex >= 4)
+			m_ProbeIndex = 0;
+		return idx;
+	}
 
 	//! Интерес разузнать свежую цель (0 у не-звуковых целей; в dmTargetSound — реальное значение).
 	float GetAttraction() { return 0.0; }

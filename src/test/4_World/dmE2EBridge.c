@@ -4002,6 +4002,7 @@ class dmE2EBridge
 		}
 
 		ref array<ref dmTarget> targets = bot.GetTargets();
+		float now = GetGame().GetTickTime();
 		int i;
 		for (i = 0; i < targets.Count(); i++)
 		{
@@ -4016,14 +4017,22 @@ class dmE2EBridge
 			int everSeen = 0;
 			if (t.m_EverSeen)
 				everSeen = 1;
+			float visFrac = t.VisibilityFraction(now);
+			int probeMask = t.ProbeMask(now);
 			string line = "target[" + i + "] type=" + typeName + " cls=" + cls;
 			line += " pos=" + t.m_LastPosition;
 			line += " LOS=" + los;
 			line += " everSeen=" + everSeen;
+			line += " visFrac=" + visFrac;
+			line += " probeMask=" + probeMask;
 			line += " threat=" + t.m_Threat;
 			line += " attraction=" + t.GetAttraction();
 			line += " cooldown=" + t.GetAttentionCooldownUntil();
 			AppendDump(r, line);
+
+			#ifdef DM_BOT_DEBUG_VISION
+			dmBotLog.Debug("", "[Vision] targetdump " + typeName + " visFrac=" + visFrac + " probeMask=" + probeMask);
+			#endif
 		}
 		if (targets.Count() == 0)
 			AppendDump(r, "targets=none");

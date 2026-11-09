@@ -647,6 +647,11 @@ static const float DM_PERCEPTION_REFRESH_FRIENDLY = 0.3;
 static const float DM_PERCEPTION_REFRESH_LOW_THREAT = 0.2;
 static const float DM_PERCEPTION_REFRESH_HIGH_THREAT = 0.2;
 
+//! Vision (A8): свежесть пробы силуэтной точки (сек). Точка считается «видимой»,
+//! если её последний успешный проб был не дольше этого назад; иначе точка гаснет.
+//! ≥ 4 × DM_PERCEPTION_REFRESH_FRIENDLY (иначе фликер visFrac у friendly).
+static const float DM_PROBE_FRESHNESS = 1.4;
+
 //! Target evaluation: threat (0..1) — how dangerous a sighted entity is.
 //! The player is scored low so bots don't auto-attack them by default.
 static const float DM_TARGET_THREAT_PLAYER = 0.6;

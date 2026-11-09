@@ -212,7 +212,22 @@ class dmVision
 				continue;
 			}
 
-			t.SetHasLOS(HasLOS(pawn, e, botPos, targetPos));
+			PlayerBase targetPlayer = PlayerBase.Cast(e);
+			if (targetPlayer)
+			{
+				//! 4-точечный силуэт (A8): один round-robin проб за LOS-тик.
+				//! Успех ставит timestamp точки, HasLOS = есть хоть одна свежая точка.
+				int probeIdx = t.NextProbeIndex();
+				vector probeEnd = BonePositionWS(e, ProbeBoneName(probeIdx), targetPos);
+				if (ProbeRay(pawn, e, botPos, probeEnd))
+					t.MarkProbeSeen(probeIdx, now);
+				t.SetHasLOS(t.VisibilityFraction(now) > 0.0);
+			}
+			else
+			{
+				t.SetHasLOS(HasLOS(pawn, e, botPos, targetPos));
+			}
+
 			if (t.HasLOS())
 			{
 				t.SetLastPosition(targetPos);
@@ -419,37 +434,47 @@ class dmVision
 		return bot.GetVisionDist(type, emit);
 	}
 
-	//! Line-of-sight from the bot's eye to the target's head (fallback: feet + eye
-	//! height). Visible when the closest raycast hit is the target itself.
-	bool HasLOS(dmAISurvivorBase pawn, EntityAI target, vector botPos, vector targetPos)
+	//! Имя силуэтной кости по индексу пробы (0..3): A=Head, B=Spine3,
+	//! C=LeftShoulder, D=RightShoulder.
+	static string ProbeBoneName(int idx)
+	{
+		if (idx == 1) return "Spine3";
+		if (idx == 2) return "LeftShoulder";
+		if (idx == 3) return "RightShoulder";
+		return "Head";
+	}
+
+	//! Мировая позиция именованной кости цели; fallback, если кость не резолвится.
+	//! GetBoneIndexByName живёт на Human (игроки) и DayZCreature (зомби/животные),
+	//! НЕ на EntityAI — кастуем к владеющему кости классу.
+	static vector BonePositionWS(EntityAI target, string boneName, vector fallback)
+	{
+		int hb = -1;
+		Human human = Human.Cast(target);
+		if (human)
+			hb = human.GetBoneIndexByName(boneName);
+		else
+		{
+			DayZCreature creature = DayZCreature.Cast(target);
+			if (creature)
+				hb = creature.GetBoneIndexByName(boneName);
+		}
+		if (hb < 0)
+			return fallback;
+		vector pos = target.GetBonePositionWS(hb);
+		if (pos == vector.Zero)
+			return fallback;
+		return pos;
+	}
+
+	//! Райкаст из глаза бота в `end`; true, если ближайшее препятствие — сама цель.
+	bool ProbeRay(dmAISurvivorBase pawn, EntityAI target, vector botPos, vector end)
 	{
 		#ifdef DM_BOT_PROFILE
 		dmBotSpan _span = dmBotProfiler.Start("Vision.LOS");
 		#endif
 
 		vector eye = botPos + Vector(0, DM_EYE_HEIGHT, 0);
-
-		//! GetBoneIndexByName lives on Human (players) and DayZCreature (zombies/
-		//! animals), NOT on EntityAI — cast to the bone-owning class first.
-		int hb = -1;
-		Human human = Human.Cast(target);
-		if (human)
-			hb = human.GetBoneIndexByName("Head");
-		else
-		{
-			DayZCreature creature = DayZCreature.Cast(target);
-			if (creature)
-				hb = creature.GetBoneIndexByName("Head");
-		}
-
-		vector end;
-		if (hb >= 0)
-			end = target.GetBonePositionWS(hb);
-		else
-			end = targetPos + Vector(0, DM_EYE_HEIGHT, 0);
-
-		if (end == vector.Zero)
-			end = targetPos;
 
 		RaycastRVParams rp = new RaycastRVParams(eye, end, pawn);
 		rp.sorted = true;
@@ -466,6 +491,14 @@ class dmVision
 		Object o = first.obj;
 		Object p = first.parent;
 		return (o == target) || (p == target);
+	}
+
+	//! Line-of-sight от глаза бота к голове цели (fallback: ноги + высота глаз) —
+	//! для не-PlayerBase целей (зомби/животные), где 4-точечный силуэт не нужен.
+	bool HasLOS(dmAISurvivorBase pawn, EntityAI target, vector botPos, vector targetPos)
+	{
+		vector end = BonePositionWS(target, "Head", targetPos + Vector(0, DM_EYE_HEIGHT, 0));
+		return ProbeRay(pawn, target, botPos, end);
 	}
 
 	// ProbabilityOfDetection - вероятность обнаружить цель зрением

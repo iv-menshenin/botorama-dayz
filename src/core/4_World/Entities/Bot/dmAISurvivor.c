@@ -2019,6 +2019,10 @@ class dmAISurvivor
 			newTarget.SetLastPosition(old.LastPosition());
 			newTarget.SetLastDistance(old.LastDistance());
 			newTarget.SetHasLOS(old.HasLOS());
+			int probeIdx;
+			for (probeIdx = 0; probeIdx < 4; probeIdx++)
+				newTarget.m_ProbeSeen[probeIdx] = old.m_ProbeSeen[probeIdx];
+			newTarget.m_ProbeIndex = old.m_ProbeIndex;
 			newTarget.SetEverSeen(old.EverSeen());
 			newTarget.SetEverHeard(old.HaveEverHeard());
 			newTarget.SetLastSeen(old.LastSeen());
