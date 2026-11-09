@@ -14,6 +14,10 @@ class dmBotState_Exploration : dmBotState
 	ref dmBotIntent_MoveTo m_CorpseMove; // маршрут к трупу (DESIRABLE)
 	ref array<EntityAI> m_StrippedCorpses; // уже остриженные трупы (не ре-стрипать)
 	float m_WreckScanCooldown;          // троттлинг скана приоритетных событий (~0.1 Гц)
+	bool m_SelectingBuilding;           // идёт скан выбора здания
+	ref dmBuildingScanCursor m_SelectCursor; // курсор скана
+	int m_SelectPhase;                  // 0 = врек-скан, 1 = выбор здания
+	ref array<Building> m_SelectWrecks; // накопленные вреки (фаза 0)
 
 	override dmBotStateKind GetKind()
 	{
@@ -41,6 +45,10 @@ class dmBotState_Exploration : dmBotState
 		m_CorpseMove = null;
 		m_StrippedCorpses = new array<EntityAI>();
 		m_WreckScanCooldown = 0.0;
+		m_SelectingBuilding = false;
+		m_SelectCursor = null;
+		m_SelectPhase = 0;
+		m_SelectWrecks = new array<Building>();
 
 		dmAISurvivor bot = GetOwner();
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
@@ -468,7 +476,7 @@ class dmBotState_Exploration : dmBotState
 
 	//! Обход здания: планировщик (жадный коммивояжёр) упорядочивает интерьер-точки,
 	//! бот идёт по готовому маршруту; по опустошении — здание помечается посещённым.
-	//! Следующее здание выбирается с приоритетом вреков (см. ChooseNextBuilding).
+	//! Следующее здание выбирается чанкованно, с приоритетом вреков (см. EnsureBuildingSelection).
 	void EnsureExplore(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
 		if (m_CurrentBuilding && m_BuildingTime > DM_EXPLORE_BUILDING_TIMEOUT)
@@ -511,17 +519,7 @@ class dmBotState_Exploration : dmBotState
 
 		if (!m_CurrentBuilding)
 		{
-			Building b = ChooseNextBuilding(bot, pawn);
-			if (!b)
-				return;
-			m_CurrentBuilding = b;
-			m_BuildingTime = 0.0;
-			m_InteriorPoints = new array<vector>();
-			dmBuildingInteriorMap.Get().GetRoamWorldPoints(b, m_InteriorPoints);
-			if (m_InteriorPoints.Count() == 0)
-				m_InteriorPoints.Insert(b.GetPosition());
-
-			m_Planner.Init(pawn.GetPosition(), m_InteriorPoints);
+			EnsureBuildingSelection(bot, pawn);
 		}
 	}
 
@@ -554,16 +552,44 @@ class dmBotState_Exploration : dmBotState
 		return pawn.GetStatEnergy().Get() >= min && pawn.GetStatWater().Get() >= min;
 	}
 
-	//! Выбор следующего здания: сначала приоритетный врек (в радиусе + гейт энергии/воды
-	//! по дистанции до него), иначе ближайшее непосещённое здание локации. Скан вреков
-	//! троттлится.
-	Building ChooseNextBuilding(dmAISurvivor bot, dmAISurvivorBase pawn)
+	//! Чанкованный выбор следующего здания (state machine, раз в тик). Заменяет
+	//! синхронный ChooseNextBuilding: O(POI)-скан (врек-скан + nearest-поиск здания)
+	//! размазан по тикам бюджетом DM_EXPLORE_SCAN_BUDGET, чтобы крупный POI не
+	//! давал пер-фрейм спайк. Фаза 0 — врек-скан, фаза 1 — выбор ближайшего здания.
+	void EnsureBuildingSelection(dmAISurvivor bot, dmAISurvivorBase pawn)
 	{
 		dmExplorer explorer = bot.GetExplorer();
-		if (m_WreckScanCooldown <= 0.0)
+		dmWorldPoiLocation loc = null;
+		bool done;
+
+		if (!m_SelectingBuilding)
 		{
-			m_WreckScanCooldown = DM_EXPLORE_WRECK_SCAN_INTERVAL;
-			Building wreck = explorer.GetNearestUnvisitedWreck(bot, DM_EXPLORE_WRECK_RADIUS);
+			m_SelectingBuilding = true;
+			loc = explorer.GetCurrentLocation();
+			if (m_WreckScanCooldown <= 0.0 && loc)
+			{
+				m_WreckScanCooldown = DM_EXPLORE_WRECK_SCAN_INTERVAL;
+				m_SelectPhase = 0;
+				m_SelectCursor = new dmBuildingScanCursor();
+				m_SelectWrecks.Clear();
+			}
+			else
+			{
+				m_SelectPhase = 1;
+				explorer.StartNearestUnvisitedScan(m_SelectCursor);
+			}
+		}
+
+		if (m_SelectPhase == 0)
+		{
+			loc = explorer.GetCurrentLocation();
+			done = true;
+			if (loc)
+				done = dmLiveBuildingRegistry.Get().ContinueBuildingsOfType(loc.Id, dmWorldPOIType.MILITARY_WRECK, m_SelectCursor, m_SelectWrecks, DM_EXPLORE_SCAN_BUDGET);
+			if (!done)
+				return;
+
+			Building wreck = SelectNearestUnvisitedWreck(bot, pawn);
 			if (wreck)
 			{
 				vector pos = pawn.GetPosition();
@@ -574,14 +600,70 @@ class dmBotState_Exploration : dmBotState
 					#ifdef DM_BOT_DEBUG_LOOTING
 					dmBotLog.Debug(GetOwner().GetName(), "[Loot] Нашёл событие/врек: " + wreck.GetType() + " — приоритет, иду");
 					#endif
-					return wreck;
+					m_SelectingBuilding = false;
+					SetCurrentBuilding(pawn, wreck);
+					return;
 				}
 				#ifdef DM_BOT_DEBUG_LOOTING
 				dmBotLog.Debug(GetOwner().GetName(), "[Loot] Врек в радиусе, но мало энергии/воды: " + wreck.GetType() + " dist=" + dist + " — пропускаю");
 				#endif
 			}
+
+			m_SelectPhase = 1;
+			explorer.StartNearestUnvisitedScan(m_SelectCursor);
+			return;
 		}
-		return explorer.GetNextUnvisitedBuilding(bot);
+
+		if (explorer.ContinueNearestUnvisitedScan(bot, m_SelectCursor, DM_EXPLORE_SCAN_BUDGET))
+		{
+			m_SelectingBuilding = false;
+			Building best = m_SelectCursor.m_Best;
+			if (best)
+				SetCurrentBuilding(pawn, best);
+		}
+	}
+
+	//! Из накопленных вреков (m_SelectWrecks) — ближайший НЕпосещённый в радиусе
+	//! DM_EXPLORE_WRECK_RADIUS (2D-квадрат дистанции), или null. Аналог прежнего
+	//! dmExplorer.GetNearestUnvisitedWreck, но по уже чанкованно-собранному списку.
+	Building SelectNearestUnvisitedWreck(dmAISurvivor bot, dmAISurvivorBase pawn)
+	{
+		dmExplorer explorer = bot.GetExplorer();
+		vector pos = pawn.GetPosition();
+		float radiusSq = DM_EXPLORE_WRECK_RADIUS * DM_EXPLORE_WRECK_RADIUS;
+		Building nearest = null;
+		float bestSq = radiusSq;
+		int i;
+		for (i = 0; i < m_SelectWrecks.Count(); i++)
+		{
+			Building b = m_SelectWrecks[i];
+			if (!b || !b.IsAlive())
+				continue;
+			if (explorer.HasVisitedWreck(b))
+				continue;
+			vector bPos = b.GetPosition();
+			float dSq = dmMath.DistSq2D(bPos, pos);
+			if (dSq > radiusSq)
+				continue;
+			if (!nearest || dSq < bestSq)
+			{
+				nearest = b;
+				bestSq = dSq;
+			}
+		}
+		return nearest;
+	}
+
+	//! Назначить выбранное здание текущим и инициализировать планировщик обхода.
+	void SetCurrentBuilding(dmAISurvivorBase pawn, Building b)
+	{
+		m_CurrentBuilding = b;
+		m_BuildingTime = 0.0;
+		m_InteriorPoints = new array<vector>();
+		dmBuildingInteriorMap.Get().GetRoamWorldPoints(b, m_InteriorPoints);
+		if (m_InteriorPoints.Count() == 0)
+			m_InteriorPoints.Insert(b.GetPosition());
+		m_Planner.Init(pawn.GetPosition(), m_InteriorPoints);
 	}
 
 	//! Труп-лут: обнаружить труп → идти к нему (DESIRABLE) → стрип на землю. Выпавшее

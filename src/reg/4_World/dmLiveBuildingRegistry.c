@@ -138,19 +138,22 @@ class dmLiveBuildingRegistry
 		}
 	}
 
-	//! Живые здания локации заданного POI-типа (по кэшированному m_PoiType, без
-	//! строкового GetType на каждое здание).
-	void GetBuildingsOfTypeForLocation(int locationId, dmWorldPOIType type, out array<Building> outBuildings)
+	//! Продолжить чанкованный сбор живых зданий локации заданного типа. budget записей.
+	//! Возвращает true, когда скан завершён. Накопленные здания — в outBuildings (растёт).
+	bool ContinueBuildingsOfType(int locationId, dmWorldPOIType type, inout dmBuildingScanCursor c, out array<Building> outBuildings, int budget)
 	{
 		if (!outBuildings)
 			outBuildings = new array<Building>();
 
 		array<ref dmRegisteredBuilding> arr = m_ByLocation.Get(locationId);
 		if (!arr)
-			return;
+			return true;   // пусто — завершено
 
+		int end = c.m_Row + budget;
+		if (end > arr.Count())
+			end = arr.Count();
 		int i;
-		for (i = 0; i < arr.Count(); i++)
+		for (i = c.m_Row; i < end; i++)
 		{
 			dmRegisteredBuilding rec = arr[i];
 			if (!rec || !rec.m_Building || !rec.m_Building.IsAlive())
@@ -159,6 +162,8 @@ class dmLiveBuildingRegistry
 				continue;
 			outBuildings.Insert(rec.m_Building);
 		}
+		c.m_Row = end;
+		return c.m_Row >= arr.Count();
 	}
 
 	//! Ближайшее живое здание с дверьми (BuildingBase + GetDoorCount() > 0) в

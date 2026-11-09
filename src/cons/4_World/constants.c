@@ -154,6 +154,11 @@ static const float DM_BOT_TICK_INTERVAL = 0.033;
 //! настройка значения — отдельным шагом после замера.
 static const int DM_BOT_TICK_SLICE = 10;
 
+//! Макс записей O(POI)-скана (выбор здания/врек-скан) за один тик Exploration.
+//! Чанкование обхода m_LocationBuildings/m_ByLocation: скан следующего здания
+//! размазывается по тикам, чтобы крупный POI не давал пер-фрейм спайк (~3-8 мс).
+static const int DM_EXPLORE_SCAN_BUDGET = 100;
+
 //! Reduced-frequency interval (seconds) for the AI-bot body-modifier tick.
 //! Vanilla ticks modifiers every frame for the selected player; for an AI bot we
 //! tick them here (~4 Hz) — their own intervals are >= 0.35 s, so this is enough.
