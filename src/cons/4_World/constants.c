@@ -577,12 +577,26 @@ static const float DM_PERCEPTION_PLAYER_RADIUS = 1000.0;
 //! дальность растёт линейно к дневной дальности типа цели (DM_VIS_DIST_*).
 static const float DM_VIS_DIST_NIGHT = 20.0;
 
+//! Освещённость: ночная дальность видимости (метры) при ПОЛНОЙ луне. Между новолунием
+//! и полнолунием ночная база линейно интерполируется по GetMoonIntensity() (0..1).
+static const float DM_VIS_DIST_MOON = 30.0;
+
 //! Освещённость: дневные дальности видимости (метры) по типу цели. Значения сейчас
 //! совпадают с радиусами скана DM_PERCEPTION_*_RADIUS, но семантика разная
 //! (видимость vs открытие цели) и разойдётся в А7.
 static const float DM_VIS_DIST_DAY = 1000.0;    // игрок
 static const float DM_VIS_DIST_ANIMAL = 200.0;  // животное
 static const float DM_VIS_DIST_ZOMBIE = 75.0;   // зомби
+
+//! Освещённость: дальность видимости (метры) внутри бункера (underground, A2).
+//! Жёсткий override к 10 м независимо от дня/ночи и фазы луны — в INNER-триггере
+//! всегда темно (EyeAccommodation < 1).
+static const float DM_VIS_DIST_BUNKER = 10.0;
+
+//! Освещённость: дальность видимости (метры) в песчаной буре (A3). Жёсткий override
+//! к 20 м независимо от дня/ночи и фазы луны — песчаная стена режет видимость
+//! сильнее ночной базы, но слабее полного затемнения бункера (DM_VIS_DIST_BUNKER).
+static const float DM_VIS_DIST_SANDSTORM = 20.0;
 
 //! Освещённость: окно линейного рампа рассвета/заката (минуты). Вокруг восхода/заката
 //! daylightFactor плавно растёт 0→1 (рассвет) и спадает 1→0 (закат).
@@ -1190,6 +1204,9 @@ static const float DM_GET_WATER_RETRY_COOLDOWN = 3.0;
 //! фронта в точке бота. Вход при intensity > ENTER, выход при intensity <= EXIT.
 static const float DM_SANDSTORM_ENTER_INTENSITY = 0.6;
 static const float DM_SANDSTORM_EXIT_INTENSITY  = 0.1;
+//! Освещённость (dmIllumination.InSandstorm): порог позиционной интенсивности бури,
+//! выше которого точка считается «в буре» для затемнения видимости (0 = любая ненулевая).
+static const float DM_SANDSTORM_VIS_THRESHOLD = 0.0;
 //! Shelter: радиус поиска здания-укрытия (метры). Стартовое значение ~100 м —
 //! компромисс между «не бежать через пол-карты» и «найти хоть что-то рядом».
 static const float DM_SHELTER_SEARCH_RADIUS = 100.0;

@@ -80,8 +80,10 @@ class dmAISurvivor
 	//! position-dependent darkening plugs in at A2 without changing the cache shape).
 	private ref dmIllumination m_Illumination;
 
-	//! Cached daylight factor (0..1); refreshed by UpdateIllumination.
-	private float m_DaylightFactor = 0.0;
+	//! Кэш световых факторов (носитель): дневной фактор, фаза луны и позиционные
+	//! флаги бункера/бури. Заполняется UpdateIllumination раз в
+	//! DM_ILLUMINATION_CACHE_INTERVAL; потребители читают через GetLightState().
+	private ref dmLightState m_LightState;
 
 	//! Accumulator toward the next illumination refresh (seconds).
 	private float m_IllumAccum = 0.0;
@@ -236,6 +238,7 @@ class dmAISurvivor
 		m_Explorer = new dmExplorer();
 		m_Hearing = new dmHearing(this);
 		m_Illumination = new dmIllumination();
+		m_LightState = new dmLightState();
 		m_VoiceCenter = new dmBotVoiceCenter(this);
 		m_BrownZone = new dmBrownZone();
 		m_Arsenal = new dmArsenal(this);
@@ -725,8 +728,10 @@ class dmAISurvivor
 	}
 
 	//! Пересчёт кэша освещённости не чаще раза в DM_ILLUMINATION_CACHE_INTERVAL.
-	//! Свет в А1 глобальный (не зависит от позиции) — кэшируем только фактор; в А2
-	//! (бункер) сюда встанет позиционный localBunker без переделки полей/геттеров.
+	//! Свет в А1 глобальный (только фактор времени/луны); в А2 сюда добавлен
+	//! позиционный бункер (point-in-OBB по позиции пешки), в А3 — позиционная
+	//! песчаная буря (GetIntensity по позиции пешки) — форма кэша не меняется,
+	//! просто обновляется ещё один флаг.
 	void UpdateIllumination(float pDt)
 	{
 		m_IllumAccum += pDt;
@@ -734,10 +739,13 @@ class dmAISurvivor
 			return;
 
 		m_IllumAccum = 0.0;
-		m_DaylightFactor = m_Illumination.DaylightFactor();
+		m_LightState.daylightFactor = m_Illumination.DaylightFactor();
+		m_LightState.moonIntensity = m_Illumination.MoonIntensity();
+		m_LightState.inBunker = m_Illumination.IsInBunker(GetPawn().GetPosition());
+		m_LightState.inSandstorm = m_Illumination.InSandstorm(GetPawn().GetPosition());
 
 		#ifdef DM_BOT_DEBUG_LIGHT
-		dmBotLog.Debug(GetName(), "[Light] daylightFactor=" + m_DaylightFactor);
+		dmBotLog.Debug(GetName(), "[Light] daylightFactor=" + m_LightState.daylightFactor + " moon=" + m_LightState.moonIntensity + " bunker=" + m_LightState.inBunker + " sandstorm=" + m_LightState.inSandstorm);
 		#endif
 	}
 
@@ -818,17 +826,20 @@ class dmAISurvivor
 		return m_Illumination;
 	}
 
-	//! Cached daylight factor (0..1): 1 = day, 0 = night, linear ramp at dawn/dusk.
-	float GetDaylightFactor()
+	//! Кэшированный снимок световых факторов (дневной фактор, фаза луны, флаги
+	//! бункера/бури). Обновляется UpdateIllumination раз в DM_ILLUMINATION_CACHE_INTERVAL.
+	dmLightState GetLightState()
 	{
-		return m_DaylightFactor;
+		return m_LightState;
 	}
 
 	//! Light-scaled visibility distance (meters) for a target type, from the cached
-	//! factor. Night floor DM_VIS_DIST_NIGHT, day = the type's day radius.
-	float GetMaxDist(int targetType)
+	//! factors. Night base scales with the moon (DM_VIS_DIST_NIGHT..DM_VIS_DIST_MOON),
+	//! day = the type's day radius; inside a bunker — hard DM_VIS_DIST_BUNKER, inside
+	//! a sandstorm — hard DM_VIS_DIST_SANDSTORM (bunker wins over sandstorm).
+	float GetMaxDist(dmIllumTargetType targetType)
 	{
-		return m_Illumination.GetMaxDistFor(targetType, m_DaylightFactor);
+		return m_Illumination.GetMaxDistFor(targetType, m_LightState);
 	}
 
 	dmWishlist GetWishlist()

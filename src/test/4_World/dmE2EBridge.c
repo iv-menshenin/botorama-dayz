@@ -3915,15 +3915,25 @@ class dmE2EBridge
 		line = "time=" + dHour + ":" + dMin;
 		AppendDump(r, line);
 
-		line = "daylightFactor=" + bot.GetDaylightFactor();
+		dmLightState state = bot.GetLightState();
+		line = "daylightFactor=" + state.daylightFactor;
+		AppendDump(r, line);
+
+		line = "moon=" + state.moonIntensity;
 		AppendDump(r, line);
 
 		line = "maxDist=" + bot.GetMaxDist(dmIllumTargetType.PLAYER);
 		AppendDump(r, line);
 
+		line = "bunker=" + state.inBunker;
+		AppendDump(r, line);
+
+		line = "sandstorm=" + state.inSandstorm;
+		AppendDump(r, line);
+
 		#ifdef DM_BOT_DEBUG_LIGHT
-		dmBotLog.Debug(bot.GetName(), "[Light] botdump time=" + dHour + ":" + dMin + " daylightFactor=" + bot.GetDaylightFactor());
-		dmBotLog.Debug(bot.GetName(), "[Light] botdump maxDist=" + bot.GetMaxDist(dmIllumTargetType.PLAYER));
+		dmBotLog.Debug(bot.GetName(), "[Light] botdump time=" + dHour + ":" + dMin + " daylightFactor=" + state.daylightFactor);
+		dmBotLog.Debug(bot.GetName(), "[Light] botdump moon=" + state.moonIntensity + " maxDist=" + bot.GetMaxDist(dmIllumTargetType.PLAYER) + " bunker=" + state.inBunker + " sandstorm=" + state.inSandstorm);
 		#endif
 
 		r.Ok = true;

@@ -1,0 +1,22 @@
+{
+  "Name": "vision-a3-sandstorm",
+  "Timeout": 120,
+  "Comment": "A3 песчаная буря как фактор видимости: GetMaxDist жёстко = DM_VIS_DIST_SANDSTORM=20, пока бот внутри активной бури (InSandstorm = IsActive && GetIntensity(pos)>0). Форс бури через три опера моста (overcast 0.8 + wind 18 + sandstorm 5 = native Start; стоп — clear), локация sandstorm-shelter (Nasdara): фронт стартует ~(18300,0,10000) и идёт на запад (dir=<-1,0,0>), позади фронта (восточнее) intensity≈1.0. Бот спавнится в точке фронта [18500,0,10000] (восточнее старта → сразу позади фронта; terrain подтверждён spawn-east-probe, intensity 1.0 — sandstorm-probe-z-extent), чтобы не ждать ~236 с прихода фронта до Jakhzar. settime 12:00 даёт дневной maxDist=1000 после clear. sleep 8 покрывает fade-in Start(5) + интервал кэша света (3 с); sleep 4 после clear покрывает следующий пересчёт кэша.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "spawn", "Who": "bot", "Pos": [18500, 0, 10000], "Yaw": 0 },
+    { "Op": "weather", "Type": "clear" },
+    { "Op": "weather", "Type": "overcast", "Value": "0.8" },
+    { "Op": "weather", "Type": "wind", "Value": "18" },
+    { "Op": "weather", "Type": "sandstorm", "Value": "5" },
+    { "Op": "sleep", "Timeout": 8 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "weather", "Type": "clear" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

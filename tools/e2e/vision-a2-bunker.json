@@ -1,0 +1,18 @@
+{
+  "Name": "vision-a2-bunker",
+  "Timeout": 90,
+  "Comment": "A2 затемнение бункера (underground). IsInBunker = point-in-OBB по UndergroundAreaLoader.m_JsonData (INNER-триггеры, EyeAccommodation<1, inverse-rotate по Orientation); внутри бункера GetMaxDist жёстко = DM_VIS_DIST_BUNKER=10 независимо от дня/ночи. Сценарий: settime день → спавн бота ВНУТРИ тоннеля (явный underground-Y, Y!=0 → без ground-snap; локация hw-tunnel из tools/e2e/locations.md) → botdump (ожидание bunker=1, maxDist=10) → clearall → спавн снаружи (Y=0 → snap на поверхность, ballistics-range.ref) → botdump (bunker=0, maxDist=1000 днём).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "spawn", "Who": "bot", "Pos": [5649, 249.6, 5685], "Yaw": 0 },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "clearall" },
+    { "Op": "spawn", "Who": "bot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

@@ -66,6 +66,24 @@
 - **кольцо (пятиугольник)**: `start` → `straight_end` → `turn_end` → `ring_c` → `ring_d` →
   обратно в `start` (замкнуто).
 
+## hw-tunnel — подземный тоннель HWTunnel (карта Nasdara)
+
+Подземный highway-тоннель для проверки затемнения (underground INNER-триггер,
+`EyeAccommodation=0` → `maxDist=10`). Источник — `cfgundergroundtriggers.json` Nasdara
+(триггер `HWTunnel_EastSection_Inner`, 1076 триггеров всего, 738 INNER).
+
+| Точка | X | Y | Z | Примечание |
+|---|---|---|---|---|
+| `inside` (центр INNER-секции) | 5649 | **249.6** | 5685 | явный Y — внутри тоннеля (НЕ `SnapToGround`, поверхность выше) |
+| `outside` (стрельбище, вне триггеров) | 4117 | 0 | 10827 | Y=0 → `SnapToGroundExactly` (поверхность) |
+
+INNER-бокс `HWTunnel_EastSection_Inner`: центр `[5649.106, 249.628, 5684.833]`, размер
+`[51.387, 11.077, 24.618]` → X∈[5623,5675], Y∈[244,255], Z∈[5672,5697]. Точка `inside`
+гарантированно внутри. Для `outside` любой поверхностный участок вне тоннелей (напр.
+ballistics-range) подходит.
+
+---
+
 ## sandstorm-shelter — восточный кластер (карта Nasdara)
 
 Для E2E песчаной бури (`/sandstorm start`): прямой native `Start()` на Nasdara порождает

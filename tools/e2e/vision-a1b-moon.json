@@ -1,0 +1,18 @@
+{
+  "Name": "vision-a1b-moon",
+  "Timeout": 90,
+  "Comment": "A1b лунный фактор ночной дальности. Поверх A1: ночная база видимости теперь линейно растёт с фазой луны (GetMoonIntensity, 0..1) от DM_VIS_DIST_NIGHT=20 до DM_VIS_DIST_MOON=30. settime фиксирует дату 2015/4/8 (DM_E2E_SETTIME_*); луна 2015-4-8 = 0.674913. Ожидание по botdump: полночь (daylightFactor=0) → maxDist = 20 + 10×0.674913 ≈ 26.7; полдень → maxDist=1000 (дневная дальность игрока, луна не влияет). lightdump на полночь фиксирует фактический GetMoonIntensity (греп RPT).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "bot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "settime", "Value": "00:00" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "lightdump" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}
