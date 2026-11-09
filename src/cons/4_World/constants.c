@@ -564,15 +564,6 @@ static const float DM_SCAN_HOLD_MAX = 10.0;
 static const float DM_SCAN_BODY_ANGLE_MIN = 15.0;
 static const float DM_SCAN_BODY_ANGLE_MAX = 120.0;
 
-//! Perception: scan radius (meters) around the bot for zombies.
-static const float DM_PERCEPTION_ZOMBIE_RADIUS = 75.0;
-
-//! Perception: scan radius (meters) around the bot for animals.
-static const float DM_PERCEPTION_ANIMAL_RADIUS = 200.0;
-
-//! Perception: scan radius (meters) around the bot for players/bots.
-static const float DM_PERCEPTION_PLAYER_RADIUS = 1000.0;
-
 //! Освещённость (dmIllumination): ночная база дальности видимости (метры). Днём
 //! дальность растёт линейно к дневной дальности типа цели (DM_VIS_DIST_*).
 static const float DM_VIS_DIST_NIGHT = 20.0;
@@ -581,9 +572,7 @@ static const float DM_VIS_DIST_NIGHT = 20.0;
 //! и полнолунием ночная база линейно интерполируется по GetMoonIntensity() (0..1).
 static const float DM_VIS_DIST_MOON = 30.0;
 
-//! Освещённость: дневные дальности видимости (метры) по типу цели. Значения сейчас
-//! совпадают с радиусами скана DM_PERCEPTION_*_RADIUS, но семантика разная
-//! (видимость vs открытие цели) и разойдётся в А7.
+//! Освещённость: дневные дальности видимости (метры) по типу цели.
 static const float DM_VIS_DIST_DAY = 1000.0;    // игрок
 static const float DM_VIS_DIST_ANIMAL = 200.0;  // животное
 static const float DM_VIS_DIST_ZOMBIE = 75.0;   // зомби

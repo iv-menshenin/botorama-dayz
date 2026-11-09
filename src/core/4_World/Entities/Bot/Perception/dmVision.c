@@ -66,11 +66,15 @@ class dmVision
 		#endif
 	}
 
-	//! Discover every registered zombie within DM_PERCEPTION_ZOMBIE_RADIUS.
+	//! Discover every registered zombie within the bot's own light-scaled vision
+	//! distance (emit=0 — зомби не светится). Упрощение «открытие ≠ гейт» остаётся
+	//! только для существ (зомби/животные: emit=0). Подсвеченный ИГРОК открывается
+	//! с подсвеченной дистанции (см. ScanPlayers), симметрично LOS-гейту.
 	private void ScanZombies(dmAISurvivor bot, vector botPos)
 	{
 		array<ZombieBase> zombies = dmEntityRegistry.GetZombies();
-		float radiusSq = DM_PERCEPTION_ZOMBIE_RADIUS * DM_PERCEPTION_ZOMBIE_RADIUS;
+		float radius = bot.GetVisionDist(dmIllumTargetType.ZOMBIE, 0.0);
+		float radiusSq = radius * radius;
 		int i;
 		for (i = 0; i < zombies.Count(); i++)
 		{
@@ -84,11 +88,13 @@ class dmVision
 		}
 	}
 
-	//! Discover every registered animal within DM_PERCEPTION_ANIMAL_RADIUS.
+	//! Discover every registered animal within the bot's own light-scaled vision
+	//! distance (emit=0 — животные не светятся).
 	private void ScanAnimals(dmAISurvivor bot, vector botPos)
 	{
 		array<AnimalBase> animals = dmEntityRegistry.GetAnimals();
-		float radiusSq = DM_PERCEPTION_ANIMAL_RADIUS * DM_PERCEPTION_ANIMAL_RADIUS;
+		float radius = bot.GetVisionDist(dmIllumTargetType.ANIMAL, 0.0);
+		float radiusSq = radius * radius;
 		int i;
 		for (i = 0; i < animals.Count(); i++)
 		{
@@ -102,13 +108,13 @@ class dmVision
 		}
 	}
 
-	//! Discover every registered player (incl. other bots) within
-	//! DM_PERCEPTION_PLAYER_RADIUS.
+	//! Discover every registered player (incl. other bots) within the bot's
+	//! light-scaled vision distance per target (emit цели) — подсвеченный игрок
+	//! открывается с подсвеченной дистанции, симметрично LOS-гейту в UpdateLOS.
 	private void ScanPlayers(dmAISurvivor bot, PlayerBase pawn, vector botPos)
 	{
 		array<PlayerBase> players = dmEntityRegistry.GetPlayers();
 		EntityAI follow = bot.GetFollowTarget();
-		float radiusSq = DM_PERCEPTION_PLAYER_RADIUS * DM_PERCEPTION_PLAYER_RADIUS;
 		int i;
 		for (i = 0; i < players.Count(); i++)
 		{
@@ -118,6 +124,8 @@ class dmVision
 			if (p == pawn)
 				continue;
 			bool friendly = (p == follow);
+			float radius = bot.GetVisionDist(dmIllumTargetType.PLAYER, p.EmitLightIntensivity());
+			float radiusSq = radius * radius;
 			vector pos = p.GetPosition();
 			if (vector.DistanceSq(botPos, pos) > radiusSq)
 				continue;
@@ -167,12 +175,15 @@ class dmVision
 			if (t.LastDistance() < 0.01)
 				continue;
 
-			//! LOS-гейт: райкаст только в пределах радиуса релевантности типа цели
-			//! (тот же радиус, что и при открытии в Scan).
-			if (t.Threat() < DM_ATTACK_THREAT_THRESHOLD && t.LastDistance() > GetLOSMaxDist(t))
+			//! LOS-гейт: райкаст только в пределах свет-масштабированной дальности
+			//! видимости типа цели. Открытие (Scan) шло по собственному зрению бота
+			//! (emit=0); здесь учитываем и подсветку цели (emit), т.е. яркая цель видна
+			//! дальше собственного радиуса зрения — но только если она уже открыта.
+			float maxDist = GetLOSMaxDist(bot, t);
+			if (t.Threat() < DM_ATTACK_THREAT_THRESHOLD && t.LastDistance() > maxDist)
 			{
 				#ifdef DM_BOT_DEBUG_VISION
-				dmBotLog.Debug(bot.GetName(), "[Vision] No interest " + e.GetType() + " threat=" + t.Threat() + " dist:" + t.LastDistance() + ">" + GetLOSMaxDist(t));
+				dmBotLog.Debug(bot.GetName(), "[Vision] No interest " + e.GetType() + " threat=" + t.Threat() + " dist:" + t.LastDistance() + ">" + maxDist);
 				#endif
 				t.SetHasLOS(false);
 				continue;
@@ -388,14 +399,24 @@ class dmVision
 	}
 
 	//! Максимальная дистанция, на которой этот тип цели ещё стоит проверять LOS.
-	//! Совпадает с радиусом открытия (Scan): дальше цель не релевантна для действий.
-	private float GetLOSMaxDist(dmTarget t)
+	//! Свет-масштабированная дальность видимости бота для типа цели, учитывающая
+	//! подсветку самой цели: emit = EmitLightIntensivity() цели, если она PlayerBase
+	//! (зомби/животные не светятся → 0). Открытие в Scan шло по emit=0 (собственное
+	//! зрение), здесь яркая цель видна дальше — гейт шире, чем радиус открытия.
+	private float GetLOSMaxDist(dmAISurvivor bot, dmTarget t)
 	{
+		dmIllumTargetType type = dmIllumTargetType.PLAYER;
 		if (ZombieBase.Cast(t.GetEntity()))
-			return DM_PERCEPTION_ZOMBIE_RADIUS;
+			type = dmIllumTargetType.ZOMBIE;
 		if (AnimalBase.Cast(t.GetEntity()))
-			return DM_PERCEPTION_ANIMAL_RADIUS;
-		return DM_PERCEPTION_PLAYER_RADIUS;
+			type = dmIllumTargetType.ANIMAL;
+
+		float emit = 0.0;
+		PlayerBase targetPlayer = PlayerBase.Cast(t.GetEntity());
+		if (targetPlayer)
+			emit = targetPlayer.EmitLightIntensivity();
+
+		return bot.GetVisionDist(type, emit);
 	}
 
 	//! Line-of-sight from the bot's eye to the target's head (fallback: feet + eye

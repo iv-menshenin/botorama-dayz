@@ -1,0 +1,24 @@
+{
+  "Name": "vision-a7-gate",
+  "Timeout": 120,
+  "Comment": "A7 свет-масштабированная дальность в зрение dmVision: радиус открытия (Scan) = GetVisionDist(тип, emit=0), LOS-гейт (GetLOSMaxDist) = GetVisionDist(тип, emit цели). settime фиксирует дату 2015/4/8, луна 0.674913 -> ночная база ~26.7 м (как в vision-a6). Ночь: цель-игрок на ~15 м ОТКРЫТА (LOS=1), цель на ~50 м НЕ открыта (за радиусом собственного зрения ночью). День (12:00): та же 50 м цель открыта (дневная дальность 1000 м). Ожидание по targetdump: (1) ночь 15 м -> target cls=Survivor LOS=1; (2) ночь 50 м -> targets содержат ТОЛЬКО 15 м цель (50 м нет); (3) день -> обе цели в списке, 50 м LOS=1.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "00:00" },
+    { "Op": "spawn", "Who": "bot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "player", "Pos": [4117, 0, 10812], "Yaw": 180 },
+    { "Op": "look", "Who": "bot", "Target": "player", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "spawn", "Who": "player2", "Pos": [4117, 0, 10777], "Yaw": 180 },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

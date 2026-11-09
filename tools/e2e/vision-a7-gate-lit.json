@@ -1,0 +1,18 @@
+{
+  "Name": "vision-a7-gate-lit",
+  "Timeout": 120,
+  "Comment": "A7 пункт 3 (ключевая проверка rework «открытие ≠ гейт»): ночь, бот + подсвеченный игрок (фонарь Flashlight, emit=0.0255; факел Torch даёт emit=0 — известный дефект A4) на ~50 м. ScanPlayers per-target emit: radius = GetVisionDist(PLAYER, 0.0255) = 26.75 × (1 + 0.0255×50) = 26.75 × 2.275 ≈ 60.9 м > 50 м → цель ОТКРЫТА. LOS-гейт (GetLOSMaxDist) берёт тот же emit → райкаст не режется. Контраст с vision-a7-gate (неподсвеченный 50 м НЕ открыт). Ожидание targetdump: target cls=Survivor pos≈<4117,_,10777> LOS=1 everSeen=1.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "00:00" },
+    { "Op": "spawn", "Who": "bot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "player2", "Pos": [4117, 0, 10777], "Yaw": 180 },
+    { "Op": "look", "Who": "bot", "Target": "player2", "Turn": "full" },
+    { "Op": "givelight", "Who": "player2", "ClassName": "Flashlight" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

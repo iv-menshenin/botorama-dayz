@@ -1220,3 +1220,13 @@
   даёт illumination=1. Синхронизировать план перед финализацией.
 - **низкий** — `GetVisionDist` разросся до 5 скаляров (state+nvg+observerIllum+targetEmit); если А12 добавит
   стойку/скорость — свернуть наблюдательский свет (nvg+observerIllum) в носитель (не повторить #31).
+
+## Vision rework (А7) — косметика с ревью «придиры»
+
+- **низкий** — дублирование резолва типа цели: `GetRefreshTime` и `GetLOSMaxDist` оба делают
+  `AnimalBase.Cast`/`ZombieBase.Cast` заново; `t.GetEntity()` в `GetLOSMaxDist` дёргается 5 раз.
+  Вынести `GetTargetType(EntityAI) -> dmIllumTargetType` + локаль `EntityAI e = t.GetEntity()`.
+- **низкий** — магический литерал `0.0` в `GetVisionDist(<type>, 0.0)` (ScanZombies/ScanAnimals) =
+  «у цели нет света». Именованная `DM_EMIT_NONE = 0.0`.
+- **низкий** — предсуществующий висячий TODO в `dmVision.c:205` («угол уже рассчитан!») — угол
+  `ang` уже посчитан и переиспользуется выше; комментарий устарел.

@@ -1,0 +1,16 @@
+{
+  "Name": "vision-a7-gate-day",
+  "Timeout": 120,
+  "Comment": "A7 пункт 4 (чистый контроль): день, бот + неподсвеченный игрок на ~50 м, БЕЗ 15-м цели на линии (в vision-a7-gate 15-м игрок перекрывал райкаст до 50-м цели → LOS=0). Ожидание targetdump: target cls=dmTargetPlayer pos≈<4117,_,10777> LOS=1 everSeen=1 (дневная дальность 1000 м > 50 м, открыт + LOS).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "spawn", "Who": "bot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "player2", "Pos": [4117, 0, 10777], "Yaw": 180 },
+    { "Op": "look", "Who": "bot", "Target": "player2", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}
