@@ -1,0 +1,22 @@
+{
+  "Name": "vision-a9-twophase",
+  "Timeout": 120,
+  "Comment": "A9 (двухфазный LOS: идентификация vs сопровождение). День, открытое поле (ballistics-range). Фаза 1 (свежая цель): бот (без пресета, стоит) смотрит полным разворотом на неподвижного игрока-бота на ~15 м → первая идентификация требует ролла ProbabilityOfDetection → после успеха targetdump: cls=dmTargetPlayer everSeen=1 LOS=1. Фаза 2 (уже виденная цель): orient 180 разворачивает бота (цель уходит из конуса → LOS=0, everSeen остаётся 1), затем повторный look full возвращает взгляд к цели → идентифицированная цель даёт LOS=1 БЕЗ ролла. Различение фаз: фаза 1 в RPT под DM_BOT_DEBUG_VISION печатает 'ident-roll' → 'identified'; фаза 2 этих строк НЕ содержит (цель уже опознана, идёт ветка сопровождения без ролла), при этом targetdump показывает everSeen=1 LOS=1. Логи-маркеры: '[Vision] ident-roll', '[Vision] identified', '[Vision] ident failed'.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "spawn", "Who": "bot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "player2", "Pos": [4117, 0, 10842], "Yaw": 180 },
+    { "Op": "look", "Who": "bot", "Target": "player2", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "orient", "Who": "bot", "Yaw": 180 },
+    { "Op": "sleep", "Timeout": 3 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "look", "Who": "bot", "Target": "player2", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 3 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

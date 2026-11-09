@@ -202,30 +202,56 @@ class dmVision
 				continue;
 			}
 
-			// TODO угол уже рассчитан!
-			if ( !ProbabilityOfDetection(pawn, targetPos, GetVelocity(e), t.LastContact()) )
-			{
-				#ifdef DM_BOT_DEBUG_VISION
-				dmBotLog.Debug(bot.GetName(), "[Vision] Цель " + e.GetType() + " не замечена!");
-				#endif
-				t.SetHasLOS(false);
-				continue;
-			}
-
+			//! A9: двухфазный LOS. Сначала проба (A8) — есть ли хоть одна видимая
+			//! точка силуэта; затем ролл идентификации ТОЛЬКО для неопознанной цели
+			//! (m_EverSeen == false). Уже виденная цель видна без ролла.
+			bool visible = false;
 			PlayerBase targetPlayer = PlayerBase.Cast(e);
 			if (targetPlayer)
 			{
 				//! 4-точечный силуэт (A8): один round-robin проб за LOS-тик.
-				//! Успех ставит timestamp точки, HasLOS = есть хоть одна свежая точка.
+				//! Успех ставит timestamp точки; visible = есть хоть одна свежая точка.
 				int probeIdx = t.NextProbeIndex();
 				vector probeEnd = BonePositionWS(e, ProbeBoneName(probeIdx), targetPos);
 				if (ProbeRay(pawn, e, botPos, probeEnd))
 					t.MarkProbeSeen(probeIdx, now);
-				t.SetHasLOS(t.VisibilityFraction(now) > 0.0);
+				visible = t.VisibilityFraction(now) > 0.0;
 			}
 			else
 			{
-				t.SetHasLOS(HasLOS(pawn, e, botPos, targetPos));
+				visible = HasLOS(pawn, e, botPos, targetPos);
+			}
+
+			if (!visible)
+			{
+				t.SetHasLOS(false);
+				continue;
+			}
+
+			if (!t.EverSeen())
+			{
+				//! Идентификация: неопознанная цель требует ролла вероятности.
+				#ifdef DM_BOT_DEBUG_VISION
+				dmBotLog.Debug(bot.GetName(), "[Vision] ident-roll " + e.GetType());
+				#endif
+				if (!ProbabilityOfDetection(pawn, targetPos, GetVelocity(e), t.LastContact()))
+				{
+					#ifdef DM_BOT_DEBUG_VISION
+					dmBotLog.Debug(bot.GetName(), "[Vision] ident failed " + e.GetType());
+					#endif
+					t.SetHasLOS(false);
+					continue;
+				}
+				t.SetHasLOS(true);
+				t.SetEverSeen(true);
+				#ifdef DM_BOT_DEBUG_VISION
+				dmBotLog.Debug(bot.GetName(), "[Vision] identified " + e.GetType());
+				#endif
+			}
+			else
+			{
+				//! Сопровождение: уже виденная цель видна БЕЗ ролла.
+				t.SetHasLOS(true);
 			}
 
 			if (t.HasLOS())
@@ -233,7 +259,6 @@ class dmVision
 				t.SetLastPosition(targetPos);
 				t.SetLastPositionSpread(0.0);
 				t.SetLastContact(now);
-				t.SetEverSeen(true);
 				t.SetLastSeen(now);
 			}
 		}
