@@ -214,7 +214,7 @@ class dmVision
 				int probeIdx = t.NextProbeIndex();
 				vector probeEnd = BonePositionWS(e, ProbeBoneName(probeIdx), targetPos);
 				if (ProbeRay(pawn, e, botPos, probeEnd))
-					t.MarkProbeSeen(probeIdx, now);
+					t.MarkProbeSeen(probeIdx, now, probeEnd);
 				visible = t.VisibilityFraction(now) > 0.0;
 			}
 			else

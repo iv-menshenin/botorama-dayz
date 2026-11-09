@@ -213,7 +213,6 @@ class dmAiming
 		vector tv;
 		vector delta;
 		float deltaSpeed;
-		bool standing;
 		bool hasLOS;
 		vector transform[4];
 		float healthModifier;
@@ -280,7 +279,8 @@ class dmAiming
 
 		//! Базовая точка прицела — из памяти цели (m_DmTarget.GetAimPosition): при
 		//! !m_HasLOS это последняя известная позиция (телепатии нет), при видимости —
-		//! живая голова/центр. Без памяти (SetTarget(EntityAI), тесты) — ноги + высота глаз.
+		//! центроид видимых проб-точек. Без памяти (SetTarget(EntityAI), тесты) —
+		//! ноги + высота глаз.
 		aimPos = targetPos + Vector(0, DM_EYE_HEIGHT, 0);
 		if (m_DmTarget)
 			aimPos = m_DmTarget.GetAimPosition();
@@ -309,33 +309,34 @@ class dmAiming
 					dmBallisticsBridge.ResetLatCorr(m_Unit);
 			}
 
-			//! Aim point refinement: head for a standing target under real optics,
-			//! center mass (Spine3) otherwise; creatures use the head.
-			bone = -1;
+			//! Aim point refinement (A10): humans use the probe-point centroid from
+			//! GetAimPosition() (set above — visibility-aware, follows the visible
+			//! silhouette). Creatures (no 4-point silhouette) and the SetTarget
+			//! (EntityAI) test path keep an explicit Spine3 (fallback Head) bone.
+			//! NOTE: «стоя + оптика → головной выстрел» (standing + m_HasRealOptic →
+			//! кость Head) НАМЕРЕННО заменён на центроид в А10 (решение заказчика);
+			//! взвешенный центроид к голове — будущий рефайнмент. НЕ восстанавливать
+			//! headshot здесь: прод-путь (человек + m_DmTarget) и тест-путь теперь
+			//! симметричны (без головного выстрела под оптикой).
 			human = Human.Cast(targetEntity);
-			if (human)
+			if (!m_DmTarget || !human)
 			{
-				human.PhysicsGetVelocity(tv);
-				standing = tv.Length() < DM_AIM_HEADSHOT_SPEED_EPS;
-				if (standing && m_HasRealOptic)
-				{
-					bone = human.GetBoneIndexByName("Head");
-				}
-				else
+				bone = -1;
+				if (human)
 				{
 					bone = human.GetBoneIndexByName("Spine3");
 					if (bone < 0)
 						bone = human.GetBoneIndexByName("Head");
 				}
+				else
+				{
+					creature = DayZCreature.Cast(targetEntity);
+					if (creature)
+						bone = creature.GetBoneIndexByName("Head");
+				}
+				if (bone >= 0)
+					aimPos = targetEntity.GetBonePositionWS(bone);
 			}
-			else
-			{
-				creature = DayZCreature.Cast(targetEntity);
-				if (creature)
-					bone = creature.GetBoneIndexByName("Head");
-			}
-			if (bone >= 0)
-				aimPos = targetEntity.GetBonePositionWS(bone);
 		}
 		else
 		{

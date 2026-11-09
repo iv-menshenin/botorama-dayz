@@ -1253,3 +1253,11 @@
 - **низкий** — дублирующий аксессор `EverSeen()`/`HaveEverSeen()` (оба возвращают `m_EverSeen`); оставить один.
 - **низкий** — `ident-roll`/`ident failed` пишутся на каждый LOS-тик (до 5 Гц × N целей) — при долгом
   опознании зальёт лог; агрегировать/троттлить.
+
+## Vision rework (А10) — косметика/остатки
+
+- **низкий** — фолбэк `GetAimPosition` для не-PlayerBase (зомби/животные) = `GetPosition()` (ноги), а не
+  центр/голова; `dmBotIntent_Aim`/`HoldLook` потребляют `GetAimPosition()` без перекрытия → для существа
+  «точка прицела» = ноги. Комментарий `GetAimPosition` маскирует это.
+- **низкий** — `DM_AIM_HEADSHOT_SPEED_EPS` (`cons/4_World/constants.c`) стала мёртвой после удаления
+  headshot-под-оптикой в А10.

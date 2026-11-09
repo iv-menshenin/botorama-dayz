@@ -155,6 +155,12 @@ GetGame().RemoteObjectTreeCreate(item);   // Tree create
 - `ref`-циклы (A→B и B→A) потенциально текут; на прототипе допустимо, при удалении
   чистить явно.
 - Примитивы (`int`, `float`, `bool`, `string`, `vector`) — value-типы, без `ref`.
+- **Пользовательский `class` — reference-тип; массив классов = массив `null`-ссылок.** Нет
+  value-struct. `class Foo { float a; vector b; }` → `Foo m_Arr[4]` это 4 `null`, доступ
+  `m_Arr[i].a` = NULL-deref, пока не `new Foo()` для каждого элемента. Для value-семантики
+  группы полей используй **параллельные value-массивы** (`float m_A[4]; vector m_B[4];`) и
+  копируй их циклом в точках переноса памяти (напр. `ReplaceTarget`) — НЕ сворачивай в
+  `class`-структуру ради «одного присваивания» (shallow-копия ссылок, баг не закрывает).
 - **`ref` ЗАПРЕЩЁН на параметрах методов** — параметр объявляется без `ref`
   (`void RollWeighted(array<ref dmBotTransition> eligible, ...)`), иначе
   `FIX-ME: Method argument can't be strong reference`. `ref` — только для ПОЛЕЙ и

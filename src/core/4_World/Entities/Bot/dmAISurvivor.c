@@ -2013,15 +2013,20 @@ class dmAISurvivor
 	void ReplaceTarget(EntityAI entity, dmTarget newTarget)
 	{
 		dmTarget old = m_TargetManager.Find(entity);
+		int probeIdx;
 		if (old)
 		{
 			if ( newTarget.Threat() < old.Threat() ) newTarget.SetThreat(old.Threat());
 			newTarget.SetLastPosition(old.LastPosition());
 			newTarget.SetLastDistance(old.LastDistance());
 			newTarget.SetHasLOS(old.HasLOS());
-			int probeIdx;
+			//! Силуэт переносится точкой за точкой: время и позиция каждой точки —
+			//! параллельные VALUE-массивы (m_ProbeSeen/m_ProbePos), копируются оба.
 			for (probeIdx = 0; probeIdx < 4; probeIdx++)
+			{
 				newTarget.m_ProbeSeen[probeIdx] = old.m_ProbeSeen[probeIdx];
+				newTarget.m_ProbePos[probeIdx] = old.m_ProbePos[probeIdx];
+			}
 			newTarget.m_ProbeIndex = old.m_ProbeIndex;
 			newTarget.SetEverSeen(old.EverSeen());
 			newTarget.SetEverHeard(old.HaveEverHeard());

@@ -3893,6 +3893,17 @@ class dmE2EBridge
 		line = "orient=" + bot.GetOrientation();
 		AppendDump(r, line);
 
+		dmAISurvivorBase aimPawn = dmAISurvivorBase.Cast(pawn);
+		string aimStr = "none";
+		if (aimPawn && aimPawn.GetAiming())
+			aimStr = "" + aimPawn.GetAiming().GetAimPosition();
+		line = "aim=" + aimStr;
+		AppendDump(r, line);
+
+		#ifdef DM_BOT_DEBUG_VISION
+		dmBotLog.Debug(bot.GetName(), "[Vision] botdump aim=" + aimStr);
+		#endif
+
 		dmAISurvivorBase aiPawn = dmAISurvivorBase.Cast(pawn);
 		bool meleeStriking = false;
 		bool meleeEvading = false;
@@ -4019,19 +4030,21 @@ class dmE2EBridge
 				everSeen = 1;
 			float visFrac = t.VisibilityFraction(now);
 			int probeMask = t.ProbeMask(now);
+			vector aimPos = t.GetAimPosition();
 			string line = "target[" + i + "] type=" + typeName + " cls=" + cls;
 			line += " pos=" + t.m_LastPosition;
 			line += " LOS=" + los;
 			line += " everSeen=" + everSeen;
 			line += " visFrac=" + visFrac;
 			line += " probeMask=" + probeMask;
+			line += " aim=" + aimPos;
 			line += " threat=" + t.m_Threat;
 			line += " attraction=" + t.GetAttraction();
 			line += " cooldown=" + t.GetAttentionCooldownUntil();
 			AppendDump(r, line);
 
 			#ifdef DM_BOT_DEBUG_VISION
-			dmBotLog.Debug("", "[Vision] targetdump " + typeName + " visFrac=" + visFrac + " probeMask=" + probeMask);
+			dmBotLog.Debug("", "[Vision] targetdump " + typeName + " visFrac=" + visFrac + " probeMask=" + probeMask + " aim=" + aimPos);
 			#endif
 		}
 		if (targets.Count() == 0)

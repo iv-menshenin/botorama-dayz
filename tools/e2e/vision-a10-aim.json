@@ -1,0 +1,16 @@
+{
+  "Name": "vision-a10-aim",
+  "Timeout": 120,
+  "Comment": "A10 (точка прицеливания = центроид видимых проб-точек). Локация partial-cover (Nasdara), кейс 1 — стрелок видит только голову: бот-стрелок смотрит полным разворотом на цель за препятствием, грудь/плечи (Spine3/LeftShoulder/RightShoulder) скрыты. После нескольких LOS-тиков пробита только точка A (Head) → targetdump: visFrac≈0.25 probeMask=1, а aim= (GetAimPosition — центроид 1 свежей точки) ≈ позиция головы, т.е. заметно ВЫШЕ центра масс (Spine3): aim.y ≈ head.y (~1.6 м над землёй), а не ~1.2 м (центр масс). Полная видимость (aim ≈ центр масс, центроид 4 точек) — отдельный кейс на открытом поле (ballistics-range, Chernarus), сюда не входит (одна job = одна карта).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "spawn", "Who": "bot", "Pos": [10177.74, 0, 11837.14], "Yaw": 0 },
+    { "Op": "spawn", "Who": "player2", "Pos": [10161.85, 0, 11816.63], "Yaw": 180 },
+    { "Op": "look", "Who": "bot", "Target": "player2", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 5 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

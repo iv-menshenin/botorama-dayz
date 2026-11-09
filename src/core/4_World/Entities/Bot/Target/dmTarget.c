@@ -38,10 +38,11 @@ class dmTarget
 	//! 0.0 = проверка нужна немедленно (сразу после открытия).
 	float m_NextLOSUpdate = 0.0;
 
-	//! 4-точечный силуэт (A8): время последнего успешного проба каждой точки
-	//! (GetGame().GetTickTime()); 0.0 = ни разу не пробита. A=Head, B=Spine3,
-	//! C=LeftShoulder, D=RightShoulder. Свежесть точки — DM_PROBE_FRESHNESS.
-	float m_ProbeSeen[4];
+	//! 4-точечный силуэт (A8/A10): A=Head, B=Spine3, C=LeftShoulder, D=RightShoulder.
+	//! Параллельные VALUE-массивы (время последнего проба + его позиция) — float/vector
+	//! value-типы, массив валиден без new. Свежесть точки — DM_PROBE_FRESHNESS.
+	float m_ProbeSeen[4];   // время последнего успешного проба (0 = ни разу)
+	vector m_ProbePos[4];   // WS-позиция точки при успешном пробитии
 
 	//! Round-robin курсор следующей точки пробы (0..3).
 	int m_ProbeIndex = 0;
@@ -49,12 +50,29 @@ class dmTarget
 	float m_Threat = 0.0;           // опасность (0..1)
 	bool m_Friendly = false;        // не атаковать
 
-	//! Точка прицеливания: живая позиция цели, если она видна, иначе последняя
-	//! известная — бот не должен целиться в невидимую цель (телепатия запрещена).
+	//! Точка прицеливания (A10): при видимости — равновесное среднее позиций
+	//! СВЕЖИХ видимых проб-точек (голова/грудь/плечи); свежих нет (зомби/животные
+	//! без 4-точечного силуэта) — фолбэк на живую позицию; невидимая цель —
+	//! последняя известная (в невидимую цель не целимся — телепатия запрещена).
 	vector GetAimPosition()
 	{
 		if (!m_HasLOS)
 			return m_LastPosition;
+
+		float now = GetGame().GetTickTime();
+		vector sum = vector.Zero;
+		int count = 0;
+		int i;
+		for (i = 0; i < 4; i++)
+		{
+			if (IsProbeFresh(i, now))
+			{
+				sum = sum + m_ProbePos[i];
+				count = count + 1;
+			}
+		}
+		if (count > 0)
+			return sum * (1.0 / (float)count);
 		return GetLivePosition();
 	}
 
@@ -318,10 +336,13 @@ class dmTarget
 		return m_ProbeSeen[idx] > 0.0 && now - m_ProbeSeen[idx] <= DM_PROBE_FRESHNESS;
 	}
 
-	//! Отметить успешный проб точки текущим временем.
-	void MarkProbeSeen(int idx, float now)
+	//! Отметить успешный проб точки: время + WS-позиция. Один вызов пишет оба поля,
+	//! чтобы продюсер (dmVision) не мог «записать время, забыв позицию» (корень
+	//! бага прицела в (0,0,0) после опознания цели).
+	void MarkProbeSeen(int idx, float now, vector pos)
 	{
 		m_ProbeSeen[idx] = now;
+		m_ProbePos[idx] = pos;
 	}
 
 	//! Число свежих точек силуэта (0..4).
