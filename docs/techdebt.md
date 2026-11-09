@@ -1187,3 +1187,22 @@
   пустые аллокации на каждого бота.
 - **низкий** — ручной `row·vector` в `dmIllumination.PointInBox` (трижды `m_InvR{i}[0]*d[0]+...`): вынести
   `private float Dot(vector row, vector v)` (Math3D не даёт `Matrix*Vector`). Не требует rework.
+
+## Vision rework (А4/А5) — косметика с ревью «придиры»
+
+- **низкий** — `modded_PlayerBase.ClassifyLight`: `item.GetCompEM()` читается 3 раза (guard ×2 + return) —
+  поднять в локаль `ComponentEnergyManager em`.
+- **низкий** — 8 почти идентичных веток class-dispatch в `ClassifyLight` — применение emit/illum
+  (max-guard + порог) вынести в хелпер `ApplyEmit(val, givesIllum, inout emitMax, inout illum)`.
+- **низкий** — имя `*Intensivity` (нестандартный англ., правильно `*Intensity`) — задано заказчиком;
+  переименовать, если не критично для ABI/тестов.
+- **средний** — кросс-файловое дублирование `givelight`: чат-команда `dmGiveLightCommand` НЕ включает
+  источник (нет `SwitchOn`/батареи), а E2E-`RunGiveLight` — включает (рассинхрон политики «выданный
+  источник должен быть включён»). Вынести общий хелпер/инвариант.
+
+## Vision rework (А4/А5) — gap тест-инфраструктуры
+
+- **низкий** — `givelight Torch` не поджигает факел: `TurnOnLight` зовёт `OnIgnitedThis(null)`, но у
+  `CreateInHands("Torch")` 0 горючего → `IsWorking()=false` → `emit=0`. Классификация корректна
+  (факел ≡ roadflare, оба `emit=0.03`/`illum=1` — roadflare PASS покрывает класс «огонь»). Для честного
+  теста факела — добавить горючее (`AddEnergy`/топливо) перед поджигом.
