@@ -32,6 +32,9 @@ modded class MissionServer
 		mgr.Register(new dmSpawnCityCommand());
 		mgr.Register(new dmCarCommand());
 		mgr.Register(new dmSandstormCommand());
+		mgr.Register(new dmSetTimeCommand());
+		mgr.Register(new dmLightCommand());
+		mgr.Register(new dmGiveLightCommand());
 
 		//! Kick the e2e bridge: it self-schedules its repeating CallLater tick
 		//! (OnUpdate is unusable here — 1.30 cross-module override conflict).

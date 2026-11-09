@@ -296,6 +296,20 @@ static const float DM_E2E_EYE_HEIGHT = 1.8;
 //! E2E: deadline (seconds) for movement/look intents.
 static const float DM_E2E_MOVE_DEADLINE = 300.0;
 
+//! E2E "settime": фикс. дата (год/месяц/день) — меняются только час/минута.
+static const int DM_E2E_SETTIME_YEAR = 2015;
+static const int DM_E2E_SETTIME_MONTH = 4;
+static const int DM_E2E_SETTIME_DAY = 8;
+
+//! SetTime command family ("/settime чч:мм") — ручная установка времени суток.
+static const string DM_CHAT_SETTIME = "settime";
+
+//! Light command family ("/light") — дамп нативов ночи (IsNight/moon/...).
+static const string DM_CHAT_LIGHT = "light";
+
+//! GiveLight command family ("/givelight <предмет>") — источник света в руки бота.
+static const string DM_CHAT_GIVELIGHT = "givelight";
+
 //! E2E: velocity threshold (m/s) above which a bot counts as "moving".
 static const float DM_E2E_MOVING_THRESHOLD = 0.5;
 

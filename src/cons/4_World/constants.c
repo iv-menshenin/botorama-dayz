@@ -573,6 +573,24 @@ static const float DM_PERCEPTION_ANIMAL_RADIUS = 200.0;
 //! Perception: scan radius (meters) around the bot for players/bots.
 static const float DM_PERCEPTION_PLAYER_RADIUS = 1000.0;
 
+//! Освещённость (dmIllumination): ночная база дальности видимости (метры). Днём
+//! дальность растёт линейно к дневной дальности типа цели (DM_VIS_DIST_*).
+static const float DM_VIS_DIST_NIGHT = 20.0;
+
+//! Освещённость: дневные дальности видимости (метры) по типу цели. Значения сейчас
+//! совпадают с радиусами скана DM_PERCEPTION_*_RADIUS, но семантика разная
+//! (видимость vs открытие цели) и разойдётся в А7.
+static const float DM_VIS_DIST_DAY = 1000.0;    // игрок
+static const float DM_VIS_DIST_ANIMAL = 200.0;  // животное
+static const float DM_VIS_DIST_ZOMBIE = 75.0;   // зомби
+
+//! Освещённость: окно линейного рампа рассвета/заката (минуты). Вокруг восхода/заката
+//! daylightFactor плавно растёт 0→1 (рассвет) и спадает 1→0 (закат).
+static const float DM_DAWN_DUSK_WINDOW = 10.0;
+
+//! Освещённость: интервал пересчёта кэша света на мозге (сек).
+static const float DM_ILLUMINATION_CACHE_INTERVAL = 3.0;
+
 //! Perception: horizontal field of view (degrees). A target within ±half this angle
 //! from the look direction counts as "in front".
 static const float DM_PERCEPTION_FOV = 160.0;

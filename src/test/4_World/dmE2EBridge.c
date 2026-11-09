@@ -10,7 +10,7 @@
 //! plus the perf ops sleep | prof | perfstats (dump/clear physics-query telemetry) | brain (on/off — A/B brain-death toggle) | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | spawnonroute | raycast | scanbox |
 //! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | invdump | wearprobe | dropprobe | enumdump | reqdump | rescanarsenal | strike | evade | orient | raiseweapon | getpos | setpos | clearobj (named objects), the car ops spawncar |
-//! driveto | drive | cardump | carstate | cardamage | carrepair | griddump, and observe (teleport a connected player). `wait`, `sleep`
+//! driveto | drive | cardump | carstate | cardamage | carrepair | griddump, observe (teleport a connected player), and the vision-rework probe ops settime | lightdump | givelight. `wait`, `sleep`
 //! and `drivetest` are the deferred ops: they tick across frames (wait until a
 //! condition is met or its timeout expires; sleep until its timeout; drivetest
 //! until the bot drives to the exit or a guard aborts). Everything else executes
@@ -842,6 +842,18 @@ class dmE2EBridge
 		{
 			RunHostile(step, r);
 		}
+		else if (step.Op == "settime")
+		{
+			RunSetTime(step, r);
+		}
+		else if (step.Op == "lightdump")
+		{
+			RunLightDump(step, r);
+		}
+		else if (step.Op == "givelight")
+		{
+			RunGiveLight(step, r);
+		}
 		else if (step.Op == "noise")
 		{
 			RunNoise(step, r);
@@ -1289,6 +1301,106 @@ class dmE2EBridge
 		r.Reason = "weather " + step.Type + "=" + step.Value;
 	}
 	#endif
+
+	//! "settime" — задать игровое время суток (фикс. дата, меняются час/минута).
+	//! Value = "чч:мм". Год/месяц/день держим константами (DM_E2E_SETTIME_*), чтобы
+	//! тесты день/ночь/рассвет/закат были воспроизводимы независимо от даты сервера.
+	private void RunSetTime(dmE2EStep step, dmE2EStepResult r)
+	{
+		int hour = 0;
+		int minute = 0;
+		array<string> parts = new array<string>();
+		step.Value.Split(":", parts);
+		if (parts.Count() < 2)
+		{
+			r.Ok = false;
+			r.Reason = "bad time, want hh:mm";
+			return;
+		}
+		hour = parts[0].ToInt();
+		minute = parts[1].ToInt();
+		if (hour < 0 || hour > 23 || minute < 0 || minute > 59)
+		{
+			r.Ok = false;
+			r.Reason = "time out of range";
+			return;
+		}
+
+		g_Game.GetWorld().SetDate(DM_E2E_SETTIME_YEAR, DM_E2E_SETTIME_MONTH, DM_E2E_SETTIME_DAY, hour, minute);
+
+		r.Ok = true;
+		r.Reason = "settime " + step.Value;
+	}
+
+	//! "lightdump" — дамп нативов ночи в RPT (DM_PERCEPTION_DEBUG) для эмпирической
+	//! проверки семантики луны. Ничего не меняет; результат — греп RPT, не JSON.
+	private void RunLightDump(dmE2EStep step, dmE2EStepResult r)
+	{
+		int year;
+		int month;
+		int day;
+		int hour;
+		int minute;
+		g_Game.GetWorld().GetDate(year, month, day, hour, minute);
+
+		#ifdef DM_PERCEPTION_DEBUG
+		dmBotLog.Debug("", "[Light] IsNight=" + g_Game.GetWorld().IsNight());
+		dmBotLog.Debug("", "[Light] moonIntensity=" + g_Game.GetWorld().GetMoonIntensity());
+		dmBotLog.Debug("", "[Light] sunOrMoon=" + g_Game.GetWorld().GetSunOrMoon());
+		dmBotLog.Debug("", "[Light] latitude=" + g_Game.GetWorld().GetLatitude());
+		dmBotLog.Debug("", "[Light] longitude=" + g_Game.GetWorld().GetLongitude());
+		dmBotLog.Debug("", "[Light] date=" + year + "-" + month + "-" + day + " " + hour + ":" + minute);
+		#endif
+
+		AppendDump(r, "lightdump night=" + g_Game.GetWorld().IsNight() + " moon=" + g_Game.GetWorld().GetMoonIntensity() + " sunOrMoon=" + g_Game.GetWorld().GetSunOrMoon());
+
+		r.Ok = true;
+		r.Reason = "lightdump logged";
+	}
+
+	//! "givelight" — дать боту источник света (ClassName) в руки. Головные
+	//! источники (Headtorch_*/NVGoggles) и SlotName="head" кладутся в слот головы
+	//! (Headgear), остальные — CreateInHands.
+	private void RunGiveLight(dmE2EStep step, dmE2EStepResult r)
+	{
+		dmAISurvivor bot;
+		if (!FindBotByName(step.Who, bot))
+		{
+			r.Ok = false;
+			r.Reason = "no such bot";
+			return;
+		}
+
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
+		if (!pawn)
+		{
+			r.Ok = false;
+			r.Reason = "no pawn";
+			return;
+		}
+
+		string cls = step.ClassName;
+		if (cls == "")
+			cls = "Flashlight";
+
+		int headSlotId = InventorySlots.GetSlotIdFromString("Headgear");
+
+		if (step.SlotName == "head" || cls == "NVGoggles")
+		{
+			pawn.GetInventory().CreateAttachmentEx(cls, headSlotId);
+		}
+		else if (cls.Length() >= 10 && cls.Substring(0, 10) == "Headtorch_")
+		{
+			pawn.GetInventory().CreateAttachmentEx(cls, headSlotId);
+		}
+		else
+		{
+			pawn.GetHumanInventory().CreateInHands(cls);
+		}
+
+		r.Ok = true;
+		r.Reason = "givelight " + cls;
+	}
 
 	//! "explodenoise" — детерминированное потребление шума ВЗРЫВА через статик-мост.
 	//! Спавнит гранату (ClassName, default RGD5Grenade) рядом с ботом-источником (Who),
@@ -3793,6 +3905,26 @@ class dmE2EBridge
 		}
 		line = "commandIntents=" + bot.GetCommandIntents().Count() + " drive=" + driveState;
 		AppendDump(r, line);
+
+		int dYear;
+		int dMonth;
+		int dDay;
+		int dHour;
+		int dMin;
+		g_Game.GetWorld().GetDate(dYear, dMonth, dDay, dHour, dMin);
+		line = "time=" + dHour + ":" + dMin;
+		AppendDump(r, line);
+
+		line = "daylightFactor=" + bot.GetDaylightFactor();
+		AppendDump(r, line);
+
+		line = "maxDist=" + bot.GetMaxDist(dmIllumTargetType.PLAYER);
+		AppendDump(r, line);
+
+		#ifdef DM_BOT_DEBUG_LIGHT
+		dmBotLog.Debug(bot.GetName(), "[Light] botdump time=" + dHour + ":" + dMin + " daylightFactor=" + bot.GetDaylightFactor());
+		dmBotLog.Debug(bot.GetName(), "[Light] botdump maxDist=" + bot.GetMaxDist(dmIllumTargetType.PLAYER));
+		#endif
 
 		r.Ok = true;
 		r.Reason = "dumped";

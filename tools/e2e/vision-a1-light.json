@@ -1,0 +1,22 @@
+{
+  "Name": "vision-a1-light",
+  "Timeout": 90,
+  "Comment": "A1 реворта зрения — свет-сервис dmIllumination: непрерывный daylightFactor + линейная дальность видимости. Бот без пресета стоит на месте; settime двигает часы (год/месяц/день фикс. DM_E2E_SETTIME_* = 2015/4/8). Ожидание по botdump: полдень → daylightFactor=1 / maxDist=1000, полночь → 0 / 20, середина рампы рассвета (~06:10, восход ≈ 06:05) → промежуточное (0<f<1). lightdump на полдень/полночь — отдельная эмпирика нативов луны (греп RPT).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "bot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "lightdump" },
+    { "Op": "settime", "Value": "00:00" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "lightdump" },
+    { "Op": "settime", "Value": "06:10" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

@@ -74,6 +74,18 @@ class dmAISurvivor
 	//! Perception (hearing): subscribes to dmNoiseSystem and updates targets on noise.
 	private ref dmHearing m_Hearing;
 
+	//! Perception (lighting): continuous daylight factor + light-scaled visibility
+	//! distance. Stateless service, created in the constructor; the factor is cached
+	//! every DM_ILLUMINATION_CACHE_INTERVAL seconds (light is global in A1 —
+	//! position-dependent darkening plugs in at A2 without changing the cache shape).
+	private ref dmIllumination m_Illumination;
+
+	//! Cached daylight factor (0..1); refreshed by UpdateIllumination.
+	private float m_DaylightFactor = 0.0;
+
+	//! Accumulator toward the next illumination refresh (seconds).
+	private float m_IllumAccum = 0.0;
+
 	//! Loot: wishlist (desires), inventory analysis, and the needs coordinator
 	//! (inventory -> desires; ticked from OnUpdate on a ~5s throttle).
 	private ref dmWishlist m_Wishlist;
@@ -223,6 +235,7 @@ class dmAISurvivor
 		m_Needs = new dmNeeds();
 		m_Explorer = new dmExplorer();
 		m_Hearing = new dmHearing(this);
+		m_Illumination = new dmIllumination();
 		m_VoiceCenter = new dmBotVoiceCenter(this);
 		m_BrownZone = new dmBrownZone();
 		m_Arsenal = new dmArsenal(this);
@@ -667,6 +680,8 @@ class dmAISurvivor
 			m_Vision = new dmVision();
 		m_Vision.Update(this, pDt);
 
+		UpdateIllumination(pDt);
+
 		IdentifySeenTargets();
 
 		m_Needs.Update(this, pDt);
@@ -707,6 +722,23 @@ class dmAISurvivor
 		if (m_Pawn.GetAiming().IsEnabled())
 			m_Pawn.GetAiming().OnUpdate(pDt);
 		UpdateLook(pDt);
+	}
+
+	//! Пересчёт кэша освещённости не чаще раза в DM_ILLUMINATION_CACHE_INTERVAL.
+	//! Свет в А1 глобальный (не зависит от позиции) — кэшируем только фактор; в А2
+	//! (бункер) сюда встанет позиционный localBunker без переделки полей/геттеров.
+	void UpdateIllumination(float pDt)
+	{
+		m_IllumAccum += pDt;
+		if (m_IllumAccum < DM_ILLUMINATION_CACHE_INTERVAL)
+			return;
+
+		m_IllumAccum = 0.0;
+		m_DaylightFactor = m_Illumination.DaylightFactor();
+
+		#ifdef DM_BOT_DEBUG_LIGHT
+		dmBotLog.Debug(GetName(), "[Light] daylightFactor=" + m_DaylightFactor);
+		#endif
 	}
 
 	//! Детекция «бот в море» (y < DM_SEA_RESCUE_Y) и телепорт-спасение на берег.
@@ -779,6 +811,24 @@ class dmAISurvivor
 	dmHearing GetHearing()
 	{
 		return m_Hearing;
+	}
+
+	dmIllumination GetIllumination()
+	{
+		return m_Illumination;
+	}
+
+	//! Cached daylight factor (0..1): 1 = day, 0 = night, linear ramp at dawn/dusk.
+	float GetDaylightFactor()
+	{
+		return m_DaylightFactor;
+	}
+
+	//! Light-scaled visibility distance (meters) for a target type, from the cached
+	//! factor. Night floor DM_VIS_DIST_NIGHT, day = the type's day radius.
+	float GetMaxDist(int targetType)
+	{
+		return m_Illumination.GetMaxDistFor(targetType, m_DaylightFactor);
 	}
 
 	dmWishlist GetWishlist()
