@@ -1041,3 +1041,23 @@ Animal 0.2 / прочее 0.4 (вместо прежнего `DM_NOISE_THREAT=0.
 Решение: выбор следующего здания (`GetNextUnvisitedBuilding`) и врек-скан размазаны по тикам курсором `dmBuildingScanCursor` + `Continue*`-методами, бюджет `DM_EXPLORE_SCAN_BUDGET=100` записей/тик; state machine `EnsureBuildingSelection` (фаза 0 врек, фаза 1 здание) в `dmBotState_Exploration`.
 Почему: синхронный O(POI)-скан на крупном POI (тысячи зданий) давал пер-фрейм спайк 19→6→~3 мс; чанкование срезало до ~2 мс (100 × ~0.02 мс/record). Тот же принцип «размазать работу по тикам», что и round-robin слайсинг.
 Действует пока: остаточный спайк ~2 мс = полный 100-записный бюджет (per-record ~0.02 мс в скрипт-VM). Твик бюджета — tradeoff: ниже бюджет → ниже спайк, но выше латентность выбора здания (бот тикает ~133 мс при слайсинге → 1000 зданий / бюджет 20 ≈ 6.6 с ожидания). Бюджет 100 ≈ 1.3 с латентности — принято как баланс. **Методика замера**: сравнивать `Expl.Explore max` (а не `Tick`) между прогонами — `Tick` смазывается разной FSM-активностью ботов (хаос vs чистая Exploration).
+
+### vision: underground-затемнение — свой point-in-OBB по m_JsonData (нет серверного presence-флага)
+Решение: бот сам определяет «в тёмной зоне» point-in-OBB по `UndergroundAreaLoader.m_JsonData.Triggers` (Position/Size/Orientation/EyeAccommodation), inverse-rotate точки через `Math3D.YawPitchRollMatrix` + `MatrixInverse3` (Euler в градусах), только `INNER`-триггеры (EyeAccommodation<1).
+Почему: данные триггеров на сервере ЕСТЬ (`missionserver.c:89` заполняет статик `m_JsonData`), но детекция «кто внутри» — только клиент (`UndergroundTrigger` спавнится `ECE_LOCAL`, `m_UndergroundPresence` пишется клиентом и не реплицируется; `GetUndergroundPresence()` в дампе нет).
+Действует пока: нет серверного presence-флага; underground-триггеры заданы в `cfgundergroundtriggers.json` и боксы повёрнуты Эйлером.
+
+### vision: daylightFactor — непрерывный рамп восход/закат, не бинарный IsNight()
+Решение: «уровень дневного света» 0..1 считается по времени (`GetDate` + `GetApproxSunriseTime/SunsetTime`) с линейным рампом `DM_DAWN_DUSK_WINDOW=10` мин, а не через бинарный `IsNight()`.
+Почему: нужен плавный переход ночь↔день (закат/рассвет) для дальности видимости; `IsNight()` — bool без градиента. Эталон рампы — Expansion `Expansion_GetDaylightVisibility` (LookUp по 6 точкам времени).
+Действует пока: рамп 10 мин по требованию заказчика; точная форма (линейная) — если понадобится easing, пересмотреть.
+
+### vision: лунный фактор — отложен до эмпирики GetMoonIntensity/GetSunOrMoon
+Решение: не строить модель ночной дальности от `GetMoonIntensity()`/`GetSunOrMoon()` до эмпирического подтверждения их семантики (оба — чистые native-объявления, нигде не вызываются в ванили/Expansion, диапазон неизвестен).
+Почему: массовая правка на непроверенном допущении об API — анти-паттерн (урок `dmBotLog.Debug` v3.4xx). Сначала probe-ручка `/light` дампит `IsNight/GetMoonIntensity/GetSunOrMoon` при `SetDate` полдень/полночь, потом модель.
+Действует пока: семантика луны не подтверждена прогоном; ночная база (20/30 м) пока берётся фикс. константой.
+
+### vision: «включён» источника света — единый GetCompEM().IsWorking(), серверный кэш (без клиентской light-регистрации)
+Решение: детект активного источника = `item.HasEnergyManager() && item.GetCompEM().IsWorking()` (единый для фонаря/налобника/факела/химсвета/roadflare); `Emit`/`Illumination` — чисто серверный кэш 3 с в `modded_PlayerBase`, без клиентской регистрации света (в отличие от Expansion `ScriptedLightBase.s_eAI_LightNodes` + RPC).
+Почему: `ComponentEnergyManager` сервер-авторитетен (`DeviceUpdate` гейтится `IsServer()`, `SwitchOn/Off` → `DeviceUpdate` синхронно → `m_IsWorking` мгновенно), поэтому клиентский round-trip не нужен. Интенсивность emit — калиброванные Expansion-значения (UniversalLight 0.045 > факел/roadflare 0.03 > фонарь/налобник 0.0255 > химсвет 0.0075), а не премиса «факел > фонарь».
+Действует пока: «включён» = энергоменеджер работает; NVG/NV-оптика — только `Illumination` (не `Emit`); «подсвечен чужим светом» (клиентская регистрация) — вне скоупа.
