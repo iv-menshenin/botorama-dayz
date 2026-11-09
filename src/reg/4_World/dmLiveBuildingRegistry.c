@@ -12,6 +12,7 @@ class dmRegisteredBuilding
 {
 	Building m_Building;   // managed, без ref
 	int m_LocationId;      // -1 = вне локаций
+	int m_PoiType = dmWorldPOIType.NONE;   // кэш типа здания (без строкового GetType в сканах)
 }
 
 class dmLiveBuildingRegistry
@@ -19,7 +20,7 @@ class dmLiveBuildingRegistry
 	static ref dmLiveBuildingRegistry s_Instance;
 
 	ref array<ref dmRegisteredBuilding> m_Buildings;   // плоский список (обёртки)
-	ref map<int, ref array<Building>> m_ByLocation;    // locationId -> здания
+	ref map<int, ref array<ref dmRegisteredBuilding>> m_ByLocation;   // locationId -> обёртки
 	ref TStringArray m_Excluded;                       // префиксы исключённых типов зданий
 
 	static dmLiveBuildingRegistry Get()
@@ -32,7 +33,7 @@ class dmLiveBuildingRegistry
 	void dmLiveBuildingRegistry()
 	{
 		m_Buildings = new array<ref dmRegisteredBuilding>();
-		m_ByLocation = new map<int, ref array<Building>>();
+		m_ByLocation = new map<int, ref array<ref dmRegisteredBuilding>>();
 		m_Excluded = new TStringArray();
 
 		m_Excluded.Insert("Land_Boat_");
@@ -72,17 +73,18 @@ class dmLiveBuildingRegistry
 		dmRegisteredBuilding rec = new dmRegisteredBuilding();
 		rec.m_Building = building;
 		rec.m_LocationId = id;
+		rec.m_PoiType = dmBuildingInteriorMap.Get().GetType(building.GetType());
 		m_Buildings.Insert(rec);
 
 		if (id >= 0)
 		{
-			array<Building> arr = m_ByLocation.Get(id);
+			array<ref dmRegisteredBuilding> arr = m_ByLocation.Get(id);
 			if (!arr)
 			{
-				arr = new array<Building>();
+				arr = new array<ref dmRegisteredBuilding>();
 				m_ByLocation.Set(id, arr);
 			}
-			arr.Insert(building);
+			arr.Insert(rec);
 		}
 	}
 
@@ -99,10 +101,10 @@ class dmLiveBuildingRegistry
 			{
 				if (rec.m_LocationId >= 0)
 				{
-					array<Building> arr = m_ByLocation.Get(rec.m_LocationId);
+					array<ref dmRegisteredBuilding> arr = m_ByLocation.Get(rec.m_LocationId);
 					if (arr)
 					{
-						arr.RemoveItem(building);
+						arr.RemoveItem(rec);
 						if (arr.Count() == 0)
 							m_ByLocation.Remove(rec.m_LocationId);
 					}
@@ -122,17 +124,40 @@ class dmLiveBuildingRegistry
 		if (!loc)
 			return;
 
-		array<Building> arr = m_ByLocation.Get(loc.Id);
+		array<ref dmRegisteredBuilding> arr = m_ByLocation.Get(loc.Id);
 		if (!arr)
 			return;
 
 		int i;
 		for (i = 0; i < arr.Count(); i++)
 		{
-			Building b = arr[i];
-			if (!b || !b.IsAlive())
+			dmRegisteredBuilding rec = arr[i];
+			if (!rec || !rec.m_Building || !rec.m_Building.IsAlive())
 				continue;
-			outBuildings.Insert(b);
+			outBuildings.Insert(rec.m_Building);
+		}
+	}
+
+	//! Живые здания локации заданного POI-типа (по кэшированному m_PoiType, без
+	//! строкового GetType на каждое здание).
+	void GetBuildingsOfTypeForLocation(int locationId, dmWorldPOIType type, out array<Building> outBuildings)
+	{
+		if (!outBuildings)
+			outBuildings = new array<Building>();
+
+		array<ref dmRegisteredBuilding> arr = m_ByLocation.Get(locationId);
+		if (!arr)
+			return;
+
+		int i;
+		for (i = 0; i < arr.Count(); i++)
+		{
+			dmRegisteredBuilding rec = arr[i];
+			if (!rec || !rec.m_Building || !rec.m_Building.IsAlive())
+				continue;
+			if (rec.m_PoiType != type)
+				continue;
+			outBuildings.Insert(rec.m_Building);
 		}
 	}
 
