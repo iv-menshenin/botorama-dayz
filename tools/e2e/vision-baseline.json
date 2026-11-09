@@ -1,0 +1,16 @@
+{
+  "Name": "vision-baseline",
+  "Timeout": 60,
+  "Comment": "Baseline текущего зрения ДО реворта dmVision. Бот-наблюдатель (без пресета = без FSM, стоит на месте) смотрит полным разворотом на неподвижного 'игрока' (второй бот без пресета, стоит на месте) на ~20 м в открытом поле днём. Ожидание: targetdump наблюдателя содержит цель с LOS=1 и everSeen=1 (текущее зрение не учитывает освещённость — только FOV-конус + ProbabilityOfDetection + raycast).",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "bot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "spawn", "Who": "player", "Pos": [4117, 0, 10807], "Yaw": 180 },
+    { "Op": "look", "Who": "bot", "Target": "player", "Turn": "full" },
+    { "Op": "sleep", "Timeout": 8 },
+    { "Op": "targetdump", "Who": "bot" },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}
