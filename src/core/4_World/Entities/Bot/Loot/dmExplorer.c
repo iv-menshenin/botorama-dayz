@@ -152,15 +152,49 @@ class dmExplorer
 	}
 
 	//! Ближайший НЕпосещённый врек (MILITARY_WRECK) в radius от бота, или null.
-	//! Registry-запрос сам фильтрует по типу и «живости»; m_VisitedWrecks — exclude,
-	//! чтобы ближайший ПОСЕЩЁННЫЙ врек не затенял дальний непосещённый.
+	//! Скан по зданиям ТЕКУЩЕЙ локации (m_ByLocation), а не глобальному реестру;
+	//! radius — верхняя граница (врек дальше radius в пределах POI не идём).
+	//! m_VisitedWrecks — анти-повтор: ближайший ПОСЕЩЁННЫЙ врек не затеняет дальний.
 	Building GetNearestUnvisitedWreck(dmAISurvivor bot, float radius)
 	{
 		PlayerBase pawn = bot.GetPawn();
 		if (!pawn)
 			return null;
+		if (!m_CurrentLocation)
+			return null;
+
 		CleanVisitedWrecks();
-		return dmLiveBuildingRegistry.Get().GetNearestExcluding(dmWorldPOIType.MILITARY_WRECK, pawn.GetPosition(), radius, m_VisitedWrecks);
+
+		vector pos = pawn.GetPosition();
+		array<Building> buildings = new array<Building>();
+		dmLiveBuildingRegistry.Get().GetBuildingsForLocation(m_CurrentLocation, buildings);
+
+		Building nearest = null;
+		float bestSq = radius * radius;   // 2D, радиус как верхняя граница
+		float radiusSq = bestSq;
+		vector bPos;
+		float dSq;
+		int i;
+		for (i = 0; i < buildings.Count(); i++)
+		{
+			Building b = buildings[i];
+			if (!b || !b.IsAlive())
+				continue;
+			if (dmBuildingInteriorMap.Get().GetType(b.GetType()) != dmWorldPOIType.MILITARY_WRECK)
+				continue;
+			if (HasVisitedWreck(b))
+				continue;
+			bPos = b.GetPosition();
+			dSq = dmMath.DistSq2D(bPos, pos);
+			if (dSq > radiusSq)
+				continue;
+			if (!nearest || dSq < bestSq)
+			{
+				nearest = b;
+				bestSq = dSq;
+			}
+		}
+		return nearest;
 	}
 
 	//! Пометить врек посещённым (идемпотентно) — чтобы не пере-ходить к нему.

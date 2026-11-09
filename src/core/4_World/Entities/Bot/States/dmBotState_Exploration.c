@@ -59,29 +59,92 @@ class dmBotState_Exploration : dmBotState
 		if (!pawn)
 			return EXIT;
 
+		#ifdef DM_BOT_PROFILE
+		float _t0 = 0.0;
+		#endif
+
+		//! Суб-спаны Exploration (атрибуция фрейм-спайков к операциям). Ручной
+		//! замер через Record вместо dmBotSpan: у Enfusion нет блочной области
+		//! видимости, деструктор scope-guard сработал бы на выходе из OnUpdate.
+		#ifdef DM_BOT_PROFILE
+		_t0 = GetGame().GetTickTime();
+		#endif
 		MaybeDrop(bot, pawn, pDt);
+		#ifdef DM_BOT_PROFILE
+		if (dmBotProfiler.IsEnabled())
+			dmBotProfiler.Record("Expl.Drop", GetGame().GetTickTime() - _t0);
+		#endif
 
 		m_ContainerScanCooldown -= pDt;
 		m_CorpseScanCooldown -= pDt;
 		m_WreckScanCooldown -= pDt;
 
-		if (!EnsurePickUp(bot, pawn))
+		bool pickingUp;
+		#ifdef DM_BOT_PROFILE
+		_t0 = GetGame().GetTickTime();
+		#endif
+		pickingUp = EnsurePickUp(bot, pawn);
+		#ifdef DM_BOT_PROFILE
+		if (dmBotProfiler.IsEnabled())
+			dmBotProfiler.Record("Expl.PickUp", GetGame().GetTickTime() - _t0);
+		#endif
+
+		if (!pickingUp)
 		{
+			#ifdef DM_BOT_PROFILE
+			_t0 = GetGame().GetTickTime();
+			#endif
 			EnsureCorpse(bot, pawn);
+			#ifdef DM_BOT_PROFILE
+			if (dmBotProfiler.IsEnabled())
+				dmBotProfiler.Record("Expl.Corpse", GetGame().GetTickTime() - _t0);
+			#endif
 			if (!m_CorpseMove && !bot.IsExplorationStandStill())
+			{
+				#ifdef DM_BOT_PROFILE
+				_t0 = GetGame().GetTickTime();
+				#endif
 				EnsureExplore(bot, pawn);
+				#ifdef DM_BOT_PROFILE
+				if (dmBotProfiler.IsEnabled())
+					dmBotProfiler.Record("Expl.Explore", GetGame().GetTickTime() - _t0);
+				#endif
+			}
 		}
 
+		#ifdef DM_BOT_PROFILE
+		_t0 = GetGame().GetTickTime();
+		#endif
 		TickRoute(pawn);
+		#ifdef DM_BOT_PROFILE
+		if (dmBotProfiler.IsEnabled())
+			dmBotProfiler.Record("Expl.Route", GetGame().GetTickTime() - _t0);
+		#endif
 
+		#ifdef DM_BOT_PROFILE
+		_t0 = GetGame().GetTickTime();
+		#endif
 		bot.GetExplorer().RefreshBuildingsIfEmpty(pDt);
+		#ifdef DM_BOT_PROFILE
+		if (dmBotProfiler.IsEnabled())
+			dmBotProfiler.Record("Expl.Refresh", GetGame().GetTickTime() - _t0);
+		#endif
 
 		if (m_CurrentBuilding)
 			m_BuildingTime = m_BuildingTime + pDt;
 
 		bot.GetExplorer().TickLocationTime(pDt);
 
-		if (CheckExits(bot))
+		bool exiting;
+		#ifdef DM_BOT_PROFILE
+		_t0 = GetGame().GetTickTime();
+		#endif
+		exiting = CheckExits(bot);
+		#ifdef DM_BOT_PROFILE
+		if (dmBotProfiler.IsEnabled())
+			dmBotProfiler.Record("Expl.Exits", GetGame().GetTickTime() - _t0);
+		#endif
+		if (exiting)
 			return EXIT;
 
 		return CONTINUE;
