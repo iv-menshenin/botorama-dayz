@@ -1,0 +1,23 @@
+{
+  "Name": "vision-a6-integration",
+  "Timeout": 120,
+  "Comment": "A6 интеграция света в дальность видимости: GetVisionDist = базовая (день/ночь/луна/бункер/буря) × собственный свет наблюдателя (×DM_ILLUMINATION_MULT=3) ИЛИ NVG (= дневная дальность), × подсветка цели (emit, здесь targetEmit=0 в botdump). settime фиксирует дату 2015/4/8 (DM_E2E_SETTIME_*), луна 2015-4-8 = 0.674913 → ночная база = 20 + 10×0.674913 ≈ 26.7. Ожидание по botdump: (1) полночь без света → maxDist≈26.7 / visionDist≈26.7; (2) givelight Flashlight → illum=1, visionDist = 26.7×3 ≈ 80; (3) givelight NVGoggles → nvg=1, visionDist=1000 (дневная дальность, без ×3); (4) полдень (контроль) → visionDist=1000. Отдельный бот под emit: подсветка цели (emit) проверяется в А7 (per-target), здесь botdump отдаёт targetEmit=0.",
+  "Steps": [
+    { "Op": "ping" },
+    { "Op": "spawn", "Who": "bot", "Pos": [4117, 0, 10827], "Yaw": 0 },
+    { "Op": "settime", "Value": "00:00" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "givelight", "Who": "bot", "ClassName": "Flashlight" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "givelight", "Who": "bot", "ClassName": "NVGoggles" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "settime", "Value": "12:00" },
+    { "Op": "sleep", "Timeout": 4 },
+    { "Op": "botdump", "Who": "bot" },
+    { "Op": "snapshot" },
+    { "Op": "clearall" }
+  ]
+}

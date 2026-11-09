@@ -625,6 +625,18 @@ static const float DM_EMIT_CHEMLIGHT = 0.0075;       // химсвет (слаб
 //! от порога (emit=0).
 static const float DM_ILLUMINATION_THRESHOLD = 0.01;
 
+//! Интеграция света в дальность (А6): множитель дальности видимости при активном
+//! собственном источнике света наблюдателя (фонарь/факел/налобник). Illumination
+//! бинарно (0/1): 0 → ×1, 1 → ×DM_ILLUMINATION_MULT. NVG — отдельный путь (дневная
+//! дальность), на ×3 не домножается.
+static const float DM_ILLUMINATION_MULT = 3.0;
+
+//! Интеграция света в дальность (А6): коэффициент роста дальности от эмиссии цели
+//! (0..1). emitBoost = 1 + emit × DM_EMIT_DIST_SCALE. При SCALE=50: факел/roadflare
+//! (0.03) → ×2.5, фонарь/налобник (0.0255) → ×2.3, химсвет (0.0075) → ×1.4 (почти
+//! не влияет). Кап итога — дневная дальность типа (свет не видит дальше, чем днём).
+static const float DM_EMIT_DIST_SCALE = 50.0;
+
 //! Perception: horizontal field of view (degrees). A target within ±half this angle
 //! from the look direction counts as "in front".
 static const float DM_PERCEPTION_FOV = 160.0;

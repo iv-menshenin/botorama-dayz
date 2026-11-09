@@ -3961,9 +3961,6 @@ class dmE2EBridge
 		line = "moon=" + state.moonIntensity;
 		AppendDump(r, line);
 
-		line = "maxDist=" + bot.GetMaxDist(dmIllumTargetType.PLAYER);
-		AppendDump(r, line);
-
 		line = "bunker=" + state.inBunker;
 		AppendDump(r, line);
 
@@ -3976,10 +3973,17 @@ class dmE2EBridge
 		line = "illum=" + pawn.IlluminationIntensivity();
 		AppendDump(r, line);
 
+		line = "nvg=" + pawn.HasNightVision();
+		AppendDump(r, line);
+
+		line = "visionDist=" + bot.GetVisionDist(dmIllumTargetType.PLAYER, 0.0);
+		AppendDump(r, line);
+
 		#ifdef DM_BOT_DEBUG_LIGHT
 		dmBotLog.Debug(bot.GetName(), "[Light] botdump time=" + dHour + ":" + dMin + " daylightFactor=" + state.daylightFactor);
-		dmBotLog.Debug(bot.GetName(), "[Light] botdump moon=" + state.moonIntensity + " maxDist=" + bot.GetMaxDist(dmIllumTargetType.PLAYER) + " bunker=" + state.inBunker + " sandstorm=" + state.inSandstorm);
+		dmBotLog.Debug(bot.GetName(), "[Light] botdump moon=" + state.moonIntensity + " bunker=" + state.inBunker + " sandstorm=" + state.inSandstorm);
 		dmBotLog.Debug(bot.GetName(), "[Light] botdump emit=" + pawn.EmitLightIntensivity() + " illum=" + pawn.IlluminationIntensivity());
+		dmBotLog.Debug(bot.GetName(), "[Light] botdump nvg=" + pawn.HasNightVision() + " visionDist=" + bot.GetVisionDist(dmIllumTargetType.PLAYER, 0.0));
 		#endif
 
 		r.Ok = true;

@@ -26,6 +26,9 @@ modded class PlayerBase
 	//! вызов геттера (потребители — серверный мозг и botdump).
 	private float m_EmitLightCached = 0.0;
 	private float m_IllumCached = 0.0;
+	//! Активен ли NVG/NV-оптика (зрение, НЕ эмиссия). Нужен отдельно от illumination,
+	//! чтобы отличить «вижу как днём» (NVG) от «вижу ×3 от фонаря» (А6).
+	private bool m_NvgCached = false;
 	//! Момент последнего пересчёта (GetTickTime); отрицательный сентинел — первый
 	//! вызов гарантированно пересчитает кэш.
 	private float m_LightCacheTime = -3.0;
@@ -47,7 +50,16 @@ modded class PlayerBase
 		return m_IllumCached;
 	}
 
-	//! Ленивый пересчёт кэша (дебаунс DM_ILLUMINATION_CACHE_INTERVAL). Оба значения
+	//! Активен ли NVG/NV-оптика (игрок «видит как днём»). Отдельный флаг от
+	//! illumination: NVG отменяет ночь в дальности видимости (дневная дальность),
+	//! тогда как обычный источник даёт ×3 от ночной базы (А6).
+	bool HasNightVision()
+	{
+		RefreshLightCache();
+		return m_NvgCached;
+	}
+
+	//! Ленивый пересчёт кэша (дебаунс DM_ILLUMINATION_CACHE_INTERVAL). Все значения
 	//! считаются в одном проходе по инвентарю.
 	private void RefreshLightCache()
 	{
@@ -65,9 +77,10 @@ modded class PlayerBase
 	{
 		float emitMax = 0.0;
 		float illum = 0.0;
+		bool nvg = false;
 		bool raised = IsRaised();
 
-		ClassifyItemTree(GetItemInHands(), raised, emitMax, illum);
+		ClassifyItemTree(GetItemInHands(), raised, emitMax, illum, nvg);
 
 		GameInventory inv = GetInventory();
 		if (inv)
@@ -76,23 +89,24 @@ modded class PlayerBase
 			int i;
 			for (i = 0; i < count; i++)
 			{
-				ClassifyItemTree(inv.FindAttachment(inv.GetAttachmentSlotId(i)), raised, emitMax, illum);
+				ClassifyItemTree(inv.FindAttachment(inv.GetAttachmentSlotId(i)), raised, emitMax, illum, nvg);
 			}
 		}
 
 		m_EmitLightCached = emitMax;
 		m_IllumCached = illum;
+		m_NvgCached = nvg;
 	}
 
 	//! Рекурсивно: классифицируем сам предмет + его аттачменты (насадка-фонарь на
 	//! оружии/шлеме, NVG). Карго не трогаем — включённый источник в рюкзаке «не у
 	//! игрока».
-	private void ClassifyItemTree(EntityAI item, bool raised, inout float emitMax, inout float illum)
+	private void ClassifyItemTree(EntityAI item, bool raised, inout float emitMax, inout float illum, inout bool nvg)
 	{
 		if (!item)
 			return;
 
-		ClassifyLight(item, raised, emitMax, illum);
+		ClassifyLight(item, raised, emitMax, illum, nvg);
 
 		GameInventory itemInv = item.GetInventory();
 		if (!itemInv)
@@ -102,7 +116,7 @@ modded class PlayerBase
 		int i;
 		for (i = 0; i < count; i++)
 		{
-			ClassifyItemTree(itemInv.FindAttachment(itemInv.GetAttachmentSlotId(i)), raised, emitMax, illum);
+			ClassifyItemTree(itemInv.FindAttachment(itemInv.GetAttachmentSlotId(i)), raised, emitMax, illum, nvg);
 		}
 	}
 
@@ -111,15 +125,21 @@ modded class PlayerBase
 	//! GetCompEM().IsWorking(). Направленность UniversalLight — по РОДИТЕЛЮ
 	//! (IsWeapon), не по классу/слоту: на оружии — узкий прожектор (гейт IsRaised),
 	//! на шлеме/в руках — широкий (без гейта). NVG/NV-оптика — зрение, не эмиссия.
-	private void ClassifyLight(EntityAI item, bool raised, inout float emitMax, inout float illum)
+	private void ClassifyLight(EntityAI item, bool raised, inout float emitMax, inout float illum, inout bool nvg)
 	{
 		//! NVG и NV-оптика дают зрение, но НЕ эмитят свет (emit=0). NVGoggles ловим
 		//! раньше ItemOptics — NVGoggles тоже ItemOptics-наследник, но его
-		//! GetCurrentNVType() == NVTypes.NONE.
-		if (NVGoggles.Cast(item))
+		//! GetCurrentNVType() == NVTypes.NONE. «Активен» — канонический предикат
+		//! m_IsLowered && IsWorking() (research §4): IsWorking() здесь = CanWork()
+		//! (наследован от ItemOptics), НЕ EM-IsWorking().
+		NVGoggles goggles = NVGoggles.Cast(item);
+		if (goggles)
 		{
-			if (IsLightOn(item))
+			if (goggles.m_IsLowered && goggles.IsWorking())
+			{
 				illum = 1.0;
+				nvg = true;
+			}
 			return;
 		}
 		ItemOptics optics = ItemOptics.Cast(item);
@@ -129,6 +149,7 @@ modded class PlayerBase
 			if (nvType != NVTypes.NONE && nvType != NVTypes.NV_OPTICS_OFF)
 			{
 				illum = 1.0;
+				nvg = true;
 				return;
 			}
 		}

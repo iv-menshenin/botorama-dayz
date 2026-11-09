@@ -14,7 +14,11 @@
 //! DM_ILLUMINATION_CACHE_INTERVAL seconds so per-tick consumers don't recompute
 //! the clock or re-test the boxes. The moon (GetMoonIntensity, 0..1 phase signal —
 //! 0 by day, ~0.67 by near-full-moon night) scales the night base linearly between
-//! DM_VIS_DIST_NIGHT and DM_VIS_DIST_MOON. Local light sources (A4–A6) are later atoms.
+//! DM_VIS_DIST_NIGHT and DM_VIS_DIST_MOON. Local light sources (A4–A6): observer
+//! illumination scales the distance ×DM_ILLUMINATION_MULT (A6), active NVG forces
+//! the daylight distance (cancels night, keeps bunker/sandstorm), and the target's
+//! emission scales the distance via EmitDistanceMult (per-target, consumed by dmVision
+//! in A7 through GetVisionDist).
 
 //! Тип цели для дальности видимости (per-type дневной радиус).
 enum dmIllumTargetType
@@ -85,25 +89,83 @@ class dmIllumination
 		return g_Game.GetWorld().GetMoonIntensity();
 	}
 
+	//! Дневная дальность видимости по типу цели (per-type радиус).
+	private float DayDistFor(dmIllumTargetType targetType)
+	{
+		if (targetType == dmIllumTargetType.ANIMAL)
+			return DM_VIS_DIST_ANIMAL;
+		if (targetType == dmIllumTargetType.ZOMBIE)
+			return DM_VIS_DIST_ZOMBIE;
+		return DM_VIS_DIST_DAY;
+	}
+
 	//! Дальность видимости из УЖЕ посчитанных факторов (кэш мозга): ночная база
 	//! интерполируется по фазе луны, итог — по дневному фактору. Жёсткие override'ы:
 	//! бункер (10 м) приоритетнее бури (20 м) — внутри бункера всегда темнее, чем
 	//! сквозь песчаную стену, а позиционная интенсивность бури в герметичном бункере
 	//! и так не имеет смысла; поэтому сначала бункер, затем буря, затем линейная
-	//! интерполяция день/ночь. Потребляется кэширующим владельцем.
-	float GetMaxDistFor(dmIllumTargetType targetType, dmLightState state)
+	//! интерполяция день/ночь. Внутренний хелпер — потребляется только GetVisionDist.
+	private float GetMaxDistFor(dmIllumTargetType targetType, dmLightState state)
 	{
 		if (state.inBunker)
 			return DM_VIS_DIST_BUNKER;
 		if (state.inSandstorm)
 			return DM_VIS_DIST_SANDSTORM;
-		float dayDist = DM_VIS_DIST_DAY;
-		if (targetType == dmIllumTargetType.ANIMAL)
-			dayDist = DM_VIS_DIST_ANIMAL;
-		else if (targetType == dmIllumTargetType.ZOMBIE)
-			dayDist = DM_VIS_DIST_ZOMBIE;
+		float dayDist = DayDistFor(targetType);
 		float nightDist = Math.Lerp(DM_VIS_DIST_NIGHT, DM_VIS_DIST_MOON, state.moonIntensity);
 		return Math.Lerp(nightDist, dayDist, state.daylightFactor);
+	}
+
+	//! Дальность видимости «как дневной свет» (для NVG): дневной фактор форсится в 1
+	//! (ночь отменяется), но бункер/буря остаются жёсткими override'ами — это физическое
+	//! укрытие, а не недостаток света. NVG не эмитит свет и не домножается на ×3.
+	private float GetMaxDistAsDaylight(dmIllumTargetType targetType, dmLightState state)
+	{
+		if (state.inBunker)
+			return DM_VIS_DIST_BUNKER;
+		if (state.inSandstorm)
+			return DM_VIS_DIST_SANDSTORM;
+		return DayDistFor(targetType);
+	}
+
+	//! Множитель дальности от собственного света наблюдателя (0/1): без света ×1,
+	//! с источником (фонарь/факел/налобник) ×DM_ILLUMINATION_MULT.
+	private float ObserverIllumMult(float observerIllum)
+	{
+		if (observerIllum > 0.0)
+			return DM_ILLUMINATION_MULT;
+		return 1.0;
+	}
+
+	//! Множитель дальности от эмиссии цели (0..1): подсвеченная цель видна дальше,
+	//! линейно по интенсивности. per-target — применяется к дальности конкретной цели
+	//! (НЕ к глобальному maxDist). Чистый хелпер для А7.
+	float EmitDistanceMult(float targetEmit)
+	{
+		return 1.0 + targetEmit * DM_EMIT_DIST_SCALE;
+	}
+
+	//! Итоговая дальность видимости цели (метры): базовая (день/ночь/луна/бункер/буря),
+	//! × собственный свет наблюдателя (или NVG = как дневной свет, без ×3), × подсветка
+	//! цели (emit). Кап — дневная дальность типа (свет никогда не даёт видеть дальше,
+	//! чем днём). Точка входа для А7 (per-target гейт dmVision).
+	float GetVisionDist(dmIllumTargetType targetType, dmLightState state, bool nvg, float observerIllum, float targetEmit)
+	{
+		float dayDist = DayDistFor(targetType);
+		float dist;
+		if (nvg)
+		{
+			dist = GetMaxDistAsDaylight(targetType, state);
+		}
+		else
+		{
+			dist = GetMaxDistFor(targetType, state);
+			dist = dist * ObserverIllumMult(observerIllum);
+		}
+		dist = dist * EmitDistanceMult(targetEmit);
+		if (dist > dayDist)
+			dist = dayDist;
+		return dist;
 	}
 
 	//! Точка внутри хотя бы одного INNER-триггера бункера (EyeAccommodation < 1)?

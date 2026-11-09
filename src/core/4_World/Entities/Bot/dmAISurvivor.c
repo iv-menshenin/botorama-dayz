@@ -833,13 +833,21 @@ class dmAISurvivor
 		return m_LightState;
 	}
 
-	//! Light-scaled visibility distance (meters) for a target type, from the cached
-	//! factors. Night base scales with the moon (DM_VIS_DIST_NIGHT..DM_VIS_DIST_MOON),
-	//! day = the type's day radius; inside a bunker — hard DM_VIS_DIST_BUNKER, inside
-	//! a sandstorm — hard DM_VIS_DIST_SANDSTORM (bunker wins over sandstorm).
-	float GetMaxDist(dmIllumTargetType targetType)
+	//! Итоговая дальность видимости цели (метры) с интеграцией света (А6): базовая
+	//! (день/ночь/луна/бункер/буря) × собственный свет наблюдателя (фонарь/факел/
+	//! налобник ×3) + NVG (как дневной свет, без ×3) + подсветка цели (emit, per-target).
+	//! targetEmit = EmitLightIntensivity() цели; освещённость/NVG читает из своей пешки.
+	//! Единственная публичная точка дальности видимости (гейт А7 в dmVision).
+	float GetVisionDist(dmIllumTargetType targetType, float targetEmit)
 	{
-		return m_Illumination.GetMaxDistFor(targetType, m_LightState);
+		bool nvg = false;
+		float observerIllum = 0.0;
+		if (m_Pawn)
+		{
+			nvg = m_Pawn.HasNightVision();
+			observerIllum = m_Pawn.IlluminationIntensivity();
+		}
+		return m_Illumination.GetVisionDist(targetType, m_LightState, nvg, observerIllum, targetEmit);
 	}
 
 	dmWishlist GetWishlist()
