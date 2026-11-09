@@ -208,6 +208,11 @@ class dmBotState_MedicalCare : dmBotState
 				painkillerQueued = true;
 			}
 		}
+		else if (pawn.IsBleeding() && !bot.IsInCombat())
+		{
+			//! Кровотек, но нечем перебинтоваться — реплика «У меня кровотек» (только вне боя).
+			bot.Say(dmVoiceCategory.GOT_SHOT, 5, 5);
+		}
 
 		//! 2. Шина + бонус-обезбол (всегда после шины, дедуп).
 		if (pawn.GetBrokenLegs() == eBrokenLegs.BROKEN_LEGS)
@@ -297,6 +302,9 @@ class dmBotState_MedicalCare : dmBotState
 
 		if (step == dmMedicalStep.STEP_BANDAGE)
 		{
+			//! Бот начинает бинтоваться — реплика «Мотаюсь!» (только вне боя).
+			if (!bot.IsInCombat())
+				bot.Say(dmVoiceCategory.GOT_SHOT, 4, 4);
 			item = dmLoot.FindMedicalItem(pawn, dmMedicalItemKind.BANDAGE);
 			intent.m_Kind = dmMedicalActionKind.ACTION_BANDAGE;
 		}

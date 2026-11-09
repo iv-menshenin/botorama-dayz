@@ -56,8 +56,8 @@ class dmHearing
 		if (type == dmNoiseType.SHOT)
 			m_Bot.OnGunshot(root);
 
-		//! Услышал чужой выстрел/взрыв — реплика HEARD_SHOT (кулдаун 5 мин в центре).
-		if (type == dmNoiseType.SHOT || type == dmNoiseType.EXPLOSION)
+		//! Услышал чужой выстрел/взрыв — реплика HEARD_SHOT (с гейтами).
+		if ((type == dmNoiseType.SHOT || type == dmNoiseType.EXPLOSION) && ShouldSayHeardShot(root, position))
 			m_Bot.Say(dmVoiceCategory.HEARD_SHOT);
 
 		//! Услышал попадание пули рядом (чужой выстрел) — реплика GOT_SHOT [1..2].
@@ -82,5 +82,18 @@ class dmHearing
 		dmBotLog.Debug(m_Bot.GetName(), "[Noise] OnNoise sound arrived: position=" + position + " type=" + type);
 		#endif
 		m_Bot.HearNoise(entity, position, type);
+	}
+
+	//! Стоит ли говорить HEARD_SHOT: стрелок не идентифицирован, дальше 500 м, бот не в бою.
+	bool ShouldSayHeardShot(EntityAI root, vector position)
+	{
+		dmTarget t = m_Bot.FindTarget(root);
+		if (t && t.Identified())
+			return false;
+		if (vector.Distance(m_Bot.GetPosition(), position) < DM_HEARD_SHOT_MIN_DISTANCE)
+			return false;
+		if (m_Bot.IsInCombat())
+			return false;
+		return true;
 	}
 };

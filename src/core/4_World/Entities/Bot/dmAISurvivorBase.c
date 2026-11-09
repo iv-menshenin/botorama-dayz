@@ -184,9 +184,6 @@ class dmAISurvivorBase : PlayerBase
 	//! arms it ("we expect a hit"), ReceivedHit() reads it without resetting.
 	private bool m_ReceivedHit = false;
 
-	//! Детект начала кровотечения (фронт !IsBleeding -> IsBleeding) — реплика GOT_SHOT.
-	private bool m_WasBleeding = false;
-
 	//! Вырубило ударом при ДТП (шок-падение в транспорте) — ждём пробуждения для реплики.
 	private float m_CrashKnockTime = -1.0; // -1 = нет отложенного ДТП; иначе момент шока от ДТП (GetTickTime)
 
@@ -1413,16 +1410,6 @@ class dmAISurvivorBase : PlayerBase
 	//! internally, so a 4 Hz tick is enough.
 	void TickBodySystems(float pDt)
 	{
-		//! Детект начала кровотечения (фронт !IsBleeding -> IsBleeding) — реплика GOT_SHOT [4..5].
-		bool bleeding = IsBleeding();
-		if (bleeding && !m_WasBleeding)
-		{
-			dmAISurvivor bot = dmAISurvivor.Find(this);
-			if (bot)
-				bot.Say(dmVoiceCategory.GOT_SHOT, 4, 5);
-		}
-		m_WasBleeding = bleeding;
-
 		ModifiersManager mngr = GetModifiersManager();
 		if (!mngr)
 			return;
