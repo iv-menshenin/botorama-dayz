@@ -5,6 +5,7 @@ class dmBotVoiceCenter
 	private ref dmAISurvivor m_Bot;
 	private ref map<dmVoiceCategory, float> m_LastSpokeAt;
 	private float m_NextAmbientChatAt = 0.0; // 0 = не инициализирован; момент следующего фонового трёпа
+	private float m_GlobalSpeechUntil = 0.0; // момент окончания глобального кулдауна (0 = свободно)
 
 	void dmBotVoiceCenter(dmAISurvivor bot)
 	{
@@ -88,7 +89,7 @@ class dmBotVoiceCenter
 
 		//! Реакция: реальная реплика — через 0.5–1.5 с (время реакции).
 		int delayMs = (int)(Math.RandomFloat(DM_VOICE_REACTION_DELAY_MIN, DM_VOICE_REACTION_DELAY_MAX) * 1000.0);
-		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(CreateVoiceIntent, delayMs, false, lineId);
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(PlayVoiceDeferred, delayMs, false, lineId, respectCooldown);
 
 		#ifdef DM_BOT_DEBUG_VOICE
 		string cd = "off";
@@ -100,11 +101,37 @@ class dmBotVoiceCenter
 		return lineId;
 	}
 
-	//! Отложенное создание интента реплики (после оттяжки реакции).
-	private void CreateVoiceIntent(int lineId)
+	//! Отложенное воспроизведение (после оттяжки реакции). Гейт отключки → отброс с логом;
+	//! глобальный кулдаун → кулдаунная реплика отбрасывается, без-кулдаунная встаёт в очередь
+	//! (рекурсивный CallLater до конца кулдауна).
+	private void PlayVoiceDeferred(int lineId, bool respectCooldown)
 	{
+		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(m_Bot.GetPawn());
+		if (!pawn || pawn.IsUnconsciousStateOnly())
+		{
+			#ifdef DM_BOT_DEBUG_VOICE
+			dmBotLog.Debug(m_Bot.GetName(), "dmBotVoiceCenter.PlayVoiceDeferred() drop: unconscious lineId=" + lineId);
+			#endif
+			return;
+		}
+
+		float now = GetGame().GetTickTime();
+		if (now < m_GlobalSpeechUntil)
+		{
+			if (!respectCooldown)
+			{
+				int waitMs = (int)((m_GlobalSpeechUntil - now) * 1000.0);
+				GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(PlayVoiceDeferred, waitMs, false, lineId, false);
+			}
+			return;
+		}
+
 		dmBotIntent_Voice intent = new dmBotIntent_Voice();
 		intent.m_LineId = lineId;
 		m_Bot.AddPersonalityIntent(intent);
+
+		string voice = dmBotVoice.GetVoiceName(pawn);
+		float duration = dmBotVoice.GetTalkDuration(voice, lineId);
+		m_GlobalSpeechUntil = now + DM_VOICE_GLOBAL_GAP + duration;
 	}
 }
