@@ -19,6 +19,40 @@ class dmBotState_Travel : dmBotState
 		return e.GetNearestUnvisitedLocation(bot) != null;
 	}
 
+	//! Выбрать следующую точку движения к `dest` и поставить MoveTo-интент.
+	//! Если до локации дальше DM_TRAVEL_SEGMENT_DISTANCE — идём не сразу к центру,
+	//! а к промежуточной точке в её направлении (нативный FindPath ограничен по
+	//! веткам A* и не строит путь на 1.3+ км). По прибытии в конец куска OnUpdate
+	//! либо фиксирует прибытие, либо ставит следующий кусок.
+	void StartSegmentMove(dmAISurvivor bot, dmWorldPoiLocation dest)
+	{
+		vector botPos = bot.GetPosition();
+		vector toPoi = dest.Position - botPos;
+		toPoi[1] = 0.0;
+		vector goal = dest.Position;
+		if (toPoi.Length() > DM_TRAVEL_SEGMENT_DISTANCE)
+		{
+			toPoi.Normalize();
+			goal = botPos + toPoi * DM_TRAVEL_SEGMENT_DISTANCE;
+		}
+
+		vector sampled;
+		if (bot.SampleNavmesh(goal, sampled))
+			goal = sampled;
+		else
+			goal[1] = GetGame().SurfaceY(goal[0], goal[2]);
+
+		m_Move = new dmBotIntent_MoveTo();
+		m_Move.m_Goal = goal;
+		m_Move.m_ReachDistance = dmWorldPOIRegistry.GetArrivalRadius(dest.Type);
+		m_Move.m_Priority = dmBotIntentPriority.DESIRABLE;
+		bot.AddFSMIntent(m_Move);
+
+		#ifdef DM_BOT_DEBUG_FSM
+		dmBotLog.Debug(bot.GetName(), "[FSM] Travel.segment -> " + dest.Name + " goal=" + goal);
+		#endif
+	}
+
 	override void OnEntry(dmBotState from)
 	{
 		m_Move = null;
@@ -33,22 +67,7 @@ class dmBotState_Travel : dmBotState
 		e.SetDestination(dest);
 		e.SetInTransit(true);
 
-		vector goal = dest.Position;
-		vector sampled;
-		if (bot.SampleNavmesh(goal, sampled))
-			goal = sampled;
-		else
-			goal[1] = GetGame().SurfaceY(goal[0], goal[2]);
-
-		m_Move = new dmBotIntent_MoveTo();
-		m_Move.m_Goal = goal;
-		m_Move.m_ReachDistance = dmWorldPOIRegistry.GetArrivalRadius(dest.Type);
-		m_Move.m_Priority = dmBotIntentPriority.DESIRABLE;
-		bot.AddFSMIntent(m_Move);
-
-		#ifdef DM_BOT_DEBUG_FSM
-		dmBotLog.Debug(GetOwner().GetName(), "[FSM] Travel.entry -> " + dest.Name + " (" + dest.Type + ") goal=" + goal);
-		#endif
+		StartSegmentMove(bot, dest);
 	}
 
 	override int OnUpdate(float pDt)
@@ -66,7 +85,7 @@ class dmBotState_Travel : dmBotState
 		{
 			dmWorldPoiLocation dead = e.GetDestination();
 			if (dead)
-				e.RememberLocation(dead.Id);   // анти-цикл: не выбирать недостижимую снова
+				e.RememberFailed(dead.Id);   // мягкий анти-цикл: кулдаун, не навсегда
 			e.ClearDestination();
 			e.SetInTransit(false);
 			#ifdef DM_BOT_DEBUG_FSM
@@ -77,15 +96,32 @@ class dmBotState_Travel : dmBotState
 
 		if (m_Move.IsFinished())
 		{
-			e.SetInTransit(false);
-			dmWorldPoiLocation arrived = e.GetDestination();
-			e.ClearDestination();
-			if (arrived)
-				e.ArriveAtLocation(arrived);
-			#ifdef DM_BOT_DEBUG_FSM
-			dmBotLog.Debug(GetOwner().GetName(), "[FSM] Travel.arrived");
-			#endif
-			return EXIT;
+			dmWorldPoiLocation dest = e.GetDestination();
+			if (!dest)
+			{
+				e.SetInTransit(false);
+				return EXIT;
+			}
+
+			vector botPos = bot.GetPosition();
+			vector toPoi = dest.Position - botPos;
+			toPoi[1] = 0.0;
+			float arrivalRadius = dmWorldPOIRegistry.GetArrivalRadius(dest.Type);
+			if (toPoi.Length() <= arrivalRadius)
+			{
+				e.SetInTransit(false);
+				e.ClearDestination();
+				e.ArriveAtLocation(dest);
+				#ifdef DM_BOT_DEBUG_FSM
+				dmBotLog.Debug(GetOwner().GetName(), "[FSM] Travel.arrived");
+				#endif
+				return EXIT;
+			}
+
+			//! Дошли до конца куска, но ещё не до локации — ставим следующий кусок.
+			m_Move = null;
+			StartSegmentMove(bot, dest);
+			return CONTINUE;
 		}
 
 		if (m_Move.IsExpired())

@@ -18,6 +18,7 @@ class dmExploredBuilding
 class dmExplorer
 {
 	ref array<int> m_VisitedLocations;                       // Id посещённых локаций
+	ref map<int, float> m_RecentlyFailed;                    // Id локации -> таймстемп неудачного MoveTo
 	ref dmWorldPoiLocation m_CurrentLocation;                // текущая локация (null = вне)
 	ref dmWorldPoiLocation m_Destination;                    // назначение кочёвки (веха E)
 	ref array<ref dmExploredBuilding> m_LocationBuildings;   // здания текущей локации
@@ -30,6 +31,7 @@ class dmExplorer
 	void dmExplorer()
 	{
 		m_VisitedLocations = new array<int>();
+		m_RecentlyFailed = new map<int, float>();
 		m_LocationBuildings = new array<ref dmExploredBuilding>();
 		m_VisitedWrecks = new array<Building>();
 		m_CurrentLocation = null;
@@ -51,6 +53,22 @@ class dmExplorer
 	{
 		if (!HasVisited(id))
 			m_VisitedLocations.Insert(id);
+	}
+
+	//! Пометить локацию «недавно неудачной» (мягкий анти-цикл): она не выбирается
+	//! повторно на DM_TRAVEL_FAIL_COOLDOWN, но НЕ навсегда (в отличие от RememberLocation).
+	void RememberFailed(int id)
+	{
+		m_RecentlyFailed[id] = GetGame().GetTickTime();
+	}
+
+	//! Локация «недавно неудачна» — фейл MoveTo был меньше DM_TRAVEL_FAIL_COOLDOWN назад.
+	bool IsRecentlyFailed(int id)
+	{
+		float t;
+		if (!m_RecentlyFailed.Find(id, t))
+			return false;
+		return GetGame().GetTickTime() - t < DM_TRAVEL_FAIL_COOLDOWN;
 	}
 
 	//! Вход в локацию: запомнить, взять её здания из реестра и сбросить прогресс.
@@ -297,7 +315,7 @@ class dmExplorer
 		for (i = 0; i < reg.LocationCount(); i++)
 		{
 			dmWorldPoiLocation loc = reg.GetLocation(i);
-			if (!loc || HasVisited(loc.Id))
+			if (!loc || HasVisited(loc.Id) || IsRecentlyFailed(loc.Id))
 				continue;
 			locPos = loc.Position;
 			dSq = dmMath.DistSq2D(locPos, botPos);

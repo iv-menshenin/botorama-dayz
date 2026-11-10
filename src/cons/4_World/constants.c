@@ -268,6 +268,16 @@ static const float DM_NAV_GAP = 1.5;
 //! Страховка от бесконечной рекурсии (помимо visited-set по типу+индексу лестницы).
 static const int DM_NAV_MAX_DEPTH = 6;
 
+//! Travel: размер «куска» пути (метры) при кочёвке к дальней локации. Ниже лимита
+//! веток нативного A* (~1.3 км), чтобы FindPath до промежуточной точки строился
+//! гарантированно. Дальняя локация проходится цепочкой таких кусков.
+static const float DM_TRAVEL_SEGMENT_DISTANCE = 1000.0;
+
+//! Travel: кулдаун (сек) «недавно неудачной» локации (RememberFailed). После
+//! неудачного MoveTo локация не выбирается повторно на этот срок — мягкий
+//! анти-цикл вместо вечной пометки посещённой (RememberLocation).
+static const float DM_TRAVEL_FAIL_COOLDOWN = 300.0;
+
 //! Path rounding: turn angle (degrees) below which a corner is left unchanged.
 static const float DM_PATH_ROUND_ANGLE_LOW   = 75.0;
 //! Path rounding: turn angle (degrees) above which a corner is stair-stepped (90°).
