@@ -2796,6 +2796,20 @@ class dmAISurvivorBase : PlayerBase
 		if (wm && wm.IsRunning())
 			wm.OnWeaponActionEnd();
 
+		//! Крэш-гард: предмет без валидной локации (уже на земле / стale-ссылка) —
+		//! LocalDropEntity упадёт с «No inventory location»; молча пропускаем.
+		GameInventory inv = item.GetInventory();
+		if (!inv)
+			return null;
+		InventoryLocation loc = new InventoryLocation();
+		if (!inv.GetCurrentInventoryLocation(loc))
+		{
+			#ifdef DM_BOT_DEBUG_BODY
+			dmBotLog.Debug(GetCachedName(), "[Body] DropItemToGroundLocal: " + item.GetType() + " нет локации — пропускаю");
+			#endif
+			return null;
+		}
+
 		GetGame().RemoteObjectTreeDelete(item);
 		bool ok = LocalDropEntity(item);
 		GetGame().RemoteObjectTreeCreate(item);
