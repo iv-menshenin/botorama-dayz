@@ -2663,9 +2663,11 @@ class dmAISurvivorBase : PlayerBase
 	}
 
 	//! Simplified server reload of the weapon in hands (see docs/research/combat.md
-	//! "Перезарядка"): unjam > eject a chambered-out bullet > attach/swap a
-	//! non-empty magazine from the inventory. Ammo-pile/bullet-per-bullet loading
-	//! is not handled yet (later pass).
+	//! "Перезарядка"): unjam > eject a chambered-out bullet > chamber from the
+	//! attached magazine (empty chamber + loaded mag) > attach/swap a non-empty
+	//! magazine from the inventory > chamber-load from a loose ammo pile
+	//! (break-action). Flat sequence: one action per frame, return false only when
+	//! nothing applies.
 	//! TODO: возвращать кол-о секунд необходимое для выполенния действия, чтобы на вызывающей стороне ставить правильный кулдаун
 	bool ReloadWeaponAI()
 	{
@@ -2700,8 +2702,40 @@ class dmAISurvivorBase : PlayerBase
 			return true;
 		}
 
+		//! Патронник пуст, а пристёгнутый магазин заряжен — дослать патрон (передёрнуть затвор).
+		if ( CheckNeedsChamber(weapon, mi) && wm.CanEjectBullet(weapon) )
+		{
+			wm.EjectBullet();
+
+			#ifdef DM_WEAPON_DEBUG_FSM
+			dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: chamber from attached mag weapon=" + weapon);
+			#endif
+			return true;
+		}
+
 		Magazine mag = FindReloadMagazine(weapon, wm);
-		if (!mag)
+		if (mag)
+		{
+			if (wm.CanAttachMagazine(weapon, mag))
+			{
+				wm.AttachMagazine(mag);
+
+				#ifdef DM_WEAPON_DEBUG_FSM
+				dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: attach mag=" + mag + " weapon=" + weapon);
+				#endif
+				return true;
+			}
+			else if (wm.CanSwapMagazine(weapon, mag))
+			{
+				wm.SwapMagazine(mag);
+
+				#ifdef DM_WEAPON_DEBUG_FSM
+				dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: swap mag=" + mag + " weapon=" + weapon);
+				#endif
+				return true;
+			}
+		}
+		else
 		{
 			Magazine pile = FindChamberAmmo(weapon, wm);
 			if (pile)
@@ -2713,38 +2747,6 @@ class dmAISurvivorBase : PlayerBase
 				#endif
 				return true;
 			}
-
-			#ifdef DM_WEAPON_DEBUG_FSM
-			dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: no suitable magazine weapon=" + weapon);
-			#endif
-			return false;
-		}
-		
-		if ( CheckNeedsChamber(weapon, mi) )
-		{
-			wm.EjectBullet();
-			#ifdef DM_WEAPON_DEBUG_FSM
-			dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: calling EjectBullet");
-			#endif
-			return true;
-		}
-		else if (wm.CanAttachMagazine(weapon, mag))
-		{
-			wm.AttachMagazine(mag);
-
-			#ifdef DM_WEAPON_DEBUG_FSM
-			dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: attach mag=" + mag + " weapon=" + weapon);
-			#endif
-			return true;
-		}
-		else if (wm.CanSwapMagazine(weapon, mag))
-		{
-			wm.SwapMagazine(mag);
-
-			#ifdef DM_WEAPON_DEBUG_FSM
-			dmBotLog.Debug(GetCachedName(), "[Weapon] ReloadWeaponAI: swap mag=" + mag + " weapon=" + weapon);
-			#endif
-			return true;
 		}
 
 		return false;
