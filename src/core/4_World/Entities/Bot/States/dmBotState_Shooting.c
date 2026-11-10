@@ -110,8 +110,8 @@ class dmBotState_Shooting : dmBotState
 		dmAISurvivor bot = GetOwner();
 		m_PreferredSpeed = bot.GetPreferredSpeed();
 		bot.SetPreferredSpeed(3.0);
-		dmTarget hostile = bot.GetHostileTarget();
-		if (hostile && bot.DistanceToTarget(hostile) <= DM_COMBAT_MAX_DISTANCE)
+		
+		if (m_Target && bot.DistanceToTarget( m_Target ) > DM_COMBAT_MAX_DISTANCE)
 			bot.Say(dmVoiceCategory.COMBAT);
 
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());

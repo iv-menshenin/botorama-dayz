@@ -74,14 +74,14 @@ class dmBotState_Fighting : dmBotState
 
 		dmAISurvivor bot = GetOwner();
 		bot.SetInCombat(true);
-		dmTarget hostile = bot.GetHostileTarget();
-		if (hostile && bot.DistanceToTarget(hostile) <= DM_COMBAT_MAX_DISTANCE)
-			bot.Say(dmVoiceCategory.COMBAT);
 		m_PreferredSpeed = bot.GetPreferredSpeed();
 		bot.SetPreferredSpeed(3.0);
 
 		ResolveTarget();
 		DetectEnemyType();
+
+		if (m_Target && bot.DistanceToTarget(m_Target) > DM_COMBAT_MAX_DISTANCE)
+			bot.Say(dmVoiceCategory.COMBAT);
 
 		if (m_EnemyType == dmFightEnemyType.FIGHT_ZOMBIE)
 			m_Phase = dmFightPhase.FIGHT_FIRST_MOVE;
