@@ -36,11 +36,34 @@ class dmBotState_Travel : dmBotState
 			goal = botPos + toPoi * DM_TRAVEL_SEGMENT_DISTANCE;
 		}
 
+		//! Снап к навмешу; недостижимую точку сдвигаем на DM_TRAVEL_SNAP_STEP ближе к
+		//! боту, циклически, пока не найдётся навмеш (или не упрёмся в лимит/бота).
 		vector sampled;
-		if (bot.SampleNavmesh(goal, sampled))
-			goal = sampled;
-		else
-			goal[1] = GetGame().SurfaceY(goal[0], goal[2]);
+		bool snapped = false;
+		int si;
+		vector back;
+		for (si = 0; si < DM_TRAVEL_SNAP_MAX_ATTEMPTS; si++)
+		{
+			if (bot.SampleNavmesh(goal, sampled))
+			{
+				goal = sampled;
+				snapped = true;
+				break;
+			}
+			back = botPos - goal;
+			back[1] = 0.0;
+			if (back.Length() < 0.5)
+				break;                        // почти у бота — дальше не сдвинуть
+			back.Normalize();
+			goal = goal + back * DM_TRAVEL_SNAP_STEP;
+		}
+		if (!snapped)
+			goal[1] = GetGame().SurfaceY(goal[0], goal[2]);   // фолбэк, если не вышло
+
+		#ifdef DM_BOT_DEBUG_FSM
+		if (si > 0)
+			dmBotLog.Debug(bot.GetName(), "[FSM] Travel snap shifted " + si + " steps");
+		#endif
 
 		m_Move = new dmBotIntent_MoveTo();
 		m_Move.m_Goal = goal;

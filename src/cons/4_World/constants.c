@@ -273,6 +273,11 @@ static const int DM_NAV_MAX_DEPTH = 6;
 //! гарантированно. Дальняя локация проходится цепочкой таких кусков.
 static const float DM_TRAVEL_SEGMENT_DISTANCE = 1000.0;
 
+//! Travel: шаг сдвига (м) недостижимой точки к боту при циклическом снапе к навмешу.
+static const float DM_TRAVEL_SNAP_STEP = 2.0;
+//! Travel: максимум попыток сдвига (DM_TRAVEL_SNAP_MAX_ATTEMPTS × DM_TRAVEL_SNAP_STEP = 100 м отступа).
+static const int DM_TRAVEL_SNAP_MAX_ATTEMPTS = 50;
+
 //! Travel: кулдаун (сек) «недавно неудачной» локации (RememberFailed). После
 //! неудачного MoveTo локация не выбирается повторно на этот срок — мягкий
 //! анти-цикл вместо вечной пометки посещённой (RememberLocation).
