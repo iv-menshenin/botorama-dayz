@@ -79,28 +79,21 @@ GetGame().RemoteObjectTreeCreate(item);   // Tree create
     ТЕЛА цикла до циклов, в циклах только присваивание (как с индексом `i`). Живой пример
     ошибки — `RunScanBox` в `src/test/4_World/dmE2EBridge.c` (был двойной `string line`).
 
-4. **Побитовые операторы НЕ поддерживаются** — `<<`, `>>`, `&`, `|`, `^`, `~` дают
-   `Unknown operator`. Степень двойки/умножение — через цикл или `Math.Pow`:
-   ```c
-   // НЕЛЬЗЯ
-   float div = 1.0 << (n - 1);
-   // НАДО
-   float div = 1.0;
-   int k;
-   for (k = 1; k < n; k++)
-       div = div * 2.0;
-   ```
-   **Следствие для флагов-запросов**: `QueryFlags` и `CollisionFlags` — это
-   **последовательные enum'ы, а НЕ битмаски** (`QueryFlags`: `NONE=0, STATIC=1,
-   DYNAMIC=2, ORIGIN_DISTANCE=3, ONLY_ROADWAYS=4`; `CollisionFlags`: `FIRSTCONTACT=0,
-   NEARESTCONTACT=1, ONLYSTATIC=2, ONLYDYNAMIC=3, ONLYWATER=4, ALLOBJECTS=5`).
+4. **Побитовые операторы ПОДДЕРЖИВАЮТСЯ** — `<<`, `>>`, `&`, `|`, `~` работают на
+   целых и нативных битмасках (эталон: `PGPolyFlags.ALL & ~(PGPolyFlags.CRAWL | ...)`,
+   `1 << 31` в ванили `actioncheckpulse.c`). Раньше считалось, что они дают
+   `Unknown operator` — это НЕ так (проверено на рабочем коде botorama + ванили).
+   **НО**: `QueryFlags` и `CollisionFlags` — это **последовательные enum'ы, а НЕ
+   битмаски** (`QueryFlags`: `NONE=0, STATIC=1, DYNAMIC=2, ORIGIN_DISTANCE=3,
+   ONLY_ROADWAYS=4`; `CollisionFlags`: `FIRSTCONTACT=0, NEARESTCONTACT=1, ONLYSTATIC=2,
+   ONLYDYNAMIC=3, ONLYWATER=4, ALLOBJECTS=5`).
    Комбинировать их через `|` нельзя (даст чужой член: `STATIC|DYNAMIC` = `1|2 = 3 =
    ORIGIN_DISTANCE`). Если нужны и статика, и динамика — **два отдельных вызова**
    (`SceneGetEntitiesInBox(..., QueryFlags.DYNAMIC)` + `...(..., QueryFlags.STATIC)`).
    Один флаг на вызов — эталон `dmLoot.c`/`dmRedZone.c` (DYNAMIC), `dmExplorer.c` (STATIC).
-   **Исключение**: `PhxInteractionLayers` (параметр `RayCastBullet`) — НАТИВНАЯ битмаска,
-   `|` там ЛЕГАЛЕН (`PhxInteractionLayers.ITEM_LARGE | PhxInteractionLayers.BUILDING | PhxInteractionLayers.VEHICLE`),
-   как в ванили `environment.c:406`. Не путать с `QueryFlags`/`CollisionFlags` (последовательные enum'ы — `|` запрещён).
+   Нативные битмаски (`PhxInteractionLayers`, `PGPolyFlags`, флаги `PlayerStomach` и т.п.)
+   через `|`/`&`/`~` комбинировать МОЖНО. Не путать их с последовательными
+   `QueryFlags`/`CollisionFlags` (там `|` запрещён — логическая ошибка, не ошибка компиляции).
 
 5. **Имя поля/переменной НЕ должно совпадать с именем встроенного ТИПА/класса** —
    движок компилирует скрипты на загрузке и падает `Variable name '<X>' already used
