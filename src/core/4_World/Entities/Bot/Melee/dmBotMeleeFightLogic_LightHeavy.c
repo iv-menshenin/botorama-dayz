@@ -194,8 +194,10 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 			}
 			else
 			{
-				//! Короткий рейкаст из груди (не из глаз), длина = reach × 1.1.
-				//! Куда упёрлось (цель/дерево/стена) — туда и кидаем нативный хит.
+				//! Короткий рейкаст из груди (не из глаз). Направление — к точке AIM
+				//! (мировые координаты, с вертикальной компонентой: лежащая цель
+				//! бьётся вниз). Куда упёрлось (цель/дерево/стена) — туда и кидаем
+				//! нативный хит. Фолбэк — горизонтальный луч по yaw корпуса.
 				int chestBone = m_Player.GetBoneIndexByName("Spine3");
 				vector rayStart;
 				if (chestBone >= 0)
@@ -203,12 +205,23 @@ class dmBotMeleeFightLogic_LightHeavy : DayZPlayerMeleeFightLogic_LightHeavy
 				else
 					rayStart = botPos + Vector(0, 1.3, 0);  // фолбэк: уровень груди
 
-				//! Рейкаст ВПЕРЁД (по направлению корпуса), горизонтально — куда смотрит удар.
 				//! forward для yaw = (Sin, Cos), как в EvaluateHit_Player.
 				float yawRad = m_Player.GetOrientation()[0] * Math.DEG2RAD;
 				vector forward = Vector(Math.Sin(yawRad), 0.0, Math.Cos(yawRad));
 				float reach = mc.GetReach() * DM_MELEE_HIT_REACH_MULT;
 				vector rayEnd = rayStart + forward * reach;
+
+				dmTarget aimTarget = null;
+				if (m_Bot)
+					aimTarget = m_Bot.GetMeleeAttackTarget();
+				if (aimTarget && aimTarget.IsValidTarget())
+				{
+					//! Точка AIM при !m_HasLOS = m_LastPosition (последняя известная) —
+					//! «бей туда, где последний раз видел». IsValidTarget() выше
+					//! гарантирует не-нулевую позицию.
+					vector aimPos = aimTarget.GetAimPosition();
+					rayEnd = dmBotMeleeCombat.ExtendRayToAim(rayStart, aimPos);
+				}
 
 				vector hitPos = rayEnd;
 				vector hitNormal;

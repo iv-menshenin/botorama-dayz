@@ -732,7 +732,7 @@ class dmBotCommand : dmCommandModule
 			return true;
 		}
 
-		pawn.RequestMeleeAttack(t.m_Entity);
+		pawn.RequestMeleeAttack(t);
 		dmCommandManager.ChatToPlayer(player, "Удар по " + t.m_Entity.GetType());
 		return true;
 	}

@@ -17,7 +17,7 @@ enum dmHitToFail
 //! requests one melee strike (RequestMeleeAttack) and restarts the cooldown.
 class dmBotIntent_HitTo : dmBotIntent
 {
-	EntityAI m_TargetEntity;
+	ref dmTarget m_Target;
 	float m_ReachDistance = 1.5;
 	dmHitToFail m_LastFail;
 
@@ -43,13 +43,13 @@ class dmBotIntent_HitTo : dmBotIntent
 		super.OnUpdate(bot, pDt);
 		
 		float mCd = bot.GetMeleeCooldown();
-		if ( mCd > 0.0 || !m_TargetEntity)
+		if ( mCd > 0.0 || !m_Target || !m_Target.IsValidTarget())
 		{
 			#ifdef DM_BOT_DEBUG_FIGHT
-			if ( m_TargetEntity )
+			if ( m_Target && m_Target.m_Entity )
 			{
 				m_LastFail = dmHitToFail.COOLDOWN;
-				dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА MeleeCooldown=" + mCd);
+				dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_Target.m_Entity.GetType() + " НЕУДАЧА MeleeCooldown=" + mCd);
 			} else {
 				m_LastFail = dmHitToFail.NOTARGET;
 				dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по `пустому месту` НЕУДАЧА MeleeCooldown=" + mCd);
@@ -58,7 +58,7 @@ class dmBotIntent_HitTo : dmBotIntent
 			return;
 		}
 
-		vector targetPos = m_TargetEntity.GetPosition();
+		vector targetPos = m_Target.m_Entity.GetPosition();
 		vector botPos = bot.GetPosition();
 		vector d = targetPos - botPos;
 		float yDiff = Math.AbsFloat(d[1]); // если не проверить Y, то бот будет вас бить даже если вы на другом этаже
@@ -68,7 +68,7 @@ class dmBotIntent_HitTo : dmBotIntent
 		{
 			m_LastFail = dmHitToFail.TOOFAR;
 			#ifdef DM_BOT_DEBUG_FIGHT
-			dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА дистанция: " + dist + " > " + m_ReachDistance);
+			dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_Target.m_Entity.GetType() + " НЕУДАЧА дистанция: " + dist + " > " + m_ReachDistance);
 			#endif
 			return;
 		}
@@ -89,17 +89,11 @@ class dmBotIntent_HitTo : dmBotIntent
 			return;
 		}
 
-		dmTarget t = bot.FindTarget(m_TargetEntity);
-		if (!t || !t.IsVisible())
+		if (!m_Target.IsVisible())
 		{
 			m_LastFail = dmHitToFail.HASNTLOS;
 			#ifdef DM_BOT_DEBUG_FIGHT
-			if ( t )
-			{
-				dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА видимость: " + t.IsVisible());
-			} else {
-				dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_TargetEntity.GetType() + " НЕУДАЧА нет цели [FindTarget]");
-			}
+			dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_Target.m_Entity.GetType() + " НЕУДАЧА видимость: " + m_Target.IsVisible());
 			#endif
 			// бей вслепую!ы
 			// return;
@@ -107,11 +101,11 @@ class dmBotIntent_HitTo : dmBotIntent
 
 		if (pawn)
 		{
-			pawn.RequestMeleeAttack(m_TargetEntity);
+			pawn.RequestMeleeAttack(m_Target);
 			bot.SetMeleeCooldown(DM_MELEE_COOLDOWN);
 
 			#ifdef DM_BOT_DEBUG_FIGHT
-			dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_TargetEntity.GetType());
+			dmBotLog.Debug(bot.GetName(), "[FSM] Fighting: удар по " + m_Target.m_Entity.GetType());
 			#endif
 		}
 	}

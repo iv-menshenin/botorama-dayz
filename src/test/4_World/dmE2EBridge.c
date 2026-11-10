@@ -4613,10 +4613,12 @@ class dmE2EBridge
 		return true;
 	}
 
-	//! "strike" — request one melee strike against a target bot by calling the pawn
-	//! directly (dmAISurvivorBase.RequestMeleeAttack). No brain/FSM involved: the
-	//! one-shot flag is consumed by dmBotMeleeFightLogic_LightHeavy.HandleFightLogic
-	//! on the next CommandHandler and the MELEE2 command starts (melee.md §5).
+	//! "strike" — request one melee strike against a target bot by resolving a
+	//! dmTarget (the source bot's known target, or a fresh identification if the
+	//! target is not yet in the source's target list) and passing it to
+	//! dmAISurvivorBase.RequestMeleeAttack. The one-shot flag is consumed by
+	//! dmBotMeleeFightLogic_LightHeavy.HandleFightLogic on the next CommandHandler
+	//! and the MELEE2 command starts (melee.md §5).
 	private void RunStrike(dmE2EStep step, dmE2EStepResult r)
 	{
 		dmAISurvivor bot;
@@ -4651,7 +4653,19 @@ class dmE2EBridge
 			return;
 		}
 
-		pawn.RequestMeleeAttack(targetPawn);
+		dmTarget t = bot.FindTarget(targetPawn);
+		if (!t)
+		{
+			//! Цель ещё не в списке целей источника (только что заспавнена) —
+			//! сконструируем dmTarget напрямую, чтобы «strike» не давал ложный FAIL.
+			//! SetLastPosition нужен для IsValidTarget(), SetHasLOS — чтобы точка
+			//! AIM шла по живой позиции (голова), а не по последней известной.
+			t = dmTarget.CreateIdentification(targetPawn);
+			t.SetLastPosition(targetPawn.GetPosition());
+			t.SetHasLOS(true);
+		}
+
+		pawn.RequestMeleeAttack(t);
 
 		#ifdef DM_BOT_DEBUG_FIGHT
 		dmBotLog.Debug("", "[E2E] strike " + step.Who + " -> " + step.Target);

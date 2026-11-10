@@ -297,7 +297,7 @@ class dmBotState_Fighting : dmBotState
 		if (!m_Strike)
 		{
 			m_Strike = new dmBotIntent_MeleeStrike();
-			m_Strike.m_TargetEntity = m_TargetEntity;
+			m_Strike.m_Target = m_Target;
 			m_Strike.m_Priority = dmBotIntentPriority.CRITICAL;
 			m_Strike.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
 			bot.AddFSMIntent(m_Strike);

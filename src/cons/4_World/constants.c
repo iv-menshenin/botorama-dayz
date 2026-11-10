@@ -868,6 +868,9 @@ static const float DM_MELEE_REACH = 1.5;
 static const float DM_MELEE_HIT_REACH_MULT = 1.1;
 //! Melee: зомби — допуск дистанции ×1.5 (хак, без рейкаста).
 static const float DM_MELEE_ZOMBIE_REACH_MULT = 1.5;
+//! Melee: удлинение aim-луча за точку AIM (метры) — гарантирует проникновение
+//! луча в поверхность тела цели (лежащая цель — вертикальная компонента луча).
+static const float DM_MELEE_AIM_RAY_EXTEND = 0.5;
 
 //! Melee block: «враг слишком близко» → блок/эвейд (метры).
 static const float DM_MELEE_BLOCK_RANGE = 5.0;

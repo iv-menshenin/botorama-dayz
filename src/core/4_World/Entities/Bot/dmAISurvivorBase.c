@@ -177,7 +177,7 @@ class dmAISurvivorBase : PlayerBase
 	//! One-shot melee attack request from the brain (see RequestMeleeAttack). The
 	//! fight logic consumes it as soon as the strike starts.
 	private bool m_MeleeAttackRequest = false;
-	private EntityAI m_MeleeTarget;
+	private ref dmTarget m_MeleeTarget;
 
 	//! Latch: TRUE once the pawn received a hit (set in EEHitBy, including a blocked
 	//! light — that path also goes through EEHitBy with Dummy_Light). ExpectHit()
@@ -1760,7 +1760,9 @@ class dmAISurvivorBase : PlayerBase
 		if (inHands)
 			handsType = inHands.GetType();
 
-		EntityAI meleeTarget = m_MeleeTarget;
+		EntityAI meleeTarget = null;
+		if (m_MeleeTarget)
+			meleeTarget = m_MeleeTarget.m_Entity;
 		string meleeType = "null";
 		if (meleeTarget)
 			meleeType = meleeTarget.GetType();
@@ -2141,7 +2143,7 @@ class dmAISurvivorBase : PlayerBase
 
 	//! Ask the fight logic to perform one melee strike against the given target.
 	//! The request is consumed by dmBotMeleeFightLogic_LightHeavy.HandleFightLogic.
-	void RequestMeleeAttack(EntityAI target)
+	void RequestMeleeAttack(dmTarget target)
 	{
 		m_MeleeAttackRequest = true;
 		m_MeleeTarget = target;
@@ -2159,7 +2161,7 @@ class dmAISurvivorBase : PlayerBase
 		return m_MeleeAttackRequest;
 	}
 
-	EntityAI GetMeleeAttackTarget()
+	dmTarget GetMeleeAttackTarget()
 	{
 		return m_MeleeTarget;
 	}

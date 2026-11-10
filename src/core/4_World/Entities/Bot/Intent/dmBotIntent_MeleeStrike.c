@@ -5,7 +5,7 @@
 //! концу. Решение «когда бить» (дистанция/угол) — за FSM; интент только исполняет.
 class dmBotIntent_MeleeStrike : dmBotIntent
 {
-	EntityAI m_TargetEntity;
+	ref dmTarget m_Target;
 	bool m_Requested;
 	bool m_Started;
 
@@ -28,9 +28,15 @@ class dmBotIntent_MeleeStrike : dmBotIntent
 		dmAISurvivorBase pawn = dmAISurvivorBase.Cast(bot.GetPawn());
 		if (!pawn) { Finish(); return; }
 
+		if (!m_Target || !m_Target.IsValidTarget())
+		{
+			Finish();
+			return;
+		}
+
 		if (!m_Requested)
 		{
-			pawn.RequestMeleeAttack(m_TargetEntity);
+			pawn.RequestMeleeAttack(m_Target);
 			m_Requested = true;
 		}
 		if (!m_Started && pawn.IsMeleeStriking())

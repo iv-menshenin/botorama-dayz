@@ -336,7 +336,7 @@ class dmBotState_Shooting : dmBotState
 		if (!m_HitTo)
 		{
 			m_HitTo = new dmBotIntent_HitTo();
-			m_HitTo.m_TargetEntity = m_TargetEntity;
+			m_HitTo.m_Target = m_Target;
 			m_HitTo.m_ReachDistance = HIT_BUTTSTCK_RANGE;
 			m_HitTo.m_Priority = dmBotIntentPriority.CRITICAL;
 			m_HitTo.m_Concurrency = dmBotIntentConcurrency.PARALLEL;
