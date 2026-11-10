@@ -491,9 +491,9 @@ class dmAISurvivor
 		//! VectorToAngles returns pitch in [0, 360); normalize to [-180, 180]
 		//! so "slightly below level" (e.g. 359.5) doesn't clamp to +85 (look up).
 		float pitch = angles[1];
-		if (pitch > 180.0)
-			pitch -= 360.0;
-		m_TargetLookPitch = pitch;
+		while (pitch > 180.0) pitch -= 360.0;
+		while (pitch < -180.0) pitch += 360.0;
+		m_TargetLookPitch = Math.Clamp(pitch, -90, 90);
 
 		#ifdef DM_BOT_TRACE_LOOK
 		dmBotLog.Trace(GetName(), "LookAtPoint() dir=" + dir + " angles=" + angles + " bodyYaw=" + bodyYaw + " targetYawAbs=" + m_TargetLookYawAbs + " lookPitch=" + m_TargetLookPitch);
