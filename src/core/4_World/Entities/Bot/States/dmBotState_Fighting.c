@@ -74,7 +74,9 @@ class dmBotState_Fighting : dmBotState
 
 		dmAISurvivor bot = GetOwner();
 		bot.SetInCombat(true);
-		bot.Say(dmVoiceCategory.COMBAT);
+		dmTarget hostile = bot.GetHostileTarget();
+		if (hostile && bot.DistanceToTarget(hostile) <= DM_COMBAT_MAX_DISTANCE)
+			bot.Say(dmVoiceCategory.COMBAT);
 		m_PreferredSpeed = bot.GetPreferredSpeed();
 		bot.SetPreferredSpeed(3.0);
 

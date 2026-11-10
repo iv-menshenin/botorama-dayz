@@ -3,7 +3,7 @@
 //! Mod version (increment on every change so you can verify the loaded build).
 //! Lives in the game module because dmBotLog (also game module) prints it, and
 //! the game module compiles before the world module.
-static const string DM_BOTORAMA_VERSION = "3.518";
+static const string DM_BOTORAMA_VERSION = "3.519";
 
 //! Bullet-drop compensation: initial per-bot learnable coefficient (start ~0.8).
 static const float DM_DROP_COEF_INIT = 0.8;
@@ -91,6 +91,7 @@ static const float DM_NOISE_GUNSHOT_SILENCED_HOMEMADE = 150.0;
 static const float DM_VOICE_COOLDOWN_DEFAULT = 900.0;
 static const float DM_VOICE_GLOBAL_GAP = 15.0; // пауза между репликами (с), поверх покатегорийных кулдаунов
 static const float DM_HEARD_SHOT_MIN_DISTANCE = 500.0; // не говорить «стреляют», если стрелок ближе (м)
+static const float DM_COMBAT_MAX_DISTANCE = 300.0; // не говорить боевые реплики, если цель дальше (м)
 static const float DM_CRASH_RECOVERY_WINDOW = 90.0;   // окно «шок от ДТП → пробуждение» (1.5 мин)
 static const float DM_VOICE_REACTION_DELAY_MIN = 0.5; // оттяжка реакции речи (с)
 static const float DM_VOICE_REACTION_DELAY_MAX = 1.5;
