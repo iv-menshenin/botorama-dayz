@@ -123,9 +123,9 @@ class dmShowCommand : dmCommandModule
 		ref array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
 		if ( DayZPhysics.RaycastRVProxy(rp, hits) )
 		{
+			string hitsRep;
 			for (int i = 0; i < hits.Count(); i++)
 			{
-				string hitsRep;
 				RaycastRVResult hit = hits[i];
 
 				hitsRep = hitsRep + " #" + i + " ";
