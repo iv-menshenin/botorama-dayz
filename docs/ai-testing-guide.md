@@ -447,3 +447,18 @@ OpenCode поднимает LSP лениво (по первому открыто
   правила была удалена как ложное срабатывание; кодгайд #2 исправлен).
 - Настройка `dependencyRoots` (ваниль + Expansion) — в `~/.config/opencode/opencode.jsonc`
   (блок `lsp`) и `botorama/.vscode/settings.json`.
+
+### 7.3 CLI-запрос LSP (`lsp_query.py`)
+
+Субагенты работают не в редакторе, а через инструменты, поэтому им нужен CLI-способ запросить
+LSP. Обёртка `/opt/enf-lsp/lsp_query.py` (рядом с бинарником, разрешена в bash-whitelist
+`dayz-dev`) поднимает сервер и печатает человекочитаемый результат:
+
+```bash
+/opt/enf-lsp/lsp_query.py diagnostics <файл>             # все диагностики (sev+строка+сообщение)
+/opt/enf-lsp/lsp_query.py goto <файл> <строка> <колонка>  # goto-definition (1-based)
+/opt/enf-lsp/lsp_query.py hover <файл> <строка> <колонка> # hover: тип/сигнатура
+```
+
+`--root DIR` переопределяет workspace (по умолчанию botorama); ваниль и Expansion всегда
+индексируются как dependency roots.

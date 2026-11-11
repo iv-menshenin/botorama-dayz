@@ -29,6 +29,7 @@ permission:
     "strings *": allow
     "tr *": allow
     "xargs *": allow
+    "/opt/enf-lsp/lsp_query.py *": allow
   external_directory:
     "*": deny
 ---
@@ -69,6 +70,18 @@ permission:
 
 К проекту подключён LSP-сервер Enforce Script (`enforce-script-lsp`) — работает на всех
 `.c`-файлах (бот, ваниль, Expansion). Пользуйся им ПО ПОЛНОЙ, он экономит время:
+
+**Ты работаешь не в редакторе, а через инструменты — запрашивай LSP через CLI** (уже разрешён в bash):
+
+```
+/opt/enf-lsp/lsp_query.py diagnostics <файл>            # все диагностики по файлу
+/opt/enf-lsp/lsp_query.py goto <файл> <строка> <колонка>  # goto-definition (1-based)
+/opt/enf-lsp/lsp_query.py hover <файл> <строка> <колонка> # hover: тип/сигнатура
+```
+
+После каждой правки прогоняй `diagnostics` по изменённому файлу, чтобы отловить
+parse-ошибки и линт ДО передачи тестировщику. `goto`/`hover` — для проверки сигнатур
+API по ванили/Expansion.
 
 - **Диагностика** (в реальном времени): parse-ошибки, `already defined`, повторное
   объявление переменной, и линт из codeguide — тернарник, перенос строки после `.`,
