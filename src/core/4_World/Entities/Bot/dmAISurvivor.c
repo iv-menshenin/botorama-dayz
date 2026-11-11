@@ -2240,17 +2240,23 @@ class dmAISurvivor
 
 		t.SetLastContact(now);
 
-		//! Позицию переписывает ТОЛЬКО фантом. Опознанные/звуковые цели держат
-		//! свою позицию (от зрения/шума) — урон её не трогает.
-		if (t.Identified())
-			return;
-
+		//! Мили-удар — атакующий ВПЛОТНУЮ: всегда освежаем позицию (однозначная
+		//! локализация), опознаём только если ещё не опознан.
 		if (damageType == DamageType.CLOSE_COMBAT)
 		{
 			t.SetLastPosition(attacker.GetPosition());
-			ReplaceTarget(attacker, dmTarget.CreateIdentification(attacker));
+			#ifdef DM_BOT_DEBUG_DAMAGE
+			dmBotLog.Debug(GetName(), "[Damage] CLOSE_COMBAT: позиция цели обновлена на " + attacker.GetPosition());
+			#endif
+			if (!t.Identified())
+				ReplaceTarget(attacker, dmTarget.CreateIdentification(attacker));
 			return;
 		}
+
+		//! Остальной урон позицию переписывает ТОЛЬКО фантому. Опознанные/звуковые
+		//! цели держат свою позицию (от зрения/шума) — урон её не трогает.
+		if (t.Identified())
+			return;
 
 		if (damageType == DamageType.FIRE_ARM)
 		{
@@ -2427,9 +2433,21 @@ class dmAISurvivor
 					t.SetAttraction(attract);
 			}
 
-			t.m_LastPositionSpread = spread;
-
-			t.m_LastPosition = position;
+			//! Позиционный шум (локализует источник) — обновляем spread/позицию;
+			//! непозиционный (попадание/бросок/взрыв) — только контакт/угрозу/аттракшен (выше),
+			//! позицию НЕ трогаем. Непозиционный шум намеренно не даёт охотничью позицию —
+			//! цель активируется только по позиционному сигналу или зрению (осознанное поведение).
+			if (dmNoiseSystem.LocalizesSource(type))
+			{
+				t.m_LastPositionSpread = spread;
+				t.m_LastPosition = position;
+			}
+			#ifdef DM_PERCEPTION_DEBUG
+			else
+			{
+				dmBotLog.Debug(GetName(), "[Noise] HearNoise: непозиционный шум type=" + type + " — позицию не обновляю");
+			}
+			#endif
 		}
 	}
 

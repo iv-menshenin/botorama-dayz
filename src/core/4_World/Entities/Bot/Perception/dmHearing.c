@@ -34,7 +34,7 @@ class dmHearing
 			return;
 		}
 
-		//! Bullet impact / positional noise has no source entity — heard but no
+		//! Bullet impact / noise with a coordinate but no source entity — heard but no
 		//! target to update.
 		if (!source)
 		{

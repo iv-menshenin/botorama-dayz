@@ -41,7 +41,7 @@
 //!                          + UseLadder exit). Удалить после починки бага «кручение
 //!                          после лестницы».
 //!   DM_BOT_DEBUG_FIGHT   — мили-бой (Fighting-состояние, HitTo, RequestMeleeAttack/EvaluateHit).
-//!   DM_BOT_DEBUG_DAMAGE  — трассировка цепочки урона мили (EvaluateHit → ProcessMeleeHit → EEOnDamageCalculated → EEHitBy).
+//!   DM_BOT_DEBUG_DAMAGE  — трассировка цепочки урона: мили (EvaluateHit → ProcessMeleeHit → EEOnDamageCalculated → EEHitBy) + угроза (RegisterDamageThreat — обновление позиции/идентификации атакующего по урону).
 //!   DM_BOT_DEBUG_LOADOUT — loadout application (dmLoadoutApplier).
 //!   DM_BOT_DEBUG_VISION  — perception scan (candidates, FOV/LOS results).
 //!   DM_BOT_DEBUG_LIGHT   — освещённость (daylightFactor, дальность видимости).

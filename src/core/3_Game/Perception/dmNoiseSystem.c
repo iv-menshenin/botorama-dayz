@@ -22,6 +22,19 @@ class dmNoiseSystem
 {
 	static ref ScriptInvoker SI_OnNoiseAdded = new ScriptInvoker;
 
+	//! Локализует ли шум источник: координата шума == координата источника.
+	//! true — STEP/SCREAM/SHOT/SOUND/OTHER (звук издан в точке источника);
+	//! false — BULLETIMPACT/DROP/EXPLOSION (координата = место эффекта, не источник).
+	//! Контракт расширения: новые НЕпозиционные типы добавлять сюда явным return false —
+	//! default=true (молчаливый «позиционный» фолбэк) опасен для не-локализующего типа.
+	static bool LocalizesSource(int type)
+	{
+		if (type == dmNoiseType.BULLETIMPACT) return false;
+		if (type == dmNoiseType.DROP) return false;
+		if (type == dmNoiseType.EXPLOSION) return false;
+		return true;
+	}
+
 	//! Погодный фактор ослабления шума: 1.0 ясно, меньше — дождь/снег/туман/ветер/буря.
 	static float GetWeatherFactor(vector pos)
 	{
@@ -37,7 +50,7 @@ class dmNoiseSystem
 		return 1.0 - Math.Min(reduction, 1.0);
 	}
 
-	//! Сгенерировать шум (source может быть null — позиционный шум, напр. попадание пули).
+	//! Сгенерировать шум (source может быть null — шум с координатой, но без источника, напр. попадание пули).
 	static void AddNoise(EntityAI source, vector position, float strength, int type = dmNoiseType.OTHER)
 	{
 		float weatherFactor = GetWeatherFactor(position);
