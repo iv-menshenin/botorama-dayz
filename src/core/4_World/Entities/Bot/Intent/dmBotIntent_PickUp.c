@@ -12,6 +12,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 	bool m_Evacuating = false;
 	bool m_TakeToHands = false;
 	bool m_InLootContainer = false;   // предмет в карго ЛУТ-контейнера (бочка/ящик/сундук)
+	EntityAI m_Container;             // контейнер-владелец (self для LOS-гейта)
 	vector m_ContainerPos;            // позиция контейнера-владельца (якорь цели)
 	ref array<EntityAI> m_EvacOrder;
 
@@ -40,6 +41,7 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 				if (dmLoot.IsLootContainer(parent))
 				{
 					m_InLootContainer = true;
+					m_Container = parent;
 					m_ContainerPos = parent.GetPosition();
 					m_Goal = m_ContainerPos;
 				}
@@ -80,6 +82,26 @@ class dmBotIntent_PickUp : dmBotIntent_MoveTo
 		//! Уже ждём выполнения цепочки — не перезапускаем.
 		if (m_PickupQueued)
 			return;
+
+		//! LOS-гейт: не брать сквозь стену/закрытое стекло. Якорь — предмет на земле
+		//! (поднят на ~0.3 м, чтобы не упереться в землю у ног) или контейнер-владелец.
+		EntityAI self = m_Item;
+		vector anchor = m_Item.GetPosition() + Vector(0, 0.3, 0);
+		if (m_InLootContainer && m_Container)
+		{
+			self = m_Container;
+			anchor = m_ContainerPos;
+		}
+		if (!dmLoot.HasLootLOS(pawn, self, anchor))
+		{
+			bot.Discard(m_Item);
+			#ifdef DM_BOT_DEBUG_LOOTING
+			dmBotLog.Debug(bot.GetName(), "[Loot] PickUp: " + m_Item.GetType() + " в радиусе скана, но нет LOS (за стеной/стеклом) — не беру");
+			#endif
+			Fail();
+			return;
+		}
+
 		m_PickupQueued = true;
 		m_EvacOrder = null;
 

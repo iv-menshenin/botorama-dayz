@@ -517,8 +517,9 @@ class dmVision
 		if (!dmPhysicsProbe.CastProxy(rp, hits) || hits.Count() == 0)
 			return true;
 
-		//! sorted=true + NEARESTCONTACT → ближайший хит первый; для LOS важен
-		//! только он (ближайшее препятствие между глазом и целью).
+		//! NEARESTCONTACT → хит единственный и он ближайший; `sorted` на порядок не
+		//! влияет (при AALLOBJECTS он инвертирует порядок — дальний первым). Для LOS
+		//! важен только этот ближайший хит.
 		RaycastRVResult first = hits[0];
 		Object o = first.obj;
 		Object p = first.parent;

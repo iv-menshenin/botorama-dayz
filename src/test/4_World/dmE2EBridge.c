@@ -9,7 +9,7 @@
 //! shock | healplayer | setstat | bleed | infect | healbot | givebottle | restrain | give | givebayonet | givecargo | cargoto | wait | assert | snapshot | clearall | killall (named bots)
 //! plus the perf ops sleep | prof | perfstats (dump/clear physics-query telemetry) | brain (on/off — A/B brain-death toggle) | army (two-team fight) | meleefight (machete
 //! bot vs zombies) and the world/physics probe ops spawnobj | spawnonroute | raycast | scanbox |
-//! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | invdump | wearprobe | dropprobe | enumdump | reqdump | rescanarsenal | strike | evade | orient | raiseweapon | getpos | setpos | clearobj (named objects), the car ops spawncar |
+//! surfprobe | surfshootout | roadwalk | roadgraph | roadnet | roadobj | botdump | invdump | wearprobe | dropprobe | enumdump | reqdump | rescanarsenal | strike | evade | orient | raiseweapon | getpos | setpos | clearobj (named objects), buildfence | codelock (locked Fence gate), the car ops spawncar |
 //! driveto | drive | cardump | carstate | cardamage | carrepair | griddump, observe (teleport a connected player), and the vision-rework probe ops settime | lightdump | givelight. `wait`, `sleep`
 //! and `drivetest` are the deferred ops: they tick across frames (wait until a
 //! condition is met or its timeout expires; sleep until its timeout; drivetest
@@ -58,6 +58,7 @@ class dmE2EStep
 	vector Max;       // scanbox max corner (world)
 	string Obj;       // object name (getpos, setpos, clearobj, driveto, drive, cardump, carstate, cardamage, carrepair, carpos, carspeed)
 	int Count;        // number of bots to spawn (army)
+	int Code;         // codelock combination code (codelock)
 	string Settlement; // settlement name for the army center (optional)
 	float Radius;     // spawn scatter radius around the center (army, default 50)
 	string Preset;    // FSM preset: "nomad"|"survivor"|"combat"|"escort"|"hunter" (spawn); "shooting" (default) | "combat" (army); "nomad" (meleefight)
@@ -869,6 +870,14 @@ class dmE2EBridge
 		else if (step.Op == "spawnobj")
 		{
 			RunSpawnObj(step, r);
+		}
+		else if (step.Op == "buildfence")
+		{
+			RunBuildFence(step, r);
+		}
+		else if (step.Op == "codelock")
+		{
+			RunCodeLock(step, r);
 		}
 		else if (step.Op == "spawnitem")
 		{
@@ -2949,6 +2958,122 @@ class dmE2EBridge
 			r.Ok = false;
 			r.Reason = "spawn failed";
 		}
+	}
+
+	//! "buildfence" — force-build every construction part of a Fence, including
+	//! the gate. OnPartBuiltServer takes a notnull Man player (null throws on a
+	//! headless server) and FullyBuild() skips gate/_wood_ outside DIAG_DEVELOPER,
+	//! so we call OnPartBuiltServer per part (force-build, no materials) with the
+	//! first connected HUMAN observer as the builder. Who = the Fence name in
+	//! m_Objects; Reason = parts built.
+	private void RunBuildFence(dmE2EStep step, dmE2EStepResult r)
+	{
+		Object obj;
+		if (!m_Objects.Find(step.Who, obj) || !obj)
+		{
+			r.Ok = false;
+			r.Reason = "no such object";
+			return;
+		}
+
+		Fence fence = Fence.Cast(obj);
+		if (!fence)
+		{
+			r.Ok = false;
+			r.Reason = "not a fence";
+			return;
+		}
+
+		//! OnPartBuiltServer needs a real Man player — use the first HUMAN observer
+		//! (skip dmAISurvivorBase, which pollutes the registry like observe/healplayer).
+		array<PlayerBase> players = dmEntityRegistry.GetPlayers();
+		PlayerBase observer = null;
+		int i;
+		for (i = 0; i < players.Count(); i++)
+		{
+			PlayerBase p = players[i];
+			if (p && !dmAISurvivorBase.Cast(p))
+			{
+				observer = p;
+				break;
+			}
+		}
+
+		if (!observer)
+		{
+			r.Ok = false;
+			r.Reason = "no observer connected (run E2E with observer)";
+			return;
+		}
+
+		array<ConstructionPart> parts = fence.GetConstruction().GetConstructionParts().GetValueArray();
+		int built = 0;
+		foreach (ConstructionPart part : parts)
+		{
+			fence.OnPartBuiltServer(observer, part.GetPartName(), AT_BUILD_PART);
+			built = built + 1;
+		}
+
+		AppendDump(r, "buildfence parts=" + built + " gateState=" + fence.CheckGateState() + " gateFull=" + fence.HasFullyConstructedGate());
+
+		r.Ok = true;
+		r.Reason = "built " + built + " parts";
+	}
+
+	//! "codelock" — attach a CombinationLock to a fully-built Fence gate, set its
+	//! combination and lock it. Variant=="close" closes the gate leaf first.
+	//! Who = the Fence name in m_Objects; Code = the lock code (int). The primary
+	//! path creates the lock directly in the Att_CombinationLock slot; if that
+	//! returns null we fall back to creating on the ground and taking it into the
+	//! slot (research codelock-fence-gate.md §4/§7 — a hypothesis for the tester).
+	//! The dump also reports HasFullyConstructedGate()/CheckGateState(): IsLockedOnGate()
+	//! only means "lock sits on a Fence and is locked", NOT that the gate is built.
+	private void RunCodeLock(dmE2EStep step, dmE2EStepResult r)
+	{
+		Object obj;
+		if (!m_Objects.Find(step.Who, obj) || !obj)
+		{
+			r.Ok = false;
+			r.Reason = "no such object";
+			return;
+		}
+
+		Fence fence = Fence.Cast(obj);
+		if (!fence)
+		{
+			r.Ok = false;
+			r.Reason = "not a fence";
+			return;
+		}
+
+		if (step.Variant == "close")
+			fence.CloseFence();
+
+		int slot = InventorySlots.GetSlotIdFromString("Att_CombinationLock");
+		CombinationLock lock = CombinationLock.Cast(fence.GetInventory().CreateAttachmentEx("CombinationLock", slot));
+		if (!lock)
+		{
+			EntityAI groundLock = EntityAI.Cast(GetGame().CreateObjectEx("CombinationLock", fence.GetPosition(), ECE_PLACE_ON_SURFACE));
+			lock = CombinationLock.Cast(groundLock);
+			if (lock)
+				fence.GetInventory().TakeEntityAsAttachmentEx(InventoryMode.SERVER, groundLock, slot);
+		}
+
+		if (!lock)
+		{
+			r.Ok = false;
+			r.Reason = "lock create failed";
+			return;
+		}
+
+		lock.SetCombination(step.Code);
+		lock.LockServer(fence);
+
+		AppendDump(r, "codelock fenceLocked=" + fence.IsLocked() + " lockOnGate=" + lock.IsLockedOnGate() + " code=" + step.Code);
+		AppendDump(r, "codelock gateFull=" + fence.HasFullyConstructedGate() + " gateState=" + fence.CheckGateState());
+
+		r.Ok = true;
+		r.Reason = "locked " + step.Code;
 	}
 
 	//! "spawnitem" — spawn a PERSISTENT item (weapon/tool) at a ground-snapped

@@ -335,6 +335,50 @@ class dmLoot
 		return false;
 	}
 
+	//! Есть ли «прямая видимость» к луту: нет стены/стекла по лучу от глаз пешки к anchor.
+	//! self — сущность, которую игнорировать как «саму цель» (предмет на земле или контейнер,
+	//! чьё содержимое берём); anchor — точка-цель луча (для предмета на земле передавай его
+	//! позицию с подъёмом ~0.3 м над землёй, для контейнера — его позицию). Двухлучевой гейт:
+	//! ObjIntersectGeom (стены/камни) + ObjIntersectView (стекло окна); брать можно только
+	//! если оба луча чисты.
+	static bool HasLootLOS(PlayerBase pawn, EntityAI self, vector anchor)
+	{
+		if (!pawn || !self)
+			return false;
+
+		vector eye = pawn.GetPosition() + Vector(0, DM_EYE_HEIGHT, 0);
+
+		if (RayBlocked(pawn, self, eye, anchor, ObjIntersectGeom))
+			return false;
+		if (RayBlocked(pawn, self, eye, anchor, ObjIntersectView))
+			return false;
+		return true;
+	}
+
+	//! Один луч гейта: true, если между eye и anchor есть препятствие (НЕ террейн/вода
+	//! и НЕ сама цель). flags=NEARESTCONTACT → хит единственный и он ближайший; на sorted
+	//! не полагаемся (при AALLOBJECTS он инвертирует порядок — дальний первым).
+	private static bool RayBlocked(PlayerBase pawn, EntityAI self, vector eye, vector anchor, int intersectType)
+	{
+		RaycastRVParams rp = new RaycastRVParams(eye, anchor, pawn);
+		rp.type = intersectType;
+		rp.flags = CollisionFlags.NEARESTCONTACT;
+
+		array<ref RaycastRVResult> hits = new array<ref RaycastRVResult>;
+		if (!dmPhysicsProbe.CastProxy(rp, hits) || hits.Count() == 0)
+			return false;
+
+		Object o = hits[0].obj;
+		if (!o)
+			return false;   // террейн/вода — не препятствие
+
+		Object p = hits[0].parent;
+		if (o == self || p == self)
+			return false;   // сама цель (предмет/стенка контейнера) — не препятствие
+
+		return true;
+	}
+
 	//! Открыть контейнер, если закрыт. Бочка блокирует извлечение через CanReleaseCargo →
 	//! IsOpen(), поэтому её нужно открыть до LocalTakeToDst (ровно как ванильный ActionOpen).
 	//! SeaChest/WoodenCrate всегда IsOpen()==true → Open() для них не вызовется.
